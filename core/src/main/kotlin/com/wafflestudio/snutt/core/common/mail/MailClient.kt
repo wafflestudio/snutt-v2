@@ -5,8 +5,16 @@ import org.springframework.mail.SimpleMailMessage
 import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.stereotype.Service
 
+enum class MailType(
+    val subject: String,
+) {
+    VERIFICATION("[SNUTT] 이메일 인증 코드"),
+    PASSWORD_RESET("[SNUTT] 비밀번호 초기화 인증 코드"),
+}
+
 interface MailClient {
-    fun sendVerificationMail(
+    fun sendCodeMail(
+        type: MailType,
         to: String,
         code: String,
     )
@@ -18,15 +26,16 @@ interface MailClient {
 class SmtpMailClient(
     private val mailSender: JavaMailSender,
 ) : MailClient {
-    override fun sendVerificationMail(
+    override fun sendCodeMail(
+        type: MailType,
         to: String,
         code: String,
     ) {
         val message =
             SimpleMailMessage().apply {
                 setTo(to)
-                setSubject("[SNUTT] 이메일 인증 코드")
-                setText("SNUTT 이메일 인증 코드는 $code 입니다.")
+                setSubject(type.subject)
+                setText("SNUTT 인증 코드는 $code 입니다.")
             }
         mailSender.send(message)
     }
@@ -38,7 +47,8 @@ class SmtpMailClient(
 class RecordingMailClient : MailClient {
     val sentMails: MutableList<Pair<String, String>> = java.util.concurrent.CopyOnWriteArrayList()
 
-    override fun sendVerificationMail(
+    override fun sendCodeMail(
+        type: MailType,
         to: String,
         code: String,
     ) {

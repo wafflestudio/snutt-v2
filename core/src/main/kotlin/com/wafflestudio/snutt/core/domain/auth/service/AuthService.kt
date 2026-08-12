@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.auth.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
@@ -42,8 +43,6 @@ class AuthService(
     private val secureRandom = SecureRandom()
 
     companion object {
-        private val localIdRegex = """^[a-zA-Z0-9]{4,32}$""".toRegex()
-        private val passwordRegex = """^(?=.*\d)(?=.*[a-zA-Z])\S{6,20}$""".toRegex()
         private val emailRegex = """^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$""".toRegex()
     }
 
@@ -53,8 +52,8 @@ class AuthService(
         password: String,
         email: String?,
     ): Pair<User, TokenPair> {
-        if (!localId.matches(localIdRegex)) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
-        if (!password.matches(passwordRegex)) throw SnuttException(ErrorType.INVALID_PASSWORD)
+        if (!localId.matches(PasswordPolicy.localIdRegex)) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
+        if (!PasswordPolicy.isValidPassword(password)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         email?.let { if (!it.trim().matches(emailRegex)) throw SnuttException(ErrorType.INVALID_EMAIL) }
         if (userRepository.existsByLocalIdAndActiveTrue(localId)) throw SnuttException(ErrorType.DUPLICATE_LOCAL_ID)
 
@@ -144,6 +143,140 @@ class AuthService(
     @Transactional
     fun revokeAllSessions(userId: Long) {
         userSessionRepository.revokeAllByUserId(userId)
+    }
+
+    // v1 계정 관리 이식: 로컬 계정 연결 (POST /password)
+    @Transactional
+    fun attachLocal(
+        user: User,
+        localId: String,
+        password: String,
+    ): String {
+        if (user.localId != null) throw SnuttException(ErrorType.ALREADY_LOCAL_ACCOUNT)
+        if (!localId.matches(PasswordPolicy.localIdRegex)) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
+        if (!PasswordPolicy.isValidPassword(password)) throw SnuttException(ErrorType.INVALID_PASSWORD)
+        if (userRepository.existsByLocalIdAndActiveTrue(localId)) throw SnuttException(ErrorType.DUPLICATE_LOCAL_ID)
+        user.localId = localId
+        user.localPw = passwordEncoder.encode(password)
+        user.credentialHash = legacyCredentialHasher.hash(user)
+        userRepository.save(user)
+        return user.credentialHash
+    }
+
+    // v1 계정 관리 이식: 소셜 계정 연결 (POST /facebook|google|kakao|apple)
+    @Transactional
+    fun attachSocial(
+        user: User,
+        provider: AuthProvider,
+        token: String,
+    ): String {
+        val oauth2Client = checkNotNull(oauth2Clients[provider]) { "unsupported provider: $provider" }
+        val response = oauth2Client.getMe(token) ?: throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+        if (response.email != null) {
+            val presentUser = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
+            if (presentUser != null && presentUser.id != user.id) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
+        }
+        when (provider) {
+            AuthProvider.FACEBOOK -> {
+                if (user.facebookSub != null) throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
+                if (userRepository.existsByFacebookSubAndActiveTrue(
+                        response.socialId,
+                    )
+                ) {
+                    throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+                }
+                user.facebookSub = response.socialId
+                user.facebookName = response.name
+            }
+            AuthProvider.GOOGLE -> {
+                if (user.googleSub != null) throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
+                if (userRepository.existsByGoogleSubAndActiveTrue(
+                        response.socialId,
+                    )
+                ) {
+                    throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+                }
+                user.googleSub = response.socialId
+                user.googleEmail = response.email
+            }
+            AuthProvider.KAKAO -> {
+                if (user.kakaoSub != null) throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
+                if (userRepository.existsByKakaoSubAndActiveTrue(
+                        response.socialId,
+                    )
+                ) {
+                    throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+                }
+                user.kakaoSub = response.socialId
+                user.kakaoEmail = response.email
+            }
+            AuthProvider.APPLE -> {
+                if (user.appleSub != null) throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
+                if (userRepository.existsByAppleSubAndActiveTrue(
+                        response.socialId,
+                    )
+                ) {
+                    throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+                }
+                user.appleSub = response.socialId
+                user.appleEmail = response.email
+                user.appleTransferSub = response.transferInfo
+            }
+            AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
+        }
+        user.credentialHash = legacyCredentialHasher.hash(user)
+        userRepository.save(user)
+        return user.credentialHash
+    }
+
+    // v1 계정 관리 이식: 소셜 계정 해제 (DELETE /facebook|google|kakao|apple)
+    @Transactional
+    fun detachSocial(
+        user: User,
+        provider: AuthProvider,
+    ): String {
+        val attached = user.authProviders
+        if (provider !in attached) throw SnuttException(ErrorType.SOCIAL_PROVIDER_NOT_ATTACHED)
+        if (attached.size == 1) throw SnuttException(ErrorType.CANNOT_REMOVE_LAST_AUTH_PROVIDER)
+        when (provider) {
+            AuthProvider.FACEBOOK -> {
+                user.facebookSub = null
+                user.facebookName = null
+            }
+            AuthProvider.GOOGLE -> {
+                user.googleSub = null
+                user.googleEmail = null
+            }
+            AuthProvider.KAKAO -> {
+                user.kakaoSub = null
+                user.kakaoEmail = null
+            }
+            AuthProvider.APPLE -> {
+                user.appleSub = null
+                user.appleEmail = null
+                user.appleTransferSub = null
+            }
+            AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
+        }
+        user.credentialHash = legacyCredentialHasher.hash(user)
+        userRepository.save(user)
+        return user.credentialHash
+    }
+
+    // v1 계정 관리 이식: 비밀번호 변경 (PUT /password)
+    @Transactional
+    fun changePassword(
+        user: User,
+        currentPassword: String,
+        newPassword: String,
+    ): String {
+        if (user.localPw == null) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
+        if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
+        if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
+        user.localPw = passwordEncoder.encode(newPassword)
+        user.credentialHash = legacyCredentialHasher.hash(user)
+        userRepository.save(user)
+        return user.credentialHash
     }
 
     private fun issueTokens(

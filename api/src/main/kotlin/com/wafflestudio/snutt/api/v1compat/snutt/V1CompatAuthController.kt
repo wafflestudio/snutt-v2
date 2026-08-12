@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.service.PasswordResetService
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -35,12 +36,28 @@ data class LegacyLogoutRequest(
     val fcmRegistrationId: String? = null,
 )
 
+data class LegacySendEmailRequest(
+    val email: String,
+)
+
+data class LegacyVerifyResetCodeRequest(
+    val localId: String? = null,
+    val code: String,
+)
+
+data class LegacyResetPasswordRequest(
+    val email: String,
+    val code: String,
+    val newPassword: String,
+)
+
 // v1 로그인 응답의 token = credentialHash (v1compat 전용, PLAN.md §3)
 @RestController
 @RequestMapping("/v1/auth", "/auth")
 class V1CompatAuthController(
     private val authService: AuthService,
     private val userDeviceRepository: UserDeviceRepository,
+    private val passwordResetService: PasswordResetService,
 ) {
     @Public
     @PostMapping("/register_local")
@@ -83,6 +100,30 @@ class V1CompatAuthController(
     fun loginApple(
         @RequestBody body: LegacySocialLoginRequest,
     ): LegacyLoginResponse = socialLogin(AuthProvider.APPLE, body.token)
+
+    @Public
+    @PostMapping("/id/find")
+    fun findId(
+        @RequestBody body: LegacySendEmailRequest,
+    ) {
+        passwordResetService.sendLocalIdToEmail(body.email)
+    }
+
+    @Public
+    @PostMapping("/password/reset/email/send")
+    fun sendResetPasswordCode(
+        @RequestBody body: LegacySendEmailRequest,
+    ) {
+        passwordResetService.requestReset(body.email)
+    }
+
+    @Public
+    @PostMapping("/password/reset")
+    fun resetPassword(
+        @RequestBody body: LegacyResetPasswordRequest,
+    ) {
+        passwordResetService.confirmReset(body.email, body.code, body.newPassword)
+    }
 
     @PostMapping("/logout")
     fun logout(
