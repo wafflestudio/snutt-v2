@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.feedback
 
-import com.wafflestudio.snutt.api.auth.ClientInfo
+import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.domain.feedback.service.FeedbackService
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.PostMapping

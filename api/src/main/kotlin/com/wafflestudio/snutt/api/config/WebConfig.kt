@@ -72,6 +72,8 @@ class WebConfig(
                 "/vacancy-notifications/**",
                 "/push/preferences/**",
                 "/diary/**",
+                "/user/device/**",
+                "/semesters/**",
             )
     }
 }

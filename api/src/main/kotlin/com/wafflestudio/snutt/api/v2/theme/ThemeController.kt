@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v2.theme
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
@@ -77,6 +78,42 @@ class ThemeController(
     fun getBestThemes(
         @RequestParam page: Int,
     ): List<ThemeResponse> = timetableThemeService.getBestThemes(page).map { it.toResponse() }
+
+    @GetMapping("/friends")
+    fun getFriendsThemes(
+        @CurrentUser user: User,
+        @RequestParam page: Int,
+    ): List<ThemeResponse> = timetableThemeService.getFriendsThemes(user.id!!, page).map { it.toResponse() }
+
+    @PostMapping("/{themeId}/default")
+    fun setDefault(
+        @CurrentUser user: User,
+        @PathVariable themeId: String,
+    ): ThemeResponse = timetableThemeService.setDefault(user.id!!, themeId).toResponse()
+
+    @DeleteMapping("/{themeId}/default")
+    fun unsetDefault(
+        @CurrentUser user: User,
+        @PathVariable themeId: String,
+    ): ThemeResponse = timetableThemeService.unsetDefault(user.id!!, themeId).toResponse()
+
+    @PostMapping("/basic/{basicThemeTypeValue}/default")
+    fun setBasicThemeDefault(
+        @CurrentUser user: User,
+        @PathVariable basicThemeTypeValue: Int,
+    ): ThemeResponse {
+        BasicThemeType.fromValue(basicThemeTypeValue)
+        return timetableThemeService.setBasicThemeDefault(user.id!!).toResponse()
+    }
+
+    @DeleteMapping("/basic/{basicThemeTypeValue}/default")
+    fun unsetBasicThemeDefault(
+        @CurrentUser user: User,
+        @PathVariable basicThemeTypeValue: Int,
+    ): ThemeResponse =
+        timetableThemeService
+            .unsetBasicThemeDefault(user.id!!, BasicThemeType.fromValue(basicThemeTypeValue))
+            .toResponse()
 
     @GetMapping("/search")
     fun searchThemes(

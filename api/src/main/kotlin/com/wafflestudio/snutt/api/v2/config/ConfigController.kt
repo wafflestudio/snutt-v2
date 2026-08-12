@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.api.v2.config
 
-import com.wafflestudio.snutt.api.auth.ClientInfo
 import com.wafflestudio.snutt.api.auth.Public
+import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestAttribute

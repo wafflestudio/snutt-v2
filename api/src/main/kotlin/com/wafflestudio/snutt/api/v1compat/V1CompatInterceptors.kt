@@ -64,6 +64,7 @@ class V1CompatApiKeyInterceptor(
         val apiKey = request.getHeader("x-access-apikey")
         if (apiKey != null) {
             if (apiKey !in platformKeys.values) throw SnuttException(ErrorType.WRONG_API_KEY)
+            request.setClientInfo()
             return true
         }
         val platform =
@@ -73,7 +74,22 @@ class V1CompatApiKeyInterceptor(
             request.getHeader(com.wafflestudio.snutt.api.auth.PlatformKeyInterceptor.KEY_HEADER)
                 ?: throw SnuttException(ErrorType.WRONG_API_KEY)
         if (platformKeys[platform] != key) throw SnuttException(ErrorType.WRONG_API_KEY)
+        request.setClientInfo()
         return true
+    }
+
+    private fun HttpServletRequest.setClientInfo() {
+        setAttribute(
+            com.wafflestudio.snutt.api.auth.PlatformKeyInterceptor.CLIENT_INFO_ATTRIBUTE,
+            com.wafflestudio.snutt.core.common.client.ClientInfo(
+                osType = getHeader("x-os-type") ?: "unknown",
+                osVersion = getHeader("x-os-version"),
+                appType = getHeader("x-app-type"),
+                appVersion = getHeader("x-app-version"),
+                deviceId = getHeader("x-device-id"),
+                deviceModel = getHeader("x-device-model"),
+            ),
+        )
     }
 }
 

@@ -8,6 +8,11 @@ interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
 
     fun findAllByUserIdInAndIsDeletedFalse(userIds: Collection<Long>): List<UserDevice>
 
+    fun findByUserIdAndDeviceIdAndIsDeletedFalse(
+        userId: Long,
+        deviceId: String,
+    ): UserDevice?
+
     fun findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(
         userId: Long,
         fcmRegistrationId: String,

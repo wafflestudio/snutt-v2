@@ -45,6 +45,18 @@ class FcmPushClient(
             }
     }
 
+    override fun subscribeGlobalTopic(registrationId: String) {
+        runCatching {
+            FirebaseMessaging.getInstance().subscribeToTopic(listOf(registrationId), GLOBAL_TOPIC)
+        }.onFailure { log.error("글로벌 토픽 구독 실패", it) }
+    }
+
+    override fun unsubscribeGlobalTopic(registrationId: String) {
+        runCatching {
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(listOf(registrationId), GLOBAL_TOPIC)
+        }.onFailure { log.error("글로벌 토픽 구독 해제 실패", it) }
+    }
+
     private fun TargetedPushMessage.toFcmMessage(): Message {
         val builder =
             Message
@@ -76,5 +88,6 @@ class FcmPushClient(
 
     companion object {
         private const val FCM_MESSAGE_COUNT_LIMIT = 500
+        private const val GLOBAL_TOPIC = "global"
     }
 }
