@@ -233,6 +233,30 @@ DoD 공통: ktlint + 단위 + Testcontainers-MySQL 통합 테스트 green (H2 My
 | M9 cutover | §5 runbook 실행 | 전환 완료, 검증 green |
 | M10 해체 | 2주 soak 후 구 스택/Mongo/구 MySQL 폐기, v1compat sunset 일정 수립 | |
 
+## 7-1. v1 경로 커버리지 (구현 결과)
+
+구 snutt의 `/v1` 경로 137개 중 133개를 v2가 그대로 서빙한다. 남은 4개는
+`/v1/ev-service/{*requestPath}` 제네릭 프록시(GET/POST/PATCH/DELETE)이며,
+프록시 뒤의 클라이언트 대상 라우트는 모두 in-process 컨트롤러로 구현했으므로
+프록시 자체는 이식하지 않는다. 프록시로만 닿던 나머지 ev 라우트는 단일 서비스에서
+의미를 잃었다:
+
+| 구 ev 라우트 | v2에서의 대체 |
+|---|---|
+| `/v1/lectures/snutt-summary` | 검색이 `findSummariesByLectureIds` 조인으로 직접 채운다 |
+| `/v1/lectures/id`, `/v1/lectures/ids` | `lecture.course_id` FK로 직접 참조한다 |
+| `/health-check` | 서비스 자체 헬스체크로 대체 |
+
+경로 시맨틱 중 구현에 영향이 컸던 것:
+
+- 계정 경로는 단수형 `/v1/user`, 내 정보만 복수형 `/v1/users/me` 이다
+- 알림은 단수형 `/v1/notification`
+- v1은 목록을 `{content, totalCount}`로 감싸고, 시각을 KST ISO 문자열로 준다
+- 테마 색상 필드는 `colors`, 공유 해제는 `DELETE /themes/{id}/publish`, 검색은 POST 본문
+- 팝업은 `key`/`image_url`/`hidden_days` 별칭을 함께 준다
+- 관리자·일기장 경로는 camelCase (`registrationPeriods`, `dailyClassTypes`)
+- 최근 수강 강의(`/users/me/lectures/latest`)는 강의평 쓰기와 달리 이메일 인증 게이트 밖이다
+
 ## 8. 리스크
 
 - **검색 동등성 (최대)**: Mongo regex vs MySQL REGEXP 차이, 동점 시 정렬 안정성. M2 diff 하네스로 완화. `(year,semester)` 인덱스 앵커로 REGEXP 스캔 범위를 학기당 ~10⁴행으로 제한
