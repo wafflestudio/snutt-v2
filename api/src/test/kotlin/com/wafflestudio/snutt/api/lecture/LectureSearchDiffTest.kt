@@ -15,11 +15,15 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRep
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import kotlin.random.Random
 
 /**
@@ -30,9 +34,19 @@ import kotlin.random.Random
  * corpus에는 REGEXP 이스케이프("C++", "4190.204"), 한국어 fuzzy, 시간 포함/제외,
  * 등등 필터, 평점 정렬, 페이지네이션을 포함한다.
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
+    companion object {
+        @JvmStatic
+        @DynamicPropertySource
+        fun mysqlProperties(registry: DynamicPropertyRegistry) {
+            registry.add("spring.datasource.url") { mysqlJdbcUrl("lecture_test") }
+            registry.add("spring.datasource.username") { mysql.username }
+            registry.add("spring.datasource.password") { mysql.password }
+        }
+    }
+
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
@@ -44,6 +58,9 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var lectureSearchRepository: LectureSearchRepository
+
+    @LocalServerPort
+    var port = 0
 
     private lateinit var referenceLectures: List<ReferenceLecture>
 
@@ -420,6 +437,32 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             )
 
         corpus.forEach { (name, c) -> assertSearch(name, c) }
+    }
+
+    // HTTP QUERY 메서드(RFC 10008)로 검색이 동작한다 — QueryMethodFilter가 내부적으로 POST로 전환
+    @Test
+    fun `QUERY 메서드로 검색이 동작한다`() {
+        val request =
+            java.net.http.HttpRequest
+                .newBuilder(java.net.URI.create("http://localhost:$port/v2/lectures/search"))
+                .method(
+                    "QUERY",
+                    java.net.http.HttpRequest.BodyPublishers
+                        .ofString("""{"year":2026,"semester":3,"query":"컴퓨터","limit":10}"""),
+                ).header("Content-Type", "application/json")
+                .header("x-client-platform", "ios")
+                .header("x-client-key", "test-ios-key")
+                .build()
+        val response =
+            java.net.http.HttpClient
+                .newHttpClient()
+                .send(
+                    request,
+                    java.net.http.HttpResponse.BodyHandlers
+                        .ofString(),
+                )
+        assertEquals(200, response.statusCode())
+        assertTrue(response.body().contains("courseTitle"))
     }
 }
 
