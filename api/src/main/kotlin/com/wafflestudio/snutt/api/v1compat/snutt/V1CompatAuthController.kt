@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.api.v1compat.snutt
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyLoginResponse
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
@@ -46,9 +48,13 @@ data class LegacyVerifyResetCodeRequest(
 )
 
 data class LegacyResetPasswordRequest(
-    val email: String,
+    val userId: String,
+    val password: String,
     val code: String,
-    val newPassword: String,
+)
+
+data class LegacyMaskedEmailRequest(
+    val userId: String,
 )
 
 // v1 로그인 응답의 token = credentialHash (v1compat 전용, PLAN.md §3)
@@ -117,12 +123,30 @@ class V1CompatAuthController(
         passwordResetService.requestReset(body.email)
     }
 
+    // v1은 아이디(localId)로 초기화한다
+    @Public
+    @PostMapping("/password/reset/email/check")
+    fun getMaskedEmail(
+        @RequestBody body: LegacyMaskedEmailRequest,
+    ): Map<String, Any?> = mapOf("email" to passwordResetService.getMaskedEmailByLocalId(body.userId))
+
+    @Public
+    @PostMapping("/password/reset/verification/code")
+    fun verifyResetPasswordCode(
+        @RequestBody body: LegacyVerifyResetCodeRequest,
+    ) {
+        passwordResetService.verifyResetCodeByLocalId(
+            body.localId ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+            body.code,
+        )
+    }
+
     @Public
     @PostMapping("/password/reset")
     fun resetPassword(
         @RequestBody body: LegacyResetPasswordRequest,
     ) {
-        passwordResetService.confirmReset(body.email, body.code, body.newPassword)
+        passwordResetService.confirmResetByLocalId(body.userId, body.code, body.password)
     }
 
     @PostMapping("/logout")

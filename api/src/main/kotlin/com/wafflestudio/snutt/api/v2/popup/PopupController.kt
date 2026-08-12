@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.v2.popup
 
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.storage.StorageUriResolver
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,11 +18,11 @@ data class PopupResponse(
     val hiddenDays: Int?,
 )
 
-private fun Popup.toResponse() =
+private fun Popup.toResponse(storageUriResolver: StorageUriResolver) =
     PopupResponse(
         id = externalId,
         popupKey = popupKey,
-        imageUri = imageOriginUri,
+        imageUri = storageUriResolver.resolve(imageOriginUri),
         linkUrl = linkUrl,
         hiddenDays = hiddenDays,
     )
@@ -31,9 +32,10 @@ private fun Popup.toResponse() =
 @RequestMapping("/v2/popups")
 class PopupController(
     private val popupService: PopupService,
+    private val storageUriResolver: StorageUriResolver,
 ) {
     @GetMapping("")
     fun getPopups(
         @RequestAttribute clientInfo: ClientInfo,
-    ): List<PopupResponse> = popupService.getPopups().map { it.toResponse() }
+    ): List<PopupResponse> = popupService.getPopups().map { it.toResponse(storageUriResolver) }
 }

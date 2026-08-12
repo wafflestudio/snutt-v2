@@ -73,7 +73,7 @@ data class AdminDiaryQuestionWriteRequest(
 
 @RestController
 @AdminOnly
-@RequestMapping("/v2/admin")
+@RequestMapping("/v2/admin", "/v1/admin", "/admin")
 class AdminController(
     private val notificationService: NotificationService,
     private val configService: ClientConfigService,
@@ -90,7 +90,7 @@ class AdminController(
     }
 
     // FCM 발송(insertFcm)은 M7 PushService와 함께 연동한다 — 여기서는 알림함 저장만
-    @PostMapping("/notifications")
+    @PostMapping("/notifications", "/insert_noti")
     fun insertNotification(
         @RequestBody body: InsertNotificationRequest,
     ) {
@@ -146,16 +146,16 @@ class AdminController(
         popupService.deletePopup(popupId)
     }
 
-    @GetMapping("/registration-periods")
+    @GetMapping("/registration-periods", "/registrationPeriods")
     fun getSemesterRegistrationPeriods(): List<SemesterRegistrationPeriod> = semesterRegistrationPeriodService.getAll()
 
-    @GetMapping("/registration-periods/{year}/{semester}")
+    @GetMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
     ): SemesterRegistrationPeriod? = semesterRegistrationPeriodService.getByYearAndSemester(year, parseSemester(semester))
 
-    @PatchMapping("/registration-periods/{year}/{semester}")
+    @PatchMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
     fun patchSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
@@ -164,7 +164,7 @@ class AdminController(
         semesterRegistrationPeriodService.upsert(year, parseSemester(semester), registrationPeriods)
     }
 
-    @DeleteMapping("/registration-periods/{year}/{semester}")
+    @DeleteMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
     fun deleteSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
@@ -187,20 +187,20 @@ class AdminController(
         }
 
     // 일기장 어드민 (v1 AdminController 이식). 알림 발송(notifier trigger)은 M7 스케줄러와 함께
-    @GetMapping("/diary/daily-class-types")
+    @GetMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
     fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
 
     @GetMapping("/diary/questions")
     fun getDiaryQuestions(): List<DiaryQuestion> = diaryService.getActiveQuestions()
 
-    @PostMapping("/diary/daily-class-types")
+    @PostMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
     fun insertDiaryDailyClassType(
         @RequestParam name: String,
     ) {
         diaryService.addOrEnableDailyClassType(name)
     }
 
-    @DeleteMapping("/diary/daily-class-types")
+    @DeleteMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
     fun removeDiaryDailyClassType(
         @RequestParam name: String,
     ) {

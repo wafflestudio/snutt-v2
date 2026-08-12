@@ -158,7 +158,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
         val send =
             client()
                 .post()
-                .uri("/v1/users/me/email/verification")
+                .uri("/v1/user/email/verification")
                 .header("x-access-token", v1Token)
                 .body("""{"email":"v1email@snu.ac.kr"}""")
                 .retrieve()
@@ -169,7 +169,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
         val verify =
             client()
                 .post()
-                .uri("/v1/users/me/email/verification/code")
+                .uri("/v1/user/email/verification/code")
                 .header("x-access-token", v1Token)
                 .body("""{"code":"$code"}""")
                 .retrieve()
