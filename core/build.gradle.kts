@@ -18,6 +18,7 @@ dependencies {
     // ErrorType이 HttpStatus를, 소셜 클라이언트가 RestClient를 참조 (서블릿 스택 없이 spring-web 모듈만)
     api("org.springframework:spring-web")
     api("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.security:spring-security-crypto")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")

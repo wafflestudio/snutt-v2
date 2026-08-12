@@ -26,6 +26,7 @@ class PlatformKeyInterceptor(
         const val PLATFORM_HEADER = "x-client-platform"
         const val KEY_HEADER = "x-client-key"
         const val PLATFORM_ATTRIBUTE = "clientPlatform"
+        const val CLIENT_INFO_ATTRIBUTE = "clientInfo"
     }
 
     override fun preHandle(
@@ -37,6 +38,15 @@ class PlatformKeyInterceptor(
         val key = request.getHeader(KEY_HEADER) ?: throw SnuttException(ErrorType.WRONG_API_KEY)
         if (platformKeys[platform] != key) throw SnuttException(ErrorType.WRONG_API_KEY)
         request.setAttribute(PLATFORM_ATTRIBUTE, platform)
+        request.setAttribute(
+            CLIENT_INFO_ATTRIBUTE,
+            ClientInfo(
+                osType = request.getHeader("x-os-type") ?: platform,
+                osVersion = request.getHeader("x-os-version"),
+                appVersion = request.getHeader("x-app-version"),
+                deviceModel = request.getHeader("x-device-model"),
+            ),
+        )
         return true
     }
 }

@@ -24,6 +24,10 @@ interface UserRepository : JpaRepository<User, Long> {
 
     fun findByNicknameAndActiveTrue(nickname: String): User?
 
+    fun findByIdAndActiveTrue(id: Long): User?
+
+    fun findByEmailContainingIgnoreCaseAndActiveTrue(email: String): List<User>
+
     fun findAllByNicknameStartingWithAndActiveTrue(nickname: String): List<User>
 
     fun existsByLocalIdAndActiveTrue(localId: String): Boolean
