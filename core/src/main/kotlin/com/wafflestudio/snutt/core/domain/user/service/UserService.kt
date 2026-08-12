@@ -1,0 +1,42 @@
+package com.wafflestudio.snutt.core.domain.user.service
+
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
+import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
+
+@Service
+class UserService(
+    private val userRepository: UserRepository,
+    private val userSessionRepository: UserSessionRepository,
+    private val userNicknameService: UserNicknameService,
+) {
+    fun getByExternalId(externalId: String): User =
+        userRepository.findByExternalIdAndActiveTrue(externalId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+
+    @Transactional
+    fun updateNickname(
+        user: User,
+        nickname: String,
+    ): User {
+        user.nickname = userNicknameService.appendNewTag(nickname)
+        return userRepository.save(user)
+    }
+
+    @Transactional
+    fun deactivate(user: User) {
+        user.active = false
+        userSessionRepository.revokeAllByUserId(user.id!!)
+        userRepository.save(user)
+    }
+
+    @Transactional
+    fun updateNotificationCheckedAt(user: User) {
+        user.notificationCheckedAt = Instant.now()
+        userRepository.save(user)
+    }
+}
