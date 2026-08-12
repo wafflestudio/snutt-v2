@@ -95,7 +95,8 @@ class AuthService(
         return user to issueTokens(user)
     }
 
-    @Transactional
+    // 재사용 감지의 전체 세션 폐기는 롤백되어서는 안 된다 — SnuttException으로 나가도 커밋한다
+    @Transactional(noRollbackFor = [SnuttException::class])
     fun refresh(refreshToken: String): Pair<User, TokenPair> {
         val session =
             userSessionRepository.findByRefreshTokenHash(sha256Hex(refreshToken))
