@@ -6,6 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface TimetableLectureReminderRepository : JpaRepository<TimetableLectureReminder, Long> {
     fun findByTimetableLectureId(timetableLectureId: Long): TimetableLectureReminder?
 
+    fun findByNextDayAndNextMinute(
+        nextDay: Int,
+        nextMinute: Int,
+    ): List<TimetableLectureReminder>
+
     fun findByTimetableLectureIdIn(timetableLectureIds: Collection<Long>): List<TimetableLectureReminder>
 
     fun deleteByTimetableLectureId(timetableLectureId: Long)
