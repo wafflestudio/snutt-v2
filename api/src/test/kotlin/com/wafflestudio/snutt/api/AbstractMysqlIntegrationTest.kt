@@ -1,22 +1,28 @@
 package com.wafflestudio.snutt.api
 
-import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.MySQLContainer
 
-// JVM당 1회 기동해 모든 통합 테스트가 공유하는 MySQL (Testcontainers singleton 패턴).
-// @Container 어노테이션을 쓰지 않아 테스트 클래스 간 재시작이 없다
+/**
+ * 테스트 클래스마다 전용 데이터베이스를 사용해 데이터를 격리한다 (PLAN.md §7 DoD).
+ * 서버(컨테이너)는 JVM당 1회만 기동하고, 하위 클래스는 companion object의
+ * [DynamicPropertySource]로 자신만의 데이터베이스 이름을 등록한다.
+ *
+ * test 유저는 기본적으로 test.* 만 접근 가능하므로, 기동 시 전체 DB에 대한
+ * 권한을 부여한다 (createDatabaseIfNotExist로 클래스별 DB가 생성된다).
+ */
 abstract class AbstractMysqlIntegrationTest {
     companion object {
         @JvmStatic
-        val mysql: MySQLContainer<*> = MySQLContainer("mysql:8.4").apply { start() }
+        val mysql: MySQLContainer<*> =
+            MySQLContainer("mysql:8.4")
+                .apply { start() }
+                .apply {
+                    execInContainer("mysql", "-uroot", "-ptest", "-e", "GRANT ALL PRIVILEGES ON *.* TO 'test'@'%' WITH GRANT OPTION")
+                }
 
         @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url", mysql::getJdbcUrl)
-            registry.add("spring.datasource.username", mysql::getUsername)
-            registry.add("spring.datasource.password", mysql::getPassword)
-        }
+        fun mysqlJdbcUrl(databaseName: String): String =
+            "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(3306)}/$databaseName?createDatabaseIfNotExist=true"
     }
 }

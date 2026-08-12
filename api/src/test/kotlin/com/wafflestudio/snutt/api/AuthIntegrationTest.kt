@@ -10,12 +10,22 @@ import org.junit.jupiter.api.TestMethodOrder
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.ResponseEntity
+import org.springframework.test.context.DynamicPropertyRegistry
+import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     companion object {
+        @JvmStatic
+        @DynamicPropertySource
+        fun mysqlProperties(registry: DynamicPropertyRegistry) {
+            registry.add("spring.datasource.url") { mysqlJdbcUrl("auth_test") }
+            registry.add("spring.datasource.username") { mysql.username }
+            registry.add("spring.datasource.password") { mysql.password }
+        }
+
         var accessToken = ""
         var refreshToken = ""
         var userId = ""

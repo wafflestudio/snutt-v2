@@ -1,0 +1,232 @@
+package com.wafflestudio.snutt.core.domain.timetable.service
+
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
+import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
+import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureCustomization
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureCustomizationRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+data class TimetableLectureAddRequest(
+    val lectureId: String,
+    val isForced: Boolean = false,
+)
+
+data class CustomTimetableLectureAddRequest(
+    val courseTitle: String,
+    val instructor: String? = null,
+    val credit: Int? = null,
+    val classPlaceAndTime: List<ClassPlaceAndTime> = emptyList(),
+    val remark: String? = null,
+    val color: ColorSet? = null,
+    val colorIndex: Int? = null,
+    val isForced: Boolean = false,
+)
+
+data class TimetableLectureModifyRequest(
+    val courseTitle: String? = null,
+    val instructor: String? = null,
+    val credit: Int? = null,
+    val classPlaceAndTime: List<ClassPlaceAndTime>? = null,
+    val remark: String? = null,
+    val color: ColorSet? = null,
+    val colorIndex: Int? = null,
+    val isForced: Boolean = false,
+)
+
+@Service
+class TimetableLectureService(
+    private val timetableService: TimetableService,
+    private val timetableLectureRepository: TimetableLectureRepository,
+    private val customizationRepository: TimetableLectureCustomizationRepository,
+    private val lectureRepository: LectureRepository,
+    private val timetableThemeService: TimetableThemeService,
+    private val timetableLectureReminderService: TimetableLectureReminderService,
+) {
+    @Transactional
+    fun addLecture(
+        userId: Long,
+        timetableExternalId: String,
+        request: TimetableLectureAddRequest,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val lecture =
+            lectureRepository.findByExternalId(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        if (timetable.year != lecture.year || timetable.semester != lecture.semester) {
+            throw SnuttException(ErrorType.WRONG_SEMESTER)
+        }
+        val existingLectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        if (existingLectures.any { it.lectureId == lecture.id }) throw SnuttException(ErrorType.DUPLICATE_LECTURE)
+
+        resolveTimeConflict(timetable, lecture.classPlaceAndTime, request.isForced, null)
+
+        // isForced로 겹침 강의가 삭제됐을 수 있으므로 재조회한다
+        val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        val (colorIndex, color) =
+            timetableThemeService.getNewColorIndexAndColor(
+                timetable.themeId,
+                remaining.map { it.color },
+                remaining.map { it.colorIndex },
+            )
+        timetableLectureRepository.save(
+            TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, color = color, colorIndex = colorIndex),
+        )
+        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+    }
+
+    @Transactional
+    fun addCustomLecture(
+        userId: Long,
+        timetableExternalId: String,
+        request: CustomTimetableLectureAddRequest,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        if (ClassTimeUtils.timesOverlap(request.classPlaceAndTime)) throw SnuttException(ErrorType.INVALID_TIME)
+
+        resolveTimeConflict(timetable, request.classPlaceAndTime, request.isForced, null)
+
+        val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        val (colorIndex, color) =
+            timetableThemeService.getNewColorIndexAndColor(
+                timetable.themeId,
+                remaining.map { it.color },
+                remaining.map { it.colorIndex },
+            )
+        val timetableLecture =
+            timetableLectureRepository.save(
+                TimetableLecture(
+                    timetableId = timetable.id!!,
+                    lectureId = null,
+                    color = request.color ?: color,
+                    colorIndex = request.colorIndex ?: colorIndex,
+                ),
+            )
+        customizationRepository.save(
+            TimetableLectureCustomization(
+                timetableLectureId = timetableLecture.id!!,
+                courseTitle = request.courseTitle,
+                instructor = request.instructor,
+                credit = request.credit,
+                remark = request.remark,
+                classPlaceAndTime = request.classPlaceAndTime,
+            ),
+        )
+        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+    }
+
+    @Transactional
+    fun modifyLecture(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+        request: TimetableLectureModifyRequest,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
+        val existingDisplays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
+
+        val newTimes =
+            request.classPlaceAndTime
+                ?: existingDisplays.first { it.id == timetableLectureExternalId }.classPlaceAndTime
+        if (ClassTimeUtils.timesOverlap(newTimes)) throw SnuttException(ErrorType.INVALID_TIME)
+        resolveTimeConflict(timetable, newTimes, request.isForced, timetableLectureExternalId)
+
+        request.color?.let { timetableLecture.color = it }
+        request.colorIndex?.let { timetableLecture.colorIndex = it }
+
+        val customization =
+            customizationRepository.findByTimetableLectureId(timetableLecture.id!!)
+                ?: TimetableLectureCustomization(timetableLectureId = timetableLecture.id!!).also {
+                    customizationRepository.save(it)
+                }
+        request.courseTitle?.let { customization.courseTitle = it }
+        request.instructor?.let { customization.instructor = it }
+        request.credit?.let { customization.credit = it }
+        request.remark?.let { customization.remark = it }
+        request.classPlaceAndTime?.let { customization.classPlaceAndTime = it }
+
+        timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
+        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+    }
+
+    @Transactional
+    fun resetLecture(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+        isForced: Boolean,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
+        if (timetableLecture.lectureId == null) throw SnuttException(ErrorType.CANNOT_RESET_CUSTOM_LECTURE)
+        val lectureId = timetableLecture.lectureId
+        val lecture =
+            lectureRepository
+                .findById(lectureId!!)
+                .orElse(null) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+
+        resolveTimeConflict(timetable, lecture.classPlaceAndTime, isForced, timetableLectureExternalId)
+
+        customizationRepository.deleteByTimetableLectureId(timetableLecture.id!!)
+        timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, lecture.classPlaceAndTime)
+        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+    }
+
+    @Transactional
+    fun deleteLecture(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
+        // customization/reminder는 DB FK CASCADE로 함께 삭제된다
+        timetableLectureRepository.delete(timetableLecture)
+        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+    }
+
+    fun getTimetableLecture(
+        timetable: Timetable,
+        timetableLectureExternalId: String,
+    ): TimetableLecture =
+        timetableLectureRepository.findByTimetableIdAndExternalId(timetable.id!!, timetableLectureExternalId)
+            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+
+    // 겹치는 강의가 있으면 isForced 여부에 따라 예외 또는 덮어쓰기 삭제 (v1 resolveTimeConflict 이식)
+    private fun resolveTimeConflict(
+        timetable: Timetable,
+        newTimes: List<ClassPlaceAndTime>,
+        isForced: Boolean,
+        selfExternalId: String?,
+    ) {
+        val displays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
+        val overlapping =
+            displays.filter { display ->
+                display.id != selfExternalId && ClassTimeUtils.timesOverlap(newTimes, display.classPlaceAndTime)
+            }
+        if (overlapping.isEmpty()) return
+        if (!isForced) {
+            val confirmMessage = makeOverwritingConfirmMessage(overlapping)
+            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, errorMessage = confirmMessage, displayMessage = confirmMessage)
+        }
+        val overlappingIds = overlapping.map { it.id }
+        timetableLectureRepository.deleteAll(
+            timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.externalId in overlappingIds },
+        )
+    }
+
+    private fun makeOverwritingConfirmMessage(overlappingLectures: List<TimetableLectureDisplay>): String {
+        val overlappingLectureTitles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
+        val shortFormOfTitles = if (overlappingLectures.size < 3) "" else "외 ${overlappingLectures.size - 2}개의 "
+        return "$overlappingLectureTitles ${shortFormOfTitles}강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?"
+    }
+}
