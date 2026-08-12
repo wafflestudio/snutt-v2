@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: snutt-batch
+  config:
+    import: classpath:application-core.yml
+  main:
+    web-application-type: none
+  batch:
+    job:
+      name: ${job.name:NONE}
+    jdbc:
+      initialize-schema: always

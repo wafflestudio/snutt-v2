@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: snutt-migration
+  config:
+    import: classpath:application-core.yml
+  main:
+    web-application-type: none
