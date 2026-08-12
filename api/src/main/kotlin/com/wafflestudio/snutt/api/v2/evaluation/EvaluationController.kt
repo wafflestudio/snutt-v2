@@ -29,6 +29,36 @@ data class EvaluationWriteRequestBody(
     val rating: Double,
 )
 
+// 최근 두 학기 수강 강의 (강의평 작성 대상 선택용)
+data class TakenLectureResponse(
+    val id: String,
+    val title: String,
+    val instructor: String,
+    val courseNumber: String,
+    val department: String?,
+    val credit: Int?,
+    val academicYear: String?,
+    val category: String?,
+    val classification: String?,
+    val takenYear: Int,
+    val takenSemester: Semester,
+)
+
+internal fun com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser.toResponse() =
+    TakenLectureResponse(
+        id = requireNotNull(course.id).toString(),
+        title = course.title,
+        instructor = course.instructor,
+        courseNumber = course.courseNumber,
+        department = course.department,
+        credit = course.credit,
+        academicYear = course.academicYear,
+        category = course.category,
+        classification = course.classification,
+        takenYear = takenYear,
+        takenSemester = takenSemester,
+    )
+
 data class EvaluationUpdateRequestBody(
     val content: String? = null,
     val gradeSatisfaction: Double? = null,

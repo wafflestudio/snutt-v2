@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.theme.service
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
@@ -21,6 +22,7 @@ class TimetableThemeService(
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val userRepository: UserRepository,
+    private val friendRepository: FriendRepository,
 ) {
     companion object {
         private const val MAX_COLOR_COUNT = 9
@@ -59,6 +61,67 @@ class TimetableThemeService(
         val themes = timetableThemeRepository.findByStatusOrderByDownloadCountDesc(ThemeStatus.PUBLISHED, PageRequest.of(page, 20))
         return themes.toDisplays()
     }
+
+    fun getFriendsThemes(
+        userId: Long,
+        page: Int,
+    ): List<TimetableThemeDisplay> {
+        val friendUserIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
+        if (friendUserIds.isEmpty()) return emptyList()
+        return timetableThemeRepository.findFriendsThemes(friendUserIds, PageRequest.of(page, 10)).toDisplays()
+    }
+
+    // 기본 테마는 "가장 최근에 수정한 커스텀 테마"이므로, 지정은 updatedAt 갱신으로 표현한다 (v1 동일)
+    @Transactional
+    fun setDefault(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay {
+        val theme =
+            timetableThemeRepository.findByExternalIdAndUserId(themeExternalId, userId)
+                ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        timetableThemeRepository.touchUpdatedAt(requireNotNull(theme.id))
+        return theme.toDisplay(isDefault = true)
+    }
+
+    // 내장 테마는 사용자가 직접 기본으로 지정할 수 없다 (v1 3.5.0 대응)
+    fun setBasicThemeDefault(userId: Long): TimetableThemeDisplay = getDefaultTheme(userId)
+
+    @Transactional
+    fun unsetDefault(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay {
+        val current = getDefaultTheme(userId)
+        if (!current.isCustom || current.id != themeExternalId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        return basicDefaultDisplay()
+    }
+
+    @Transactional
+    fun unsetBasicThemeDefault(
+        userId: Long,
+        basicThemeType: BasicThemeType,
+    ): TimetableThemeDisplay {
+        val current = getDefaultTheme(userId)
+        if (current.isCustom || current.name != basicThemeType.displayName) {
+            throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        }
+        return basicDefaultDisplay()
+    }
+
+    private fun basicDefaultDisplay() =
+        TimetableThemeDisplay(
+            id = null,
+            name = BasicThemeType.SNUTT.displayName,
+            colorList = null,
+            isCustom = false,
+            status = ThemeStatus.BASIC,
+            isDefault = true,
+            publishName = null,
+            authorAnonymous = null,
+            downloadCount = 0,
+            authorNickname = null,
+        )
 
     fun searchThemes(keyword: String): List<TimetableThemeDisplay> =
         timetableThemeRepository.findByStatusAndPublishNameContainingIgnoreCase(ThemeStatus.PUBLISHED, keyword).toDisplays()

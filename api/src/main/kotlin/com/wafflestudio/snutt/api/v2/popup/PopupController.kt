@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.api.v2.popup
 
-import com.wafflestudio.snutt.api.auth.ClientInfo
 import com.wafflestudio.snutt.api.auth.Public
+import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import org.springframework.web.bind.annotation.GetMapping

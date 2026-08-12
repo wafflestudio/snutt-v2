@@ -81,7 +81,14 @@ class AdminController(
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val userRepository: UserRepository,
     private val diaryService: DiaryService,
+    private val diaryScheduler: com.wafflestudio.snutt.api.scheduler.DiaryScheduler,
 ) {
+    // 정기 발송을 기다리지 않고 즉시 발송한다 (v1 /admin/diary/notifier/trigger)
+    @PostMapping("/diary/notifier/trigger")
+    fun triggerDiaryNotifier() {
+        diaryScheduler.sendDiaryNotifications()
+    }
+
     // FCM 발송(insertFcm)은 M7 PushService와 함께 연동한다 — 여기서는 알림함 저장만
     @PostMapping("/notifications")
     fun insertNotification(
