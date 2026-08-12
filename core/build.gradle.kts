@@ -1,15 +1,8 @@
 plugins {
     `java-library`
-    id("org.hibernate.orm") apply false
     kotlin("plugin.allopen")
     kotlin("plugin.noarg")
-}
-
-if (gradle.startParameter.taskNames.none { it.contains("ktlint", ignoreCase = true) }) {
-    apply(plugin = "org.hibernate.orm")
-    configure<org.hibernate.orm.tooling.gradle.HibernateOrmSpec> {
-        enhancement { }
-    }
+    kotlin("kapt")
 }
 
 allOpen {
@@ -31,11 +24,16 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-mysql")
+    implementation("com.querydsl:querydsl-jpa:5.1.0:jakarta")
+    kapt("com.querydsl:querydsl-apt:5.1.0:jakarta")
+    // Hibernate 7.4 JSON 컬럼 매핑(Jackson 3 FormatMapper)과 @JsonValue/@JsonCreator 사용
+    implementation("tools.jackson.core:jackson-databind")
 
     runtimeOnly("com.mysql:mysql-connector-j")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
-    testImplementation("org.testcontainers:mysql")
-    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
+    // Testcontainers 2.x 아티팩트 명 (mysql/junit-jupiter → testcontainers-*)
+    testImplementation("org.testcontainers:testcontainers-mysql")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 }
