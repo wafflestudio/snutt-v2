@@ -1,7 +1,20 @@
 spring:
   application:
     name: snutt-migration
-  config:
-    import: classpath:application-core.yml
   main:
     web-application-type: none
+
+migration:
+  target:
+    # 신 MySQL (Flyway 스키마가 적용된 상태여야 한다)
+    url: ${SNUTT_DB_URL}
+    username: ${SNUTT_DB_USERNAME}
+    password: ${SNUTT_DB_PASSWORD}
+  old-ev:
+    # 구 snutt-ev MySQL (읽기 전용)
+    url: ${SNUTT_OLD_EV_DB_URL}
+    username: ${SNUTT_OLD_EV_DB_USERNAME}
+    password: ${SNUTT_OLD_EV_DB_PASSWORD}
+  mongo:
+    # 구 snutt Mongo (읽기 전용)
+    uri: ${SNUTT_OLD_MONGO_URI}
