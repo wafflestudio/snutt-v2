@@ -47,7 +47,7 @@ data class TagResponse(
     val ordering: Int,
 )
 
-private fun TagGroupDisplay.toResponse() =
+internal fun TagGroupDisplay.toResponse() =
     TagGroupResponse(
         id = id,
         name = name,
