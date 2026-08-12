@@ -30,6 +30,7 @@ class PasswordResetService(
     companion object {
         private const val RESET_CODE_PREFIX = "reset-password-code:"
         private val codeTtl: Duration = Duration.ofMinutes(3)
+        private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
     }
 
     // 아이디 찾기: 가입된 이메일로 아이디/소셜 수단 정보를 발송한다
@@ -71,6 +72,39 @@ class PasswordResetService(
         val code = Random.nextInt(100000, 1000000).toString()
         redisTemplate.opsForValue().set(key, code, codeTtl)
         mailClient.sendCodeMail(MailType.PASSWORD_RESET, email.trim(), code)
+    }
+
+    // 구 클라이언트 호환: localId로 사용자를 찾아 마스킹된 이메일을 준다
+    @Transactional(readOnly = true)
+    fun getMaskedEmailByLocalId(localId: String): String {
+        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val email = user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        return email.replace(emailMaskRegex, "*")
+    }
+
+    // 구 클라이언트 호환: 코드만 검증한다 (교체는 이후 요청에서)
+    @Transactional(readOnly = true)
+    fun verifyResetCodeByLocalId(
+        localId: String,
+        code: String,
+    ) {
+        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val userId = requireNotNull(user.id)
+        val stored =
+            redisTemplate.opsForValue().get(RESET_CODE_PREFIX + userId)
+                ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+        if (stored != code) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+    }
+
+    // 구 클라이언트 호환: localId + 코드로 비밀번호를 교체한다
+    @Transactional
+    fun confirmResetByLocalId(
+        localId: String,
+        code: String,
+        newPassword: String,
+    ) {
+        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        confirmReset(user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND), code, newPassword)
     }
 
     // 코드 확인 후 비밀번호 교체. 보안상 기존 세션을 모두 폐기한다

@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.api.v1compat.ev
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
@@ -46,3 +48,61 @@ class V1CompatTakenLectureController(
                     },
         )
 }
+
+/**
+ * 강의평 탭의 강의 검색과 강의 상세(개설 학기 목록).
+ * 구 ev LectureController의 /v1/lectures, /v1/lectures/{id}/semester-lectures 이식.
+ */
+@RestController
+@RequestMapping("/v1/ev-service/v1", "/ev-service/v1", "/v1/ev/v1")
+class V1CompatCourseSearchController(
+    private val courseSearchService: com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService,
+) {
+    @GetMapping("/lectures")
+    fun searchLectures(
+        @RequestParam(required = false, defaultValue = "") query: String,
+        @RequestParam(required = false) tags: List<Long>?,
+        @RequestParam(required = false, defaultValue = "0") page: Int,
+    ): Map<String, Any?> {
+        val courses = courseSearchService.search(query, tags.orEmpty(), page)
+        return linkedMapOf(
+            "content" to courses.map { it.toLegacyCourse() },
+            "totalCount" to courses.size,
+        )
+    }
+
+    @GetMapping("/lectures/{courseId}/semester-lectures")
+    fun getSemesterLectures(
+        @CurrentUser user: User,
+        @PathVariable courseId: Long,
+    ): Map<String, Any?> {
+        val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
+        return result.course.toLegacyCourse() +
+            linkedMapOf(
+                "semesterLectures" to
+                    result.semesters.map {
+                        linkedMapOf(
+                            "id" to it.lectureExternalId,
+                            "year" to it.year,
+                            "semester" to it.semester.value,
+                            "myEvaluationExists" to it.myEvaluationExists,
+                        )
+                    },
+            )
+    }
+}
+
+private fun com.wafflestudio.snutt.core.domain.evaluation.model.Course.toLegacyCourse(): Map<String, Any?> =
+    linkedMapOf(
+        "id" to id,
+        "title" to title,
+        "instructor" to instructor,
+        "department" to department,
+        "courseNumber" to courseNumber,
+        "credit" to credit,
+        "academicYear" to academicYear,
+        "category" to category,
+        "classification" to classification,
+        "evaluationCount" to evalCount,
+        "avgRating" to avgRating,
+    )

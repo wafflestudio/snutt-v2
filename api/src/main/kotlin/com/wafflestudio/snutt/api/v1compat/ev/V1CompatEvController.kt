@@ -121,7 +121,7 @@ class V1CompatEvController(
         )
     }
 
-    @GetMapping("/evaluations/me")
+    @GetMapping("/evaluations/me", "/evaluations/users/me")
     fun getMyEvaluations(
         @CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
