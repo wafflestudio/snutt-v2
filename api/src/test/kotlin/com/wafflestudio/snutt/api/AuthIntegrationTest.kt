@@ -9,23 +9,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.http.ResponseEntity
 import org.springframework.web.client.RestClient
-import org.testcontainers.containers.MySQLContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
-class AuthIntegrationTest {
+class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     companion object {
-        @Container
-        @ServiceConnection
-        @JvmStatic
-        val mysql = MySQLContainer("mysql:8.4")
-
         var accessToken = ""
         var refreshToken = ""
         var userId = ""

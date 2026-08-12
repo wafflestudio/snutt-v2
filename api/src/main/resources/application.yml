@@ -7,6 +7,10 @@ spring:
 server:
   port: 8080
 
+snutt:
+  syllabus-proxy:
+    base-url: ${SNUTT_SYLLABUS_PROXY_BASE_URL:}
+
 management:
   endpoints:
     web:

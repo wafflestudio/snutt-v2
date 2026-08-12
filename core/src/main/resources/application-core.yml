@@ -8,6 +8,11 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        # Jackson 2가 jjwt-jackson으로 함께 존재하므로 Jackson 3 매퍼를 명시 (Kotlin 모듈 자동 등록)
+        type:
+          json_format_mapper: org.hibernate.type.format.jackson.Jackson3JsonFormatMapper
   flyway:
     locations: classpath:db/migration
 
