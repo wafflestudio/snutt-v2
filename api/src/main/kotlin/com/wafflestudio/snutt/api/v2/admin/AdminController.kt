@@ -7,6 +7,9 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
+import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
@@ -60,6 +63,14 @@ data class AdminUserSearchResponse(
     val isEmailVerified: Boolean,
 )
 
+data class AdminDiaryQuestionWriteRequest(
+    @field:NotBlank val question: String,
+    @field:NotBlank val shortQuestion: String,
+    val answers: List<String>,
+    val shortAnswers: List<String>,
+    val targetDailyClassTypes: List<String>,
+)
+
 @RestController
 @AdminOnly
 @RequestMapping("/v2/admin")
@@ -69,6 +80,7 @@ class AdminController(
     private val popupService: PopupService,
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val userRepository: UserRepository,
+    private val diaryService: DiaryService,
 ) {
     // FCM 발송(insertFcm)은 M7 PushService와 함께 연동한다 — 여기서는 알림함 저장만
     @PostMapping("/notifications")
@@ -166,6 +178,47 @@ class AdminController(
                 isEmailVerified = it.isEmailVerified,
             )
         }
+
+    // 일기장 어드민 (v1 AdminController 이식). 알림 발송(notifier trigger)은 M7 스케줄러와 함께
+    @GetMapping("/diary/daily-class-types")
+    fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
+
+    @GetMapping("/diary/questions")
+    fun getDiaryQuestions(): List<DiaryQuestion> = diaryService.getActiveQuestions()
+
+    @PostMapping("/diary/daily-class-types")
+    fun insertDiaryDailyClassType(
+        @RequestParam name: String,
+    ) {
+        diaryService.addOrEnableDailyClassType(name)
+    }
+
+    @DeleteMapping("/diary/daily-class-types")
+    fun removeDiaryDailyClassType(
+        @RequestParam name: String,
+    ) {
+        diaryService.disableDailyClassType(name)
+    }
+
+    @PostMapping("/diary/questions")
+    fun insertDiaryQuestion(
+        @RequestBody body: AdminDiaryQuestionWriteRequest,
+    ) {
+        diaryService.addQuestion(
+            question = body.question,
+            shortQuestion = body.shortQuestion,
+            answers = body.answers,
+            shortAnswers = body.shortAnswers,
+            targetDailyClassTypes = body.targetDailyClassTypes,
+        )
+    }
+
+    @DeleteMapping("/diary/questions/{questionId}")
+    fun removeDiaryQuestion(
+        @PathVariable questionId: String,
+    ) {
+        diaryService.removeQuestion(questionId)
+    }
 
     private fun AdminConfigWriteRequest.toWriteRequest() =
         ClientConfigWriteRequest(
