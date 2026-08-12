@@ -3,10 +3,9 @@ spring:
     name: snutt-batch
   config:
     import: classpath:application-core.yml
-  main:
-    web-application-type: none
   batch:
+    # 잡 선택은 JobRunner가 JOB_NAME으로 수행한다 (k8s CronJob, PLAN.md §4)
     job:
-      name: ${job.name:NONE}
+      enabled: false
     jdbc:
       initialize-schema: always

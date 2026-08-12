@@ -38,4 +38,23 @@ class Lecture(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
     var classPlaceAndTime: List<ClassPlaceAndTime> = emptyList(),
-) : ExternalIdEntity()
+) : ExternalIdEntity() {
+    // 수강스누 sync diff 기준 (v1 Lecture.equalsMetadata 이식). 집계/신청 인원은 제외
+    fun equalsMetadata(other: Lecture): Boolean =
+        academicYear == other.academicYear &&
+            category == other.category &&
+            categoryPre2025 == other.categoryPre2025 &&
+            classPlaceAndTime == other.classPlaceAndTime &&
+            classification == other.classification &&
+            credit == other.credit &&
+            department == other.department &&
+            instructor == other.instructor &&
+            lectureNumber == other.lectureNumber &&
+            quota == other.quota &&
+            freshmanQuota == other.freshmanQuota &&
+            remark == other.remark &&
+            semester == other.semester &&
+            year == other.year &&
+            courseNumber == other.courseNumber &&
+            courseTitle == other.courseTitle
+}
