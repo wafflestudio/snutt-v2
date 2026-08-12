@@ -1,6 +1,10 @@
 package com.wafflestudio.snutt.api.v2.user
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.auth.AuthProvider
+import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.EmailVerificationService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
@@ -8,6 +12,7 @@ import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -43,6 +48,7 @@ private fun User.toResponse() =
 class UserController(
     private val userService: UserService,
     private val emailVerificationService: EmailVerificationService,
+    private val authService: AuthService,
 ) {
     @GetMapping("/me")
     fun getMe(
@@ -104,4 +110,52 @@ class UserController(
         emailVerificationService.verifyEmail(user, body.code)
         return EmailVerificationResultResponse(true)
     }
+
+    // 계정 관리: 로컬 계정 연결 / 비밀번호 변경 / 소셜 연동·해제
+    data class AttachLocalRequest(
+        val localId: String,
+        val password: String,
+    )
+
+    data class ChangePasswordRequest(
+        val currentPassword: String,
+        val newPassword: String,
+    )
+
+    data class SocialTokenRequest(
+        val token: String,
+    )
+
+    data class CredentialHashResponse(
+        val token: String,
+    )
+
+    @PostMapping("/me/password")
+    fun attachLocal(
+        @CurrentUser user: User,
+        @RequestBody body: AttachLocalRequest,
+    ): CredentialHashResponse = CredentialHashResponse(authService.attachLocal(user, body.localId, body.password))
+
+    @PatchMapping("/me/password")
+    fun changePassword(
+        @CurrentUser user: User,
+        @RequestBody body: ChangePasswordRequest,
+    ): CredentialHashResponse = CredentialHashResponse(authService.changePassword(user, body.currentPassword, body.newPassword))
+
+    @PostMapping("/me/social/{provider}")
+    fun attachSocial(
+        @CurrentUser user: User,
+        @PathVariable provider: String,
+        @RequestBody body: SocialTokenRequest,
+    ): CredentialHashResponse = CredentialHashResponse(authService.attachSocial(user, parseSocialProvider(provider), body.token))
+
+    @DeleteMapping("/me/social/{provider}")
+    fun detachSocial(
+        @CurrentUser user: User,
+        @PathVariable provider: String,
+    ): CredentialHashResponse = CredentialHashResponse(authService.detachSocial(user, parseSocialProvider(provider)))
+
+    private fun parseSocialProvider(value: String): AuthProvider =
+        AuthProvider.from(value)?.takeIf { it != AuthProvider.LOCAL }
+            ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

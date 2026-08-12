@@ -30,5 +30,15 @@ interface UserRepository : JpaRepository<User, Long> {
 
     fun findAllByNicknameStartingWithAndActiveTrue(nickname: String): List<User>
 
+    fun findAllByEmailAndActiveTrue(email: String): List<User>
+
     fun existsByLocalIdAndActiveTrue(localId: String): Boolean
+
+    fun existsByFacebookSubAndActiveTrue(facebookSub: String): Boolean
+
+    fun existsByGoogleSubAndActiveTrue(googleSub: String): Boolean
+
+    fun existsByKakaoSubAndActiveTrue(kakaoSub: String): Boolean
+
+    fun existsByAppleSubAndActiveTrue(appleSub: String): Boolean
 }

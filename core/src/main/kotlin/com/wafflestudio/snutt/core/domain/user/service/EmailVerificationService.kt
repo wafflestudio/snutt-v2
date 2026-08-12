@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.mail.MailClient
+import com.wafflestudio.snutt.core.common.mail.MailType
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -41,7 +42,7 @@ class EmailVerificationService(
         if (redisTemplate.hasKey(key)) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
         val code = Random.nextInt(100000, 1000000).toString()
         redisTemplate.opsForValue().set(key, jsonMapper.writeValueAsString(StoredCode(trimmed, code)), codeTtl)
-        mailClient.sendVerificationMail(trimmed, code)
+        mailClient.sendCodeMail(MailType.VERIFICATION, trimmed, code)
     }
 
     @Transactional

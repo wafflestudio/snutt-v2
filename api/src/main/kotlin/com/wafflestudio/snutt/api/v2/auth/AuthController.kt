@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.auth.service.TokenPair
+import com.wafflestudio.snutt.core.domain.user.service.PasswordResetService
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -41,6 +42,20 @@ data class LegacyTokenExchangeRequest(
     @field:NotBlank val legacyToken: String,
 )
 
+data class RequestPasswordResetRequest(
+    @field:NotBlank val email: String,
+)
+
+data class ConfirmPasswordResetRequest(
+    @field:NotBlank val email: String,
+    @field:NotBlank val code: String,
+    @field:NotBlank val newPassword: String,
+)
+
+data class FindIdRequest(
+    @field:NotBlank val email: String,
+)
+
 data class TokenResponse(
     val userId: String,
     val accessToken: String,
@@ -58,6 +73,7 @@ private fun TokenPair.toResponse(userExternalId: String) =
 @RequestMapping("/v2/auth")
 class AuthController(
     private val authService: AuthService,
+    private val passwordResetService: PasswordResetService,
 ) {
     @Public
     @PostMapping("/register")
@@ -105,6 +121,33 @@ class AuthController(
         @RequestBody(required = false) request: LogoutRequest?,
     ) {
         authService.logout(sessionId, request?.fcmRegistrationId)
+    }
+
+    // 비밀번호 초기화: 검증된 이메일로 코드를 보낸다
+    @Public
+    @PostMapping("/password/reset/request")
+    fun requestPasswordReset(
+        @RequestBody body: RequestPasswordResetRequest,
+    ) {
+        passwordResetService.requestReset(body.email)
+    }
+
+    // 비밀번호 초기화: 코드 확인 후 비밀번호 교체
+    @Public
+    @PostMapping("/password/reset/confirm")
+    fun confirmPasswordReset(
+        @RequestBody body: ConfirmPasswordResetRequest,
+    ) {
+        passwordResetService.confirmReset(body.email, body.code, body.newPassword)
+    }
+
+    // 아이디 찾기: 가입된 이메일로 아이디/소셜 수단 정보를 보낸다
+    @Public
+    @PostMapping("/id/find")
+    fun findId(
+        @RequestBody body: FindIdRequest,
+    ) {
+        passwordResetService.sendLocalIdToEmail(body.email)
     }
 
     // 구 클라이언트 업그레이드 경로: v1 credentialHash → v2 토큰 쌍 (PLAN.md §3 인증)
