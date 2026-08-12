@@ -14,6 +14,11 @@ interface LectureRepository : JpaRepository<Lecture, Long> {
         semester: Semester,
     ): List<Lecture>
 
+    fun findByYearAndSemesterAndWasFullTrue(
+        year: Int,
+        semester: Semester,
+    ): List<Lecture>
+
     // 수강스누 sync upsert 키 (PLAN.md §2 uk_lecture_semester_course_lecture_number)
     fun findByYearAndSemesterAndCourseNumberAndLectureNumber(
         year: Int,

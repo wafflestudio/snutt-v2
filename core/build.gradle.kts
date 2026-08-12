@@ -26,6 +26,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-mysql")
     implementation("com.querydsl:querydsl-jpa:5.1.0:jakarta")
+    implementation("com.google.firebase:firebase-admin:9.10.0")
     kapt("com.querydsl:querydsl-apt:5.1.0:jakarta")
     // Hibernate 7.4 JSON 컬럼 매핑(Jackson 3 FormatMapper)과 @JsonValue/@JsonCreator 사용
     implementation("tools.jackson.core:jackson-databind")

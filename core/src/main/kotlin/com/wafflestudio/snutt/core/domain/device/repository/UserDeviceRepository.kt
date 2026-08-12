@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
     fun findAllByUserIdAndIsDeletedFalse(userId: Long): List<UserDevice>
 
+    fun findAllByUserIdInAndIsDeletedFalse(userIds: Collection<Long>): List<UserDevice>
+
     fun findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(
         userId: Long,
         fcmRegistrationId: String,

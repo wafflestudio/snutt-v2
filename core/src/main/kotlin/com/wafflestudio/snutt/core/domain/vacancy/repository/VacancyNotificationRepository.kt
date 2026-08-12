@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface VacancyNotificationRepository : JpaRepository<VacancyNotification, Long> {
     fun findByUserId(userId: Long): List<VacancyNotification>
 
+    fun findByLectureId(lectureId: Long): List<VacancyNotification>
+
     fun existsByUserIdAndLectureId(
         userId: Long,
         lectureId: Long,
