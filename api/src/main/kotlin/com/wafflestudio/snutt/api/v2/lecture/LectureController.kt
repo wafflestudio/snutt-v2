@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
@@ -61,6 +62,12 @@ data class LectureResponse(
     val registrationCount: Int,
     val wasFull: Boolean,
     val classPlaceAndTime: List<ClassPlaceAndTimeResponse>,
+    val evSummary: LectureEvSummaryResponse?,
+)
+
+data class LectureEvSummaryResponse(
+    val avgRating: Double?,
+    val evalCount: Long,
 )
 
 data class ClassPlaceAndTimeResponse(
@@ -70,7 +77,7 @@ data class ClassPlaceAndTimeResponse(
     val endMinute: Int,
 )
 
-private fun Lecture.toResponse() =
+private fun Lecture.toResponse(evSummary: LectureEvSummaryResponse? = null) =
     LectureResponse(
         id = externalId,
         year = year,
@@ -91,6 +98,7 @@ private fun Lecture.toResponse() =
         registrationCount = registrationCount,
         wasFull = wasFull,
         classPlaceAndTime = classPlaceAndTime.map { it.toResponse() },
+        evSummary = evSummary,
     )
 
 private fun ClassPlaceAndTime.toResponse() =
@@ -105,6 +113,7 @@ private fun ClassPlaceAndTime.toResponse() =
 @RequestMapping("/v2/lectures")
 class LectureController(
     private val lectureService: LectureService,
+    private val evaluationService: EvaluationService,
 ) {
     @Public
     @PostMapping("/search")
@@ -130,7 +139,13 @@ class LectureController(
                 limit = request.limit,
                 sort = LectureSort.getOfName(request.sortBy) ?: LectureSort.DEFAULT,
             )
-        return lectureService.search(criteria).map { it.toResponse() }
+        val lectures = lectureService.search(criteria)
+        val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        return lectures.map { lecture ->
+            summaries[lecture.id]?.let { summary ->
+                lecture.toResponse(LectureEvSummaryResponse(avgRating = summary.avgRating, evalCount = summary.evalCount))
+            } ?: lecture.toResponse()
+        }
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

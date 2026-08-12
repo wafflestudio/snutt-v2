@@ -1,0 +1,202 @@
+package com.wafflestudio.snutt.core.domain.evaluation.repository
+
+import com.querydsl.core.types.Predicate
+import com.querydsl.core.types.dsl.BooleanExpression
+import com.querydsl.jpa.JPAExpressions
+import com.querydsl.jpa.impl.JPAQueryFactory
+import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
+import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
+import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
+import com.wafflestudio.snutt.core.domain.evaluation.model.QEvaluation
+import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
+import com.wafflestudio.snutt.core.domain.tag.model.Tag
+import org.springframework.stereotype.Repository
+
+@Repository
+class EvaluationRepositoryImpl(
+    private val queryFactory: JPAQueryFactory,
+) : EvaluationCustomRepository {
+    private val evaluation = QEvaluation.evaluation
+
+    // 상관 서브쿼리용 별칭 (QEvaluation.evaluation과 구분)
+    private val innerEvaluation = QEvaluation("evaluation2")
+
+    override fun findOthersByCourseAndSemester(
+        courseId: Long,
+        year: Int,
+        semester: Semester,
+        userId: Long,
+        cursor: EvaluationCursor?,
+        pageSize: Int,
+    ): List<Evaluation> =
+        queryFactory
+            .selectFrom(evaluation)
+            .where(
+                evaluation.courseId.eq(courseId),
+                evaluation.year.eq(year),
+                evaluation.semester.eq(semester),
+                evaluation.userId.ne(userId),
+                evaluation.isHidden.isFalse,
+                cursor?.let { beforeCursor(it) },
+            ).orderBy(evaluation.year.desc(), evaluation.semester.desc(), evaluation.id.desc())
+            .limit(pageSize.toLong())
+            .fetch()
+
+    override fun findMine(
+        userId: Long,
+        cursorId: Long?,
+        pageSize: Int,
+    ): List<Evaluation> =
+        queryFactory
+            .selectFrom(evaluation)
+            .where(
+                evaluation.userId.eq(userId),
+                evaluation.isHidden.isFalse,
+                cursorId?.let { evaluation.id.lt(it) },
+            ).orderBy(evaluation.id.desc())
+            .limit(pageSize.toLong())
+            .fetch()
+
+    override fun findByTag(
+        tag: Tag,
+        cursorId: Long?,
+        pageSize: Int,
+    ): List<Evaluation> =
+        queryFactory
+            .selectFrom(evaluation)
+            .where(
+                evaluation.isHidden.isFalse,
+                cursorId?.let { evaluation.id.lt(it) },
+                tagPredicate(tag),
+            ).orderBy(evaluation.id.desc())
+            .limit(pageSize.toLong())
+            .fetch()
+
+    override fun findCourseAggregate(courseId: Long): Pair<Long, Double?> {
+        val row =
+            queryFactory
+                .select(evaluation.id.count(), evaluation.rating.avg())
+                .from(evaluation)
+                .where(evaluation.courseId.eq(courseId), evaluation.isHidden.isFalse)
+                .fetchOne()
+        return (row?.get(0, Long::class.java) ?: 0L) to row?.get(1, Double::class.java)
+    }
+
+    override fun findEvaluationAverages(
+        courseId: Long,
+        year: Int,
+        semester: Semester,
+    ): EvaluationAverages? {
+        val row =
+            queryFactory
+                .select(
+                    evaluation.gradeSatisfaction.avg(),
+                    evaluation.teachingSkill.avg(),
+                    evaluation.gains.avg(),
+                    evaluation.lifeBalance.avg(),
+                    evaluation.rating.avg(),
+                ).from(evaluation)
+                .where(
+                    evaluation.courseId.eq(courseId),
+                    evaluation.year.eq(year),
+                    evaluation.semester.eq(semester),
+                    evaluation.isHidden.isFalse,
+                ).fetchOne()
+                ?: return null
+        return EvaluationAverages(
+            avgGradeSatisfaction = row.get(0, Double::class.java),
+            avgTeachingSkill = row.get(1, Double::class.java),
+            avgGains = row.get(2, Double::class.java),
+            avgLifeBalance = row.get(3, Double::class.java),
+            avgRating = row.get(4, Double::class.java),
+        )
+    }
+
+    override fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> {
+        if (lectureIds.isEmpty()) return emptyMap()
+        val lecture = QLecture.lecture
+        val course = QCourse.course
+        return queryFactory
+            .select(lecture.id, course.avgRating, course.evalCount)
+            .from(lecture)
+            .leftJoin(course)
+            .on(course.id.eq(lecture.courseId))
+            .where(lecture.id.`in`(lectureIds))
+            .fetch()
+            .associate { row ->
+                checkNotNull(row.get(lecture.id)) to
+                    EvaluationSummary(
+                        avgRating = row.get(course.avgRating),
+                        evalCount = row.get(course.evalCount) ?: 0L,
+                    )
+            }
+    }
+
+    // (year desc, semester desc, id desc) keyset
+    private fun beforeCursor(cursor: EvaluationCursor): BooleanExpression =
+        evaluation.year
+            .lt(cursor.year)
+            .or(
+                evaluation.year
+                    .eq(cursor.year)
+                    .and(evaluation.semester.lt(Semester.fromValue(cursor.semester))),
+            ).or(
+                evaluation.year
+                    .eq(cursor.year)
+                    .and(evaluation.semester.eq(Semester.fromValue(cursor.semester)))
+                    .and(evaluation.id.lt(cursor.evaluationId)),
+            )
+
+    // v1 main tag 시맨틱 이식: 이름 기반 조건 (LectureEvaluationRepositoryImpl.getMainTagPredicate)
+    private fun tagPredicate(tag: Tag): BooleanExpression? =
+        when (tag.name) {
+            "최신" -> null
+            "교양" ->
+                JPAExpressions
+                    .selectOne()
+                    .from(QCourse.course)
+                    .where(QCourse.course.id.eq(evaluation.courseId), QCourse.course.classification.eq("교양"))
+                    .exists()
+
+            "추천" -> existsWithAvg(innerEvaluation.rating.avg().goe(4.0))
+            "명강" ->
+                existsWithAvg(
+                    innerEvaluation.teachingSkill
+                        .avg()
+                        .goe(4.0)
+                        .and(innerEvaluation.gains.avg().goe(4.0)),
+                )
+            "꿀강" ->
+                existsWithAvg(
+                    innerEvaluation.gradeSatisfaction
+                        .avg()
+                        .goe(4.0)
+                        .and(innerEvaluation.lifeBalance.avg().goe(4.0)),
+                )
+            "고진감래" ->
+                existsWithAvg(
+                    innerEvaluation.lifeBalance
+                        .avg()
+                        .lt(2.0)
+                        .and(innerEvaluation.gains.avg().goe(4.0)),
+                )
+            else -> null
+        }
+
+    // 같은 (course, year, semester) 그룹의 평균이 조건을 만족하는 강의평만 남긴다
+    private fun existsWithAvg(having: Predicate): BooleanExpression =
+        JPAExpressions
+            .selectOne()
+            .from(innerEvaluation)
+            .where(
+                innerEvaluation.courseId.eq(evaluation.courseId),
+                innerEvaluation.year.eq(evaluation.year),
+                innerEvaluation.semester.eq(evaluation.semester),
+                innerEvaluation.isHidden.isFalse,
+            ).groupBy(innerEvaluation.courseId, innerEvaluation.year, innerEvaluation.semester)
+            .having(having)
+            .exists()
+}

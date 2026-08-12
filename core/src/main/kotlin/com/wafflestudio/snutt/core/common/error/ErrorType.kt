@@ -99,6 +99,8 @@ enum class ErrorType(
     DIARY_TARGET_LECTURE_NOT_FOUND(HttpStatus.NOT_FOUND, 40413, "강의 일기장을 작성할 강의가 없습니다", "강의 일기장을 작성할 강의가 없습니다"),
     DIARY_SUBMISSION_NOT_FOUND(HttpStatus.NOT_FOUND, 40414, "강의 일기장 기록이 유효하지 않습니다", "강의 일기장 기록이 유효하지 않습니다"),
     EVALUATION_NOT_FOUND(HttpStatus.NOT_FOUND, 40415, "강의평을 찾을 수 없습니다", "강의평을 찾을 수 없습니다"),
+    TAG_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, 40416, "태그 그룹을 찾을 수 없습니다", "태그 그룹을 찾을 수 없습니다"),
+    TAG_NOT_FOUND(HttpStatus.NOT_FOUND, 40417, "태그를 찾을 수 없습니다", "태그를 찾을 수 없습니다"),
 
     DUPLICATE_VACANCY_NOTIFICATION(HttpStatus.CONFLICT, 40900, "빈자리 알림 중복", "이미 빈자리 알림을 받고 있는 강좌입니다"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, 40901, "이미 사용 중인 이메일입니다", "이미 사용 중인 이메일입니다", "회원가입 실패"),
@@ -111,6 +113,11 @@ enum class ErrorType(
     CANNOT_REMOVE_LAST_AUTH_PROVIDER(HttpStatus.CONFLICT, 40909, "최소 한 개의 로그인 수단은 유지해야 합니다", "최소 한 개의 로그인 수단은 유지해야 합니다"),
     DUPLICATE_EVALUATION(HttpStatus.CONFLICT, 40910, "이미 강의평을 작성한 강의입니다", "이미 강의평을 작성한 강의입니다"),
     DUPLICATE_EVALUATION_REPORT(HttpStatus.CONFLICT, 40911, "이미 신고한 강의평입니다", "이미 신고한 강의평입니다"),
+    DUPLICATE_EVALUATION_LIKE(HttpStatus.CONFLICT, 40912, "이미 공감한 강의평입니다", "이미 공감한 강의평입니다"),
+    EVALUATION_LIKE_NOT_FOUND(HttpStatus.CONFLICT, 40913, "공감하지 않은 강의평입니다", "공감하지 않은 강의평입니다"),
+    MY_EVALUATION_REPORT(HttpStatus.CONFLICT, 40914, "내 강의평은 신고할 수 없습니다", "내 강의평은 신고할 수 없습니다"),
+    NOT_MY_EVALUATION(HttpStatus.FORBIDDEN, 40301, "내 강의평이 아닙니다", "내 강의평이 아닙니다"),
+    EVALUATION_CONTENT_BLANK(HttpStatus.BAD_REQUEST, 40028, "강의평 내용이 비어 있습니다", "강의평 내용을 입력해 주세요"),
 
     DYNAMIC_LINK_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 50001, "링크 생성 실패", "링크 생성에 실패했습니다. 잠시 후 다시 시도해주세요"),
     COURSEBOOK_RECENT_THAN_SUGANGSNU(

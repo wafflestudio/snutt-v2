@@ -45,6 +45,10 @@ class UserAuthInterceptor(
             userRepository.findByExternalIdAndActiveTrue(payload.userExternalId)
                 ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
         if (isAdminOnly && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
+        val isEmailVerifiedRequired =
+            handler.hasMethodAnnotation(EmailVerifiedRequired::class.java) ||
+                handler.beanType.isAnnotationPresent(EmailVerifiedRequired::class.java)
+        if (isEmailVerifiedRequired && !user.isEmailVerified) throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
 
         request.setAttribute(USER_ATTRIBUTE, user)
         request.setAttribute(SESSION_ATTRIBUTE, payload.sessionExternalId)

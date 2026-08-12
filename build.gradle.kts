@@ -40,9 +40,7 @@ subprojects {
         implementation("tools.jackson.module:jackson-module-kotlin")
 
         testImplementation("org.springframework.boot:spring-boot-starter-test")
-        testImplementation("io.mockk:mockk:1.14.11")
-        testImplementation("io.kotest:kotest-runner-junit5:6.2.4")
-        testImplementation("io.kotest:kotest-assertions-core:6.2.4")
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 
     tasks.withType<KotlinCompile> {
