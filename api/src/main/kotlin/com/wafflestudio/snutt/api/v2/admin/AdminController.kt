@@ -4,6 +4,9 @@ import com.wafflestudio.snutt.api.auth.AdminOnly
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.storage.FileUploadUri
+import com.wafflestudio.snutt.core.common.storage.StorageSource
+import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
@@ -82,7 +85,23 @@ class AdminController(
     private val userRepository: UserRepository,
     private val diaryService: DiaryService,
     private val diaryScheduler: com.wafflestudio.snutt.api.scheduler.DiaryScheduler,
+    private val uploadUriIssuer: UploadUriIssuer,
 ) {
+    // 팝업 이미지 업로드용 사전 인증 URI 발급
+    @PostMapping("/images/{source}/upload-uris")
+    fun getUploadUris(
+        @PathVariable source: String,
+        @RequestParam(defaultValue = "1") count: Int,
+    ): List<FileUploadUri> {
+        val storageSource = StorageSource.from(source) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        if (count !in 1..MAX_UPLOAD_FILE_COUNT) throw SnuttException(ErrorType.TOO_MANY_FILES)
+        return uploadUriIssuer.issue(storageSource, count)
+    }
+
+    private companion object {
+        const val MAX_UPLOAD_FILE_COUNT = 10
+    }
+
     // 정기 발송을 기다리지 않고 즉시 발송한다 (v1 /admin/diary/notifier/trigger)
     @PostMapping("/diary/notifier/trigger")
     fun triggerDiaryNotifier() {

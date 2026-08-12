@@ -218,6 +218,26 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
+    fun `관리자 이미지 업로드 URI를 발급한다`() {
+        userRepository.findByLocalIdAndActiveTrue("v1pathuser")!!.let {
+            it.isAdmin = true
+            userRepository.save(it)
+        }
+        val response =
+            client()
+                .post()
+                .uri("/v1/admin/images/popup/upload-uris?count=2")
+                .header("x-access-token", legacyToken)
+                .retrieve()
+                .toEntity(Any::class.java)
+        assertEquals(200, response.statusCode.value())
+        val uris = asList(response)
+        assertEquals(2, uris.size)
+        assertTrue((uris[0]["fileOriginUri"] as String).startsWith("s3://snutt-asset/popup-images/"))
+        assertTrue((uris[0]["fileUri"] as String).startsWith("https://objectstorage."))
+    }
+
+    @Test
     fun `학기 상태와 강의평 요약은 인증 없이 열려 있다`() {
         val status =
             client()
