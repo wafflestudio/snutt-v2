@@ -24,7 +24,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
-import org.testcontainers.containers.GenericContainer
 
 /**
  * M5a DoD: 친구(+초대 링크), 빈자리 알림, 알림함, 팝업, 클라이언트 설정, 푸시 프리퍼런스,
@@ -43,16 +42,6 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         }
 
         // 친구 초대 링크 토큰 저장용 (v1 Redis 시맨틱)
-        @JvmStatic
-        val redis: GenericContainer<*> =
-            GenericContainer("redis:7-alpine").withExposedPorts(6379).apply { start() }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun redisProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.data.redis.host") { redis.host }
-            registry.add("spring.data.redis.port") { redis.getMappedPort(6379).toString() }
-        }
     }
 
     @Autowired

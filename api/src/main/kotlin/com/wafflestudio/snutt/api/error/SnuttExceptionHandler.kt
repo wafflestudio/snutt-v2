@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.ErrorResponse as SpringErrorResponse
 
 data class ErrorResponse(
     val errcode: Long,
@@ -54,6 +55,21 @@ class SnuttExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(e: Exception): ResponseEntity<ErrorResponse> {
+        // 라우팅·메서드·바인딩 실패는 Spring이 상태를 정해 둔다(미매칭 경로 404 등).
+        // errcode는 ErrorType과 같은 규칙(<상태코드><일련번호>)을 따른다
+        if (e is SpringErrorResponse) {
+            val status = e.statusCode.value()
+            return ResponseEntity
+                .status(status)
+                .body(
+                    ErrorResponse(
+                        errcode = status * 100L,
+                        title = "요청을 처리할 수 없습니다",
+                        message = e.body.detail ?: e.message.orEmpty(),
+                        displayMessage = "요청을 처리할 수 없습니다",
+                    ),
+                )
+        }
         log.error("unhandled exception", e)
         val error = ErrorType.DEFAULT_ERROR
         return ResponseEntity

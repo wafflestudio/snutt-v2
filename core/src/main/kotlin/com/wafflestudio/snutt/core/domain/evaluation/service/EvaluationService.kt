@@ -7,14 +7,16 @@ import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationLike
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationReport
+import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationLikeRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationReportRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.tag.repository.TagRepository
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -55,7 +57,7 @@ class EvaluationService(
     private val evaluationLikeRepository: EvaluationLikeRepository,
     private val evaluationReportRepository: EvaluationReportRepository,
     private val lectureRepository: LectureRepository,
-    private val tagRepository: TagRepository,
+    private val courseRepository: CourseRepository,
     private val courseAggregateUpdater: CourseAggregateUpdater,
 ) {
     companion object {
@@ -137,10 +139,9 @@ class EvaluationService(
 
     fun getEvaluationsByTag(
         userId: Long,
-        tagId: Long,
+        tag: EvaluationTag,
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
-        val tag = tagRepository.findById(tagId).orElse(null) ?: throw SnuttException(ErrorType.TAG_NOT_FOUND)
         val cursorId = CursorCodec.decode<Long>(cursor)
         val page = evaluationRepository.findByTag(tag, cursorId, DEFAULT_PAGE_SIZE + 1)
         return page.toCursorPage(DEFAULT_PAGE_SIZE, null, { it.id!! }, { it.toDisplay(userId) })
@@ -201,7 +202,7 @@ class EvaluationService(
         userId: Long,
         evaluationId: Long,
         request: EvaluationReportRequest,
-    ): Long {
+    ): EvaluationReport {
         val evaluation =
             evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
@@ -211,8 +212,11 @@ class EvaluationService(
         }
         return evaluationReportRepository
             .save(EvaluationReport(evaluationId = evaluationId, userId = userId, content = request.content))
-            .id!!
     }
+
+    // 강의평이 가리키는 과목. 응답 조립에 필요한 만큼만 노출한다
+    fun getCourses(courseIds: Collection<Long>): Map<Long, Course> =
+        courseRepository.findAllById(courseIds.distinct()).associateBy { it.id!! }
 
     @Transactional
     fun likeEvaluation(

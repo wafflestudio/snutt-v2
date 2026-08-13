@@ -3,7 +3,7 @@ package com.wafflestudio.snutt.api.auth
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.service.AccessTokenService
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.stereotype.Component
@@ -13,7 +13,7 @@ import org.springframework.web.servlet.HandlerInterceptor
 @Component
 class UserAuthInterceptor(
     private val accessTokenService: AccessTokenService,
-    private val userRepository: UserRepository,
+    private val authService: AuthService,
 ) : HandlerInterceptor {
     companion object {
         const val USER_ATTRIBUTE = "user"
@@ -41,9 +41,7 @@ class UserAuthInterceptor(
                 ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
 
         val payload = accessTokenService.verify(token)
-        val user =
-            userRepository.findByExternalIdAndActiveTrue(payload.userExternalId)
-                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        val user = authService.authenticate(payload)
         if (isAdminOnly && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
         val isEmailVerifiedRequired =
             handler.hasMethodAnnotation(EmailVerifiedRequired::class.java) ||

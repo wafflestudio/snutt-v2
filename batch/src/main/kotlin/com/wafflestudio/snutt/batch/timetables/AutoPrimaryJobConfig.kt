@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.batch.timetables
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.configuration.annotation.JobScope
@@ -21,6 +22,7 @@ class AutoPrimaryJobConfig(
     private val jobRepository: JobRepository,
     private val transactionManager: PlatformTransactionManager,
     private val timetableRepository: TimetableRepository,
+    private val coursebookService: CoursebookService,
 ) {
     @Bean
     fun primaryTimetableAutoSetJob(): Job =
@@ -38,8 +40,9 @@ class AutoPrimaryJobConfig(
         return StepBuilder("primaryTimetableAutoSetStep", jobRepository)
             .tasklet(
                 { _, _ ->
-                    val targetYear = year ?: 2026
-                    val targetSemester = semester?.let(Semester::getOfValue) ?: Semester.AUTUMN
+                    val coursebook = coursebookService.getLatestCoursebook()
+                    val targetYear = year ?: coursebook.year
+                    val targetSemester = semester?.let(Semester::getOfValue) ?: coursebook.semester
                     val timetables = timetableRepository.findByYearAndSemester(targetYear, targetSemester)
                     val userIdsWithPrimary =
                         timetableRepository

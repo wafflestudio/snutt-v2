@@ -30,7 +30,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
-import org.testcontainers.containers.GenericContainer
 
 /**
  * 기존 snutt/snutt-ev 대비 누락되어 있던 기능들의 계약 검증:
@@ -46,17 +45,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             registry.add("spring.datasource.url") { mysqlJdbcUrl("coverage_gap_test") }
             registry.add("spring.datasource.username") { mysql.username }
             registry.add("spring.datasource.password") { mysql.password }
-        }
-
-        @JvmStatic
-        val redis: GenericContainer<*> =
-            GenericContainer("redis:7-alpine").withExposedPorts(6379).apply { start() }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun redisProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.data.redis.host") { redis.host }
-            registry.add("spring.data.redis.port") { redis.getMappedPort(6379).toString() }
         }
     }
 

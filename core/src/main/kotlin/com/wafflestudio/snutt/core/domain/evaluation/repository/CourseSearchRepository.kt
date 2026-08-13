@@ -2,23 +2,12 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
 import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
 import org.springframework.stereotype.Repository
 
-data class CourseSearchCriteria(
-    val query: String = "",
-    val classification: List<String>? = null,
-    val credit: List<Int>? = null,
-    val academicYear: List<String>? = null,
-    val department: List<String>? = null,
-    val category: List<String>? = null,
-    // (년도, 학기) 태그. 지정되면 해당 학기에 개설된 강의만 남긴다
-    val yearSemesters: List<Pair<Int, Int>> = emptyList(),
-    val page: Int = 0,
-)
-
-// 강의평 검색: course를 대상으로 태그 필터 + 한국어 fuzzy 질의 (구 ev LectureRepositoryImpl 이식)
+// 강의평 검색: course를 대상으로 속성 필터 + 한국어 fuzzy 질의 (구 ev LectureRepositoryImpl 이식)
 @Repository
 class CourseSearchRepository(
     private val queryFactory: JPAQueryFactory,
@@ -32,25 +21,18 @@ class CourseSearchRepository(
     fun search(criteria: CourseSearchCriteria): List<com.wafflestudio.snutt.core.domain.evaluation.model.Course> {
         val course = QCourse.course
         val builder = BooleanBuilder()
-        criteria.credit?.takeIf { it.isNotEmpty() }?.let { builder.and(course.credit.`in`(it)) }
-        criteria.academicYear?.takeIf { it.isNotEmpty() }?.let { builder.and(course.academicYear.`in`(it)) }
-        criteria.classification?.takeIf { it.isNotEmpty() }?.let { builder.and(course.classification.`in`(it)) }
-        criteria.department?.takeIf { it.isNotEmpty() }?.let { builder.and(course.department.`in`(it)) }
-        criteria.category?.takeIf { it.isNotEmpty() }?.let { builder.and(course.category.`in`(it)) }
+        criteria.credit.takeIf { it.isNotEmpty() }?.let { builder.and(course.credit.`in`(it)) }
+        criteria.academicYear.takeIf { it.isNotEmpty() }?.let { builder.and(course.academicYear.`in`(it)) }
+        criteria.classification.takeIf { it.isNotEmpty() }?.let { builder.and(course.classification.`in`(it)) }
+        criteria.department.takeIf { it.isNotEmpty() }?.let { builder.and(course.department.`in`(it)) }
+        criteria.category.takeIf { it.isNotEmpty() }?.let { builder.and(course.category.`in`(it)) }
         queryPredicate(criteria.query)?.let { builder.and(it) }
 
         if (criteria.yearSemesters.isNotEmpty()) {
             val lecture = QLecture.lecture
             val semesterBuilder = BooleanBuilder()
             criteria.yearSemesters.forEach { (year, semester) ->
-                semesterBuilder.or(
-                    lecture.year.eq(year).and(
-                        lecture.semester.eq(
-                            com.wafflestudio.snutt.core.common.enums.Semester
-                                .fromValue(semester),
-                        ),
-                    ),
-                )
+                semesterBuilder.or(lecture.year.eq(year).and(lecture.semester.eq(semester)))
             }
             builder.and(
                 course.id.`in`(

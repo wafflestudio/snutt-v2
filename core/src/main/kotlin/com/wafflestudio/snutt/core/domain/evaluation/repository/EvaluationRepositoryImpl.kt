@@ -9,10 +9,10 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
+import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
 import com.wafflestudio.snutt.core.domain.evaluation.model.QEvaluation
 import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
-import com.wafflestudio.snutt.core.domain.tag.model.Tag
 import org.springframework.stereotype.Repository
 
 @Repository
@@ -61,7 +61,7 @@ class EvaluationRepositoryImpl(
             .fetch()
 
     override fun findByTag(
-        tag: Tag,
+        tag: EvaluationTag,
         cursorId: Long?,
         pageSize: Int,
     ): List<Evaluation> =
@@ -150,53 +150,49 @@ class EvaluationRepositoryImpl(
                     .and(evaluation.id.lt(cursor.evaluationId)),
             )
 
-    // v1 main tag 시맨틱 이식: 이름 기반 조건 (LectureEvaluationRepositoryImpl.getMainTagPredicate)
-    private fun tagPredicate(tag: Tag): BooleanExpression? =
-        when (tag.name) {
-            "최신" -> null
-            "교양" ->
+    private fun tagPredicate(tag: EvaluationTag): BooleanExpression? =
+        when (tag) {
+            EvaluationTag.RECENT -> null
+            EvaluationTag.LIBERAL_EDUCATION ->
                 JPAExpressions
                     .selectOne()
                     .from(QCourse.course)
                     .where(QCourse.course.id.eq(evaluation.courseId), QCourse.course.classification.eq("교양"))
                     .exists()
 
-            "추천" -> existsWithAvg(innerEvaluation.rating.avg().goe(4.0))
-            "명강" ->
+            EvaluationTag.RECOMMENDED -> existsWithAvg(innerEvaluation.rating.avg().goe(4.0))
+            EvaluationTag.WELL_TAUGHT ->
                 existsWithAvg(
                     innerEvaluation.teachingSkill
                         .avg()
                         .goe(4.0)
                         .and(innerEvaluation.gains.avg().goe(4.0)),
                 )
-            "꿀강" ->
+            EvaluationTag.SWEET ->
                 existsWithAvg(
                     innerEvaluation.gradeSatisfaction
                         .avg()
                         .goe(4.0)
                         .and(innerEvaluation.lifeBalance.avg().goe(4.0)),
                 )
-            "고진감래" ->
+            EvaluationTag.HARD_BUT_WORTH ->
                 existsWithAvg(
                     innerEvaluation.lifeBalance
                         .avg()
                         .lt(2.0)
                         .and(innerEvaluation.gains.avg().goe(4.0)),
                 )
-            else -> null
         }
 
-    // 같은 (course, year, semester) 그룹의 평균이 조건을 만족하는 강의평만 남긴다
+    // 같은 course의 강의평 평균이 조건을 만족하는 강의평만 남긴다 (course가 평가 앵커)
     private fun existsWithAvg(having: Predicate): BooleanExpression =
         JPAExpressions
             .selectOne()
             .from(innerEvaluation)
             .where(
                 innerEvaluation.courseId.eq(evaluation.courseId),
-                innerEvaluation.year.eq(evaluation.year),
-                innerEvaluation.semester.eq(evaluation.semester),
                 innerEvaluation.isHidden.isFalse,
-            ).groupBy(innerEvaluation.courseId, innerEvaluation.year, innerEvaluation.semester)
+            ).groupBy(innerEvaluation.courseId)
             .having(having)
             .exists()
 }

@@ -3,15 +3,12 @@ package com.wafflestudio.snutt.core.domain.evaluation.service
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
-import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.tag.model.TagValueType
-import com.wafflestudio.snutt.core.domain.tag.repository.TagGroupRepository
-import com.wafflestudio.snutt.core.domain.tag.repository.TagRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,61 +24,19 @@ data class CourseWithSemesters(
     val semesters: List<CourseSemester>,
 )
 
-// 강의평 탭의 강의 검색/상세 (구 ev LectureService 이식)
+/**
+ * 강의평 탭의 과목 검색/상세. 필터 어휘(구분·학과·학년·학점·교양분류)는 강의 검색과 같은
+ * tag_list에서 오므로 강의평 전용 태그 테이블을 두지 않는다.
+ */
 @Service
 class CourseSearchService(
     private val courseSearchRepository: CourseSearchRepository,
     private val courseRepository: CourseRepository,
     private val lectureRepository: LectureRepository,
     private val evaluationRepository: EvaluationRepository,
-    private val tagRepository: TagRepository,
-    private val tagGroupRepository: TagGroupRepository,
 ) {
     @Transactional(readOnly = true)
-    fun search(
-        query: String,
-        tagIds: List<Long>,
-        page: Int,
-    ): List<Course> = courseSearchRepository.search(criteriaOf(query, tagIds, page))
-
-    // 태그는 그룹 이름에 따라 강의 속성으로 환원된다
-    private fun criteriaOf(
-        query: String,
-        tagIds: List<Long>,
-        page: Int,
-    ): CourseSearchCriteria {
-        if (tagIds.isEmpty()) return CourseSearchCriteria(query = query, page = page)
-        val tags = tagRepository.findAllById(tagIds)
-        val groupsById = tagGroupRepository.findAllById(tags.map { it.tagGroupId }.distinct()).associateBy { it.id }
-        val byGroupName =
-            tags.groupBy(
-                { groupsById[it.tagGroupId]?.name.orEmpty() },
-                { tag ->
-                    when (groupsById[tag.tagGroupId]?.valueType) {
-                        TagValueType.INT -> tag.intValue
-                        TagValueType.STRING -> tag.stringValue
-                        else -> null
-                    }
-                },
-            )
-        val yearSemesters =
-            byGroupName["학기"].orEmpty().filterIsInstance<String>().mapNotNull {
-                val parts = it.split(",")
-                parts.getOrNull(0)?.toIntOrNull()?.let { year ->
-                    parts.getOrNull(1)?.toIntOrNull()?.let { semester -> year to semester }
-                }
-            }
-        return CourseSearchCriteria(
-            query = query,
-            classification = byGroupName["구분"].orEmpty().filterIsInstance<String>(),
-            credit = byGroupName["학점"].orEmpty().filterIsInstance<Int>(),
-            academicYear = byGroupName["학년"].orEmpty().filterIsInstance<String>(),
-            department = byGroupName["학과"].orEmpty().filterIsInstance<String>(),
-            category = byGroupName["교양분류"].orEmpty().filterIsInstance<String>(),
-            yearSemesters = yearSemesters,
-            page = page,
-        )
-    }
+    fun search(criteria: CourseSearchCriteria): List<Course> = courseSearchRepository.search(criteria)
 
     // 강의평 상세: 개설 학기 목록과 내가 이미 평가했는지
     @Transactional(readOnly = true)
@@ -89,7 +44,7 @@ class CourseSearchService(
         courseId: Long,
         userId: Long,
     ): CourseWithSemesters {
-        val course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.LECTURE_NOT_FOUND) }
+        val course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.COURSE_NOT_FOUND) }
         val lectures = lectureRepository.findByCourseIdOrderByYearDescSemesterDesc(courseId)
         val evaluated =
             lectures

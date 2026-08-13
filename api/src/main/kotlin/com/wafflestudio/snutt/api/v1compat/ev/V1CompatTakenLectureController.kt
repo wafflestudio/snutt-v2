@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController
  * (v1은 이 경로만 프록시의 handleRouting을 타지 않아 게이트 밖이었다).
  */
 @RestController
-@RequestMapping("/v1/ev-service/v1", "/ev-service/v1", "/v1/ev/v1")
+@RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatTakenLectureController(
     private val takenLectureService: TakenLectureService,
 ) {
@@ -54,17 +54,21 @@ class V1CompatTakenLectureController(
  * 구 ev LectureController의 /v1/lectures, /v1/lectures/{id}/semester-lectures 이식.
  */
 @RestController
-@RequestMapping("/v1/ev-service/v1", "/ev-service/v1", "/v1/ev/v1")
+@RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatCourseSearchController(
     private val courseSearchService: com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService,
 ) {
+    // v1 경로는 질의와 페이지만 받는다. 속성 필터 검색은 GET /v2/courses이다
     @GetMapping("/lectures")
     fun searchLectures(
         @RequestParam(required = false, defaultValue = "") query: String,
-        @RequestParam(required = false) tags: List<Long>?,
         @RequestParam(required = false, defaultValue = "0") page: Int,
     ): Map<String, Any?> {
-        val courses = courseSearchService.search(query, tags.orEmpty(), page)
+        val courses =
+            courseSearchService.search(
+                com.wafflestudio.snutt.core.domain.evaluation.dto
+                    .CourseSearchCriteria(query = query, page = page),
+            )
         return linkedMapOf(
             "content" to courses.map { it.toLegacyCourse() },
             "totalCount" to courses.size,

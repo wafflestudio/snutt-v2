@@ -63,35 +63,23 @@ data class LegacyThemePublishRequest(
 )
 
 @RestController
-@RequestMapping("/v1/themes", "/themes")
+@RequestMapping("/v1/themes")
 class V1CompatThemeController(
     private val delegate: ThemeController,
-    private val timetableThemeRepository: com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository,
-    private val userRepository: com.wafflestudio.snutt.core.domain.user.repository.UserRepository,
+    private val timetableThemeService: com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService,
 ) {
     // v1은 받아온 테마의 원본 정보(origin)를 함께 준다. 목록에서 1회씩 일괄 조회한다 (N+1 회피)
     private fun originMap(responses: List<ThemeResponse>): Map<String, Map<String, Any?>> {
         val downloaded = responses.filter { it.status == com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus.DOWNLOADED }
         if (downloaded.isEmpty()) return emptyMap()
-        val themesByExternalId =
-            timetableThemeRepository
-                .findAllByExternalIdIn(downloaded.mapNotNull { it.id })
-                .associateBy { it.externalId }
-        val originThemes =
-            timetableThemeRepository
-                .findAllById(
-                    themesByExternalId.values.mapNotNull { it.originThemeId },
-                ).associateBy { it.id!! }
-        val originAuthors = userRepository.findAllById(themesByExternalId.values.mapNotNull { it.originAuthorId }).associateBy { it.id!! }
-        return themesByExternalId
-            .mapNotNull { (externalId, theme) ->
-                val originThemeExternalId = theme.originThemeId?.let(originThemes::get)?.externalId ?: return@mapNotNull null
-                externalId to
-                    linkedMapOf(
-                        "originId" to originThemeExternalId,
-                        "authorId" to theme.originAuthorId?.let(originAuthors::get)?.externalId,
-                    )
-            }.toMap()
+        return timetableThemeService
+            .getOrigins(downloaded.mapNotNull { it.id })
+            .mapValues { (_, origin) ->
+                linkedMapOf(
+                    "originId" to origin.originThemeExternalId,
+                    "authorId" to origin.authorExternalId,
+                )
+            }
     }
 
     @GetMapping("")
@@ -234,10 +222,10 @@ class V1CompatThemeController(
 }
 
 @RestController
-@RequestMapping("/v1/diary", "/diary")
+@RequestMapping("/v1/diary")
 class V1CompatDiaryController(
     private val diaryService: com.wafflestudio.snutt.core.domain.diary.service.DiaryService,
-    private val lectureRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository,
+    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
 ) {
     // 질문 id는 재채번으로 Long이 되었다 (구 클라이언트의 ObjectId 문자열과 단절 — PLAN.md §8 id 변경)
     @PostMapping("/questionnaire")
@@ -308,10 +296,9 @@ class V1CompatDiaryController(
         val submissions = diaryService.getMySubmissions(user.id!!)
         val replies = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
         val lectureExternalIds =
-            lectureRepository
-                .findAllById(
-                    submissions.mapNotNull { it.lectureId },
-                ).associate { it.id!! to it.externalId }
+            lectureService
+                .getAllByIds(submissions.mapNotNull { it.lectureId })
+                .mapValues { (_, lecture) -> lecture.externalId }
         return submissions
             .groupBy { it.year to it.semester }
             .map { (yearSemester, group) ->
@@ -358,7 +345,7 @@ class V1CompatDiaryController(
 }
 
 @RestController
-@RequestMapping("/v1/tags", "/tags")
+@RequestMapping("/v1/tags")
 class V1CompatTagUpdateTimeController(
     private val tagListService: TagListService,
 ) {
@@ -375,7 +362,7 @@ class V1CompatTagUpdateTimeController(
 
 // v1의 리마인더 경로는 /tables/{id}/lecture/... 이다
 @RestController
-@RequestMapping("/v1/tables/{timetableId}/lecture", "/tables/{timetableId}/lecture")
+@RequestMapping("/v1/tables/{timetableId}/lecture")
 class V1CompatReminderController(
     private val delegate: TimetableLectureReminderController,
 ) {
@@ -403,7 +390,7 @@ class V1CompatReminderController(
 
 // v1의 강의평 요약은 인증 없이 열려 있다 (../snutt EvController)
 @RestController
-@RequestMapping("/v1/ev", "/ev")
+@RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
     private val evaluationService: com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService,
 ) {

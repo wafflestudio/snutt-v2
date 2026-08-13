@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController
 
 // FCM 등록 토큰 등록/해제 (v1 /v1/user/device/{id})
 @RestController
-@RequestMapping("/v2/users/me/devices", "/v1/user/device", "/user/device")
+@RequestMapping("/v2/users/me/devices", "/v1/user/device")
 class DeviceController(
     private val deviceService: DeviceService,
 ) {

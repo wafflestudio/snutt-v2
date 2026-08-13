@@ -7,7 +7,7 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectureAddRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddRequest
@@ -57,11 +57,11 @@ data class LegacyTimetableModifyThemeRequest(
 )
 
 @RestController
-@RequestMapping("/v1/tables", "/tables")
+@RequestMapping("/v1/tables")
 class V1CompatTimetableController(
     private val timetableService: TimetableService,
     private val timetableLectureService: TimetableLectureService,
-    private val lectureRepository: LectureRepository,
+    private val lectureService: LectureService,
     private val evaluationService: EvaluationService,
 ) {
     @GetMapping("")
@@ -337,7 +337,7 @@ class V1CompatTimetableController(
     // lecture 공개 id(hex) → ev lecture id (재채번된 course id)
     private fun fetchEvLectureIds(lectureExternalIds: List<String>): Map<String, Long> {
         if (lectureExternalIds.isEmpty()) return emptyMap()
-        val numericIds = lectureRepository.findAllByExternalIdIn(lectureExternalIds).associate { it.externalId to it.id!! }
+        val numericIds = lectureService.getIdsByExternalIds(lectureExternalIds)
         val summaries = evaluationService.findSummariesByLectureIds(numericIds.values)
         return numericIds
             .mapValues { (_, numericId) -> summaries[numericId]?.let { numericId } }

@@ -46,12 +46,12 @@ private fun FriendResponse.toLegacy() =
     )
 
 @RestController
-@RequestMapping("/v1/friends", "/friends")
+@RequestMapping("/v1/friends")
 class V1CompatFriendController(
     private val delegate: FriendController,
     private val friendService: com.wafflestudio.snutt.core.domain.friend.service.FriendService,
     private val timetableService: com.wafflestudio.snutt.core.domain.timetable.service.TimetableService,
-    private val userRepository: com.wafflestudio.snutt.core.domain.user.repository.UserRepository,
+    private val userService: com.wafflestudio.snutt.core.domain.user.service.UserService,
 ) {
     @GetMapping("")
     fun getFriends(
@@ -129,10 +129,10 @@ class V1CompatFriendController(
                     .fromValue(semester),
             )
         val display = timetableService.getTimetableDisplay(partnerId, timetable.externalId)
-        val partner = userRepository.findById(partnerId).orElse(null)
+        val partnerExternalId = userService.getExternalIds(listOf(partnerId))[partnerId]
         return LegacyTimetableDto(
             timetable = timetable,
-            userId = partner?.externalId.orEmpty(),
+            userId = partnerExternalId.orEmpty(),
             display = display,
             evLectureIds = emptyMap(),
         )
@@ -146,7 +146,7 @@ class V1CompatFriendController(
 }
 
 @RestController
-@RequestMapping("/v1/notification", "/notification")
+@RequestMapping("/v1/notification")
 class V1CompatNotificationController(
     private val delegate: NotificationController,
 ) {
@@ -177,7 +177,7 @@ class V1CompatNotificationController(
 }
 
 @RestController
-@RequestMapping("/v1/bookmarks", "/bookmarks")
+@RequestMapping("/v1/bookmarks")
 class V1CompatBookmarkController(
     private val bookmarkService: com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService,
     private val evaluationService: EvaluationService,
@@ -234,7 +234,7 @@ class V1CompatBookmarkController(
 }
 
 @RestController
-@RequestMapping("/v1/vacancy-notifications", "/vacancy-notifications")
+@RequestMapping("/v1/vacancy-notifications")
 class V1CompatVacancyNotificationController(
     private val vacancyNotificationService: com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService,
     private val evaluationService: EvaluationService,
@@ -281,7 +281,7 @@ class V1CompatVacancyNotificationController(
 }
 
 @RestController
-@RequestMapping("/v1/popups", "/popups")
+@RequestMapping("/v1/popups")
 class V1CompatPopupController(
     private val delegate: PopupController,
 ) {
@@ -303,7 +303,7 @@ class V1CompatPopupController(
 }
 
 @RestController
-@RequestMapping("/v1/configs", "/configs")
+@RequestMapping("/v1/configs")
 class V1CompatConfigController(
     private val delegate: ConfigController,
 ) {
@@ -314,7 +314,7 @@ class V1CompatConfigController(
 }
 
 @RestController
-@RequestMapping("/v1/push/preferences", "/push/preferences")
+@RequestMapping("/v1/push/preferences")
 class V1CompatPushPreferenceController(
     private val delegate: PushPreferenceController,
 ) {
@@ -331,7 +331,7 @@ class V1CompatPushPreferenceController(
 }
 
 @RestController
-@RequestMapping("/v1/feedback", "/feedback")
+@RequestMapping("/v1/feedback")
 class V1CompatFeedbackController(
     private val delegate: FeedbackController,
 ) {

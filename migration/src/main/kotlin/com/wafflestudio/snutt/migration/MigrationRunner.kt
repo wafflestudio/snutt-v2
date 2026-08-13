@@ -36,7 +36,6 @@ class MigrationRunner(
             listOf(
                 "users",
                 "course",
-                "tag",
                 "lecture",
                 "timetable",
                 "bookmark",

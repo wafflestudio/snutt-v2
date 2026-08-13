@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController
 
 // v1 태그 목록 (tag_list)
 @RestController
-@RequestMapping("/v1/tags", "/tags")
+@RequestMapping("/v1/tags")
 class V1CompatTagController(
     private val tagListService: TagListService,
 ) {
@@ -66,7 +66,7 @@ class V1CompatTagController(
 // v1 수강편람
 @RestController
 @Public
-@RequestMapping("/v1/course_books", "/course_books")
+@RequestMapping("/v1/course_books")
 class V1CompatCoursebookController(
     private val coursebookService: CoursebookService,
     @Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
@@ -106,7 +106,7 @@ class V1CompatCoursebookController(
 // v1 건물 검색
 @RestController
 @Public
-@RequestMapping("/v1/buildings", "/buildings")
+@RequestMapping("/v1/buildings")
 class V1CompatBuildingController(
     private val lectureBuildingService: LectureBuildingService,
 ) {

@@ -18,6 +18,16 @@ class UserService(
     fun getByExternalId(externalId: String): User =
         userRepository.findByExternalIdAndActiveTrue(externalId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
+    fun get(userId: Long): User = userRepository.findById(userId).orElse(null) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+
+    // 응답에 내부 id 대신 공개 id를 스는 경로용 일괄 조회
+    fun getExternalIds(userIds: Collection<Long>): Map<Long, String> =
+        userRepository.findAllById(userIds.distinct()).associate { it.id!! to it.externalId }
+
+    fun getAllByIds(userIds: Collection<Long>): Map<Long, User> = userRepository.findAllById(userIds.distinct()).associateBy { it.id!! }
+
+    fun searchByEmail(email: String): List<User> = userRepository.findByEmailContainingIgnoreCaseAndActiveTrue(email)
+
     @Transactional
     fun updateNickname(
         user: User,

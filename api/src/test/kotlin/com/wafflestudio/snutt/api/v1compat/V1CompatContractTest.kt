@@ -175,8 +175,7 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `이중 매핑 경로와 Deprecation 헤더`() {
-        // /v1/tables와 /tables 모두 동작
+    fun `v1 경로와 Deprecation 헤더`() {
         val add = post("/v1/tables", """{"year":2026,"semester":3,"title":"나의 시간표"}""", legacyToken)
         assertEquals(200, add.statusCode.value())
         assertTrue(add.headers.containsHeader("Deprecation"))
@@ -184,12 +183,13 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         assertTrue(add.headers.containsHeader("Sunset"))
         assertTrue(add.headers.getFirst("Link")!!.contains("successor-version"))
 
-        val dual = post("/tables", """{"year":2026,"semester":3,"title":"이중매핑"}""", legacyToken)
-        assertEquals(200, dual.statusCode.value())
-        val briefs = asList(dual)
-        assertEquals(2, briefs.size)
+        val briefs = asList(add)
+        assertEquals(1, briefs.size)
         assertEquals("나의 시간표", briefs[0]["title"])
         assertEquals("2026", briefs[0]["year"].toString())
+
+        // 경로는 /v1 접두사만 서빙한다
+        assertEquals(404, post("/tables", """{"year":2026,"semester":3,"title":"루트"}""", legacyToken).statusCode.value())
     }
 
     @Test

@@ -202,33 +202,6 @@ CREATE TABLE tag_list
     CONSTRAINT uk_tag_list_year_semester UNIQUE (year, semester)
 );
 
-CREATE TABLE tag_group
-(
-    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name       VARCHAR(64) NOT NULL,
-    ordering   INT         NOT NULL,
-    color      VARCHAR(16) NULL,
-    value_type VARCHAR(16) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    CONSTRAINT uk_tag_group_name UNIQUE (name)
-);
-
-CREATE TABLE tag
-(
-    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
-    tag_group_id BIGINT       NOT NULL,
-    name         VARCHAR(64)  NOT NULL,
-    description  VARCHAR(255) NULL,
-    ordering     INT          NOT NULL,
-    int_value    INT          NULL,
-    string_value VARCHAR(64)  NULL,
-    created_at   DATETIME(6)  NOT NULL,
-    updated_at   DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_tag_group_ordering UNIQUE (tag_group_id, ordering),
-    CONSTRAINT fk_tag_tag_group FOREIGN KEY (tag_group_id) REFERENCES tag_group (id) ON DELETE CASCADE
-);
-
 CREATE TABLE evaluation
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,

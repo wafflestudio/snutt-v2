@@ -97,20 +97,43 @@ class AuthService(
     // 재사용 감지의 전체 세션 폐기는 롤백되어서는 안 된다 — SnuttException으로 나가도 커밋한다
     @Transactional(noRollbackFor = [SnuttException::class])
     fun refresh(refreshToken: String): Pair<User, TokenPair> {
+        val refreshTokenHash = sha256Hex(refreshToken)
         val session =
-            userSessionRepository.findByRefreshTokenHash(sha256Hex(refreshToken))
+            userSessionRepository.findWithUserByRefreshTokenHash(refreshTokenHash)
                 ?: throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
+        val user = session.user
 
-        // 이미 회전된 토큰의 재사용은 탈취 신호로 보고 사용자 세션 전체를 폐기한다 (rotate-on-use)
-        if (session.revokedAt != null) {
-            userSessionRepository.revokeAllByUserId(session.user.id!!)
+        // 회전을 조건부 UPDATE로 확정한다. 동시 요청 중 하나만 성공하므로
+        // 실패한 쪽은 이미 회전된 토큰의 재사용이다 (rotate-on-use)
+        if (userSessionRepository.revokeIfActive(refreshTokenHash, Instant.now()) == 0) {
+            // 폐기된 토큰의 재사용은 탈취 신호로 보고 사용자 세션 전체를 폐기한다.
+            // 만료만 된 경우는 탈취 근거가 아니므로 그대로 거절한다
+            if (session.revokedAt != null) userSessionRepository.revokeAllByUserId(user.id!!)
             throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
         }
-        if (!session.isValid) throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
-
-        session.revokedAt = Instant.now()
-        return session.user to issueTokens(session.user, session)
+        return user to issueTokens(user, session)
     }
+
+    /**
+     * access token이 가리키는 세션이 살아있는지까지 보고 사용자를 돌려준다.
+     * 로그아웃·비밀번호 초기화·탈취 감지로 폐기된 세션의 토큰은 만료 전이라도 받지 않는다.
+     */
+    @Transactional(readOnly = true)
+    fun authenticate(payload: AccessTokenPayload): User {
+        val session =
+            userSessionRepository.findWithUserByExternalId(payload.sessionExternalId)
+                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        if (!session.isValid) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        val user = session.user
+        if (!user.active || user.externalId != payload.userExternalId) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        return user
+    }
+
+    // v1 호환: x-access-token은 credentialHash 그 자체다
+    @Transactional(readOnly = true)
+    fun authenticateLegacyToken(credentialHash: String): User =
+        userRepository.findByCredentialHashAndActiveTrue(credentialHash)
+            ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
 
     @Transactional
     fun logout(
