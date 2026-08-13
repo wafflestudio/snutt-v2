@@ -67,27 +67,48 @@ class V1CompatThemeController(
     private val timetableThemeRepository: com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository,
     private val userRepository: com.wafflestudio.snutt.core.domain.user.repository.UserRepository,
 ) {
-    // v1은 받아온 테마의 원본 정보(origin)를 함께 준다
-    private fun originOf(response: ThemeResponse): Map<String, Any?>? {
-        if (response.status != com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus.DOWNLOADED) return null
-        val theme = response.id?.let { timetableThemeRepository.findByExternalId(it) } ?: return null
-        val originThemeExternalId = theme.originThemeId?.let { timetableThemeRepository.findById(it).orElse(null)?.externalId }
-        val originAuthorExternalId = theme.originAuthorId?.let { userRepository.findById(it).orElse(null)?.externalId }
-        if (originThemeExternalId == null) return null
-        return linkedMapOf("originId" to originThemeExternalId, "authorId" to originAuthorExternalId)
+    // v1은 받아온 테마의 원본 정보(origin)를 함께 준다. 목록에서 1회씩 일괄 조회한다 (N+1 회피)
+    private fun originMap(responses: List<ThemeResponse>): Map<String, Map<String, Any?>> {
+        val downloaded = responses.filter { it.status == com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus.DOWNLOADED }
+        if (downloaded.isEmpty()) return emptyMap()
+        val themesByExternalId =
+            timetableThemeRepository
+                .findAllByExternalIdIn(downloaded.mapNotNull { it.id })
+                .associateBy { it.externalId }
+        val originThemes =
+            timetableThemeRepository
+                .findAllById(
+                    themesByExternalId.values.mapNotNull { it.originThemeId },
+                ).associateBy { it.id!! }
+        val originAuthors = userRepository.findAllById(themesByExternalId.values.mapNotNull { it.originAuthorId }).associateBy { it.id!! }
+        return themesByExternalId
+            .mapNotNull { (externalId, theme) ->
+                val originThemeExternalId = theme.originThemeId?.let(originThemes::get)?.externalId ?: return@mapNotNull null
+                externalId to
+                    linkedMapOf(
+                        "originId" to originThemeExternalId,
+                        "authorId" to theme.originAuthorId?.let(originAuthors::get)?.externalId,
+                    )
+            }.toMap()
     }
 
     @GetMapping("")
     fun getThemes(
         @CurrentUser user: User,
-    ) = delegate.getThemes(user).map { it.toLegacy(user.externalId, originOf(it)) }
+    ): List<Map<String, Any?>> {
+        val themes = delegate.getThemes(user)
+        val origins = originMap(themes)
+        return themes.map { it.toLegacy(user.externalId, origins[it.id]) }
+    }
 
     @GetMapping("/best")
     fun getBestThemes(
         @CurrentUser user: User,
         @RequestParam page: Int,
     ): Map<String, Any?> {
-        val content = delegate.getBestThemes(page).map { it.toLegacy(user.externalId, originOf(it)) }
+        val themes = delegate.getBestThemes(page)
+        val origins = originMap(themes)
+        val content = themes.map { it.toLegacy(user.externalId, origins[it.id]) }
         return mapOf("content" to content, "totalCount" to content.size)
     }
 
@@ -96,7 +117,9 @@ class V1CompatThemeController(
         @CurrentUser user: User,
         @RequestParam page: Int,
     ): Map<String, Any?> {
-        val content = delegate.getFriendsThemes(user, page).map { it.toLegacy(user.externalId, originOf(it)) }
+        val themes = delegate.getFriendsThemes(user, page)
+        val origins = originMap(themes)
+        val content = themes.map { it.toLegacy(user.externalId, origins[it.id]) }
         return mapOf("content" to content, "totalCount" to content.size)
     }
 
@@ -106,7 +129,9 @@ class V1CompatThemeController(
         @CurrentUser user: User,
         @RequestBody body: LegacyThemeSearchRequest,
     ): Map<String, Any?> {
-        val content = delegate.searchThemes(body.keyword).map { it.toLegacy(user.externalId, originOf(it)) }
+        val themes = delegate.searchThemes(body.keyword)
+        val origins = originMap(themes)
+        val content = themes.map { it.toLegacy(user.externalId, origins[it.id]) }
         return mapOf("content" to content, "totalCount" to content.size)
     }
 
@@ -116,7 +141,7 @@ class V1CompatThemeController(
         @PathVariable themeId: String,
     ): Map<String, Any?> {
         val theme = delegate.getTheme(user, themeId)
-        return theme.toLegacy(user.externalId, originOf(theme))
+        return theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
     }
 
     @PostMapping("")
@@ -132,7 +157,7 @@ class V1CompatThemeController(
         @RequestBody body: ThemeModifyRequest,
     ): Map<String, Any?> {
         val theme = delegate.modifyTheme(user, themeId, body)
-        return theme.toLegacy(user.externalId, originOf(theme))
+        return theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
     }
 
     @DeleteMapping("/{themeId}")
@@ -169,7 +194,7 @@ class V1CompatThemeController(
         @RequestBody body: ThemeDownloadRequest,
     ): Map<String, Any?> {
         val theme = delegate.downloadTheme(user, themeId, body)
-        return theme.toLegacy(user.externalId, originOf(theme))
+        return theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
     }
 
     @PostMapping("/{themeId}/copy")
@@ -184,7 +209,7 @@ class V1CompatThemeController(
         @PathVariable themeId: String,
     ): Map<String, Any?> {
         val theme = delegate.setDefault(user, themeId)
-        return theme.toLegacy(user.externalId, originOf(theme))
+        return theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
     }
 
     @DeleteMapping("/{themeId}/default")

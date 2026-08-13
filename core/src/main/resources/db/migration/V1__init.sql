@@ -280,23 +280,32 @@ CREATE TABLE theme
     external_id      CHAR(24)     NOT NULL,
     user_id          BIGINT       NOT NULL,
     name             VARCHAR(128) NOT NULL,
-    -- NULL = builtin 테마 (색상이 클라이언트에 내장)
-    color_list       JSON         NULL,
-    is_custom        BOOLEAN      NOT NULL DEFAULT FALSE,
-    status           VARCHAR(16)  NOT NULL,
+    color_list       JSON         NOT NULL,
+    -- NULL = 직접 만든 테마, SET = 마켓에서 받아온 테마 (원본 참조)
     origin_theme_id  BIGINT       NULL,
     origin_author_id BIGINT       NULL,
-    publish_name     VARCHAR(128) NULL,
-    author_anonymous BOOLEAN      NULL,
-    download_count   BIGINT       NOT NULL DEFAULT 0,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
     CONSTRAINT uk_theme_external_id UNIQUE (external_id),
     CONSTRAINT fk_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_theme_origin_theme FOREIGN KEY (origin_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
     CONSTRAINT fk_theme_origin_author FOREIGN KEY (origin_author_id) REFERENCES `user` (id) ON DELETE SET NULL,
-    INDEX idx_theme_user (user_id),
-    INDEX idx_theme_status_download (status, download_count DESC)
+    INDEX idx_theme_user (user_id)
+);
+
+-- 마켓 공개 정보는 테마 행과 분리한다. 공개 = published_theme 행 존재, 비공개 = 삭제
+CREATE TABLE published_theme
+(
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    theme_id         BIGINT       NOT NULL,
+    publish_name     VARCHAR(128) NOT NULL,
+    author_anonymous BOOLEAN      NOT NULL DEFAULT FALSE,
+    download_count   BIGINT       NOT NULL DEFAULT 0,
+    created_at       DATETIME(6)  NOT NULL,
+    updated_at       DATETIME(6)  NOT NULL,
+    CONSTRAINT uk_published_theme_theme UNIQUE (theme_id),
+    CONSTRAINT fk_published_theme_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE CASCADE,
+    INDEX idx_published_theme_download (download_count DESC)
 );
 
 CREATE TABLE timetable
