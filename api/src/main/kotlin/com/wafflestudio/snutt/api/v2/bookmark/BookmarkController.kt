@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.api.v2.bookmark
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -54,31 +58,35 @@ data class BookmarkLectureModifyRequest(
     @field:NotBlank val lectureId: String,
 )
 
-private fun BookmarkDisplay.toResponse(classTimesMap: Map<Long, List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>>) =
-    BookmarkResponse(
-        year = year,
-        semester = semester,
-        lectures = lectures.map { it.toResponse(classTimesMap[it.id].orEmpty()) },
-    )
+private fun BookmarkDisplay.toResponse(
+    classTimesMap: Map<Long, List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>>,
+    language: com.wafflestudio.snutt.core.common.client.Language,
+) = BookmarkResponse(
+    year = year,
+    semester = semester,
+    lectures = lectures.map { it.toResponse(classTimesMap[it.id].orEmpty(), language) },
+)
 
-private fun Lecture.toResponse(classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>) =
-    BookmarkLectureResponse(
-        id = externalId,
-        academicYear = academicYear,
-        category = category,
-        categoryPre2025 = categoryPre2025,
-        classification = classification,
-        courseNumber = courseNumber,
-        lectureNumber = lectureNumber,
-        department = department,
-        quota = quota,
-        freshmanQuota = freshmanQuota,
-        courseTitle = courseTitle,
-        instructor = instructor,
-        credit = credit,
-        remark = remark,
-        classPlaceAndTime = classTimes.map { it.toResponse() },
-    )
+private fun Lecture.toResponse(
+    classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    language: com.wafflestudio.snutt.core.common.client.Language,
+) = BookmarkLectureResponse(
+    id = externalId,
+    academicYear = language.select(academicYear, academicYearEn),
+    category = language.select(category, categoryEn),
+    categoryPre2025 = categoryPre2025,
+    classification = language.select(classification, classificationEn),
+    courseNumber = courseNumber,
+    lectureNumber = lectureNumber,
+    department = language.select(department, departmentEn),
+    quota = quota,
+    freshmanQuota = freshmanQuota,
+    courseTitle = language.select(courseTitle, courseTitleEn),
+    instructor = language.select(instructor, instructorEn),
+    credit = credit,
+    remark = language.select(remark, remarkEn),
+    classPlaceAndTime = classTimes.map { it.toResponse() },
+)
 
 private fun ClassPlaceAndTime.toResponse() =
     BookmarkClassPlaceAndTimeResponse(day = day.value, place = place, startMinute = startMinute, endMinute = endMinute)
@@ -94,11 +102,12 @@ class BookmarkController(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): BookmarkResponse {
         val display =
             bookmarkService.getBookmark(user.id!!, year, Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER))
         val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
-        return display.toResponse(classTimesMap)
+        return display.toResponse(classTimesMap, clientInfo.language)
     }
 
     @GetMapping("/lectures/{lectureId}/state")

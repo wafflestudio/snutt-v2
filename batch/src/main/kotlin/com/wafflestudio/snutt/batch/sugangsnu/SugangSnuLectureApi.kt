@@ -58,8 +58,9 @@ class SugangSnuLectureApi(
     fun downloadLectureXlsx(
         year: Int,
         semester: Semester,
+        language: String = "ko",
     ): ByteArrayResource {
-        val form = excelForm(year, semester)
+        val form = excelForm(year, semester, language)
         val bytes =
             restClient
                 .post()
@@ -77,6 +78,7 @@ class SugangSnuLectureApi(
     private fun excelForm(
         year: Int,
         semester: Semester,
+        language: String,
     ): MultiValueMap<String, String> {
         val form: MultiValueMap<String, String> = LinkedMultiValueMap()
         listOf(
@@ -119,7 +121,7 @@ class SugangSnuLectureApi(
         form.add("srchCurrPage", "1")
         form.add("srchPageSize", "9999")
         form.add("workType", "EX")
-        form.add("srchLanguage", "ko")
+        form.add("srchLanguage", language)
         form.add("srchOpenSchyy", year.toString())
         form.add("srchOpenShtm", convertSemesterToSugangSnuSearchString(semester))
         return form

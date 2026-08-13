@@ -4,6 +4,9 @@ import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyClassPlaceAndTimeFullDto
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyEvSummary
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -13,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -77,24 +81,25 @@ data class LegacyLectureDto(
 
 private fun Lecture.toLegacy(
     classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    language: Language,
     evSummary: LegacyEvSummary?,
 ) = LegacyLectureDto(
     id = externalId,
-    academicYear = academicYear,
-    category = category,
+    academicYear = language.select(academicYear, academicYearEn),
+    category = language.select(category, categoryEn),
     classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
-    classification = classification,
+    classification = language.select(classification, classificationEn),
     credit = credit,
-    department = department,
-    instructor = instructor,
+    department = language.select(department, departmentEn),
+    instructor = language.select(instructor, instructorEn),
     lectureNumber = lectureNumber,
     quota = quota,
     freshmanQuota = freshmanQuota,
-    remark = remark,
+    remark = language.select(remark, remarkEn),
     semester = semester,
     year = year,
     courseNumber = courseNumber,
-    courseTitle = courseTitle,
+    courseTitle = language.select(courseTitle, courseTitleEn),
     registrationCount = registrationCount,
     wasFull = wasFull,
     snuttEvLecture = evSummary,
@@ -111,6 +116,7 @@ class V1CompatLectureSearchController(
     @PostMapping("")
     fun searchLectures(
         @RequestBody query: LegacySearchQuery,
+        @RequestAttribute clientInfo: ClientInfo,
     ): List<LegacyLectureDto> {
         val criteria =
             LectureSearchCriteria(
@@ -153,6 +159,7 @@ class V1CompatLectureSearchController(
         return lectures.map { lecture ->
             lecture.toLegacy(
                 classTimesMap[lecture.id].orEmpty(),
+                clientInfo.language,
                 summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
             )
         }

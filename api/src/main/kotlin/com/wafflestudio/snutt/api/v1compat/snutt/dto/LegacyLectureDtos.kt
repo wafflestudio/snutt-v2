@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v1compat.snutt.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 
@@ -37,25 +38,26 @@ data class LegacyLectureDto(
 fun LegacyLectureDto(
     lecture: Lecture,
     classTimes: List<ClassPlaceAndTime>,
+    language: com.wafflestudio.snutt.core.common.client.Language,
     evSummary: LegacyEvSummary? = null,
 ): LegacyLectureDto =
     LegacyLectureDto(
         id = lecture.externalId,
-        academicYear = lecture.academicYear,
-        category = lecture.category,
+        academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
+        category = language.select(lecture.category, lecture.categoryEn),
         classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
-        classification = lecture.classification,
+        classification = language.select(lecture.classification, lecture.classificationEn),
         credit = lecture.credit,
-        department = lecture.department,
-        instructor = lecture.instructor,
+        department = language.select(lecture.department, lecture.departmentEn),
+        instructor = language.select(lecture.instructor, lecture.instructorEn),
         lectureNumber = lecture.lectureNumber,
         quota = lecture.quota,
         freshmanQuota = lecture.freshmanQuota,
-        remark = lecture.remark,
+        remark = language.select(lecture.remark, lecture.remarkEn),
         semester = lecture.semester.value,
         year = lecture.year,
         courseNumber = lecture.courseNumber,
-        courseTitle = lecture.courseTitle,
+        courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
         registrationCount = lecture.registrationCount,
         wasFull = lecture.wasFull,
         snuttEvLecture = evSummary,
@@ -94,23 +96,24 @@ fun com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary.toLegacy
 fun LegacyBookmarkLectureDto(
     lecture: Lecture,
     classTimes: List<ClassPlaceAndTime>,
+    language: com.wafflestudio.snutt.core.common.client.Language,
     evSummary: LegacyEvSummary? = null,
 ): LegacyBookmarkLectureDto =
     LegacyBookmarkLectureDto(
         id = lecture.externalId,
-        academicYear = lecture.academicYear,
-        category = lecture.category,
+        academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
+        category = language.select(lecture.category, lecture.categoryEn),
         classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
-        classification = lecture.classification,
+        classification = language.select(lecture.classification, lecture.classificationEn),
         credit = lecture.credit,
-        department = lecture.department,
-        instructor = lecture.instructor,
+        department = language.select(lecture.department, lecture.departmentEn),
+        instructor = language.select(lecture.instructor, lecture.instructorEn),
         lectureNumber = lecture.lectureNumber,
         quota = lecture.quota,
         freshmanQuota = lecture.freshmanQuota,
-        remark = lecture.remark,
+        remark = language.select(lecture.remark, lecture.remarkEn),
         courseNumber = lecture.courseNumber,
-        courseTitle = lecture.courseTitle,
+        courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
         snuttEvLecture = evSummary,
         categoryPre2025 = lecture.categoryPre2025,
     )

@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.auth
 
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import jakarta.servlet.http.HttpServletRequest
@@ -48,6 +49,7 @@ class PlatformKeyInterceptor(
                 appVersion = request.getHeader("x-app-version"),
                 deviceId = request.getHeader("x-device-id"),
                 deviceModel = request.getHeader("x-device-model"),
+                language = Language.from(request.getHeader("x-language")) ?: Language.KO,
             ),
         )
         return true

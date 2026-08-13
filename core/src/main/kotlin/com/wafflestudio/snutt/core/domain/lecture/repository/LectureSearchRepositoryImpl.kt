@@ -135,6 +135,8 @@ class LectureSearchRepositoryImpl(
         listOfNotNull(
             regexMatches(lecture.courseTitle, regexEscape(keyword)),
             regexMatches(lecture.instructor, regexEscape(keyword)),
+            regexMatches(lecture.courseTitleEn, regexEscape(keyword)),
+            regexMatches(lecture.instructorEn, regexEscape(keyword)),
             exactlyMatches(lecture.courseNumber, keyword),
             exactlyMatches(lecture.lectureNumber, keyword),
         ).reduce(BooleanExpression::or)

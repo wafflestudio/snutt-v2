@@ -141,7 +141,8 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     ),
                 ),
             )
-        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN)
+        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
+        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
         assertEquals(2, sugangSnuXlsxParser.parse(xlsx).size)
 
         assertEquals(BatchStatus.COMPLETED, runJob())
@@ -220,7 +221,8 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     ),
                 ),
             )
-        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN)
+        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
+        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
 
         assertEquals(BatchStatus.COMPLETED, runJob())
 

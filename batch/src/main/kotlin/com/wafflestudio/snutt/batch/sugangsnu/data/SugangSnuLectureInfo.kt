@@ -35,4 +35,21 @@ data class SugangSnuLectureSubInfo(
     val quota: Int? = null,
     @JsonProperty("openLtRemk")
     val remark: String? = null,
+    // 영문 (i18n)
+    @JsonProperty("sbjtEngNm")
+    val courseNameEng: String? = null,
+    @JsonProperty("sbjtSubhEngNm")
+    val courseSubNameEng: String? = null,
+    @JsonProperty("profEngNm")
+    val professorNameEng: String? = null,
+    @JsonProperty("sbjtFldEngNm")
+    val categoryEng: String? = null,
+    @JsonProperty("openLtEngRemk")
+    val remarkEng: String? = null,
+    @JsonProperty("cptnCorsFgEngNm")
+    val academicCourseEng: String? = null,
+    @JsonProperty("departmentEngNm")
+    val departmentEngNm: String? = null,
+    @JsonProperty("majorEngNm")
+    val majorEngNm: String? = null,
 )
