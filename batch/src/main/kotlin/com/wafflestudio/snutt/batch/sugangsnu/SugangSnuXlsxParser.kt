@@ -27,6 +27,8 @@ data class SugangLectureRow(
     val quota: Int,
     val registrationCount: Int,
     val classPlaceAndTimes: List<ClassPlaceAndTime>,
+    // 상세 API 이식으로 채워지는 2025 이전 교양분류 (courseNumber → category)
+    val categoryPre2025: String? = null,
 )
 
 @Component

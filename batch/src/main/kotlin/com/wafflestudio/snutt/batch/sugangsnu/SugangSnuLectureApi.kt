@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
+import com.wafflestudio.snutt.batch.sugangsnu.data.SugangSnuLectureInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ByteArrayResource
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.json.JsonMapper
 
 // 수강스누 공식 xlsx 다운로드 (v1 SugangSnuRepository 이식).
 // 검색 페이지의 HD102 폼을 그대로 POST로 제출한다. referer는 snu.ac.kr 계열이면 된다.
@@ -22,6 +24,36 @@ class SugangSnuLectureApi(
             .defaultHeader("User-Agent", USER_AGENT)
             .defaultHeader("Referer", REFERER)
             .build()
+
+    // 강좌 상세 팝업. xlsx에 없는 정확한 시간/강의실/교양분류를 채운다
+    fun getLectureInfo(
+        year: Int,
+        semester: Semester,
+        courseNumber: String,
+        lectureNumber: String,
+    ): SugangSnuLectureInfo {
+        val semesterString = convertSemesterToSugangSnuSearchString(semester)
+        val body =
+            restClient
+                .get()
+                .uri { builder ->
+                    builder
+                        .path("/sugang/cc/cc101ajax.action")
+                        .queryParam("t_profPersNo", "")
+                        .queryParam("workType", "+")
+                        .queryParam("sbjtSubhCd", "000")
+                        .queryParam("openSchyy", year)
+                        .queryParam("openShtmFg", semesterString.substring(0, 10))
+                        .queryParam("openDetaShtmFg", semesterString.substring(10))
+                        .queryParam("sbjtCd", courseNumber)
+                        .queryParam("ltNo", lectureNumber)
+                        .build()
+                }.accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(String::class.java)
+                ?: throw IllegalStateException("수강스누 강좌 상세 조회 실패: $courseNumber-$lectureNumber")
+        return jsonMapper.readValue(body, SugangSnuLectureInfo::class.java)
+    }
 
     fun downloadLectureXlsx(
         year: Int,
@@ -94,6 +126,8 @@ class SugangSnuLectureApi(
     }
 
     companion object {
+        private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
+
         private const val USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
