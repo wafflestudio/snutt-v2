@@ -86,6 +86,9 @@ data class LegacyBookmarkLectureDto(
     val categoryPre2025: String?,
 )
 
+fun com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary.toLegacyEvSummary(courseId: Long?): LegacyEvSummary? =
+    courseId?.let { LegacyEvSummary(it, avgRating, evalCount) }
+
 fun LegacyBookmarkLectureDto(
     lecture: Lecture,
     evSummary: LegacyEvSummary? = null,
