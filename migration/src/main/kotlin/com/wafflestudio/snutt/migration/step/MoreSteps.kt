@@ -109,7 +109,7 @@ class TagStep(
     }
 }
 
-// timetable: 시간표 + 항목(lecture 참조 + override 컬럼, PLAN.md §2)
+// timetable: 시간표 + 항목(lecture 참조) + customization (스냅샷 diff, PLAN.md §2)
 @Component
 class TimetableStep(
     mongoClient: MongoClient,
@@ -157,90 +157,84 @@ class TimetableStep(
                 val tl = lectureDoc as Document
                 val lectureId = tl.string("lecture_id")?.let { idMaps.get("lecture", it) }
                 val colorJson = tl.get("color")?.toString()
-                // lecture 참조면 차이분만, custom이면 내용 전체를 override 컬럼에 기록한다
-                val override = buildOverride(tl, lectureId)
                 insert(
                     "timetable_lecture",
-                    listOf(
-                        "external_id",
-                        "timetable_id",
-                        "lecture_id",
-                        "color",
-                        "color_index",
-                        "course_title",
-                        "instructor",
-                        "credit",
-                        "remark",
-                        "class_place_and_time",
-                        "academic_year",
-                        "category",
-                        "classification",
-                        "category_pre2025",
-                        "created_at",
-                        "updated_at",
-                    ),
+                    listOf("external_id", "timetable_id", "lecture_id", "color", "color_index", "created_at", "updated_at"),
                     listOf(
                         tl.externalId(),
                         newTimetableId,
                         lectureId,
                         colorJson,
                         tl.int("color_index") ?: 0,
-                        override["course_title"],
-                        override["instructor"],
-                        (override["credit"] as? Number)?.toInt(),
-                        override["remark"],
-                        override["class_place_and_time"],
-                        override["academic_year"],
-                        override["category"],
-                        override["classification"],
-                        override["category_pre2025"],
                         Timestamp.from(tl.instant("created_at") ?: now()),
                         Timestamp.from(tl.instant("updated_at") ?: now()),
                     ),
                 )
+                val newTimetableLectureId = lastInsertId()
+
+                // 스냅샷과 현재 lecture 행의 차이만 customization으로 기록한다
+                val customization = buildCustomization(tl, lectureId)
+                if (customization != null) {
+                    jdbc.update(
+                        "INSERT INTO timetable_lecture_customization (timetable_lecture_id, course_title, instructor, credit, remark, class_place_and_time) VALUES (?, ?, ?, ?, ?, ?)",
+                        newTimetableLectureId,
+                        customization["course_title"],
+                        customization["instructor"],
+                        (customization["credit"] as? Number)?.toInt(),
+                        customization["remark"],
+                        customization["class_place_and_time"],
+                    )
+                }
             }
             count++
         }
         log.info("timetable 이관: {}건", count)
     }
 
-    // lecture_id NULL(custom)이면 doc 내용을, 아니면 스냅샷과 현재 lecture 행의 차이만 override로 돌려준다
-    private fun buildOverride(
+    // lecture_id NULL(custom 강의)이거나 스냅샷이 현재 lecture와 다르면 customization 기록
+    private fun buildCustomization(
         tl: Document,
         lectureId: Long?,
-    ): Map<String, Any?> {
-        val fields =
-            listOf(
-                "course_title" to "course_title",
-                "instructor" to "instructor",
-                "credit" to "credit",
-                "remark" to "remark",
-                "class_place_and_time" to "class_time_json",
-                "academic_year" to "academic_year",
-                "category" to "category",
-                "classification" to "classification",
-                "category_pre2025" to "categoryPre2025",
-            )
+    ): Map<String, Any?>? {
         if (lectureId == null) {
-            return fields.associate { (column, docKey) ->
-                column to
-                    (if (docKey == "class_time_json") tl.get(docKey)?.toString() else tl.get(docKey))
-            }
+            return mapOf(
+                "course_title" to (tl.string("course_title") ?: ""),
+                "instructor" to tl.string("instructor"),
+                "credit" to tl.get("credit"),
+                "remark" to tl.string("remark"),
+                "class_place_and_time" to (tl.get("class_time_json")?.toString()),
+            )
         }
         val current =
             jdbc
                 .query(
-                    "SELECT course_title, instructor, credit, remark, class_place_and_time, academic_year, category, classification, category_pre2025 FROM lecture WHERE id = ?",
+                    "SELECT course_title, instructor, credit, remark, class_place_and_time FROM lecture WHERE id = ?",
                     org.springframework.jdbc.core.RowMapper { rs, _ ->
-                        fields.associate { (column, _) -> column to rs.getObject(column) }
+                        mapOf(
+                            "course_title" to rs.getString("course_title"),
+                            "instructor" to rs.getString("instructor"),
+                            "credit" to rs.getObject("credit"),
+                            "remark" to rs.getString("remark"),
+                            "class_place_and_time" to rs.getString("class_place_and_time"),
+                        )
                     },
                     lectureId,
-                ).firstOrNull() ?: return emptyMap()
-        return fields
-            .mapNotNull { (column, docKey) ->
-                val docValue = if (docKey == "class_time_json") tl.get(docKey)?.toString() else tl.get(docKey)
-                if (docValue != current[column]) column to docValue else null
-            }.toMap()
+                ).firstOrNull() ?: return null
+        val diff =
+            mutableMapOf<String, Any?>()
+        val currentCourseTitle = current?.get("course_title")
+        val currentInstructor = current?.get("instructor")
+        val currentCredit = current?.get("credit")
+        val currentRemark = current?.get("remark")
+        val currentClassTime = current?.get("class_place_and_time")
+        if (tl.string("course_title") != currentCourseTitle) diff["course_title"] = tl.string("course_title")
+        if (tl.string("instructor") != currentInstructor) diff["instructor"] = tl.string("instructor")
+        if (tl.get("credit") != currentCredit) diff["credit"] = tl.get("credit")
+        if (tl.string("remark") != currentRemark) diff["remark"] = tl.string("remark")
+        if (tl.get("class_time_json")?.toString() != currentClassTime) {
+            diff["class_place_and_time"] = tl.get("class_time_json")?.toString()
+        }
+        return diff.takeIf { it.isNotEmpty() }
     }
 }
 

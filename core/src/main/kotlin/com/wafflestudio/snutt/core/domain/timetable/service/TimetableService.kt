@@ -13,6 +13,8 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureCustomization
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureCustomizationRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.springframework.stereotype.Service
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional
 class TimetableService(
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
+    private val timetableLectureCustomizationRepository: TimetableLectureCustomizationRepository,
     private val lectureRepository: LectureRepository,
     private val coursebookService: CoursebookService,
     private val timetableThemeService: TimetableThemeService,
@@ -70,10 +73,14 @@ class TimetableService(
         val lectures = timetableLectureRepository.findByTimetableIdIn(timetableIds)
         val lectureMap =
             lectureRepository.findAllById(lectures.mapNotNull { it.lectureId }).associateBy { it.id!! }
+        val customizationMap =
+            timetableLectureCustomizationRepository
+                .findByTimetableLectureIdIn(lectures.mapNotNull { it.id })
+                .associateBy { it.timetableLectureId }
         return lectures
             .groupBy { it.timetableId }
             .mapValues { (_, lectureList) ->
-                lectureList.map { TimetableLectureDisplay(it, lectureMap[it.lectureId]) }
+                lectureList.map { TimetableLectureDisplay(it, lectureMap[it.lectureId], customizationMap[it.id]) }
             }
     }
 
@@ -150,26 +157,36 @@ class TimetableService(
                 ),
             )
 
-        // 강의 항목은 lecture 참조와 override 컬럼을 그대로 복사한다. 리마인더는 복사하지 않는다 (v1 동일)
+        // 강의 항목은 같은 lecture 참조를 복사하고 customization은 딸려 간다. 리마인더는 복사하지 않는다 (v1 동일)
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        lectures.forEach { source ->
-            timetableLectureRepository.save(
-                TimetableLecture(
-                    timetableId = copied.id!!,
-                    lectureId = source.lectureId,
-                    color = source.color,
-                    colorIndex = source.colorIndex,
-                    courseTitle = source.courseTitle,
-                    instructor = source.instructor,
-                    credit = source.credit,
-                    remark = source.remark,
-                    classPlaceAndTime = source.classPlaceAndTime,
-                    academicYear = source.academicYear,
-                    category = source.category,
-                    classification = source.classification,
-                    categoryPre2025 = source.categoryPre2025,
-                ),
-            )
+        val customizations =
+            timetableLectureCustomizationRepository
+                .findByTimetableLectureIdIn(lectures.mapNotNull { it.id })
+                .associateBy { it.timetableLectureId }
+        val copiedLectures =
+            lectures.map { source ->
+                timetableLectureRepository.save(
+                    TimetableLecture(
+                        timetableId = copied.id!!,
+                        lectureId = source.lectureId,
+                        color = source.color,
+                        colorIndex = source.colorIndex,
+                    ),
+                )
+            }
+        lectures.zip(copiedLectures).forEach { (source, copiedLecture) ->
+            customizations[source.id]?.let { customization ->
+                timetableLectureCustomizationRepository.save(
+                    TimetableLectureCustomization(
+                        timetableLectureId = copiedLecture.id!!,
+                        courseTitle = customization.courseTitle,
+                        instructor = customization.instructor,
+                        credit = customization.credit,
+                        remark = customization.remark,
+                        classPlaceAndTime = customization.classPlaceAndTime,
+                    ),
+                )
+            }
         }
         return copied
     }
