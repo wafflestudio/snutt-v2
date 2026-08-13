@@ -44,6 +44,19 @@ class SugangSnuLectureEnricher(
                 ?.takeIf { it != "학사" }
                 ?: sub.academicYear?.let { "${it}학년" }
                 ?: row.academicYear
+        val courseTitleEn =
+            sub.courseNameEng?.let { name ->
+                if (sub.courseSubNameEng.isNullOrEmpty()) name else "$name (${sub.courseSubNameEng})"
+            } ?: row.courseTitleEn
+        val departmentEn =
+            sub.departmentEngNm?.let { dept ->
+                sub.majorEngNm?.let { "$dept($it)" } ?: dept
+            } ?: row.departmentEn
+        val academicYearEn =
+            sub.academicCourseEng
+                ?.takeIf { it != "Bachelor" }
+                ?: sub.academicYear?.let { "Year $it" }
+                ?: row.academicYearEn
         return row.copy(
             courseTitle = courseTitle,
             instructor = sub.professorName?.substringBeforeLast(" (") ?: row.instructor,
@@ -52,6 +65,12 @@ class SugangSnuLectureEnricher(
             academicYear = academicYear,
             quota = sub.quota ?: row.quota,
             remark = sub.remark ?: row.remark,
+            courseTitleEn = courseTitleEn,
+            instructorEn = sub.professorNameEng?.substringBeforeLast(" (") ?: row.instructorEn,
+            categoryEn = sub.categoryEng ?: row.categoryEn,
+            departmentEn = departmentEn,
+            academicYearEn = academicYearEn,
+            remarkEn = sub.remarkEng ?: row.remarkEn,
             classPlaceAndTimes =
                 SugangSnuClassTimeUtils.convertTextToClassTimeObject(
                     info.ltTime,

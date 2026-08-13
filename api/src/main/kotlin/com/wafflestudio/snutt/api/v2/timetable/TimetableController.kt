@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.api.v2.timetable
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -100,7 +104,7 @@ private fun TimetableBriefDto.toResponse() =
         totalCredit = totalCredit,
     )
 
-internal fun TimetableDisplay.toResponse() =
+internal fun TimetableDisplay.toResponse(language: Language = Language.KO) =
     TimetableResponse(
         id = timetable.externalId,
         year = timetable.year,
@@ -110,26 +114,26 @@ internal fun TimetableDisplay.toResponse() =
         themeId = themeExternalId,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt).toEpochMilli(),
-        lectures = lectures.map { it.toResponse() },
+        lectures = lectures.map { it.toResponse(language) },
     )
 
-internal fun TimetableLectureDisplay.toResponse() =
+internal fun TimetableLectureDisplay.toResponse(language: Language = Language.KO) =
     TimetableLectureResponse(
         id = id,
         lectureId = lectureId,
-        academicYear = academicYear,
-        category = category,
+        academicYear = language.select(academicYear, academicYearEn),
+        category = language.select(category, categoryEn),
         categoryPre2025 = categoryPre2025,
-        classification = classification,
+        classification = language.select(classification, classificationEn),
         courseNumber = courseNumber,
         lectureNumber = lectureNumber,
-        department = department,
+        department = language.select(department, departmentEn),
         quota = quota,
         freshmanQuota = freshmanQuota,
-        courseTitle = courseTitle,
-        instructor = instructor,
+        courseTitle = language.select(courseTitle, courseTitleEn),
+        instructor = language.select(instructor, instructorEn),
         credit = credit,
-        remark = remark,
+        remark = language.select(remark, remarkEn),
         classPlaceAndTime = classPlaceAndTime.map { it.toResponse() },
         color = color,
         colorIndex = colorIndex,
@@ -151,18 +155,24 @@ class TimetableController(
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
         @CurrentUser user: User,
+        @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
-        timetableService.getTimetableDisplay(user.id!!, timetableService.getMostRecentlyUpdatedTimetable(user.id!!).externalId).toResponse()
+        timetableService
+            .getTimetableDisplay(
+                user.id!!,
+                timetableService.getMostRecentlyUpdatedTimetable(user.id!!).externalId,
+            ).toResponse(clientInfo.language)
 
     @GetMapping("/{year}/{semester}")
     fun getTimetablesBySemester(
         @CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): List<TimetableResponse> =
         timetableService
             .getTimetablesBySemester(user.id!!, year, parseSemester(semester))
-            .map { timetableService.getTimetableDisplay(user.id!!, it.externalId).toResponse() }
+            .map { timetableService.getTimetableDisplay(user.id!!, it.externalId).toResponse(clientInfo.language) }
 
     @PostMapping("")
     fun addTimetable(
@@ -183,7 +193,8 @@ class TimetableController(
     fun getTimetable(
         @CurrentUser user: User,
         @PathVariable timetableId: String,
-    ): TimetableResponse = timetableService.getTimetableDisplay(user.id!!, timetableId).toResponse()
+        @RequestAttribute clientInfo: ClientInfo,
+    ): TimetableResponse = timetableService.getTimetableDisplay(user.id!!, timetableId).toResponse(clientInfo.language)
 
     @PatchMapping("/{timetableId}")
     fun modifyTimetable(

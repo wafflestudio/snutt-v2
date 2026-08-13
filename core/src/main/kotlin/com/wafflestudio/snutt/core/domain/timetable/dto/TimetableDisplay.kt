@@ -28,6 +28,14 @@ data class TimetableLectureDisplay(
     val classPlaceAndTime: List<ClassPlaceAndTime>,
     val color: ColorSet?,
     val colorIndex: Int,
+    // 영문 (i18n). lecture에서 가져온다 (custom 강의는 한글 입력만 존재)
+    val courseTitleEn: String?,
+    val instructorEn: String?,
+    val departmentEn: String?,
+    val academicYearEn: String?,
+    val categoryEn: String?,
+    val classificationEn: String?,
+    val remarkEn: String?,
 )
 
 fun TimetableLectureDisplay(
@@ -55,6 +63,13 @@ fun TimetableLectureDisplay(
         classPlaceAndTime = timetableLecture.classPlaceAndTime ?: classTimes,
         color = timetableLecture.color,
         colorIndex = timetableLecture.colorIndex,
+        courseTitleEn = lecture?.courseTitleEn,
+        instructorEn = lecture?.instructorEn,
+        departmentEn = lecture?.departmentEn,
+        academicYearEn = lecture?.academicYearEn,
+        categoryEn = lecture?.categoryEn,
+        classificationEn = lecture?.classificationEn,
+        remarkEn = lecture?.remarkEn,
     )
 
 data class TimetableDisplay(

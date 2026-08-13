@@ -45,11 +45,23 @@ class SugangSnuSyncJobConfig(
                     val coursebook = coursebookService.getLatestCoursebook()
                     val targetYear = year ?: coursebook.year
                     val targetSemester = semester?.let(Semester::getOfValue) ?: coursebook.semester
-                    val xlsx = sugangSnuLectureApi.downloadLectureXlsx(targetYear, targetSemester)
+                    val xlsx = sugangSnuLectureApi.downloadLectureXlsx(targetYear, targetSemester, "ko")
+                    val englishXlsx = sugangSnuLectureApi.downloadLectureXlsx(targetYear, targetSemester, "en")
+                    val englishRows = sugangSnuXlsxParser.parseEnglish(englishXlsx)
                     val rows =
                         sugangSnuXlsxParser
                             .parse(xlsx)
-                            .map { sugangSnuLectureEnricher.enrich(targetYear, targetSemester, it) }
+                            .mapIndexed { index, row ->
+                                val en = englishRows.getOrNull(index)
+                                row.copy(
+                                    courseTitleEn = en?.courseTitleEn,
+                                    instructorEn = en?.instructorEn,
+                                    departmentEn = en?.departmentEn,
+                                    academicYearEn = en?.academicYearEn,
+                                    classificationEn = en?.classificationEn,
+                                    remarkEn = en?.remarkEn,
+                                )
+                            }.map { sugangSnuLectureEnricher.enrich(targetYear, targetSemester, it) }
                     val result = sugangSnuSyncService.sync(targetYear, targetSemester, rows)
                     log.info("sugang sync 완료: {}", result)
                     RepeatStatus.FINISHED

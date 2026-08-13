@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.api.v2.vacancy
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
@@ -8,6 +11,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -24,13 +28,13 @@ data class VacancyNotificationLectureResponse(
     val credit: Int,
 )
 
-private fun Lecture.toVacancyResponse() =
+private fun Lecture.toVacancyResponse(language: com.wafflestudio.snutt.core.common.client.Language) =
     VacancyNotificationLectureResponse(
         id = externalId,
-        courseTitle = courseTitle,
+        courseTitle = language.select(courseTitle, courseTitleEn),
         courseNumber = courseNumber,
         lectureNumber = lectureNumber,
-        instructor = instructor,
+        instructor = language.select(instructor, instructorEn),
         credit = credit,
     )
 
@@ -42,9 +46,14 @@ class VacancyNotificationController(
     @GetMapping("/lectures")
     fun getVacancyNotificationLectures(
         @CurrentUser user: User,
+        @RequestAttribute clientInfo: ClientInfo,
     ): VacancyNotificationLecturesResponse =
         VacancyNotificationLecturesResponse(
-            lectures = vacancyNotificationService.getVacancyNotificationLectures(user.id!!).map { it.toVacancyResponse() },
+            lectures =
+                vacancyNotificationService
+                    .getVacancyNotificationLectures(
+                        user.id!!,
+                    ).map { it.toVacancyResponse(clientInfo.language) },
         )
 
     @GetMapping("/lectures/{lectureId}/state")

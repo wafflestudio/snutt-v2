@@ -188,6 +188,7 @@ class V1CompatBookmarkController(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): Map<String, Any?> {
         val display =
             bookmarkService.getBookmark(
@@ -206,6 +207,7 @@ class V1CompatBookmarkController(
                     LegacyBookmarkLectureDto(
                         lecture,
                         classTimesMap[lecture.id].orEmpty(),
+                        clientInfo.language,
                         summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
                     )
                 },
@@ -241,6 +243,7 @@ class V1CompatVacancyNotificationController(
     @GetMapping("/lectures")
     fun getLectures(
         @CurrentUser user: User,
+        @RequestAttribute clientInfo: ClientInfo,
     ): Map<String, Any?> {
         val lectures = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
         val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
@@ -251,6 +254,7 @@ class V1CompatVacancyNotificationController(
                     LegacyLectureDto(
                         lecture,
                         classTimesMap[lecture.id].orEmpty(),
+                        clientInfo.language,
                         summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
                     )
                 },

@@ -30,6 +30,15 @@ class Lecture(
     // TEXT. 수강편람 원문 그대로 보관 (ⓔ/ⓜⓞ/권장과목 마커 포함)
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var remark: String? = null,
+    // 영문 (i18n). x-language=en이면 읽기 시점에 한글 대신 쓴다
+    var courseTitleEn: String? = null,
+    var instructorEn: String? = null,
+    var departmentEn: String? = null,
+    var academicYearEn: String? = null,
+    var categoryEn: String? = null,
+    var classificationEn: String? = null,
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    var remarkEn: String? = null,
     var registrationCount: Int = 0,
     var wasFull: Boolean = false,
     @Column(name = "course_id")
@@ -48,6 +57,13 @@ class Lecture(
             quota == other.quota &&
             freshmanQuota == other.freshmanQuota &&
             remark == other.remark &&
+            courseTitleEn == other.courseTitleEn &&
+            instructorEn == other.instructorEn &&
+            departmentEn == other.departmentEn &&
+            academicYearEn == other.academicYearEn &&
+            categoryEn == other.categoryEn &&
+            classificationEn == other.classificationEn &&
+            remarkEn == other.remarkEn &&
             semester == other.semester &&
             year == other.year &&
             courseNumber == other.courseNumber &&

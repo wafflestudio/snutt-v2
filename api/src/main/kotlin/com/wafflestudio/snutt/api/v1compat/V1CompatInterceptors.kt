@@ -88,6 +88,9 @@ class V1CompatApiKeyInterceptor(
                 appVersion = getHeader("x-app-version"),
                 deviceId = getHeader("x-device-id"),
                 deviceModel = getHeader("x-device-model"),
+                language =
+                    com.wafflestudio.snutt.core.common.client.Language
+                        .from(getHeader("x-language")) ?: com.wafflestudio.snutt.core.common.client.Language.KO,
             ),
         )
     }

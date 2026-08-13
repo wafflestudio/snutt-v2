@@ -206,6 +206,13 @@ class SugangSnuSyncService(
         remark = remark,
         registrationCount = registrationCount,
         categoryPre2025 = categoryPre2025,
+        courseTitleEn = courseTitleEn,
+        instructorEn = instructorEn,
+        departmentEn = departmentEn,
+        academicYearEn = academicYearEn,
+        categoryEn = categoryEn,
+        classificationEn = classificationEn,
+        remarkEn = remarkEn,
     )
 
     private fun rebuildTagList(

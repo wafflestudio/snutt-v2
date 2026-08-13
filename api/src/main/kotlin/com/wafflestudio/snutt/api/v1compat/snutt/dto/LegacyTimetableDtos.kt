@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v1compat.snutt.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -39,13 +40,14 @@ fun LegacyTimetableDto(
     display: TimetableDisplay,
     // lecture 공개 id(hex) → ev 요약 (snuttEvLecture.evLectureId)
     evLectureIds: Map<String, Long>,
+    language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
 ): LegacyTimetableDto =
     LegacyTimetableDto(
         id = timetable.externalId,
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.let(evLectureIds::get)) },
+        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.let(evLectureIds::get), language) },
         title = timetable.title,
         theme = timetable.theme,
         themeId = display.themeExternalId,
@@ -79,22 +81,23 @@ data class LegacyTimetableLectureDto(
 fun LegacyTimetableLectureDto(
     display: TimetableLectureDisplay,
     evLectureId: Long?,
+    language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
         id = display.id,
-        academicYear = display.academicYear,
-        category = display.category,
+        academicYear = language.select(display.academicYear, display.academicYearEn),
+        category = language.select(display.category, display.categoryEn),
         classPlaceAndTimes = display.classPlaceAndTime.map { LegacyClassPlaceAndTimeDto(it) },
-        classification = display.classification,
+        classification = language.select(display.classification, display.classificationEn),
         credit = display.credit,
-        department = display.department,
-        instructor = display.instructor,
+        department = language.select(display.department, display.departmentEn),
+        instructor = language.select(display.instructor, display.instructorEn),
         lectureNumber = display.lectureNumber,
         quota = display.quota,
         freshmanQuota = display.freshmanQuota,
-        remark = display.remark,
+        remark = language.select(display.remark, display.remarkEn),
         courseNumber = display.courseNumber,
-        courseTitle = display.courseTitle,
+        courseTitle = language.select(display.courseTitle, display.courseTitleEn),
         color = display.color?.let { LegacyColorSetDto(bg = it.backgroundColor, fg = it.foregroundColor) },
         colorIndex = display.colorIndex,
         lectureId = display.lectureId,

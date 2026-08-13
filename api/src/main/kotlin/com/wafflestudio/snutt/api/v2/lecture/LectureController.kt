@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.api.v2.lecture
 
 import com.wafflestudio.snutt.api.auth.Public
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -13,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -79,6 +83,7 @@ data class ClassPlaceAndTimeResponse(
 
 private fun Lecture.toResponse(
     classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    language: com.wafflestudio.snutt.core.common.client.Language,
     evSummary: LectureEvSummaryResponse? = null,
 ) = LectureResponse(
     id = externalId,
@@ -86,17 +91,17 @@ private fun Lecture.toResponse(
     semester = semester,
     courseNumber = courseNumber,
     lectureNumber = lectureNumber,
-    courseTitle = courseTitle,
-    instructor = instructor,
-    department = department,
-    academicYear = academicYear,
-    category = category,
+    courseTitle = language.select(courseTitle, courseTitleEn),
+    instructor = language.select(instructor, instructorEn),
+    department = language.select(department, departmentEn),
+    academicYear = language.select(academicYear, academicYearEn),
+    category = language.select(category, categoryEn),
     categoryPre2025 = categoryPre2025,
-    classification = classification,
+    classification = language.select(classification, classificationEn),
     credit = credit,
     quota = quota,
     freshmanQuota = freshmanQuota,
-    remark = remark,
+    remark = language.select(remark, remarkEn),
     registrationCount = registrationCount,
     wasFull = wasFull,
     classPlaceAndTime = classTimes.map { it.toResponse() },
@@ -121,6 +126,7 @@ class LectureController(
     @PostMapping("/search")
     fun searchLectures(
         @RequestBody request: LectureSearchRequest,
+        @RequestAttribute clientInfo: ClientInfo,
     ): List<LectureResponse> {
         val criteria =
             LectureSearchCriteria(
@@ -148,7 +154,7 @@ class LectureController(
             val classTimes = classTimesMap[lecture.id].orEmpty()
             val evSummary =
                 summaries[lecture.id]?.let { LectureEvSummaryResponse(avgRating = it.avgRating, evalCount = it.evalCount) }
-            lecture.toResponse(classTimes, evSummary)
+            lecture.toResponse(classTimes, clientInfo.language, evSummary)
         }
     }
 
