@@ -10,6 +10,8 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureCustomization
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureCustomizationRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -49,6 +51,7 @@ data class TimetableLectureModifyRequest(
 class TimetableLectureService(
     private val timetableService: TimetableService,
     private val timetableLectureRepository: TimetableLectureRepository,
+    private val customizationRepository: TimetableLectureCustomizationRepository,
     private val lectureRepository: LectureRepository,
     private val timetableThemeService: TimetableThemeService,
     private val timetableLectureReminderService: TimetableLectureReminderService,
@@ -102,12 +105,18 @@ class TimetableLectureService(
                 remaining.map { it.color },
                 remaining.map { it.colorIndex },
             )
-        timetableLectureRepository.save(
-            TimetableLecture(
-                timetableId = timetable.id!!,
-                lectureId = null,
-                color = request.color ?: color,
-                colorIndex = request.colorIndex ?: colorIndex,
+        val timetableLecture =
+            timetableLectureRepository.save(
+                TimetableLecture(
+                    timetableId = timetable.id!!,
+                    lectureId = null,
+                    color = request.color ?: color,
+                    colorIndex = request.colorIndex ?: colorIndex,
+                ),
+            )
+        customizationRepository.save(
+            TimetableLectureCustomization(
+                timetableLectureId = timetableLecture.id!!,
                 courseTitle = request.courseTitle,
                 instructor = request.instructor,
                 credit = request.credit,
@@ -138,15 +147,20 @@ class TimetableLectureService(
         request.color?.let { timetableLecture.color = it }
         request.colorIndex?.let { timetableLecture.colorIndex = it }
 
-        request.courseTitle?.let { timetableLecture.courseTitle = it }
-        request.instructor?.let { timetableLecture.instructor = it }
-        request.credit?.let { timetableLecture.credit = it }
-        request.remark?.let { timetableLecture.remark = it }
-        request.classPlaceAndTime?.let { timetableLecture.classPlaceAndTime = it }
-        request.academicYear?.let { timetableLecture.academicYear = it }
-        request.category?.let { timetableLecture.category = it }
-        request.classification?.let { timetableLecture.classification = it }
-        request.categoryPre2025?.let { timetableLecture.categoryPre2025 = it }
+        val customization =
+            customizationRepository.findByTimetableLectureId(timetableLecture.id!!)
+                ?: TimetableLectureCustomization(timetableLectureId = timetableLecture.id!!).also {
+                    customizationRepository.save(it)
+                }
+        request.courseTitle?.let { customization.courseTitle = it }
+        request.instructor?.let { customization.instructor = it }
+        request.credit?.let { customization.credit = it }
+        request.remark?.let { customization.remark = it }
+        request.classPlaceAndTime?.let { customization.classPlaceAndTime = it }
+        request.academicYear?.let { customization.academicYear = it }
+        request.category?.let { customization.category = it }
+        request.classification?.let { customization.classification = it }
+        request.categoryPre2025?.let { customization.categoryPre2025 = it }
 
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         return timetableService.getTimetableDisplay(userId, timetableExternalId)
@@ -170,15 +184,7 @@ class TimetableLectureService(
 
         resolveTimeConflict(timetable, lecture.classPlaceAndTime, isForced, timetableLectureExternalId)
 
-        timetableLecture.courseTitle = null
-        timetableLecture.instructor = null
-        timetableLecture.credit = null
-        timetableLecture.remark = null
-        timetableLecture.classPlaceAndTime = null
-        timetableLecture.academicYear = null
-        timetableLecture.category = null
-        timetableLecture.classification = null
-        timetableLecture.categoryPre2025 = null
+        customizationRepository.deleteByTimetableLectureId(timetableLecture.id!!)
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, lecture.classPlaceAndTime)
         return timetableService.getTimetableDisplay(userId, timetableExternalId)
     }
@@ -191,7 +197,7 @@ class TimetableLectureService(
     ): TimetableDisplay {
         val timetable = timetableService.getTimetable(userId, timetableExternalId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
-        // reminder는 DB FK CASCADE로 함께 삭제된다
+        // customization/reminder는 DB FK CASCADE로 함께 삭제된다
         timetableLectureRepository.delete(timetableLecture)
         return timetableService.getTimetableDisplay(userId, timetableExternalId)
     }

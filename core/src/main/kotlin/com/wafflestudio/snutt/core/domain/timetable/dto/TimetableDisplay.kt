@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureCustomization
 import java.time.Instant
 
 // lecture 최신 데이터 위에 customization의 non-NULL 필드를 덮어쓴 표시 모델 (PLAN.md §2)
@@ -33,24 +34,25 @@ data class TimetableLectureDisplay(
 fun TimetableLectureDisplay(
     timetableLecture: TimetableLecture,
     lecture: Lecture?,
+    customization: TimetableLectureCustomization?,
 ): TimetableLectureDisplay =
     TimetableLectureDisplay(
         id = timetableLecture.externalId,
         lectureId = lecture?.externalId,
-        academicYear = timetableLecture.academicYear ?: lecture?.academicYear,
-        category = timetableLecture.category ?: lecture?.category,
-        categoryPre2025 = timetableLecture.categoryPre2025 ?: lecture?.categoryPre2025,
-        classification = timetableLecture.classification ?: lecture?.classification,
+        academicYear = customization?.academicYear ?: lecture?.academicYear,
+        category = customization?.category ?: lecture?.category,
+        categoryPre2025 = customization?.categoryPre2025 ?: lecture?.categoryPre2025,
+        classification = customization?.classification ?: lecture?.classification,
         courseNumber = lecture?.courseNumber,
         lectureNumber = lecture?.lectureNumber,
         department = lecture?.department,
         quota = lecture?.quota,
         freshmanQuota = lecture?.freshmanQuota,
-        courseTitle = timetableLecture.courseTitle ?: lecture?.courseTitle ?: "",
-        instructor = timetableLecture.instructor ?: lecture?.instructor,
-        credit = timetableLecture.credit ?: lecture?.credit,
-        remark = timetableLecture.remark ?: lecture?.remark,
-        classPlaceAndTime = timetableLecture.classPlaceAndTime ?: lecture?.classPlaceAndTime.orEmpty(),
+        courseTitle = customization?.courseTitle ?: lecture?.courseTitle ?: "",
+        instructor = customization?.instructor ?: lecture?.instructor,
+        credit = customization?.credit ?: lecture?.credit,
+        remark = customization?.remark ?: lecture?.remark,
+        classPlaceAndTime = customization?.classPlaceAndTime ?: lecture?.classPlaceAndTime.orEmpty(),
         color = timetableLecture.color,
         colorIndex = timetableLecture.colorIndex,
     )
