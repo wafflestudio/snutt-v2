@@ -7,7 +7,6 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
-import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.PasswordResetService
 import org.springframework.web.bind.annotation.PostMapping
@@ -22,38 +21,48 @@ data class LegacyLocalRegisterRequest(
 )
 
 data class LegacyLocalLoginRequest(
+    @com.fasterxml.jackson.annotation.JsonAlias("user_id")
     val id: String,
     val password: String,
 )
 
 data class LegacySocialLoginRequest(
+    @com.fasterxml.jackson.annotation.JsonAlias("fb_token", "apple_token")
     val token: String,
 )
 
 data class LegacyFacebookLoginRequest(
+    @com.fasterxml.jackson.annotation.JsonProperty("fb_id")
+    val fbId: String? = null,
+    @com.fasterxml.jackson.annotation.JsonProperty("fb_token")
     val fbToken: String,
 )
 
 data class LegacyLogoutRequest(
-    val fcmRegistrationId: String? = null,
+    @com.fasterxml.jackson.annotation.JsonProperty("registration_id")
+    val registrationId: String? = null,
 )
 
 data class LegacySendEmailRequest(
+    @com.fasterxml.jackson.annotation.JsonAlias("user_email")
     val email: String,
 )
 
 data class LegacyVerifyResetCodeRequest(
+    @com.fasterxml.jackson.annotation.JsonProperty("user_id")
     val localId: String? = null,
     val code: String,
 )
 
 data class LegacyResetPasswordRequest(
+    @com.fasterxml.jackson.annotation.JsonProperty("user_id")
     val userId: String,
     val password: String,
     val code: String,
 )
 
 data class LegacyMaskedEmailRequest(
+    @com.fasterxml.jackson.annotation.JsonProperty("user_id")
     val userId: String,
 )
 
@@ -62,7 +71,7 @@ data class LegacyMaskedEmailRequest(
 @RequestMapping("/v1/auth", "/auth")
 class V1CompatAuthController(
     private val authService: AuthService,
-    private val userDeviceRepository: UserDeviceRepository,
+    private val deviceService: com.wafflestudio.snutt.core.domain.device.service.DeviceService,
     private val passwordResetService: PasswordResetService,
 ) {
     @Public
@@ -111,16 +120,18 @@ class V1CompatAuthController(
     @PostMapping("/id/find")
     fun findId(
         @RequestBody body: LegacySendEmailRequest,
-    ) {
+    ): Map<String, Any?> {
         passwordResetService.sendLocalIdToEmail(body.email)
+        return mapOf("message" to "ok")
     }
 
     @Public
     @PostMapping("/password/reset/email/send")
     fun sendResetPasswordCode(
         @RequestBody body: LegacySendEmailRequest,
-    ) {
+    ): Map<String, Any?> {
         passwordResetService.requestReset(body.email)
+        return mapOf("message" to "ok")
     }
 
     // v1은 아이디(localId)로 초기화한다
@@ -134,32 +145,34 @@ class V1CompatAuthController(
     @PostMapping("/password/reset/verification/code")
     fun verifyResetPasswordCode(
         @RequestBody body: LegacyVerifyResetCodeRequest,
-    ) {
+    ): Map<String, Any?> {
         passwordResetService.verifyResetCodeByLocalId(
             body.localId ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
             body.code,
         )
+        return mapOf("message" to "ok")
     }
 
     @Public
     @PostMapping("/password/reset")
     fun resetPassword(
         @RequestBody body: LegacyResetPasswordRequest,
-    ) {
+    ): Map<String, Any?> {
         passwordResetService.confirmResetByLocalId(body.userId, body.code, body.password)
+        return mapOf("message" to "ok")
     }
 
     @PostMapping("/logout")
     fun logout(
         @CurrentUser user: User,
         @RequestBody(required = false) body: LegacyLogoutRequest?,
-    ) {
-        // v1 토큰(credentialHash)은 무상태이므로 FCM 기기만 해제한다 (v1 동일)
-        body?.fcmRegistrationId?.let { fcmRegistrationId ->
-            userDeviceRepository
-                .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(user.id!!, fcmRegistrationId)
-                ?.let { it.isDeleted = true }
+    ): Map<String, Any?> {
+        // v1 토큰(credentialHash)은 무상태이므로 등록 토큰만 해제한다 (v1 UserService.logout)
+        val registrationId = body?.registrationId
+        if (!registrationId.isNullOrBlank()) {
+            deviceService.removeRegistrationId(user, registrationId)
         }
+        return mapOf("message" to "ok")
     }
 
     private fun socialLogin(

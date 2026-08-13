@@ -152,11 +152,13 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `내 정보는 복수형 v1 users me 이다`() {
         val me = getV1("/v1/users/me")
         assertEquals(200, me.statusCode.value())
-        assertEquals("v1pathuser", asMap(me)["local_id"])
+        assertEquals("v1pathuser", asMap(me)["localId"])
 
         val providers = getV1("/v1/users/me/social_providers")
         assertEquals(200, providers.statusCode.value())
-        assertNotNull(asMap(providers)["authProviders"])
+        // v1 AuthProvidersCheckDto는 제공자별 불리언이다
+        assertEquals(true, asMap(providers)["local"])
+        assertEquals(false, asMap(providers)["facebook"])
     }
 
     @Test
@@ -174,9 +176,10 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, response.statusCode.value())
         val themes = asList(response)
         assertTrue(themes.isNotEmpty())
-        assertTrue(themes[0].containsKey("colors"))
+        // 내장 테마는 색상이 null이라 non_null 정책으로 생략된다 (v1 동일)
         assertTrue(themes[0].containsKey("theme"))
         assertTrue(themes[0].containsKey("isDefault"))
+        assertTrue(themes[0].containsKey("isCustom"))
     }
 
     @Test

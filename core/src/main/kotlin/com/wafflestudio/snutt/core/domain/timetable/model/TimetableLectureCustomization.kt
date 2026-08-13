@@ -19,4 +19,8 @@ class TimetableLectureCustomization(
     var remark: String? = null,
     @JdbcTypeCode(SqlTypes.JSON)
     var classPlaceAndTime: List<ClassPlaceAndTime>? = null,
+    var academicYear: String? = null,
+    var category: String? = null,
+    var classification: String? = null,
+    var categoryPre2025: String? = null,
 ) : BaseEntity()

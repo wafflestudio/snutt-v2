@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -18,102 +19,66 @@ data class LegacyLoginResponse(
     val message: String = "ok",
 )
 
-// v1 TimetableDto (snake_case, _id). themeId는 테마의 공개 id(hex)다
+// v1 TimetableDto — 전체 응답은 camelCase. 시각은 Instant(ISO 문자열)
 data class LegacyTimetableDto(
-    @param:JsonProperty("_id")
-    val id: String,
-    @param:JsonProperty("user_id")
+    val id: String?,
     val userId: String,
     val year: Int,
     val semester: Semester,
-    @param:JsonProperty("lecture_list")
     val lectures: List<LegacyTimetableLectureDto>,
     val title: String,
     val theme: BasicThemeType,
     val themeId: String?,
     val isPrimary: Boolean,
-    @param:JsonProperty("updated_at")
-    val updatedAt: Long,
+    val updatedAt: Instant,
 )
 
 fun LegacyTimetableDto(
     timetable: Timetable,
     userId: String,
     display: TimetableDisplay,
-    // lecture 공개 id(hex) → ev 요약
-    evSummaries: Map<String, LegacyEvSummary>,
+    // lecture 공개 id(hex) → ev 요약 (snuttEvLecture.evLectureId)
+    evLectureIds: Map<String, Long>,
 ): LegacyTimetableDto =
     LegacyTimetableDto(
         id = timetable.externalId,
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.let(evSummaries::get)) },
+        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.let(evLectureIds::get)) },
         title = timetable.title,
         theme = timetable.theme,
         themeId = display.themeExternalId,
         isPrimary = timetable.isPrimary,
-        updatedAt = checkNotNull(timetable.updatedAt).toEpochMilli(),
+        updatedAt = checkNotNull(timetable.updatedAt),
     )
 
-// v1 TimetableLectureLegacyDto. snuttEvLecture의 evLectureId는 재채번된 course id (opaque)
+// v1 TimetableLectureDto — camelCase. classPlaceAndTimes는 단순 DTO, snuttEvLecture는 evLectureId만
 data class LegacyTimetableLectureDto(
-    @param:JsonProperty("_id")
-    val id: String,
-    @param:JsonProperty("academic_year")
+    val id: String?,
     val academicYear: String?,
     val category: String?,
-    @param:JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassPlaceAndTimeDto>,
     val classification: String?,
     val credit: Int?,
     val department: String?,
     val instructor: String?,
-    @param:JsonProperty("lecture_number")
     val lectureNumber: String?,
     val quota: Int?,
-    @param:JsonProperty("freshman_quota")
     val freshmanQuota: Int?,
     val remark: String?,
-    @param:JsonProperty("course_number")
     val courseNumber: String?,
-    @param:JsonProperty("course_title")
     val courseTitle: String,
     val color: LegacyColorSetDto?,
     val colorIndex: Int,
-    @param:JsonProperty("lecture_id")
     val lectureId: String?,
-    val snuttEvLecture: LegacyEvSummary?,
+    val snuttEvLecture: LegacyEvLectureIdDto?,
     val categoryPre2025: String?,
-)
-
-data class LegacyEvSummary(
-    val evLectureId: Long,
-    val avgRating: Double?,
-    val evaluationCount: Long,
-)
-
-data class LegacyColorSetDto(
-    val bg: String?,
-    val fg: String?,
-)
-
-data class LegacyClassPlaceAndTimeDto(
-    val day: Int,
-    val place: String,
-    val startMinute: Int,
-    val endMinute: Int,
-    @param:JsonProperty("start_time")
-    val startTime: String,
-    @param:JsonProperty("end_time")
-    val endTime: String,
-    val len: Double,
-    val start: Double,
 )
 
 fun LegacyTimetableLectureDto(
     display: TimetableLectureDisplay,
-    evSummary: LegacyEvSummary?,
+    evLectureId: Long?,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
         id = display.id,
@@ -133,9 +98,34 @@ fun LegacyTimetableLectureDto(
         color = display.color?.let { LegacyColorSetDto(bg = it.backgroundColor, fg = it.foregroundColor) },
         colorIndex = display.colorIndex,
         lectureId = display.lectureId,
-        snuttEvLecture = evSummary,
+        snuttEvLecture = evLectureId?.let { LegacyEvLectureIdDto(it) },
         categoryPre2025 = display.categoryPre2025,
     )
+
+// v1 SnuttEvLectureIdDto (시간표 응답용)
+data class LegacyEvLectureIdDto(
+    val evLectureId: Long,
+)
+
+// v1 SnuttEvLectureSummaryDto (검색/북마크/빈자리 응답용)
+data class LegacyEvSummary(
+    val evLectureId: Long,
+    val avgRating: Double?,
+    val evaluationCount: Long,
+)
+
+data class LegacyColorSetDto(
+    val bg: String?,
+    val fg: String?,
+)
+
+// v1 ClassPlaceAndTimeDto — camelCase 단순 DTO (시간표 응답)
+data class LegacyClassPlaceAndTimeDto(
+    val day: Int,
+    val place: String,
+    val startMinute: Int,
+    val endMinute: Int,
+)
 
 fun LegacyClassPlaceAndTimeDto(classPlaceAndTime: ClassPlaceAndTime): LegacyClassPlaceAndTimeDto =
     LegacyClassPlaceAndTimeDto(
@@ -143,10 +133,34 @@ fun LegacyClassPlaceAndTimeDto(classPlaceAndTime: ClassPlaceAndTime): LegacyClas
         place = classPlaceAndTime.place,
         startMinute = classPlaceAndTime.startMinute,
         endMinute = classPlaceAndTime.endMinute,
+    )
+
+// v1 ClassPlaceAndTimeLegacyDto — start_time/end_time/len/start 포함 (강의 검색/북마크/빈자리)
+data class LegacyClassPlaceAndTimeFullDto(
+    val day: Int,
+    val place: String,
+    val startMinute: Int,
+    val endMinute: Int,
+    @param:JsonProperty("start_time")
+    val startTime: String,
+    @param:JsonProperty("end_time")
+    val endTime: String,
+    @param:JsonProperty("len")
+    val periodLength: Double,
+    @param:JsonProperty("start")
+    val startPeriod: Double,
+)
+
+fun LegacyClassPlaceAndTimeFullDto(classPlaceAndTime: ClassPlaceAndTime): LegacyClassPlaceAndTimeFullDto =
+    LegacyClassPlaceAndTimeFullDto(
+        day = classPlaceAndTime.day.value,
+        place = classPlaceAndTime.place,
+        startMinute = classPlaceAndTime.startMinute,
+        endMinute = classPlaceAndTime.endMinute,
         startTime = minuteToString(classPlaceAndTime.startMinute),
         endTime = minuteToString(classPlaceAndTime.endMinute),
-        start = classPlaceAndTime.startPeriod,
-        len = classPlaceAndTime.endPeriod - classPlaceAndTime.startPeriod,
+        startPeriod = classPlaceAndTime.startPeriod,
+        periodLength = classPlaceAndTime.endPeriod - classPlaceAndTime.startPeriod,
     )
 
 private fun minuteToString(minute: Int) = "${String.format("%02d", minute / 60)}:${String.format("%02d", minute % 60)}"

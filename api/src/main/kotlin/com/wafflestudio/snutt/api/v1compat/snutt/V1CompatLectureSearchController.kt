@@ -1,7 +1,8 @@
 package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.Public
-import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyClassPlaceAndTimeDto
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyClassPlaceAndTimeFullDto
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -50,7 +51,7 @@ data class LegacyLectureDto(
     val academicYear: String?,
     val category: String?,
     @com.fasterxml.jackson.annotation.JsonProperty("class_time_json")
-    val classPlaceAndTimes: List<LegacyClassPlaceAndTimeDto>,
+    val classPlaceAndTimes: List<LegacyClassPlaceAndTimeFullDto>,
     val classification: String?,
     val credit: Int,
     val department: String?,
@@ -69,15 +70,16 @@ data class LegacyLectureDto(
     val courseTitle: String,
     val registrationCount: Int,
     val wasFull: Boolean,
+    val snuttEvLecture: LegacyEvSummary?,
     val categoryPre2025: String?,
 )
 
-private fun Lecture.toLegacy() =
+private fun Lecture.toLegacy(evSummary: LegacyEvSummary?) =
     LegacyLectureDto(
         id = externalId,
         academicYear = academicYear,
         category = category,
-        classPlaceAndTimes = classPlaceAndTime.map { LegacyClassPlaceAndTimeDto(it) },
+        classPlaceAndTimes = classPlaceAndTime.map { LegacyClassPlaceAndTimeFullDto(it) },
         classification = classification,
         credit = credit,
         department = department,
@@ -92,6 +94,7 @@ private fun Lecture.toLegacy() =
         courseTitle = courseTitle,
         registrationCount = registrationCount,
         wasFull = wasFull,
+        snuttEvLecture = evSummary,
         categoryPre2025 = categoryPre2025,
     )
 
@@ -100,6 +103,7 @@ private fun Lecture.toLegacy() =
 @RequestMapping("/v1/search_query", "/search_query")
 class V1CompatLectureSearchController(
     private val lectureService: LectureService,
+    private val evaluationService: com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService,
 ) {
     @PostMapping("")
     fun searchLectures(
@@ -140,6 +144,13 @@ class V1CompatLectureSearchController(
                 limit = query.limit,
                 sort = LectureSort.getOfName(query.sortCriteria) ?: LectureSort.DEFAULT,
             )
-        return lectureService.search(criteria).map { it.toLegacy() }
+        val lectures = lectureService.search(criteria)
+        val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        return lectures.map { lecture ->
+            val summary = lecture.id?.let(summaries::get)
+            lecture.toLegacy(
+                summary?.let { lecture.courseId?.let { courseId -> LegacyEvSummary(courseId, it.avgRating, it.evalCount) } },
+            )
+        }
     }
 }

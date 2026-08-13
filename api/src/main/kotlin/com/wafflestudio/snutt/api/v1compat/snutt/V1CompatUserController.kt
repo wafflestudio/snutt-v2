@@ -16,27 +16,37 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-// v1 UserDto 형태 (../snutt/users/dto/UserDto.kt)
+// v1 UserDto — camelCase, 시각은 LocalDateTime(ISO), nickname.tag는 문자열
 data class LegacyUserDto(
     val id: String,
     val isAdmin: Boolean,
-    val regDate: Long,
-    val notificationCheckedAt: Long,
+    val regDate: java.time.LocalDateTime,
+    val notificationCheckedAt: java.time.LocalDateTime,
+    val email: String?,
+    val localId: String?,
+    val fbName: String?,
+    val nickname: LegacyNicknameDto,
+)
+
+// v1 UserLegacyDto (GET /v1/user/info) — 일부 필드만 snake_case
+data class LegacyUserInfoDto(
+    val isAdmin: Boolean,
+    val regDate: java.time.ZonedDateTime,
+    val notificationCheckedAt: java.time.ZonedDateTime,
     val email: String?,
     @com.fasterxml.jackson.annotation.JsonProperty("local_id")
     val localId: String?,
     @com.fasterxml.jackson.annotation.JsonProperty("fb_name")
     val fbName: String?,
-    val nickname: LegacyNicknameDto,
 )
 
 data class LegacyNicknameDto(
     val nickname: String,
-    val tag: Int?,
+    val tag: String?,
 )
 
 data class LegacyUpdateUserRequest(
-    val nickname: String,
+    val nickname: String? = null,
 )
 
 data class LegacyAttachLocalRequest(
@@ -67,12 +77,25 @@ class V1CompatUsersController(
     fun updateMe(
         @CurrentUser user: User,
         @RequestBody body: LegacyUpdateUserRequest,
-    ): LegacyUserDto = userService.updateNickname(user, body.nickname).toLegacyUserDto()
+    ): LegacyUserDto {
+        val nickname = body.nickname?.trim().orEmpty()
+        // v1은 빈 값이거나 기존과 같으면 갱신하지 않는다
+        if (nickname.isEmpty() || nickname == user.nicknameWithoutTag) return user.toLegacyUserDto()
+        return userService.updateNickname(user, nickname).toLegacyUserDto()
+    }
 
+    // v1은 제공자별 불리언을 내려준다 (AuthProvidersCheckDto)
     @GetMapping("/me/social_providers", "/me/auth-providers")
     fun socialProviders(
         @CurrentUser user: User,
-    ): Map<String, Any?> = mapOf("authProviders" to user.authProviders.map { it.korName })
+    ): Map<String, Any?> =
+        mapOf(
+            "local" to (user.localId != null),
+            "facebook" to (user.facebookSub != null),
+            "google" to (user.googleSub != null),
+            "kakao" to (user.kakaoSub != null),
+            "apple" to (user.appleSub != null),
+        )
 }
 
 // v1 계정 관리 경로는 단수형 /v1/user 이다 (../snutt UserController)
@@ -86,7 +109,7 @@ class V1CompatUserController(
     @GetMapping("/info")
     fun getUserInfo(
         @CurrentUser user: User,
-    ): LegacyUserDto = user.toLegacyUserDto()
+    ): LegacyUserInfoDto = user.toLegacyUserInfoDto()
 
     @DeleteMapping("/account")
     fun deleteAccount(
@@ -156,19 +179,32 @@ class V1CompatUserController(
             ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }
 
+private val KST: java.time.ZoneId = java.time.ZoneId.of("Asia/Seoul")
+
 internal fun User.toLegacyUserDto() =
     LegacyUserDto(
         id = externalId,
         isAdmin = isAdmin,
-        regDate = checkNotNull(createdAt).toEpochMilli(),
-        notificationCheckedAt = notificationCheckedAt.toEpochMilli(),
+        regDate = checkNotNull(createdAt).atZone(KST).toLocalDateTime(),
+        notificationCheckedAt = notificationCheckedAt.atZone(KST).toLocalDateTime(),
         email = email,
         localId = localId,
         fbName = facebookName,
-        nickname = LegacyNicknameDto(nickname = nicknameWithoutTag, tag = nicknameTag),
+        nickname = LegacyNicknameDto(nickname = nicknameWithoutTag, tag = nicknameTag?.toString()),
+    )
+
+internal fun User.toLegacyUserInfoDto() =
+    LegacyUserInfoDto(
+        isAdmin = isAdmin,
+        regDate = checkNotNull(createdAt).atZone(KST),
+        notificationCheckedAt = notificationCheckedAt.atZone(KST),
+        email = email,
+        localId = localId,
+        fbName = facebookName,
     )
 
 data class SendVerificationEmailRequest(
+    @com.fasterxml.jackson.annotation.JsonAlias("user_email")
     val email: String,
 )
 

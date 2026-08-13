@@ -38,7 +38,9 @@ data class InsertNotificationRequest(
     // null = 전체 공지
     val userId: String? = null,
     @field:NotBlank val title: String,
-    @field:NotBlank val message: String,
+    @field:NotBlank
+    @com.fasterxml.jackson.annotation.JsonAlias("body")
+    val message: String,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
 )
@@ -52,7 +54,9 @@ data class AdminConfigWriteRequest(
 )
 
 data class AdminPopupWriteRequest(
-    @field:NotBlank val popupKey: String,
+    @field:NotBlank
+    @com.fasterxml.jackson.annotation.JsonAlias("key")
+    val popupKey: String,
     @field:NotBlank val imageOriginUri: String,
     val linkUrl: String? = null,
     val hiddenDays: Int? = null,

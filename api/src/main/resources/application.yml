@@ -1,6 +1,8 @@
 spring:
   application:
     name: snutt-api
+  jackson:
+    default-property-inclusion: non_null
   config:
     import: classpath:application-core.yml
 
