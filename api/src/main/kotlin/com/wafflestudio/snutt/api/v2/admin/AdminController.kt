@@ -65,9 +65,10 @@ data class AdminPopupWriteRequest(
 data class AdminUserSearchResponse(
     val id: String,
     val email: String?,
-    val nickname: String,
-    val isAdmin: Boolean,
     val isEmailVerified: Boolean,
+    val nickname: String,
+    val localId: String?,
+    val isAdmin: Boolean,
 )
 
 data class AdminDiaryQuestionWriteRequest(
@@ -204,6 +205,7 @@ class AdminController(
                 id = it.externalId,
                 email = it.email,
                 nickname = it.nickname,
+                localId = it.localId,
                 isAdmin = it.isAdmin,
                 isEmailVerified = it.isEmailVerified,
             )
