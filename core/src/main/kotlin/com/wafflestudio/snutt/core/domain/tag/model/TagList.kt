@@ -17,6 +17,12 @@ data class TagCollection(
     val instructor: List<String>,
     val category: List<String>,
     val categoryPre2025: List<String> = emptyList(),
+    // 영문 (i18n). 과거 학기는 미백필일 수 있어 읽기 시점에 한글로 폴백한다
+    val classificationEn: List<String> = emptyList(),
+    val departmentEn: List<String> = emptyList(),
+    val academicYearEn: List<String> = emptyList(),
+    val instructorEn: List<String> = emptyList(),
+    val categoryEn: List<String> = emptyList(),
 )
 
 @Entity

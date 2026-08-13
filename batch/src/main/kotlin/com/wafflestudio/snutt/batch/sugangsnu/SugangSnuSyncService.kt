@@ -233,6 +233,11 @@ class SugangSnuSyncService(
                         .map { "${it}학점" },
                 instructor = rows.map { it.instructor }.filter { it.isNotBlank() }.sorted(),
                 category = rows.map { it.category }.filter { it.isNotBlank() }.sorted(),
+                classificationEn = rows.mapNotNull { it.classificationEn }.filter { it.isNotBlank() }.sorted(),
+                departmentEn = rows.mapNotNull { it.departmentEn }.filter { it.isNotBlank() }.sorted(),
+                academicYearEn = rows.mapNotNull { it.academicYearEn }.filter { it.length > 1 }.sorted(),
+                instructorEn = rows.mapNotNull { it.instructorEn }.filter { it.isNotBlank() }.sorted(),
+                categoryEn = rows.mapNotNull { it.categoryEn }.filter { it.isNotBlank() }.sorted(),
             )
         val tagList =
             tagListRepository.findByYearAndSemester(year, semester)

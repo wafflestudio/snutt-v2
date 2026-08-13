@@ -48,6 +48,8 @@ class SugangSnuXlsxParser {
 
     // 영문 엑셀의 강의별 영문 필드 (한글 엑셀과 같은 행 순서로 zip해서 합친다)
     data class SugangLectureRowEnglish(
+        val courseNumber: String,
+        val lectureNumber: String,
         val courseTitleEn: String?,
         val instructorEn: String?,
         val departmentEn: String?,
@@ -56,32 +58,39 @@ class SugangSnuXlsxParser {
         val remarkEn: String?,
     )
 
-    fun parseEnglish(englishXlsx: Resource): List<SugangLectureRowEnglish> {
+    // 영문 엑셀은 한글과 행 순서가 다르므로 (courseNumber, lectureNumber) 키로 조인한다
+    fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
         val sheet = WorkbookFactory.create(englishXlsx.inputStream).getSheetAt(0)
         val headerIndex =
             sheet
                 .getRow(2)
                 .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
-        return (3..sheet.lastRowNum).mapNotNull { rowNum ->
-            val row = sheet.getRow(rowNum) ?: return@mapNotNull null
+        return (3..sheet.lastRowNum)
+            .mapNotNull { rowNum ->
+                val row = sheet.getRow(rowNum) ?: return@mapNotNull null
 
-            fun get(key: String): String = headerIndex[key]?.let { row.getCell(it)?.stringCellValue }?.trim().orEmpty()
-            val courseTitle = get("Course Title")
-            val subtitle = get("Course Subtitle")
-            val college = get("College")
-            val department = get("Department")
-            val academicCourse = get("Degree Program")
-            val academicYear = get("Academic Year")
-            if (courseTitle.isEmpty()) return@mapNotNull null
-            SugangLectureRowEnglish(
-                courseTitleEn = if (subtitle.isEmpty()) courseTitle else "$courseTitle ($subtitle)",
-                instructorEn = get("Instructor").ifEmpty { null },
-                departmentEn = department.replace("null", "").ifEmpty { college }.ifEmpty { null },
-                academicYearEn = academicCourse.takeIf { it != "Bachelor" } ?: academicYear.ifEmpty { null },
-                classificationEn = get("Course Classification").ifEmpty { null },
-                remarkEn = get("Remark").ifEmpty { null },
-            )
-        }
+                fun get(key: String): String = headerIndex[key]?.let { row.getCell(it)?.stringCellValue }?.trim().orEmpty()
+                val courseNumber = get("Course Number")
+                val lectureNumber = get("Lecture Number")
+                val courseTitle = get("Course Title")
+                val subtitle = get("Course Subtitle")
+                val college = get("College")
+                val department = get("Department")
+                val academicCourse = get("Degree Program")
+                val academicYear = get("Academic Year")
+                if (courseTitle.isEmpty()) return@mapNotNull null
+                (courseNumber to lectureNumber) to
+                    SugangLectureRowEnglish(
+                        courseNumber = courseNumber,
+                        lectureNumber = lectureNumber,
+                        courseTitleEn = if (subtitle.isEmpty()) courseTitle else "$courseTitle ($subtitle)",
+                        instructorEn = get("Instructor").ifEmpty { null },
+                        departmentEn = department.replace("null", "").ifEmpty { college }.ifEmpty { null },
+                        academicYearEn = academicCourse.takeIf { it != "Bachelor" } ?: academicYear.ifEmpty { null },
+                        classificationEn = get("Course Classification").ifEmpty { null },
+                        remarkEn = get("Remark").ifEmpty { null },
+                    )
+            }.toMap()
     }
 
     fun parse(koreanXlsx: Resource): List<SugangLectureRow> {
