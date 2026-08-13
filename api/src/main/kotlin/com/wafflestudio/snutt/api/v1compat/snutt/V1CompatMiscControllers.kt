@@ -2,6 +2,8 @@ package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.auth.Public
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -18,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -33,22 +36,29 @@ class V1CompatTagController(
         @CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): Map<String, Any?> {
         val tagList =
             tagListService.getTagList(
                 year,
                 Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
             )
+        val collection = tagList.tagCollection
+
+        fun localize(
+            ko: List<String>,
+            en: List<String>,
+        ): List<String> = if (clientInfo.language == Language.EN) en.ifEmpty { ko } else ko
         return linkedMapOf(
-            "classification" to tagList.tagCollection.classification,
-            "department" to tagList.tagCollection.department,
-            "academic_year" to tagList.tagCollection.academicYear,
-            "credit" to tagList.tagCollection.credit,
-            "instructor" to tagList.tagCollection.instructor,
-            "category" to tagList.tagCollection.category,
+            "classification" to localize(collection.classification, collection.classificationEn),
+            "department" to localize(collection.department, collection.departmentEn),
+            "academic_year" to localize(collection.academicYear, collection.academicYearEn),
+            "credit" to collection.credit,
+            "instructor" to localize(collection.instructor, collection.instructorEn),
+            "category" to localize(collection.category, collection.categoryEn),
             "sortCriteria" to LectureSort.entries.filter { it != LectureSort.DEFAULT }.map { it.fullName },
             "updated_at" to checkNotNull(tagList.updatedAt).toEpochMilli(),
-            "categoryPre2025" to tagList.tagCollection.categoryPre2025,
+            "categoryPre2025" to collection.categoryPre2025,
         )
     }
 }

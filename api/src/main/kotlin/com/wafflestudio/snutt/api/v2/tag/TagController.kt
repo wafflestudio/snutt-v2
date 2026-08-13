@@ -4,6 +4,8 @@ import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.api.v2.evaluation.EvaluationResponse
 import com.wafflestudio.snutt.api.v2.evaluation.toEvaluationResponsePage
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -16,6 +18,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -68,20 +71,28 @@ class TagController(
     fun getTagList(
         @PathVariable year: Int,
         @PathVariable semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): TagListResponse {
         val tagList =
             tagListService.getTagList(
                 year,
                 Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
             )
+        val collection = tagList.tagCollection
+
+        // EN이면 영문 태그 우선, 비어있으면 한글 폴백 (v1 동일)
+        fun localize(
+            ko: List<String>,
+            en: List<String>,
+        ): List<String> = if (clientInfo.language == Language.EN) en.ifEmpty { ko } else ko
         return TagListResponse(
-            classification = tagList.tagCollection.classification,
-            department = tagList.tagCollection.department,
-            academicYear = tagList.tagCollection.academicYear,
-            credit = tagList.tagCollection.credit,
-            instructor = tagList.tagCollection.instructor,
-            category = tagList.tagCollection.category,
-            categoryPre2025 = tagList.tagCollection.categoryPre2025,
+            classification = localize(collection.classification, collection.classificationEn),
+            department = localize(collection.department, collection.departmentEn),
+            academicYear = localize(collection.academicYear, collection.academicYearEn),
+            credit = collection.credit,
+            instructor = localize(collection.instructor, collection.instructorEn),
+            category = localize(collection.category, collection.categoryEn),
+            categoryPre2025 = collection.categoryPre2025,
             sortCriteria = LectureSort.entries.filter { it != LectureSort.DEFAULT }.map { it.fullName },
             updatedAt = checkNotNull(tagList.updatedAt).toEpochMilli(),
         )

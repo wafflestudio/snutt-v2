@@ -47,12 +47,12 @@ class SugangSnuSyncJobConfig(
                     val targetSemester = semester?.let(Semester::getOfValue) ?: coursebook.semester
                     val xlsx = sugangSnuLectureApi.downloadLectureXlsx(targetYear, targetSemester, "ko")
                     val englishXlsx = sugangSnuLectureApi.downloadLectureXlsx(targetYear, targetSemester, "en")
-                    val englishRows = sugangSnuXlsxParser.parseEnglish(englishXlsx)
+                    val englishByKey = sugangSnuXlsxParser.parseEnglish(englishXlsx)
                     val rows =
                         sugangSnuXlsxParser
                             .parse(xlsx)
-                            .mapIndexed { index, row ->
-                                val en = englishRows.getOrNull(index)
+                            .map { row ->
+                                val en = englishByKey[row.courseNumber to row.lectureNumber]
                                 row.copy(
                                     courseTitleEn = en?.courseTitleEn,
                                     instructorEn = en?.instructorEn,
