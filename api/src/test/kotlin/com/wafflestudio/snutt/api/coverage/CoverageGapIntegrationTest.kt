@@ -12,7 +12,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
-import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -66,6 +65,8 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired lateinit var courseRepository: CourseRepository
 
     @Autowired lateinit var themeRepository: TimetableThemeRepository
+
+    @Autowired lateinit var publishedThemeRepository: com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 
     @Autowired lateinit var userRepository: UserRepository
 
@@ -225,13 +226,17 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `친구가 공유한 테마를 조회한다`() {
         val userB = userRepository.findByLocalIdAndActiveTrue("coveruserb")!!
         acceptedFriend()
-        themeRepository.save(
-            TimetableTheme(
-                userId = userB.id!!,
-                name = "친구테마",
-                colorList = listOf(ColorSet(backgroundColor = "#111111", foregroundColor = "#222222")),
-                isCustom = true,
-                status = ThemeStatus.PUBLISHED,
+        val published =
+            themeRepository.save(
+                TimetableTheme(
+                    userId = userB.id!!,
+                    name = "친구테마",
+                    colorList = listOf(ColorSet(backgroundColor = "#111111", foregroundColor = "#222222")),
+                ),
+            )
+        publishedThemeRepository.save(
+            com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme(
+                themeId = published.id!!,
                 publishName = "친구가공유한테마",
                 downloadCount = 7,
             ),

@@ -286,46 +286,47 @@ class ThemeStep(
 
     override fun run() {
         var count = 0
+        var publishedCount = 0
         collection("themes").find().forEach { doc ->
             val userId = idMaps.get("user", doc.string("user_id") ?: "") ?: return@forEach
             val origin = doc.get("origin") as? Document
+            val publishInfo = doc.get("publishInfo") as? Document
+            val status = doc.string("status") ?: "PRIVATE"
+            // builtin 테마는 이전에도 행이 없었다 (DB 행 없이 서비스 합성)
             insert(
                 "theme",
-                listOf(
-                    "external_id",
-                    "user_id",
-                    "name",
-                    "color_list",
-                    "is_custom",
-                    "status",
-                    "origin_theme_id",
-                    "origin_author_id",
-                    "publish_name",
-                    "author_anonymous",
-                    "download_count",
-                    "created_at",
-                    "updated_at",
-                ),
+                listOf("external_id", "user_id", "name", "color_list", "origin_theme_id", "origin_author_id", "created_at", "updated_at"),
                 listOf(
                     doc.externalId(),
                     userId,
                     doc.string("name") ?: "",
-                    doc.get("colors")?.toString(),
-                    doc.bool("is_custom"),
-                    doc.string("status") ?: "PRIVATE",
+                    doc.get("colors")?.toString() ?: "null",
                     origin?.string("originId")?.let { idMaps.get("theme", it) },
                     origin?.string("authorId")?.let { idMaps.get("user", it) },
-                    (doc.get("publishInfo") as? Document)?.string("publishName"),
-                    (doc.get("publishInfo") as? Document)?.get("authorAnonymous") as? Boolean,
-                    (doc.get("publishInfo") as? Document)?.get("downloads") as? Number ?: 0,
                     Timestamp.from(doc.instant("createdAt") ?: now()),
                     Timestamp.from(doc.instant("updatedAt") ?: now()),
                 ),
             )
-            idMaps.put("theme", doc.externalId(), lastInsertId())
+            val themeId = lastInsertId()
+            idMaps.put("theme", doc.externalId(), themeId)
+            // 공개 정보는 별도 행으로 분리 (publish_name이 있는 행만 공개됐던 것)
+            if (publishInfo?.string("publishName") != null) {
+                insert(
+                    "published_theme",
+                    listOf("theme_id", "publish_name", "author_anonymous", "download_count", "created_at"),
+                    listOf(
+                        themeId,
+                        publishInfo.string("publishName"),
+                        publishInfo.get("authorAnonymous") as? Boolean ?: false,
+                        publishInfo.get("downloads") as? Number ?: 0,
+                        Timestamp.from(doc.instant("updatedAt") ?: now()),
+                    ),
+                )
+                publishedCount++
+            }
             count++
         }
-        log.info("theme 이관: {}건", count)
+        log.info("theme 이관: {}건 (공개 {}건)", count, publishedCount)
     }
 }
 
