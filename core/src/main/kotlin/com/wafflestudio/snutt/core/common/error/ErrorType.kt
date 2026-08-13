@@ -99,8 +99,7 @@ enum class ErrorType(
     DIARY_TARGET_LECTURE_NOT_FOUND(HttpStatus.NOT_FOUND, 40413, "강의 일기장을 작성할 강의가 없습니다", "강의 일기장을 작성할 강의가 없습니다"),
     DIARY_SUBMISSION_NOT_FOUND(HttpStatus.NOT_FOUND, 40414, "강의 일기장 기록이 유효하지 않습니다", "강의 일기장 기록이 유효하지 않습니다"),
     EVALUATION_NOT_FOUND(HttpStatus.NOT_FOUND, 40415, "강의평을 찾을 수 없습니다", "강의평을 찾을 수 없습니다"),
-    TAG_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, 40416, "태그 그룹을 찾을 수 없습니다", "태그 그룹을 찾을 수 없습니다"),
-    TAG_NOT_FOUND(HttpStatus.NOT_FOUND, 40417, "태그를 찾을 수 없습니다", "태그를 찾을 수 없습니다"),
+    COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, 40416, "과목을 찾을 수 없습니다", "과목을 찾을 수 없습니다"),
 
     DUPLICATE_VACANCY_NOTIFICATION(HttpStatus.CONFLICT, 40900, "빈자리 알림 중복", "이미 빈자리 알림을 받고 있는 강좌입니다"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, 40901, "이미 사용 중인 이메일입니다", "이미 사용 중인 이메일입니다", "회원가입 실패"),

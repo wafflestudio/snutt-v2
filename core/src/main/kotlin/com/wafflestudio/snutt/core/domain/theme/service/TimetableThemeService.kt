@@ -18,6 +18,11 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+data class ThemeOrigin(
+    val originThemeExternalId: String,
+    val authorExternalId: String?,
+)
+
 @Service
 class TimetableThemeService(
     private val timetableThemeRepository: TimetableThemeRepository,
@@ -30,6 +35,26 @@ class TimetableThemeService(
     companion object {
         private const val MAX_COLOR_COUNT = 9
         private val copyNumberRegex = """\s\(\d+\)$""".toRegex()
+    }
+
+    /**
+     * 받아온 테마의 원본 정보. 공개 id만 다루고 목록당 1회씩 일괄 조회한다
+     */
+    fun getOrigins(themeExternalIds: Collection<String>): Map<String, ThemeOrigin> {
+        if (themeExternalIds.isEmpty()) return emptyMap()
+        val themes = timetableThemeRepository.findAllByExternalIdIn(themeExternalIds)
+        val originThemes =
+            timetableThemeRepository.findAllById(themes.mapNotNull { it.originThemeId }).associateBy { it.id!! }
+        val authors = userRepository.findAllById(themes.mapNotNull { it.originAuthorId }).associateBy { it.id!! }
+        return themes
+            .mapNotNull { theme ->
+                val originExternalId = theme.originThemeId?.let(originThemes::get)?.externalId ?: return@mapNotNull null
+                theme.externalId to
+                    ThemeOrigin(
+                        originThemeExternalId = originExternalId,
+                        authorExternalId = theme.originAuthorId?.let(authors::get)?.externalId,
+                    )
+            }.toMap()
     }
 
     // v1과 동일: 기본 테마(내장 6종, isDefault 포함) + 보관함 테마 목록

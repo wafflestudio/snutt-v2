@@ -68,7 +68,7 @@ data class LegacyMaskedEmailRequest(
 
 // v1 로그인 응답의 token = credentialHash (v1compat 전용, PLAN.md §3)
 @RestController
-@RequestMapping("/v1/auth", "/auth")
+@RequestMapping("/v1/auth")
 class V1CompatAuthController(
     private val authService: AuthService,
     private val deviceService: com.wafflestudio.snutt.core.domain.device.service.DeviceService,

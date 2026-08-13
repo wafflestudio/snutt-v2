@@ -32,19 +32,6 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
         }
 
         // 인증 코드 저장용 Redis
-        @JvmStatic
-        val redis: org.testcontainers.containers.GenericContainer<*> =
-            org.testcontainers.containers
-                .GenericContainer("redis:7-alpine")
-                .withExposedPorts(6379)
-                .apply { start() }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun redisProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.data.redis.host") { redis.host }
-            registry.add("spring.data.redis.port") { redis.getMappedPort(6379).toString() }
-        }
     }
 
     @Autowired

@@ -3,28 +3,24 @@ package com.wafflestudio.snutt.api.v2.evaluation
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.service.UserService
 
-internal fun CursorPage<EvaluationDisplay>.toEvaluationResponsePage(userRepository: UserRepository): CursorPage<EvaluationResponse> =
+internal fun CursorPage<EvaluationDisplay>.toEvaluationResponsePage(userService: UserService): CursorPage<EvaluationResponse> =
     CursorPage(
-        content = content.toEvaluationResponses(userRepository),
+        content = content.toEvaluationResponses(userService),
         cursor = cursor,
         size = size,
         last = last,
         totalCount = totalCount,
     )
 
-internal fun List<EvaluationDisplay>.toEvaluationResponses(userRepository: UserRepository): List<EvaluationResponse> {
-    val userMap =
-        userRepository.findAllById(mapNotNull { it.evaluation.userId }).associateBy { it.id!! }
+internal fun List<EvaluationDisplay>.toEvaluationResponses(userService: UserService): List<EvaluationResponse> {
+    val userMap = userService.getAllByIds(mapNotNull { it.evaluation.userId })
     return map { it.toEvaluationResponse(userMap) }
 }
 
-internal fun EvaluationDisplay.toEvaluationResponse(userRepository: UserRepository): EvaluationResponse {
-    val userMap =
-        evaluation.userId?.let { userRepository.findAllById(listOf(it)).associateBy { u -> u.id!! } }.orEmpty()
-    return toEvaluationResponse(userMap)
-}
+internal fun EvaluationDisplay.toEvaluationResponse(userService: UserService): EvaluationResponse =
+    toEvaluationResponse(userService.getAllByIds(listOfNotNull(evaluation.userId)))
 
 internal fun EvaluationDisplay.toEvaluationResponse(userMap: Map<Long, User>): EvaluationResponse {
     val evaluation = this.evaluation

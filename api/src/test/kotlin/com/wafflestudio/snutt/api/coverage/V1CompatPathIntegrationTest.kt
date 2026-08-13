@@ -23,7 +23,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
-import org.testcontainers.containers.GenericContainer
 
 /**
  * 구 클라이언트가 쓰던 /v1 경로가 그대로 살아있는지 확인한다.
@@ -40,17 +39,6 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
             registry.add("spring.datasource.url") { mysqlJdbcUrl("v1compat_path_test") }
             registry.add("spring.datasource.username") { mysql.username }
             registry.add("spring.datasource.password") { mysql.password }
-        }
-
-        @JvmStatic
-        val redis: GenericContainer<*> =
-            GenericContainer("redis:7-alpine").withExposedPorts(6379).apply { start() }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun redisProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.data.redis.host") { redis.host }
-            registry.add("spring.data.redis.port") { redis.getMappedPort(6379).toString() }
         }
 
         @JvmStatic

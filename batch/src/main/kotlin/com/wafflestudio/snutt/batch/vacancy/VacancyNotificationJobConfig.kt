@@ -1,10 +1,12 @@
 package com.wafflestudio.snutt.batch.vacancy
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
+import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.configuration.annotation.JobScope
@@ -27,6 +29,8 @@ class VacancyNotificationJobConfig(
     private val lectureRepository: LectureRepository,
     private val vacancyNotificationRepository: VacancyNotificationRepository,
     private val pushService: PushService,
+    private val coursebookService: CoursebookService,
+    private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
 ) {
     @Bean
     fun vacancyNotificationJob(): Job =
@@ -44,8 +48,14 @@ class VacancyNotificationJobConfig(
         return StepBuilder("vacancyNotificationStep", jobRepository)
             .tasklet(
                 { _, _ ->
-                    val targetYear = year ?: 2026
-                    val targetSemester = semester?.let(Semester::getOfValue) ?: Semester.AUTUMN
+                    val coursebook = coursebookService.getLatestCoursebook()
+                    val targetYear = year ?: coursebook.year
+                    val targetSemester = semester?.let(Semester::getOfValue) ?: coursebook.semester
+                    // 빈자리 알림은 수강신청 기간 안에서만 발송한다
+                    if (!isInRegistrationPeriod(targetYear, targetSemester)) {
+                        log.info("수강신청 기간이 아니므로 빈자리 알림을 건너뛴다: {} {}", targetYear, targetSemester)
+                        return@tasklet RepeatStatus.FINISHED
+                    }
                     // sync가 반영한 registration_count 기준으로 만석 해제를 감지한다
                     val vacated =
                         lectureRepository
@@ -68,6 +78,17 @@ class VacancyNotificationJobConfig(
                 },
                 transactionManager,
             ).build()
+    }
+
+    private fun isInRegistrationPeriod(
+        year: Int,
+        semester: Semester,
+    ): Boolean {
+        val periods =
+            semesterRegistrationPeriodService.getByYearAndSemester(year, semester)?.registrationPeriodList
+                ?: return false
+        val now = System.currentTimeMillis()
+        return periods.any { now in it.startAt..it.endAt }
     }
 
     companion object {

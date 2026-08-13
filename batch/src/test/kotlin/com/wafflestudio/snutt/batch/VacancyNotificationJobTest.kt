@@ -2,6 +2,8 @@ package com.wafflestudio.snutt.batch
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
+import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
+import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
@@ -63,6 +65,13 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     @Autowired
     lateinit var userDeviceRepository: com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 
+    @Autowired
+    lateinit var coursebookRepository: CoursebookRepository
+
+    @Autowired
+    lateinit var semesterRegistrationPeriodService:
+        com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
+
     @BeforeEach
     fun cleanTables() {
         lectureRepository.deleteAll()
@@ -70,6 +79,20 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         notificationRepository.deleteAll()
         userDeviceRepository.deleteAll()
         recordingPushClient.sentMessages.clear()
+
+        // 잡은 대상 학기를 coursebook에서 구하고, 수강신청 기간 안에서만 발송한다
+        if (!coursebookRepository.existsByYearAndSemester(2026, Semester.AUTUMN)) {
+            coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
+        }
+        val now = System.currentTimeMillis()
+        semesterRegistrationPeriodService.upsert(
+            2026,
+            Semester.AUTUMN,
+            listOf(
+                com.wafflestudio.snutt.core.domain.registrationperiod.model
+                    .RegistrationDate(startAt = now - 3_600_000, endAt = now + 3_600_000, type = "수강신청"),
+            ),
+        )
     }
 
     @Test

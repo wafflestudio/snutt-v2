@@ -4,7 +4,7 @@ import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.annotation.Value
@@ -15,7 +15,7 @@ import org.springframework.web.servlet.HandlerInterceptor
 // v1 호환: x-access-token(credentialHash) 인증. v2 JWT 경로와 공존한다 (PLAN.md §3 인증)
 @Component
 class V1CompatUserAuthInterceptor(
-    private val userRepository: UserRepository,
+    private val authService: AuthService,
 ) : HandlerInterceptor {
     override fun preHandle(
         request: HttpServletRequest,
@@ -30,9 +30,7 @@ class V1CompatUserAuthInterceptor(
 
         val token =
             request.getHeader("x-access-token") ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
-        val user =
-            userRepository.findByCredentialHashAndActiveTrue(token)
-                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        val user = authService.authenticateLegacyToken(token)
         val isEmailVerifiedRequired =
             handler.hasMethodAnnotation(EmailVerifiedRequired::class.java) ||
                 handler.beanType.isAnnotationPresent(EmailVerifiedRequired::class.java)

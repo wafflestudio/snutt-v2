@@ -2,18 +2,16 @@ package com.wafflestudio.snutt.api.v1compat.ev
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
-import com.wafflestudio.snutt.api.v2.tag.toResponse
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
-import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
-import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationReportRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
-import com.wafflestudio.snutt.core.domain.tag.service.TagService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.service.UserService
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -51,13 +49,10 @@ data class LegacyEvaluationReportRequest(
 
 @RestController
 @EmailVerifiedRequired
-@RequestMapping("/v1/ev-service/v1", "/ev-service/v1", "/v1/ev/v1")
+@RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
-    private val userRepository: UserRepository,
-    private val courseRepository: CourseRepository,
-    private val evaluationReportRepository: EvaluationReportRepository,
-    private val tagService: TagService,
+    private val userService: UserService,
 ) {
     @GetMapping("/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
@@ -197,12 +192,11 @@ class V1CompatEvController(
         @PathVariable evaluationId: Long,
         @RequestBody body: LegacyEvaluationReportRequest,
     ): Map<String, Any?> {
-        val reportId = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content))
-        val report = evaluationReportRepository.findById(reportId).orElseThrow()
+        val report = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content))
         return linkedMapOf(
             "id" to report.id,
             "lectureEvaluationId" to report.evaluationId,
-            "userId" to userRepository.findById(report.userId).orElse(null)?.externalId,
+            "userId" to userService.getExternalIds(listOf(report.userId))[report.userId],
             "content" to report.content,
             "isHidden" to report.isHidden,
         )
@@ -227,7 +221,7 @@ class V1CompatEvController(
     @GetMapping("/tags/main")
     fun getMainTags(
         @CurrentUser user: User,
-    ): com.wafflestudio.snutt.api.v2.tag.TagGroupResponse = tagService.getMainTags().toResponse()
+    ): Map<String, Any?> = legacyMainTagGroup()
 
     @GetMapping("/tags/main/{tagId}/evaluations")
     fun getMainTagEvaluations(
@@ -235,7 +229,8 @@ class V1CompatEvController(
         @PathVariable tagId: Long,
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<Map<String, Any?>> {
-        val page = evaluationService.getEvaluationsByTag(user.id!!, tagId, cursor)
+        val tag = evaluationTagOfLegacyId(tagId) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val page = evaluationService.getEvaluationsByTag(user.id!!, tag, cursor)
         val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
         val courseMap = courseMap(page.content.map { it.evaluation.courseId })
         return CursorPage(
@@ -247,8 +242,7 @@ class V1CompatEvController(
         )
     }
 
-    private fun userExternalIds(userIds: Collection<Long>): Map<Long, String> =
-        userRepository.findAllById(userIds).associate { it.id!! to it.externalId }
+    private fun userExternalIds(userIds: Collection<Long>): Map<Long, String> = userService.getExternalIds(userIds)
 
-    private fun courseMap(courseIds: Collection<Long>): Map<Long, Course> = courseRepository.findAllById(courseIds).associateBy { it.id!! }
+    private fun courseMap(courseIds: Collection<Long>): Map<Long, Course> = evaluationService.getCourses(courseIds)
 }

@@ -5,7 +5,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
-import com.wafflestudio.snutt.core.domain.tag.model.Tag
+import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface EvaluationRepository :
@@ -54,7 +54,7 @@ interface EvaluationCustomRepository {
     ): List<Evaluation>
 
     fun findByTag(
-        tag: Tag,
+        tag: EvaluationTag,
         cursorId: Long?,
         pageSize: Int,
     ): List<Evaluation>

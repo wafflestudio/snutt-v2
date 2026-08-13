@@ -22,7 +22,7 @@ import com.wafflestudio.snutt.core.domain.popup.service.PopupWriteRequest
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -81,13 +81,13 @@ data class AdminDiaryQuestionWriteRequest(
 
 @RestController
 @AdminOnly
-@RequestMapping("/v2/admin", "/v1/admin", "/admin")
+@RequestMapping("/v2/admin", "/v1/admin")
 class AdminController(
     private val notificationService: NotificationService,
     private val configService: ClientConfigService,
     private val popupService: PopupService,
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
-    private val userRepository: UserRepository,
+    private val userService: UserService,
     private val diaryService: DiaryService,
     private val diaryScheduler: com.wafflestudio.snutt.api.scheduler.DiaryScheduler,
     private val uploadUriIssuer: UploadUriIssuer,
@@ -200,7 +200,7 @@ class AdminController(
     fun searchUsersByEmail(
         @RequestParam email: String,
     ): List<AdminUserSearchResponse> =
-        userRepository.findByEmailContainingIgnoreCaseAndActiveTrue(email).map {
+        userService.searchByEmail(email).map {
             AdminUserSearchResponse(
                 id = it.externalId,
                 email = it.email,
@@ -261,9 +261,7 @@ class AdminController(
             maxAndroidVersion = maxAndroidVersion,
         )
 
-    private fun resolveUserExternalId(externalId: String): Long? =
-        userRepository.findByExternalIdAndActiveTrue(externalId)?.id
-            ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+    private fun resolveUserExternalId(externalId: String): Long? = userService.getByExternalId(externalId).id
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

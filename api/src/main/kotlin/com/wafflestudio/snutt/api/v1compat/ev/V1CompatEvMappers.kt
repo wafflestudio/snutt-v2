@@ -1,7 +1,28 @@
 package com.wafflestudio.snutt.api.v1compat.ev
 
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
+import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
+
+// v1 태그 그룹 형태. 태그 id는 목록 순번이다
+internal fun legacyMainTagGroup(): Map<String, Any?> =
+    linkedMapOf(
+        "id" to 1,
+        "name" to "main",
+        "ordering" to 1,
+        "color" to null,
+        "tags" to
+            EvaluationTag.entries.mapIndexed { index, tag ->
+                linkedMapOf(
+                    "id" to index + 1,
+                    "name" to tag.title,
+                    "description" to tag.description,
+                    "ordering" to index + 1,
+                )
+            },
+    )
+
+internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = EvaluationTag.entries.getOrNull((tagId - 1).toInt())
 
 // v1 ev 응답 형태 (../snutt-ev/core/.../evaluation/dto/EvaluationResponse.kt)
 // userId는 v2 내부 Long에서 공개 id(hex) 문자열로 바꾼다. lectureId는 재채번된 course id다.

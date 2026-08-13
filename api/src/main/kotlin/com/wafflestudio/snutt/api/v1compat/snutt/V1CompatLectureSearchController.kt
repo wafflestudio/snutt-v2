@@ -108,7 +108,7 @@ private fun Lecture.toLegacy(
 
 @RestController
 @Public
-@RequestMapping("/v1/search_query", "/search_query")
+@RequestMapping("/v1/search_query")
 class V1CompatLectureSearchController(
     private val lectureService: LectureService,
     private val evaluationService: com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService,

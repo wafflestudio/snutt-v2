@@ -3,13 +3,16 @@ package com.wafflestudio.snutt.api.v2.evaluation
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -118,11 +121,17 @@ data class EvaluationAveragesResponse(
     val avgRating: Double?,
 )
 
+data class EvaluationTagResponse(
+    val key: String,
+    val title: String,
+    val description: String,
+)
+
 @RestController
 @EmailVerifiedRequired
 class EvaluationController(
     private val evaluationService: EvaluationService,
-    private val userRepository: UserRepository,
+    private val userService: UserService,
 ) {
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
@@ -130,7 +139,7 @@ class EvaluationController(
         @PathVariable lectureId: String,
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<EvaluationResponse> =
-        evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage(userRepository)
+        evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage(userService)
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
@@ -150,13 +159,13 @@ class EvaluationController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toEvaluationResponse(userRepository)
+            ).toEvaluationResponse(userService)
 
     @GetMapping("/v2/lectures/{lectureId}/evaluations/me")
     fun getMyEvaluationsOfLecture(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
-    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses(userRepository)
+    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses(userService)
 
     @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
@@ -192,13 +201,30 @@ class EvaluationController(
     fun getMyEvaluations(
         @CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage(userRepository)
+    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage(userService)
+
+    // 큰레이션 태그 목록. 조건이 코드에 있으므로 저장소 조회 없이 나열한다
+    @GetMapping("/v2/evaluations/tags")
+    fun getEvaluationTags(
+        @CurrentUser user: User,
+    ): List<EvaluationTagResponse> =
+        EvaluationTag.entries.map { EvaluationTagResponse(key = it.key, title = it.title, description = it.description) }
+
+    @GetMapping("/v2/evaluations/tags/{tagKey}")
+    fun getEvaluationsByTag(
+        @CurrentUser user: User,
+        @PathVariable tagKey: String,
+        @RequestParam(required = false) cursor: String?,
+    ): CursorPage<EvaluationResponse> {
+        val tag = EvaluationTag.fromKey(tagKey) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        return evaluationService.getEvaluationsByTag(user.id!!, tag, cursor).toEvaluationResponsePage(userService)
+    }
 
     @GetMapping("/v2/evaluations/{evaluationId}")
     fun getEvaluation(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationService.getEvaluation(user.id!!, evaluationId).toEvaluationResponse(userRepository)
+    ): EvaluationResponse = evaluationService.getEvaluation(user.id!!, evaluationId).toEvaluationResponse(userService)
 
     @PatchMapping("/v2/evaluations/{evaluationId}")
     fun updateEvaluation(
@@ -218,7 +244,7 @@ class EvaluationController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toEvaluationResponse(userRepository)
+            ).toEvaluationResponse(userService)
 
     @DeleteMapping("/v2/evaluations/{evaluationId}")
     fun deleteEvaluation(
@@ -233,7 +259,7 @@ class EvaluationController(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
         @RequestBody body: EvaluationReportRequestBody,
-    ): Long = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content))
+    ): Long = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content)).id!!
 
     @PostMapping("/v2/evaluations/{evaluationId}/like")
     fun likeEvaluation(

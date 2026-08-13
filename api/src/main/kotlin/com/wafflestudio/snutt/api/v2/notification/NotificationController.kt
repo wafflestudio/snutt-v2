@@ -5,7 +5,7 @@ import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.service.UserService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -29,7 +29,7 @@ data class NotificationCountResponse(
 @RequestMapping("/v2/notifications")
 class NotificationController(
     private val notificationService: NotificationService,
-    private val userRepository: UserRepository,
+    private val userService: UserService,
 ) {
     @GetMapping("")
     fun getNotifications(
@@ -40,7 +40,7 @@ class NotificationController(
     ): List<NotificationResponse> {
         val notifications = notificationService.getNotifications(user, offset, limit, explicit > 0)
         val externalIdByUserId =
-            userRepository.findAllById(notifications.mapNotNull { it.userId }).associate { it.id!! to it.externalId }
+            userService.getExternalIds(notifications.mapNotNull { it.userId })
         return notifications.map { it.toResponse(externalIdByUserId[it.userId]) }
     }
 

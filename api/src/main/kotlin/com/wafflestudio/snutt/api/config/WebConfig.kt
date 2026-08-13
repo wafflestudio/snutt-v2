@@ -29,51 +29,22 @@ class WebConfig(
             .addInterceptor(userAuthInterceptor)
             .addPathPatterns("/v2/**")
             .order(2)
-        // v1 호환 경로: /v1/** + 이중 매핑의 루트 경로 (PLAN.md §6)
+        // v1 호환 경로. 경로는 /v1/** 하나뿐이라 인터셉터 등록과 라우팅이 같은 집합을 덮는다
         registry
             .addInterceptor(deprecationHeaderInterceptor)
             .addPathPatterns("/v1/**")
-            .addPathPatterns(V1_COMPAT_ROOT_PATHS)
             .order(1)
         registry
             .addInterceptor(v1CompatApiKeyInterceptor)
             .addPathPatterns("/v1/**")
-            .addPathPatterns(V1_COMPAT_ROOT_PATHS)
             .order(2)
         registry
             .addInterceptor(v1CompatUserAuthInterceptor)
             .addPathPatterns("/v1/**")
-            .addPathPatterns(V1_COMPAT_ROOT_PATHS)
             .order(3)
     }
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(currentUserArgumentResolver)
-    }
-
-    companion object {
-        // 이중 매핑("/v1/x", "/x")의 루트 경로
-        private val V1_COMPAT_ROOT_PATHS =
-            listOf(
-                "/tables/**",
-                "/auth/**",
-                "/users/**",
-                "/search_query",
-                "/tags/**",
-                "/course_books/**",
-                "/buildings/**",
-                "/ev-service/**",
-                "/ev/**",
-                "/notification/**",
-                "/bookmarks/**",
-                "/friends/**",
-                "/popups/**",
-                "/configs/**",
-                "/vacancy-notifications/**",
-                "/push/preferences/**",
-                "/diary/**",
-                "/user/device/**",
-                "/semesters/**",
-            )
     }
 }

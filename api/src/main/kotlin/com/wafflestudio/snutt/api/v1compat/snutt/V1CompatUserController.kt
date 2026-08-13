@@ -67,7 +67,7 @@ data class LegacySocialTokenRequest(
 )
 
 @RestController
-@RequestMapping("/v1/users", "/users")
+@RequestMapping("/v1/users")
 class V1CompatUsersController(
     private val userService: com.wafflestudio.snutt.core.domain.user.service.UserService,
 ) {
@@ -103,7 +103,7 @@ class V1CompatUsersController(
 
 // v1 계정 관리 경로는 단수형 /v1/user 이다 (../snutt UserController)
 @RestController
-@RequestMapping("/v1/user", "/user")
+@RequestMapping("/v1/user")
 class V1CompatUserController(
     private val userService: com.wafflestudio.snutt.core.domain.user.service.UserService,
     private val emailVerificationService: EmailVerificationService,

@@ -56,59 +56,6 @@ class CourseStep(
     }
 }
 
-// tag: 구 ev tag_group/tag → 신 tag_group/tag
-@Component
-class TagStep(
-    mongoClient: MongoClient,
-    jdbc: JdbcTemplate,
-    idMaps: IdMaps,
-    private val oldEvJdbc: JdbcTemplate,
-) : AbstractMigrationStep(mongoClient, jdbc, idMaps) {
-    override val name = "tag"
-
-    override fun run() {
-        var groupCount = 0
-        oldEvJdbc.query("SELECT id, name, ordering, color, value_type, created_at, updated_at FROM tag_group") { rs ->
-            insert(
-                "tag_group",
-                listOf("name", "ordering", "color", "value_type", "created_at", "updated_at"),
-                listOf(
-                    rs.getString("name"),
-                    rs.getInt("ordering"),
-                    rs.getString("color"),
-                    rs.getString("value_type"),
-                    rs.getTimestamp("created_at"),
-                    rs.getTimestamp("updated_at"),
-                ),
-            )
-            idMaps.put("tagGroup", rs.getLong("id").toString(), lastInsertId())
-            groupCount++
-        }
-        var tagCount = 0
-        oldEvJdbc.query(
-            "SELECT id, tag_group_id, name, description, ordering, int_value, string_value, created_at, updated_at FROM tag",
-        ) { rs ->
-            val newGroupId = idMaps.get("tagGroup", rs.getLong("tag_group_id").toString()) ?: return@query
-            insert(
-                "tag",
-                listOf("tag_group_id", "name", "description", "ordering", "int_value", "string_value", "created_at", "updated_at"),
-                listOf(
-                    newGroupId,
-                    rs.getString("name"),
-                    rs.getString("description"),
-                    rs.getInt("ordering"),
-                    rs.getObject("int_value") as? Number?,
-                    rs.getString("string_value"),
-                    rs.getTimestamp("created_at"),
-                    rs.getTimestamp("updated_at"),
-                ),
-            )
-            tagCount++
-        }
-        log.info("tag_group {}건, tag {}건 이관", groupCount, tagCount)
-    }
-}
-
 // timetable: 시간표 + 항목(lecture 참조 + override 컬럼, PLAN.md §2)
 @Component
 class TimetableStep(
