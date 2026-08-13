@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyLocalDateTime
 import com.wafflestudio.snutt.api.v2.diary.DiaryQuestionnaireRequestDto
 import com.wafflestudio.snutt.api.v2.diary.DiarySubmissionRequestDto
 import com.wafflestudio.snutt.api.v2.theme.ThemeAddRequest
@@ -113,7 +114,10 @@ class V1CompatThemeController(
     fun getTheme(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-    ) = delegate.getTheme(user, themeId).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
+    ): Map<String, Any?> {
+        val theme = delegate.getTheme(user, themeId)
+        return theme.toLegacy(user.externalId, originOf(theme))
+    }
 
     @PostMapping("")
     fun addTheme(
@@ -126,7 +130,10 @@ class V1CompatThemeController(
         @CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: ThemeModifyRequest,
-    ) = delegate.modifyTheme(user, themeId, body).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
+    ): Map<String, Any?> {
+        val theme = delegate.modifyTheme(user, themeId, body)
+        return theme.toLegacy(user.externalId, originOf(theme))
+    }
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(
@@ -160,7 +167,10 @@ class V1CompatThemeController(
         @CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: ThemeDownloadRequest,
-    ) = delegate.downloadTheme(user, themeId, body).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
+    ): Map<String, Any?> {
+        val theme = delegate.downloadTheme(user, themeId, body)
+        return theme.toLegacy(user.externalId, originOf(theme))
+    }
 
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
@@ -172,7 +182,10 @@ class V1CompatThemeController(
     fun setDefault(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-    ) = delegate.setDefault(user, themeId).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
+    ): Map<String, Any?> {
+        val theme = delegate.setDefault(user, themeId)
+        return theme.toLegacy(user.externalId, originOf(theme))
+    }
 
     @DeleteMapping("/{themeId}/default")
     fun unsetDefault(
@@ -275,7 +288,7 @@ class V1CompatDiaryController(
                             linkedMapOf(
                                 "id" to submission.externalId,
                                 "lectureId" to submission.lectureId?.let(lectureExternalIds::get),
-                                "date" to checkNotNull(submission.createdAt).atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDateTime(),
+                                "date" to checkNotNull(submission.createdAt).toLegacyLocalDateTime(),
                                 "courseTitle" to submission.courseTitle,
                                 "shortQuestionReplies" to
                                     (replies[submission.id] ?: emptyList()).map {

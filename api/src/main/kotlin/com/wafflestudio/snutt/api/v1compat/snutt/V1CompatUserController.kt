@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.KST
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyLocalDateTime
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
@@ -10,6 +12,7 @@ import com.wafflestudio.snutt.core.domain.user.service.EmailVerificationService
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -160,33 +163,30 @@ class V1CompatUserController(
         @RequestBody body: LegacyChangePasswordRequest,
     ): Map<String, Any?> = mapOf("token" to authService.changePassword(user, body.currentPassword, body.newPassword))
 
-    @PostMapping("/facebook", "/google", "/kakao", "/apple")
+    @PostMapping("/{provider:facebook|google|kakao|apple}")
     fun attachSocial(
         @CurrentUser user: User,
+        @PathVariable provider: String,
         @RequestBody body: LegacySocialTokenRequest,
-        request: jakarta.servlet.http.HttpServletRequest,
-    ): Map<String, Any?> = mapOf("token" to authService.attachSocial(user, request.socialProvider(), body.token))
+    ): Map<String, Any?> = mapOf("token" to authService.attachSocial(user, socialProvider(provider), body.token))
 
-    @DeleteMapping("/facebook", "/google", "/kakao", "/apple")
+    @DeleteMapping("/{provider:facebook|google|kakao|apple}")
     fun detachSocial(
         @CurrentUser user: User,
-        request: jakarta.servlet.http.HttpServletRequest,
-    ): Map<String, Any?> = mapOf("token" to authService.detachSocial(user, request.socialProvider()))
+        @PathVariable provider: String,
+    ): Map<String, Any?> = mapOf("token" to authService.detachSocial(user, socialProvider(provider)))
 
-    // 경로 끝 세그먼트가 곧 소셜 제공자다
-    private fun jakarta.servlet.http.HttpServletRequest.socialProvider(): AuthProvider =
-        AuthProvider.from(requestURI.substringAfterLast('/'))?.takeIf { it != AuthProvider.LOCAL }
+    private fun socialProvider(value: String): AuthProvider =
+        AuthProvider.from(value)?.takeIf { it != AuthProvider.LOCAL }
             ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }
-
-private val KST: java.time.ZoneId = java.time.ZoneId.of("Asia/Seoul")
 
 internal fun User.toLegacyUserDto() =
     LegacyUserDto(
         id = externalId,
         isAdmin = isAdmin,
-        regDate = checkNotNull(createdAt).atZone(KST).toLocalDateTime(),
-        notificationCheckedAt = notificationCheckedAt.atZone(KST).toLocalDateTime(),
+        regDate = checkNotNull(createdAt).toLegacyLocalDateTime(),
+        notificationCheckedAt = notificationCheckedAt.toLegacyLocalDateTime(),
         email = email,
         localId = localId,
         fbName = facebookName,
