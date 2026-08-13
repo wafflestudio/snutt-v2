@@ -1,7 +1,9 @@
 package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
-import com.wafflestudio.snutt.api.v2.bookmark.BookmarkController
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyBookmarkLectureDto
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.api.v2.bookmark.BookmarkLectureModifyRequest
 import com.wafflestudio.snutt.api.v2.config.ConfigController
 import com.wafflestudio.snutt.api.v2.feedback.FeedbackController
@@ -13,8 +15,8 @@ import com.wafflestudio.snutt.api.v2.friend.UpdateFriendDisplayNameRequest
 import com.wafflestudio.snutt.api.v2.notification.NotificationController
 import com.wafflestudio.snutt.api.v2.popup.PopupController
 import com.wafflestudio.snutt.api.v2.pushpreference.PushPreferenceController
-import com.wafflestudio.snutt.api.v2.vacancy.VacancyNotificationController
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
 import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -38,9 +40,11 @@ private fun <T> listResponse(content: List<T>) = linkedMapOf("content" to conten
 private fun Long.toLegacyDateTime(): String =
     Instant
         .ofEpochMilli(this)
-        .atZone(ZoneId.of("Asia/Seoul"))
+        .atZone(KST)
         .toLocalDateTime()
         .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+private val KST: ZoneId = ZoneId.of("Asia/Seoul")
 
 private fun FriendResponse.toLegacy() =
     linkedMapOf(
@@ -140,7 +144,7 @@ class V1CompatNotificationController(
                 "message" to it.message,
                 "type" to it.type.value,
                 "deeplink" to it.deeplink,
-                "created_at" to it.createdAt.toLegacyDateTime(),
+                "created_at" to Instant.ofEpochMilli(it.createdAt).atZone(KST).toString(),
             )
         }
 
@@ -153,61 +157,97 @@ class V1CompatNotificationController(
 @RestController
 @RequestMapping("/v1/bookmarks", "/bookmarks")
 class V1CompatBookmarkController(
-    private val delegate: BookmarkController,
+    private val bookmarkService: com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService,
+    private val evaluationService: EvaluationService,
 ) {
     @GetMapping("")
     fun getBookmarks(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
-    ) = delegate.getBookmarks(user, year, semester)
+    ): Map<String, Any?> {
+        val display =
+            bookmarkService.getBookmark(
+                user.id!!,
+                year,
+                com.wafflestudio.snutt.core.common.enums.Semester
+                    .fromValue(semester),
+            )
+        val summaries = evaluationService.findSummariesByLectureIds(display.lectures.mapNotNull { it.id })
+        return linkedMapOf(
+            "year" to year,
+            "semester" to semester,
+            "lectures" to
+                display.lectures.map { lecture ->
+                    val evSummary =
+                        lecture.id
+                            ?.let(summaries::get)
+                            ?.let { lecture.courseId?.let { courseId -> LegacyEvSummary(courseId, it.avgRating, it.evalCount) } }
+                    LegacyBookmarkLectureDto(lecture, evSummary)
+                },
+        )
+    }
 
     @GetMapping("/lectures/{lectureId}/state")
     fun existsBookmarkLecture(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
-    ) = delegate.existsBookmarkLecture(user, lectureId)
+    ): Map<String, Any?> = mapOf("exists" to bookmarkService.existsBookmarkLecture(user.id!!, lectureId))
 
     @PostMapping("/lecture")
     fun addLecture(
         @CurrentUser user: User,
         @RequestBody body: BookmarkLectureModifyRequest,
-    ) = delegate.addLecture(user, body)
+    ) = bookmarkService.addLecture(user.id!!, body.lectureId)
 
     @DeleteMapping("/lecture")
     fun deleteLecture(
         @CurrentUser user: User,
         @RequestBody body: BookmarkLectureModifyRequest,
-    ) = delegate.deleteLecture(user, body)
+    ) = bookmarkService.deleteLecture(user.id!!, body.lectureId)
 }
 
 @RestController
 @RequestMapping("/v1/vacancy-notifications", "/vacancy-notifications")
 class V1CompatVacancyNotificationController(
-    private val delegate: VacancyNotificationController,
+    private val vacancyNotificationService: com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService,
+    private val evaluationService: EvaluationService,
 ) {
     @GetMapping("/lectures")
     fun getLectures(
         @CurrentUser user: User,
-    ) = delegate.getVacancyNotificationLectures(user)
+    ): Map<String, Any?> {
+        val lectures = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
+        val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        return mapOf(
+            "lectures" to
+                lectures.map { lecture ->
+                    val evSummary =
+                        lecture.id
+                            ?.let(summaries::get)
+                            ?.let { lecture.courseId?.let { courseId -> LegacyEvSummary(courseId, it.avgRating, it.evalCount) } }
+                    LegacyLectureDto(lecture, evSummary)
+                },
+        )
+    }
 
     @GetMapping("/lectures/{lectureId}/state")
     fun exists(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
-    ) = delegate.existsVacancyNotification(user, lectureId)
+    ): Map<String, Any?> = mapOf("exists" to vacancyNotificationService.existsVacancyNotification(user.id!!, lectureId))
 
     @PostMapping("/lectures/{lectureId}")
     fun add(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
-    ) = delegate.addVacancyNotification(user, lectureId)
+    ) = vacancyNotificationService.addVacancyNotification(user.id!!, lectureId)
 
     @DeleteMapping("/lectures/{lectureId}")
     fun delete(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
-    ) = delegate.deleteVacancyNotification(user, lectureId)
+    ) = vacancyNotificationService.deleteVacancyNotification(user.id!!, lectureId)
 }
 
 @RestController

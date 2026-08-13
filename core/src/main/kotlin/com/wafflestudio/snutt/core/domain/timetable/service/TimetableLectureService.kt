@@ -40,6 +40,10 @@ data class TimetableLectureModifyRequest(
     val remark: String? = null,
     val color: ColorSet? = null,
     val colorIndex: Int? = null,
+    val academicYear: String? = null,
+    val category: String? = null,
+    val classification: String? = null,
+    val categoryPre2025: String? = null,
     val isForced: Boolean = false,
 )
 
@@ -153,6 +157,10 @@ class TimetableLectureService(
         request.credit?.let { customization.credit = it }
         request.remark?.let { customization.remark = it }
         request.classPlaceAndTime?.let { customization.classPlaceAndTime = it }
+        request.academicYear?.let { customization.academicYear = it }
+        request.category?.let { customization.category = it }
+        request.classification?.let { customization.classification = it }
+        request.categoryPre2025?.let { customization.categoryPre2025 = it }
 
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         return timetableService.getTimetableDisplay(userId, timetableExternalId)

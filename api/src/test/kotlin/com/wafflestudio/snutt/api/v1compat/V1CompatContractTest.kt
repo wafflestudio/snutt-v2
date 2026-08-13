@@ -198,17 +198,17 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val detail = get("/v1/tables/$timetableId", legacyToken)
         assertEquals(200, detail.statusCode.value())
         val body = asMap(detail)
-        assertEquals(timetableId, body["_id"])
-        assertEquals(userId, body["user_id"])
-        val lectures = body["lecture_list"] as List<*>
+        assertEquals(timetableId, body["id"])
+        assertEquals(userId, body["userId"])
+        val lectures = body["lectures"] as List<*>
         assertEquals(1, lectures.size)
         val lecture = lectures[0] as Map<*, *>
-        assertEquals("호환강의", lecture["course_title"])
-        assertEquals(lectureId, lecture["lecture_id"])
-        val classTimes = lecture["class_time_json"] as List<*>
+        assertEquals("호환강의", lecture["courseTitle"])
+        assertEquals(lectureId, lecture["lectureId"])
+        // 시간표 응답의 classPlaceAndTimes는 단순 DTO다 (start_time/len은 검색 전용)
+        val classTimes = lecture["classPlaceAndTimes"] as List<*>
         assertEquals(0, (classTimes[0] as Map<*, *>)["day"])
-        assertEquals("09:30", (classTimes[0] as Map<*, *>)["start_time"])
-        assertEquals(1.5, (classTimes[0] as Map<*, *>)["len"])
+        assertEquals(570, (classTimes[0] as Map<*, *>)["startMinute"])
     }
 
     @Test
@@ -225,7 +225,10 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         assertEquals("호환강의", lecture["course_title"])
         assertTrue(lecture.containsKey("_id"))
         assertTrue(lecture.containsKey("class_time_json"))
-        assertTrue(lecture.containsKey("academic_year"))
+        // 검색 LectureDto는 확장 시각 필드를 가진다
+        val classTimes = lecture["class_time_json"] as List<*>
+        assertEquals("09:30", (classTimes[0] as Map<*, *>)["start_time"])
+        assertEquals(1.5, (classTimes[0] as Map<*, *>)["len"])
     }
 
     @Test

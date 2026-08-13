@@ -28,77 +28,106 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 // v1 TimetableThemeDto: colors/publishInfo 이름과 basic 테마 번호를 쓴다
-private fun ThemeResponse.toLegacy(userExternalId: String) =
-    linkedMapOf(
-        "id" to id,
-        "userId" to userExternalId,
-        "theme" to (if (isCustom) BasicThemeType.SNUTT else BasicThemeType.from(name) ?: BasicThemeType.SNUTT).value,
-        "name" to name,
-        "colors" to colorList,
-        "isDefault" to isDefault,
-        "isCustom" to isCustom,
-        "status" to status,
-        "publishInfo" to
-            publishName?.let {
-                linkedMapOf(
-                    "publishName" to it,
-                    "authorName" to authorNickname,
-                    "downloads" to downloadCount,
-                )
-            },
-    )
+private fun ThemeResponse.toLegacy(
+    userExternalId: String,
+    origin: Map<String, Any?>?,
+) = linkedMapOf(
+    "id" to id,
+    "userId" to userExternalId,
+    "theme" to (if (isCustom) BasicThemeType.SNUTT else BasicThemeType.from(name) ?: BasicThemeType.SNUTT).value,
+    "name" to name,
+    "colors" to colorList,
+    "isDefault" to isDefault,
+    "isCustom" to isCustom,
+    "origin" to origin,
+    "status" to status,
+    "publishInfo" to
+        publishName?.let {
+            linkedMapOf(
+                "publishName" to it,
+                "authorName" to authorNickname,
+                "downloads" to downloadCount,
+            )
+        },
+)
 
 data class LegacyThemeSearchRequest(
     val keyword: String,
+)
+
+data class LegacyThemePublishRequest(
+    val publishName: String,
+    val isAnonymous: Boolean,
 )
 
 @RestController
 @RequestMapping("/v1/themes", "/themes")
 class V1CompatThemeController(
     private val delegate: ThemeController,
+    private val timetableThemeRepository: com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository,
+    private val userRepository: com.wafflestudio.snutt.core.domain.user.repository.UserRepository,
 ) {
+    // v1은 받아온 테마의 원본 정보(origin)를 함께 준다
+    private fun originOf(response: ThemeResponse): Map<String, Any?>? {
+        if (response.status != com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus.DOWNLOADED) return null
+        val theme = response.id?.let { timetableThemeRepository.findByExternalId(it) } ?: return null
+        val originThemeExternalId = theme.originThemeId?.let { timetableThemeRepository.findById(it).orElse(null)?.externalId }
+        val originAuthorExternalId = theme.originAuthorId?.let { userRepository.findById(it).orElse(null)?.externalId }
+        if (originThemeExternalId == null) return null
+        return linkedMapOf("originId" to originThemeExternalId, "authorId" to originAuthorExternalId)
+    }
+
     @GetMapping("")
     fun getThemes(
         @CurrentUser user: User,
-    ) = delegate.getThemes(user).map { it.toLegacy(user.externalId) }
+    ) = delegate.getThemes(user).map { it.toLegacy(user.externalId, originOf(it)) }
 
     @GetMapping("/best")
     fun getBestThemes(
         @CurrentUser user: User,
         @RequestParam page: Int,
-    ) = listOf("content" to delegate.getBestThemes(page).map { it.toLegacy(user.externalId) }).toMap()
+    ): Map<String, Any?> {
+        val content = delegate.getBestThemes(page).map { it.toLegacy(user.externalId, originOf(it)) }
+        return mapOf("content" to content, "totalCount" to content.size)
+    }
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @CurrentUser user: User,
         @RequestParam page: Int,
-    ) = listOf("content" to delegate.getFriendsThemes(user, page).map { it.toLegacy(user.externalId) }).toMap()
+    ): Map<String, Any?> {
+        val content = delegate.getFriendsThemes(user, page).map { it.toLegacy(user.externalId, originOf(it)) }
+        return mapOf("content" to content, "totalCount" to content.size)
+    }
 
     // v1은 검색을 POST 본문으로 받는다
     @PostMapping("/search")
     fun searchThemes(
         @CurrentUser user: User,
         @RequestBody body: LegacyThemeSearchRequest,
-    ) = listOf("content" to delegate.searchThemes(body.keyword).map { it.toLegacy(user.externalId) }).toMap()
+    ): Map<String, Any?> {
+        val content = delegate.searchThemes(body.keyword).map { it.toLegacy(user.externalId, originOf(it)) }
+        return mapOf("content" to content, "totalCount" to content.size)
+    }
 
     @GetMapping("/{themeId}")
     fun getTheme(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-    ) = delegate.getTheme(user, themeId).toLegacy(user.externalId)
+    ) = delegate.getTheme(user, themeId).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
 
     @PostMapping("")
     fun addTheme(
         @CurrentUser user: User,
         @RequestBody body: ThemeAddRequest,
-    ) = delegate.addTheme(user, body).toLegacy(user.externalId)
+    ) = delegate.addTheme(user, body).toLegacy(user.externalId, null)
 
     @PatchMapping("/{themeId}")
     fun modifyTheme(
         @CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: ThemeModifyRequest,
-    ) = delegate.modifyTheme(user, themeId, body).toLegacy(user.externalId)
+    ) = delegate.modifyTheme(user, themeId, body).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(
@@ -110,8 +139,15 @@ class V1CompatThemeController(
     fun publishTheme(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-        @RequestBody body: ThemePublishRequest,
-    ) = delegate.publishTheme(user, themeId, body)
+        @RequestBody body: LegacyThemePublishRequest,
+    ): Map<String, Any?> {
+        delegate.publishTheme(
+            user,
+            themeId,
+            ThemePublishRequest(publishName = body.publishName, authorAnonymous = body.isAnonymous),
+        )
+        return mapOf("message" to "ok")
+    }
 
     // v1의 공유 해제 경로는 /publish 이다
     @DeleteMapping("/{themeId}/publish")
@@ -125,37 +161,37 @@ class V1CompatThemeController(
         @CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: ThemeDownloadRequest,
-    ) = delegate.downloadTheme(user, themeId, body).toLegacy(user.externalId)
+    ) = delegate.downloadTheme(user, themeId, body).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
 
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-    ) = delegate.copyTheme(user, themeId).toLegacy(user.externalId)
+    ) = delegate.copyTheme(user, themeId).toLegacy(user.externalId, null)
 
     @PostMapping("/{themeId}/default")
     fun setDefault(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-    ) = delegate.setDefault(user, themeId).toLegacy(user.externalId)
+    ) = delegate.setDefault(user, themeId).toLegacy(user.externalId, originOf(delegate.getTheme(user, themeId)))
 
     @DeleteMapping("/{themeId}/default")
     fun unsetDefault(
         @CurrentUser user: User,
         @PathVariable themeId: String,
-    ) = delegate.unsetDefault(user, themeId).toLegacy(user.externalId)
+    ) = delegate.unsetDefault(user, themeId).toLegacy(user.externalId, null)
 
     @PostMapping("/basic/{basicThemeTypeValue}/default")
     fun setBasicDefault(
         @CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
-    ) = delegate.setBasicThemeDefault(user, basicThemeTypeValue).toLegacy(user.externalId)
+    ) = delegate.setBasicThemeDefault(user, basicThemeTypeValue).toLegacy(user.externalId, null)
 
     @DeleteMapping("/basic/{basicThemeTypeValue}/default")
     fun unsetBasicDefault(
         @CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
-    ) = delegate.unsetBasicThemeDefault(user, basicThemeTypeValue).toLegacy(user.externalId)
+    ) = delegate.unsetBasicThemeDefault(user, basicThemeTypeValue).toLegacy(user.externalId, null)
 }
 
 @RestController
@@ -258,25 +294,18 @@ class V1CompatEvSummaryController(
         val display = evaluationService.getEvaluationSummaryOfLecture(lectureId)
         val lecture = display.lecture
         return linkedMapOf(
-            "id" to lecture.externalId,
-            "title" to lecture.courseTitle,
-            "instructor" to lecture.instructor,
-            "department" to lecture.department,
-            "courseNumber" to lecture.courseNumber,
-            "credit" to lecture.credit,
-            "academicYear" to lecture.academicYear,
-            "category" to lecture.category,
-            "classification" to lecture.classification,
-            "evaluation" to
-                display.averages?.let {
-                    linkedMapOf(
-                        "avgGradeSatisfaction" to it.avgGradeSatisfaction,
-                        "avgTeachingSkill" to it.avgTeachingSkill,
-                        "avgGains" to it.avgGains,
-                        "avgLifeBalance" to it.avgLifeBalance,
-                        "avgRating" to it.avgRating,
-                    )
-                },
+            "evLectureId" to lecture.courseId,
+            "avgRating" to display.averages?.avgRating,
+            "evaluationCount" to
+                (
+                    lecture.courseId?.let {
+                        evaluationService
+                            .findSummariesByLectureIds(
+                                listOf(lecture.id!!),
+                            )[lecture.id!!]
+                            ?.evalCount
+                    } ?: 0L
+                ),
         )
     }
 }

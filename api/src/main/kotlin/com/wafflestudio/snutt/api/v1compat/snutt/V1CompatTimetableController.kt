@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
-import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyTimetableDto
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -166,7 +165,7 @@ class V1CompatTimetableController(
             timetable = display.timetable,
             userId = user.externalId,
             display = display,
-            evSummaries = emptyMap(),
+            evLectureIds = emptyMap(),
         )
     }
 
@@ -314,26 +313,23 @@ class V1CompatTimetableController(
         timetable: Timetable,
         display: com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay,
     ): LegacyTimetableDto {
-        val evSummaries = fetchEvSummaries(display.lectures.mapNotNull { it.lectureId })
+        val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
         return LegacyTimetableDto(
             timetable = timetable,
             userId = user.externalId,
             display = display,
-            evSummaries = evSummaries,
+            evLectureIds = evLectureIds,
         )
     }
 
-    // lecture 공개 id(hex) → course 집계 요약 (evLectureId는 재채번된 course id)
-    private fun fetchEvSummaries(lectureExternalIds: List<String>): Map<String, LegacyEvSummary> {
+    // lecture 공개 id(hex) → ev lecture id (재채번된 course id)
+    private fun fetchEvLectureIds(lectureExternalIds: List<String>): Map<String, Long> {
         if (lectureExternalIds.isEmpty()) return emptyMap()
         val numericIds = lectureRepository.findAllByExternalIdIn(lectureExternalIds).associate { it.externalId to it.id!! }
         val summaries = evaluationService.findSummariesByLectureIds(numericIds.values)
         return numericIds
-            .mapValues { (_, numericId) ->
-                summaries[numericId]?.let {
-                    LegacyEvSummary(evLectureId = numericId, avgRating = it.avgRating, evaluationCount = it.evalCount)
-                }
-            }.filterValues { it != null }
+            .mapValues { (_, numericId) -> summaries[numericId]?.let { numericId } }
+            .filterValues { it != null }
             .mapValues { it.value!! }
     }
 
