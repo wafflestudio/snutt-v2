@@ -2,9 +2,9 @@ package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyBookmarkLectureDto
-import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyTimetableDto
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyEvSummary
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyLocalDateTimeString
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyZonedDateTimeString
 import com.wafflestudio.snutt.api.v2.bookmark.BookmarkLectureModifyRequest
@@ -201,11 +201,7 @@ class V1CompatBookmarkController(
             "semester" to semester,
             "lectures" to
                 display.lectures.map { lecture ->
-                    val evSummary =
-                        lecture.id
-                            ?.let(summaries::get)
-                            ?.let { lecture.courseId?.let { courseId -> LegacyEvSummary(courseId, it.avgRating, it.evalCount) } }
-                    LegacyBookmarkLectureDto(lecture, evSummary)
+                    LegacyBookmarkLectureDto(lecture, summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId))
                 },
         )
     }
@@ -244,11 +240,7 @@ class V1CompatVacancyNotificationController(
         return mapOf(
             "lectures" to
                 lectures.map { lecture ->
-                    val evSummary =
-                        lecture.id
-                            ?.let(summaries::get)
-                            ?.let { lecture.courseId?.let { courseId -> LegacyEvSummary(courseId, it.avgRating, it.evalCount) } }
-                    LegacyLectureDto(lecture, evSummary)
+                    LegacyLectureDto(lecture, summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId))
                 },
         )
     }

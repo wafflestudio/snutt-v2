@@ -377,21 +377,12 @@ class V1CompatEvSummaryController(
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: String,
     ): Map<String, Any?> {
-        val display = evaluationService.getEvaluationSummaryOfLecture(lectureId)
-        val lecture = display.lecture
+        val lecture = evaluationService.getEvaluationSummaryOfLecture(lectureId).lecture
+        val summary = lecture.id?.let { evaluationService.findSummariesByLectureIds(listOf(it))[it] }
         return linkedMapOf(
             "evLectureId" to lecture.courseId,
-            "avgRating" to display.averages?.avgRating,
-            "evaluationCount" to
-                (
-                    lecture.courseId?.let {
-                        evaluationService
-                            .findSummariesByLectureIds(
-                                listOf(lecture.id!!),
-                            )[lecture.id!!]
-                            ?.evalCount
-                    } ?: 0L
-                ),
+            "avgRating" to summary?.avgRating,
+            "evaluationCount" to (summary?.evalCount ?: 0L),
         )
     }
 }

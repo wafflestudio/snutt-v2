@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v1compat.snutt
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyClassPlaceAndTimeFullDto
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyEvSummary
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -147,10 +148,7 @@ class V1CompatLectureSearchController(
         val lectures = lectureService.search(criteria)
         val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
         return lectures.map { lecture ->
-            val summary = lecture.id?.let(summaries::get)
-            lecture.toLegacy(
-                summary?.let { lecture.courseId?.let { courseId -> LegacyEvSummary(courseId, it.avgRating, it.evalCount) } },
-            )
+            lecture.toLegacy(summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId))
         }
     }
 }
