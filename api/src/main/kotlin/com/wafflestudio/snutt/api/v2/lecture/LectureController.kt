@@ -132,6 +132,7 @@ class LectureController(
             LectureSearchCriteria(
                 year = request.year,
                 semester = parseSemester(request.semester),
+                language = clientInfo.language,
                 query = request.query,
                 classification = request.classification,
                 credit = request.credit,

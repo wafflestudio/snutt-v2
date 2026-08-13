@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.api.v2.theme.ThemePublishRequest
 import com.wafflestudio.snutt.api.v2.theme.ThemeResponse
 import com.wafflestudio.snutt.api.v2.timetable.TimetableLectureReminderController
 import com.wafflestudio.snutt.api.v2.timetable.TimetableLectureReminderModifyRequest
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.tag.service.TagListService
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -242,6 +244,7 @@ class V1CompatDiaryController(
     fun getQuestionnaire(
         @CurrentUser user: User,
         @RequestBody body: DiaryQuestionnaireRequestDto,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): Map<String, Any?> {
         val display =
             diaryService.generateQuestionnaire(
@@ -252,12 +255,15 @@ class V1CompatDiaryController(
                 ),
             )
         return linkedMapOf(
-            "courseTitle" to display.courseTitle,
+            "courseTitle" to clientInfo.language.select(display.courseTitle, display.courseTitleEn),
             "questions" to
                 display.questions.map {
                     linkedMapOf("id" to it.id, "question" to it.question, "answers" to it.answerList)
                 },
-            "nextLecture" to display.nextLecture?.let { linkedMapOf("lectureId" to it.lectureId, "courseTitle" to it.courseTitle) },
+            "nextLecture" to
+                display.nextLecture?.let {
+                    linkedMapOf("lectureId" to it.lectureId, "courseTitle" to clientInfo.language.select(it.courseTitle, it.courseTitleEn))
+                },
         )
     }
 
@@ -266,6 +272,7 @@ class V1CompatDiaryController(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): Map<String, Any?> {
         val target =
             diaryService.getDiaryTargetLecture(
@@ -278,7 +285,10 @@ class V1CompatDiaryController(
                 ?: throw com.wafflestudio.snutt.core.common.error.SnuttException(
                     com.wafflestudio.snutt.core.common.error.ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND,
                 )
-        return linkedMapOf("lectureId" to target.lectureId, "courseTitle" to target.courseTitle)
+        return linkedMapOf(
+            "lectureId" to target.lectureId,
+            "courseTitle" to clientInfo.language.select(target.courseTitle, target.courseTitleEn),
+        )
     }
 
     // v1 경로는 camelCase 이다

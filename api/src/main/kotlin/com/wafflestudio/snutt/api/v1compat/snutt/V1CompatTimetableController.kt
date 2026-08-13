@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
@@ -84,9 +85,10 @@ class V1CompatTimetableController(
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
         @CurrentUser user: User,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getMostRecentlyUpdatedTimetable(user.id!!)
-        return toLegacy(user, timetable)
+        return toLegacy(user, timetable, clientInfo.language)
     }
 
     @GetMapping("/{year}/{semester}")
@@ -94,10 +96,11 @@ class V1CompatTimetableController(
         @CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Int,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): List<LegacyTimetableDto> =
         timetableService
             .getTimetablesBySemester(user.id!!, year, parseSemester(semester))
-            .map { toLegacy(user, it) }
+            .map { toLegacy(user, it, clientInfo.language) }
 
     @PostMapping("")
     fun addTimetable(
@@ -118,7 +121,8 @@ class V1CompatTimetableController(
     fun getTimetable(
         @CurrentUser user: User,
         @PathVariable timetableId: String,
-    ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId))
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+    ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId), clientInfo.language)
 
     // v1은 이름 변경에 PUT과 PATCH를 모두 받는다
     @RequestMapping(
@@ -192,6 +196,7 @@ class V1CompatTimetableController(
         @PathVariable timetableId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyCustomLectureRequest,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -215,7 +220,7 @@ class V1CompatTimetableController(
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
-        return toLegacy(user, timetable, display)
+        return toLegacy(user, timetable, display, clientInfo.language)
     }
 
     @PostMapping("/{timetableId}/lecture/{lectureId}")
@@ -225,6 +230,7 @@ class V1CompatTimetableController(
         @PathVariable lectureId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -233,7 +239,7 @@ class V1CompatTimetableController(
                 timetableId,
                 TimetableLectureAddRequest(lectureId = lectureId, isForced = isForced ?: body?.isForced ?: false),
             )
-        return toLegacy(user, timetable, display)
+        return toLegacy(user, timetable, display, clientInfo.language)
     }
 
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}/reset")
@@ -243,6 +249,7 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -252,7 +259,7 @@ class V1CompatTimetableController(
                 timetableLectureId,
                 isForced ?: body?.isForced ?: false,
             )
-        return toLegacy(user, timetable, display)
+        return toLegacy(user, timetable, display, clientInfo.language)
     }
 
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}")
@@ -262,6 +269,7 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyModifyLectureRequest,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -286,7 +294,7 @@ class V1CompatTimetableController(
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
-        return toLegacy(user, timetable, display)
+        return toLegacy(user, timetable, display, clientInfo.language)
     }
 
     @DeleteMapping("/{timetableId}/lecture/{timetableLectureId}")
@@ -294,24 +302,27 @@ class V1CompatTimetableController(
         @CurrentUser user: User,
         @PathVariable timetableId: String,
         @PathVariable timetableLectureId: String,
+        @RequestAttribute clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display = timetableLectureService.deleteLecture(user.id!!, timetableId, timetableLectureId)
-        return toLegacy(user, timetable, display)
+        return toLegacy(user, timetable, display, clientInfo.language)
     }
 
     private fun toLegacy(
         user: User,
         timetable: Timetable,
+        language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
     ): LegacyTimetableDto {
         val display = timetableService.getTimetableDisplay(user.id!!, timetable.externalId)
-        return toLegacy(user, timetable, display)
+        return toLegacy(user, timetable, display, language)
     }
 
     private fun toLegacy(
         user: User,
         timetable: Timetable,
         display: com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay,
+        language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
     ): LegacyTimetableDto {
         val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
         return LegacyTimetableDto(
@@ -319,6 +330,7 @@ class V1CompatTimetableController(
             userId = user.externalId,
             display = display,
             evLectureIds = evLectureIds,
+            language = language,
         )
     }
 

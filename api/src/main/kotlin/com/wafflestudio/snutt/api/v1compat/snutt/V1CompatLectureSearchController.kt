@@ -122,6 +122,7 @@ class V1CompatLectureSearchController(
             LectureSearchCriteria(
                 year = query.year,
                 semester = Semester.getOfValue(query.semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+                language = clientInfo.language,
                 query = query.title,
                 classification = query.classification,
                 credit = query.credit,
