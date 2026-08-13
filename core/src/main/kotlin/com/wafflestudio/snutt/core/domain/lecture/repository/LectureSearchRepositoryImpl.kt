@@ -66,18 +66,22 @@ class LectureSearchRepositoryImpl(
 
         // v1은 빈 키워드(연속 공백)에서 500이 발생했으나, v2는 무시한다
         criteria.query?.split(' ')?.forEach { keyword -> keywordPredicate(keyword)?.let(predicates::add) }
-        criteria.classification?.takeIf { it.isNotEmpty() }?.let { predicates += lecture.classification.`in`(it) }
+        // EN 모드면 클라이언트가 영문 태그 값을 보내므로 ko OR en 매칭 (v1 isEn 동일)
+        criteria.classification?.takeIf { it.isNotEmpty() }?.let {
+            predicates +=
+                koOrEn(lecture.classification, lecture.classificationEn, it)
+        }
         criteria.credit?.takeIf { it.isNotEmpty() }?.let { predicates += lecture.credit.`in`(it) }
         criteria.courseNumber?.takeIf { it.isNotEmpty() }?.let { predicates += lecture.courseNumber.`in`(it) }
-        criteria.academicYear?.takeIf { it.isNotEmpty() }?.let { predicates += lecture.academicYear.`in`(it) }
-        criteria.department?.takeIf { it.isNotEmpty() }?.let { predicates += lecture.department.`in`(it) }
+        criteria.academicYear?.takeIf { it.isNotEmpty() }?.let { predicates += koOrEn(lecture.academicYear, lecture.academicYearEn, it) }
+        criteria.department?.takeIf { it.isNotEmpty() }?.let { predicates += koOrEn(lecture.department, lecture.departmentEn, it) }
 
         val category = criteria.category.orEmpty().filter(String::isNotEmpty)
         val categoryPre2025 = criteria.categoryPre2025.orEmpty().filter(String::isNotEmpty)
         if (category.isNotEmpty() || categoryPre2025.isNotEmpty()) {
             predicates +=
                 listOfNotNull(
-                    category.takeIf { it.isNotEmpty() }?.let { lecture.category.`in`(it) },
+                    category.takeIf { it.isNotEmpty() }?.let { koOrEn(lecture.category, lecture.categoryEn, it) },
                     categoryPre2025.takeIf { it.isNotEmpty() }?.let { lecture.categoryPre2025.`in`(it) },
                 ).reduce(BooleanExpression::or)
         }
@@ -130,6 +134,13 @@ class LectureSearchRepositoryImpl(
             departmentPredicate,
         ).reduce(BooleanExpression::or)
     }
+
+    // EN 모드에서 클라이언트가 보낸 태그 값은 영문 컬럼과도 매칭해야 한다 (KO는 ko만)
+    private fun koOrEn(
+        ko: com.querydsl.core.types.dsl.StringPath,
+        en: com.querydsl.core.types.dsl.StringPath,
+        values: List<String>,
+    ): BooleanExpression = ko.`in`(values).or(en.`in`(values))
 
     private fun nonKoreanKeywordPredicate(keyword: String): BooleanExpression =
         listOfNotNull(

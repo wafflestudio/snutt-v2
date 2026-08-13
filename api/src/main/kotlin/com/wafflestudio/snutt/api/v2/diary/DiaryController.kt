@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.api.v2.diary
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -84,9 +88,9 @@ data class DiarySubmissionsOfYearSemesterResponse(
     val submissions: List<DiarySubmissionSummaryResponse>,
 )
 
-private fun DiaryQuestionnaireDisplay.toResponse() =
+private fun DiaryQuestionnaireDisplay.toResponse(language: Language) =
     DiaryQuestionnaireResponse(
-        courseTitle = courseTitle,
+        courseTitle = language.select(courseTitle, courseTitleEn),
         questions =
             questions.map {
                 DiaryQuestionResponse(
@@ -97,14 +101,14 @@ private fun DiaryQuestionnaireDisplay.toResponse() =
                     shortAnswers = it.shortAnswerList,
                 )
             },
-        nextLecture = nextLecture?.toResponse(),
+        nextLecture = nextLecture?.toResponse(language),
     )
 
-private fun TimetableLectureDisplay.toResponse() =
+private fun TimetableLectureDisplay.toResponse(language: Language) =
     DiaryTargetLectureResponse(
         id = id,
-        courseTitle = courseTitle,
-        instructor = instructor,
+        courseTitle = language.select(courseTitle, courseTitleEn),
+        instructor = language.select(instructor, instructorEn),
         credit = credit,
         classPlaceAndTime = classPlaceAndTime,
     )
@@ -120,18 +124,20 @@ class DiaryController(
     fun getQuestionnaire(
         @CurrentUser user: User,
         @RequestBody body: DiaryQuestionnaireRequestDto,
+        @RequestAttribute clientInfo: ClientInfo,
     ): DiaryQuestionnaireResponse =
         diaryService
             .generateQuestionnaire(
                 user.id!!,
                 DiaryQuestionnaireRequest(lectureId = body.lectureId, dailyClassTypes = body.dailyClassTypes),
-            ).toResponse()
+            ).toResponse(clientInfo.language)
 
     @GetMapping("/target")
     fun getRandomTargetLecture(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): DiaryTargetLectureResponse {
         val target =
             diaryService.getDiaryTargetLecture(
@@ -140,7 +146,7 @@ class DiaryController(
                 Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
                 emptyList(),
             ) ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
-        return target.toResponse()
+        return target.toResponse(clientInfo.language)
     }
 
     @GetMapping("/daily-class-types")

@@ -27,6 +27,7 @@ data class SearchTime(
 data class LectureSearchCriteria(
     val year: Int,
     val semester: Semester,
+    val language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
     val query: String? = null,
     val classification: List<String>? = null,
     val credit: List<Int>? = null,

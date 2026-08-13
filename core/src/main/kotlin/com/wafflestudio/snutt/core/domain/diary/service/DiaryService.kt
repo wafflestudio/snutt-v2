@@ -33,6 +33,7 @@ data class DiarySubmissionRequest(
 
 data class DiaryQuestionnaireDisplay(
     val courseTitle: String,
+    val courseTitleEn: String?,
     val questions: List<DiaryQuestion>,
     val nextLecture: TimetableLectureDisplay?,
 )
@@ -69,6 +70,7 @@ class DiaryService(
         val nextLecture = getDiaryTargetLecture(userId, lecture.year, lecture.semester, listOf(lecture.id!!))
         return DiaryQuestionnaireDisplay(
             courseTitle = lecture.courseTitle,
+            courseTitleEn = lecture.courseTitleEn,
             questions = questions,
             nextLecture = nextLecture,
         )
