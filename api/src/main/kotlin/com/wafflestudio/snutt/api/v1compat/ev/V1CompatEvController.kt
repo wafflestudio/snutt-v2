@@ -2,13 +2,11 @@ package com.wafflestudio.snutt.api.v1compat.ev
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
-import com.wafflestudio.snutt.api.v2.evaluation.EvaluationResponse
-import com.wafflestudio.snutt.api.v2.evaluation.toEvaluationResponse
-import com.wafflestudio.snutt.api.v2.evaluation.toEvaluationResponsePage
-import com.wafflestudio.snutt.api.v2.evaluation.toEvaluationResponses
-import com.wafflestudio.snutt.api.v2.tag.TagGroupResponse
 import com.wafflestudio.snutt.api.v2.tag.toResponse
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
+import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationReportRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
@@ -27,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 // v1 ev-service 프록시의 대체: in-process 컨트롤러 + 일반 인증 (PLAN.md §3).
-// 경로는 프록시가 제거하던 prefix를 그대로 받는다 (/v1/ev-service/v1/...)
+// 응답은 v1 ev DTO 형태(userId 문자열, lectureId=course id)를 그대로 재현한다.
 data class LegacyEvaluationWriteRequest(
     val content: String,
     val gradeSatisfaction: Double,
@@ -44,6 +42,7 @@ data class LegacyEvaluationUpdateRequest(
     val gains: Double? = null,
     val lifeBalance: Double? = null,
     val rating: Double? = null,
+    val semesterLectureId: Long? = null,
 )
 
 data class LegacyEvaluationReportRequest(
@@ -56,6 +55,8 @@ data class LegacyEvaluationReportRequest(
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
     private val userRepository: UserRepository,
+    private val courseRepository: CourseRepository,
+    private val evaluationReportRepository: EvaluationReportRepository,
     private val tagService: TagService,
 ) {
     @GetMapping("/lectures/{lectureId}/evaluations")
@@ -63,15 +64,24 @@ class V1CompatEvController(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> =
-        evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage(userRepository)
+    ): CursorPage<Map<String, Any?>> {
+        val page = evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor)
+        val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
+        return CursorPage(
+            content = page.content.map { it.toLegacyWithSemester(userExternalIds) },
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
+    }
 
     @PostMapping("/semester-lectures/{lectureId}/evaluations")
     fun createEvaluation(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
         @RequestBody body: LegacyEvaluationWriteRequest,
-    ): EvaluationResponse =
+    ): Map<String, Any?> =
         evaluationService
             .createEvaluation(
                 user.id!!,
@@ -84,13 +94,17 @@ class V1CompatEvController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toEvaluationResponse(userRepository)
+            ).toLegacyCreate(userExternalIds(listOf(user.id!!)))
 
     @GetMapping("/lectures/{lectureId}/evaluations/users/me")
     fun getMyEvaluationsOfLecture(
         @CurrentUser user: User,
         @PathVariable lectureId: String,
-    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses(userRepository)
+    ): Map<String, Any?> {
+        val evaluations = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId)
+        val userExternalIds = userExternalIds(evaluations.mapNotNull { it.evaluation.userId })
+        return mapOf("evaluations" to evaluations.map { it.toLegacyWithSemester(userExternalIds) })
+    }
 
     @GetMapping("/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
@@ -101,7 +115,7 @@ class V1CompatEvController(
         val lecture = display.lecture
         val averages = display.averages
         return linkedMapOf(
-            "id" to lecture.externalId,
+            "id" to lecture.courseId,
             "title" to lecture.courseTitle,
             "instructor" to lecture.instructor,
             "department" to lecture.department,
@@ -125,22 +139,36 @@ class V1CompatEvController(
     fun getMyEvaluations(
         @CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage(userRepository)
+    ): CursorPage<Map<String, Any?>> {
+        val page = evaluationService.getMyEvaluations(user.id!!, cursor)
+        val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
+        val courseMap = courseMap(page.content.map { it.evaluation.courseId })
+        return CursorPage(
+            content = page.content.map { it.toLegacyWithLecture(userExternalIds, courseMap) },
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
+    }
 
     @GetMapping("/evaluations/{evaluationId}")
     fun getEvaluation(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationService.getEvaluation(user.id!!, evaluationId).toEvaluationResponse(userRepository)
+    ): Map<String, Any?> {
+        val display = evaluationService.getEvaluation(user.id!!, evaluationId)
+        return display.toLegacyWithSemester(userExternalIds(listOfNotNull(display.evaluation.userId)))
+    }
 
     @PatchMapping("/evaluations/{evaluationId}")
     fun updateEvaluation(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
         @RequestBody body: LegacyEvaluationUpdateRequest,
-    ): EvaluationResponse =
-        evaluationService
-            .updateEvaluation(
+    ): Map<String, Any?> {
+        val display =
+            evaluationService.updateEvaluation(
                 user.id!!,
                 evaluationId,
                 EvaluationUpdateRequest(
@@ -151,7 +179,9 @@ class V1CompatEvController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toEvaluationResponse(userRepository)
+            )
+        return display.toLegacyWithSemester(userExternalIds(listOfNotNull(display.evaluation.userId)))
+    }
 
     @DeleteMapping("/evaluations/{evaluationId}")
     fun deleteEvaluation(
@@ -166,7 +196,17 @@ class V1CompatEvController(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
         @RequestBody body: LegacyEvaluationReportRequest,
-    ): Long = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content))
+    ): Map<String, Any?> {
+        val reportId = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content))
+        val report = evaluationReportRepository.findById(reportId).orElseThrow()
+        return linkedMapOf(
+            "id" to report.id,
+            "lectureEvaluationId" to report.evaluationId,
+            "userId" to userRepository.findById(report.userId).orElse(null)?.externalId,
+            "content" to report.content,
+            "isHidden" to report.isHidden,
+        )
+    }
 
     @PostMapping("/evaluations/{evaluationId}/likes")
     fun likeEvaluation(
@@ -187,13 +227,28 @@ class V1CompatEvController(
     @GetMapping("/tags/main")
     fun getMainTags(
         @CurrentUser user: User,
-    ): TagGroupResponse = tagService.getMainTags().toResponse()
+    ): com.wafflestudio.snutt.api.v2.tag.TagGroupResponse = tagService.getMainTags().toResponse()
 
     @GetMapping("/tags/main/{tagId}/evaluations")
     fun getMainTagEvaluations(
         @CurrentUser user: User,
         @PathVariable tagId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> =
-        evaluationService.getEvaluationsByTag(user.id!!, tagId, cursor).toEvaluationResponsePage(userRepository)
+    ): CursorPage<Map<String, Any?>> {
+        val page = evaluationService.getEvaluationsByTag(user.id!!, tagId, cursor)
+        val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
+        val courseMap = courseMap(page.content.map { it.evaluation.courseId })
+        return CursorPage(
+            content = page.content.map { it.toLegacyWithLecture(userExternalIds, courseMap) },
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
+    }
+
+    private fun userExternalIds(userIds: Collection<Long>): Map<Long, String> =
+        userRepository.findAllById(userIds).associate { it.id!! to it.externalId }
+
+    private fun courseMap(courseIds: Collection<Long>): Map<Long, Course> = courseRepository.findAllById(courseIds).associateBy { it.id!! }
 }
