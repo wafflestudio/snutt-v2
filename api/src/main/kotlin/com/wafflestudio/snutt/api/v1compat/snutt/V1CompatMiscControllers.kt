@@ -88,8 +88,8 @@ class V1CompatCoursebookController(
     private fun Coursebook.toLegacy() =
         linkedMapOf(
             "year" to year,
-            "semester" to semester,
-            "updated_at" to checkNotNull(updatedAt).toEpochMilli(),
+            "semester" to semester.value,
+            "updated_at" to checkNotNull(updatedAt),
         )
 }
 
@@ -103,14 +103,15 @@ class V1CompatBuildingController(
     @GetMapping("")
     fun searchBuildings(
         @RequestParam places: String,
-    ): List<Map<String, Any?>> {
+    ): Map<String, Any?> {
         val placeQuery = places.split(",").flatMap { PlaceInfo.getValuesOf(it) }.distinct()
-        return lectureBuildingService.getLectureBuildings(placeQuery).map { it.toLegacy() }
+        val content = lectureBuildingService.getLectureBuildings(placeQuery).map { it.toLegacy() }
+        return mapOf("content" to content, "totalCount" to content.size)
     }
 
     private fun LectureBuilding.toLegacy() =
         linkedMapOf(
-            "_id" to externalId,
+            "id" to externalId,
             "buildingNumber" to buildingNumber,
             "buildingNameKor" to buildingNameKor,
             "buildingNameEng" to buildingNameEng,
