@@ -22,6 +22,7 @@ class SugangSnuSyncJobConfig(
     private val transactionManager: PlatformTransactionManager,
     private val sugangSnuLectureApi: SugangSnuLectureApi,
     private val sugangSnuXlsxParser: SugangSnuXlsxParser,
+    private val sugangSnuLectureEnricher: SugangSnuLectureEnricher,
     private val sugangSnuSyncService: SugangSnuSyncService,
     private val coursebookService: CoursebookService,
 ) {
@@ -45,7 +46,10 @@ class SugangSnuSyncJobConfig(
                     val targetYear = year ?: coursebook.year
                     val targetSemester = semester?.let(Semester::getOfValue) ?: coursebook.semester
                     val xlsx = sugangSnuLectureApi.downloadLectureXlsx(targetYear, targetSemester)
-                    val rows = sugangSnuXlsxParser.parse(xlsx)
+                    val rows =
+                        sugangSnuXlsxParser
+                            .parse(xlsx)
+                            .map { sugangSnuLectureEnricher.enrich(targetYear, targetSemester, it) }
                     val result = sugangSnuSyncService.sync(targetYear, targetSemester, rows)
                     log.info("sugang sync 완료: {}", result)
                     RepeatStatus.FINISHED

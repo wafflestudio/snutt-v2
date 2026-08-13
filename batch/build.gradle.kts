@@ -10,3 +10,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-mysql")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 }
+
+dependencies {
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.3.0")
+}

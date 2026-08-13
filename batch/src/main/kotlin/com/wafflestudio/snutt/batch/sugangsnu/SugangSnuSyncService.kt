@@ -205,6 +205,7 @@ class SugangSnuSyncService(
         quota = quota,
         remark = remark,
         registrationCount = registrationCount,
+        categoryPre2025 = categoryPre2025,
     )
 
     private fun rebuildTagList(

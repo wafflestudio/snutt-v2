@@ -80,6 +80,10 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     @MockitoBean
     lateinit var sugangSnuLectureApi: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureApi
 
+    // 상세 API enrichment는 별도 테스트(SugangSnuLectureEnricherTest)에서 검증한다. 여기선 통과시킨다
+    @MockitoBean
+    lateinit var sugangSnuLectureEnricher: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
+
     @BeforeAll
     fun seedCoursebook() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
@@ -87,6 +91,14 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
     @BeforeEach
     fun cleanTables() {
+        Mockito
+            .`when`(
+                sugangSnuLectureEnricher.enrich(
+                    org.mockito.kotlin.any(),
+                    org.mockito.kotlin.any(),
+                    org.mockito.kotlin.any(),
+                ),
+            ).thenAnswer { it.getArgument<Any>(2) }
         lectureClassTimeRepository.deleteAll()
         lectureRepository.deleteAll()
         courseRepository.deleteAll()
