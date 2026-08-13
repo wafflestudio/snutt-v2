@@ -330,26 +330,14 @@ CREATE TABLE timetable
 
 CREATE TABLE timetable_lecture
 (
-    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id  CHAR(24)    NOT NULL,
-    timetable_id BIGINT      NOT NULL,
-    -- NULL = 완전 custom 강의 (데이터는 customization 행이 보유)
-    lecture_id   BIGINT      NULL,
-    color        JSON        NULL,
-    color_index  INT         NOT NULL DEFAULT 0,
-    created_at   DATETIME(6) NOT NULL,
-    updated_at   DATETIME(6) NOT NULL,
-    CONSTRAINT uk_timetable_lecture_external_id UNIQUE (external_id),
-    CONSTRAINT fk_timetable_lecture_timetable FOREIGN KEY (timetable_id) REFERENCES timetable (id) ON DELETE CASCADE,
-    -- 강의 삭제는 sugang-sync가 custom 전환 처리 후에만 가능 (RESTRICT로 강제)
-    CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id),
-    INDEX idx_timetable_lecture_lecture (lecture_id)
-);
-
-CREATE TABLE timetable_lecture_customization
-(
-    id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    timetable_lecture_id BIGINT       NOT NULL,
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    external_id         CHAR(24)    NOT NULL,
+    timetable_id        BIGINT      NOT NULL,
+    -- NULL = 완전 custom 강의 (내용은 아래 override 컬럼이 보유)
+    lecture_id          BIGINT      NULL,
+    color               JSON        NULL,
+    color_index         INT         NOT NULL DEFAULT 0,
+    -- lecture 참조 강의의 사용자 수정분 (non-NULL만 덮어쓴다). custom 강의면 내용 자체를 보유한다
     course_title         VARCHAR(256) NULL,
     instructor           VARCHAR(128) NULL,
     credit               INT          NULL,
@@ -361,9 +349,11 @@ CREATE TABLE timetable_lecture_customization
     category_pre2025     VARCHAR(64)  NULL,
     created_at           DATETIME(6)  NOT NULL,
     updated_at           DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_timetable_lecture_customization UNIQUE (timetable_lecture_id),
-    CONSTRAINT fk_customization_timetable_lecture FOREIGN KEY (timetable_lecture_id)
-        REFERENCES timetable_lecture (id) ON DELETE CASCADE
+    CONSTRAINT uk_timetable_lecture_external_id UNIQUE (external_id),
+    CONSTRAINT fk_timetable_lecture_timetable FOREIGN KEY (timetable_id) REFERENCES timetable (id) ON DELETE CASCADE,
+    -- 강의 삭제는 sugang-sync가 custom 전환 처리 후에만 가능 (RESTRICT로 강제)
+    CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id),
+    INDEX idx_timetable_lecture_lecture (lecture_id)
 );
 
 CREATE TABLE timetable_lecture_reminder
