@@ -181,22 +181,6 @@ class LectureStep(
             val courseId = evLectureId?.let { courseIdByEvLectureId[it] }?.takeIf { it != 0L }
 
             val classTimes = doc.get("class_time_json") as? List<*> ?: emptyList<Any>()
-            val classPlaceAndTimeJson =
-                tools.jackson.databind.json.JsonMapper
-                    .builder()
-                    .findAndAddModules()
-                    .build()
-                    .writeValueAsString(
-                        classTimes.map { time ->
-                            val t = time as Document
-                            mapOf(
-                                "day" to (t["day"] as? Number)?.toInt(),
-                                "place" to t.string("place"),
-                                "startMinute" to (t["start_minute"] as? Number)?.toInt(),
-                                "endMinute" to (t["end_minute"] as? Number)?.toInt(),
-                            )
-                        },
-                    )
 
             insert(
                 "lecture",
@@ -220,7 +204,6 @@ class LectureStep(
                     "remark",
                     "registration_count",
                     "was_full",
-                    "class_place_and_time",
                     "created_at",
                     "updated_at",
                 ),
@@ -244,7 +227,6 @@ class LectureStep(
                     doc.string("remark"),
                     doc.int("registration_count") ?: 0,
                     doc.bool("was_full"),
-                    classPlaceAndTimeJson,
                     java.sql.Timestamp.from(doc.instant("created_at") ?: now()),
                     java.sql.Timestamp.from(doc.instant("updated_at") ?: now()),
                 ),

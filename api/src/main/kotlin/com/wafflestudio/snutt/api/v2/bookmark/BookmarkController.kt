@@ -54,14 +54,14 @@ data class BookmarkLectureModifyRequest(
     @field:NotBlank val lectureId: String,
 )
 
-private fun BookmarkDisplay.toResponse() =
+private fun BookmarkDisplay.toResponse(classTimesMap: Map<Long, List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>>) =
     BookmarkResponse(
         year = year,
         semester = semester,
-        lectures = lectures.map { it.toResponse() },
+        lectures = lectures.map { it.toResponse(classTimesMap[it.id].orEmpty()) },
     )
 
-private fun Lecture.toResponse() =
+private fun Lecture.toResponse(classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>) =
     BookmarkLectureResponse(
         id = externalId,
         academicYear = academicYear,
@@ -77,7 +77,7 @@ private fun Lecture.toResponse() =
         instructor = instructor,
         credit = credit,
         remark = remark,
-        classPlaceAndTime = classPlaceAndTime.map { it.toResponse() },
+        classPlaceAndTime = classTimes.map { it.toResponse() },
     )
 
 private fun ClassPlaceAndTime.toResponse() =
@@ -87,16 +87,19 @@ private fun ClassPlaceAndTime.toResponse() =
 @RequestMapping("/v2/bookmarks")
 class BookmarkController(
     private val bookmarkService: BookmarkService,
+    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
 ) {
     @GetMapping("")
     fun getBookmarks(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
-    ): BookmarkResponse =
-        bookmarkService
-            .getBookmark(user.id!!, year, Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER))
-            .toResponse()
+    ): BookmarkResponse {
+        val display =
+            bookmarkService.getBookmark(user.id!!, year, Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER))
+        val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
+        return display.toResponse(classTimesMap)
+    }
 
     @GetMapping("/lectures/{lectureId}/state")
     fun existsBookmarkLecture(

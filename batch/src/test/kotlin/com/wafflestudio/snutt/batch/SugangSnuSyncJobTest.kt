@@ -139,9 +139,10 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         val first = lectures.first { it.courseNumber == "4190.204" }
         assertEquals("컴퓨터과학입문", first.courseTitle)
         assertEquals("3학년", first.academicYear)
-        assertEquals(listOf(DayOfWeek.MONDAY), first.classPlaceAndTime.map { it.day })
-        assertEquals(570, first.classPlaceAndTime.first().startMinute)
-        assertEquals(645, first.classPlaceAndTime.first().endMinute)
+        val firstTimes = lectureClassTimeRepository.findAllByLectureIdInOrderById(listOf(first.id!!)).map { it.toClassPlaceAndTime() }
+        assertEquals(listOf(DayOfWeek.MONDAY), firstTimes.map { it.day })
+        assertEquals(570, firstTimes.first().startMinute)
+        assertEquals(645, firstTimes.first().endMinute)
         // course 앵커 연결
         assertTrue(first.courseId != null)
         assertEquals("김컴퓨터", courseRepository.findById(first.courseId!!).get().instructor)
@@ -178,7 +179,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     credit = 3,
                     quota = 40,
                     registrationCount = 10,
-                    classPlaceAndTime = emptyList(),
                 ),
             )
         val timetable =

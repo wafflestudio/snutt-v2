@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.batch.sugangsnu
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
@@ -23,6 +24,12 @@ data class SugangSnuSyncResult(
     val createdCount: Int,
     val updatedCount: Int,
     val deletedCount: Int,
+)
+
+// lecture 행과 시간(class_time 테이블)을 함께 나르는 입력
+private data class LectureInput(
+    val lecture: Lecture,
+    val classTimes: List<ClassPlaceAndTime>,
 )
 
 // 수강스누 sync: lecture/lecture_class_time/course 3계층을 한 트랜잭션에 upsert하고
@@ -48,6 +55,10 @@ class SugangSnuSyncService(
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
         val oldMap = oldLectures.associateBy { it.courseNumber to it.lectureNumber }
         val newKeys = rows.map { it.courseNumber to it.lectureNumber }.toSet()
+        val oldClassTimesMap =
+            lectureClassTimeRepository
+                .findAllByLectureIdInOrderById(oldLectures.mapNotNull { it.id })
+                .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
 
         val created = rows.filter { (it.courseNumber to it.lectureNumber) !in oldMap }
         val updated =
@@ -55,11 +66,17 @@ class SugangSnuSyncService(
                 .mapNotNull { row ->
                     val old = oldMap[row.courseNumber to row.lectureNumber] ?: return@mapNotNull null
                     val new = row.toLecture(year, semester)
-                    if (old.equalsMetadata(new)) null else old to new
+                    val unchanged = old.equalsMetadata(new) && oldClassTimesMap[old.id].orEmpty() == row.classPlaceAndTimes
+                    if (unchanged) null else old to LectureInput(new, row.classPlaceAndTimes)
                 }
         val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
 
-        upsertLectures(year, semester, created.map { it.toLecture(year, semester) }, updated)
+        upsertLectures(
+            year,
+            semester,
+            created.map { LectureInput(it.toLecture(year, semester), it.classPlaceAndTimes) },
+            updated,
+        )
         if (deleted.isNotEmpty()) {
             deleteLectures(deleted)
         }
@@ -72,8 +89,8 @@ class SugangSnuSyncService(
     private fun upsertLectures(
         year: Int,
         semester: Semester,
-        created: List<Lecture>,
-        updated: List<Pair<Lecture, Lecture>>,
+        created: List<LectureInput>,
+        updated: List<Pair<Lecture, LectureInput>>,
     ) {
         // course 앵커 upsert 후 lecture.course_id 연결 (PLAN.md §2)
         val courses = mutableMapOf<Pair<String, String>, Course>()
@@ -98,13 +115,15 @@ class SugangSnuSyncService(
                 }.id
         }
 
-        created.forEach { lecture ->
+        created.forEach { input ->
+            val lecture = input.lecture
             lecture.courseId = resolveCourse(lecture)
             lecture.wasFull = lecture.registrationCount >= lecture.quota
             lectureRepository.save(lecture)
-            syncClassTimes(lecture)
+            syncClassTimes(lecture, input.classTimes)
         }
-        updated.forEach { (old, new) ->
+        updated.forEach { (old, input) ->
+            val new = input.lecture
             old.apply {
                 courseId = old.courseId ?: resolveCourse(new)
                 registrationCount = new.registrationCount
@@ -122,17 +141,19 @@ class SugangSnuSyncService(
                 remark = new.remark
                 courseNumber = new.courseNumber
                 courseTitle = new.courseTitle
-                classPlaceAndTime = new.classPlaceAndTime
             }
             lectureClassTimeRepository.deleteByLectureId(old.id!!)
-            syncClassTimes(old)
+            syncClassTimes(old, input.classTimes)
             notifyLectureChange(NotificationType.LECTURE_UPDATE, old)
         }
     }
 
-    private fun syncClassTimes(lecture: Lecture) {
+    private fun syncClassTimes(
+        lecture: Lecture,
+        classTimes: List<ClassPlaceAndTime>,
+    ) {
         lectureClassTimeRepository.saveAll(
-            lecture.classPlaceAndTime.map {
+            classTimes.map {
                 LectureClassTime(lecture = lecture, day = it.day, place = it.place, startMinute = it.startMinute, endMinute = it.endMinute)
             },
         )
@@ -184,7 +205,6 @@ class SugangSnuSyncService(
         quota = quota,
         remark = remark,
         registrationCount = registrationCount,
-        classPlaceAndTime = classPlaceAndTimes,
     )
 
     private fun rebuildTagList(

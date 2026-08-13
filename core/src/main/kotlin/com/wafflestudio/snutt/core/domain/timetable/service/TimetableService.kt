@@ -23,6 +23,7 @@ class TimetableService(
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
+    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
     private val coursebookService: CoursebookService,
     private val timetableThemeService: TimetableThemeService,
 ) {
@@ -70,10 +71,12 @@ class TimetableService(
         val lectures = timetableLectureRepository.findByTimetableIdIn(timetableIds)
         val lectureMap =
             lectureRepository.findAllById(lectures.mapNotNull { it.lectureId }).associateBy { it.id!! }
+        val classTimesMap =
+            lectureService.classTimesByLectureId(lectures.mapNotNull { it.lectureId })
         return lectures
             .groupBy { it.timetableId }
             .mapValues { (_, lectureList) ->
-                lectureList.map { TimetableLectureDisplay(it, lectureMap[it.lectureId]) }
+                lectureList.map { TimetableLectureDisplay(it, lectureMap[it.lectureId], classTimesMap[it.lectureId].orEmpty()) }
             }
     }
 

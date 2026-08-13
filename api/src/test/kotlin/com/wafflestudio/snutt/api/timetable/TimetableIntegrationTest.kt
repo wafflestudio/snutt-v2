@@ -73,7 +73,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
                 Triple("시간표강의3", "4190.003", listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "43-1-302", 780, 870))),
             )
         val lectures =
-            lectureSeeds.map { (title, courseNumber, times) ->
+            lectureSeeds.map { (title, courseNumber, _) ->
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
@@ -84,13 +84,12 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
                     department = "컴퓨터공학부",
                     classification = "전선",
                     credit = 3,
-                    classPlaceAndTime = times,
                 )
             }
         lectureRepository.saveAll(lectures)
         val classTimes =
-            lectures.flatMap { lecture ->
-                lecture.classPlaceAndTime.map {
+            lectures.zip(lectureSeeds).flatMap { (lecture, seed) ->
+                seed.third.map {
                     LectureClassTime(
                         lecture = lecture,
                         day = it.day,
