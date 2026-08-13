@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.v1compat.snutt
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
-import com.wafflestudio.snutt.api.v2.diary.DiaryController
 import com.wafflestudio.snutt.api.v2.diary.DiaryQuestionnaireRequestDto
 import com.wafflestudio.snutt.api.v2.diary.DiarySubmissionRequestDto
 import com.wafflestudio.snutt.api.v2.theme.ThemeAddRequest
@@ -197,43 +196,117 @@ class V1CompatThemeController(
 @RestController
 @RequestMapping("/v1/diary", "/diary")
 class V1CompatDiaryController(
-    private val delegate: DiaryController,
+    private val diaryService: com.wafflestudio.snutt.core.domain.diary.service.DiaryService,
+    private val lectureRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository,
 ) {
+    // 질문 id는 재채번으로 Long이 되었다 (구 클라이언트의 ObjectId 문자열과 단절 — PLAN.md §8 id 변경)
     @PostMapping("/questionnaire")
     fun getQuestionnaire(
         @CurrentUser user: User,
         @RequestBody body: DiaryQuestionnaireRequestDto,
-    ) = delegate.getQuestionnaire(user, body)
+    ): Map<String, Any?> {
+        val display =
+            diaryService.generateQuestionnaire(
+                user.id!!,
+                com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest(
+                    lectureId = body.lectureId,
+                    dailyClassTypes = body.dailyClassTypes,
+                ),
+            )
+        return linkedMapOf(
+            "courseTitle" to display.courseTitle,
+            "questions" to
+                display.questions.map {
+                    linkedMapOf("id" to it.id, "question" to it.question, "answers" to it.answerList)
+                },
+            "nextLecture" to display.nextLecture?.let { linkedMapOf("lectureId" to it.lectureId, "courseTitle" to it.courseTitle) },
+        )
+    }
 
     @GetMapping("/target")
     fun getRandomTargetLecture(
         @CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Int,
-    ) = delegate.getRandomTargetLecture(user, year, semester)
+    ): Map<String, Any?> {
+        val target =
+            diaryService.getDiaryTargetLecture(
+                user.id!!,
+                year,
+                com.wafflestudio.snutt.core.common.enums.Semester
+                    .fromValue(semester),
+                emptyList(),
+            )
+                ?: throw com.wafflestudio.snutt.core.common.error.SnuttException(
+                    com.wafflestudio.snutt.core.common.error.ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND,
+                )
+        return linkedMapOf("lectureId" to target.lectureId, "courseTitle" to target.courseTitle)
+    }
 
     // v1 경로는 camelCase 이다
     @GetMapping("/dailyClassTypes")
     fun getDailyClassTypes(
         @CurrentUser user: User,
-    ) = delegate.getDailyClassTypes(user)
+    ): List<Map<String, Any?>> =
+        diaryService
+            .getAllDailyClassTypes()
+            .map { linkedMapOf("id" to it.externalId, "name" to it.name) }
 
+    // v1 DiarySubmissionSummaryDto: id/lectureId/date/courseTitle/shortQuestionReplies/comment
     @GetMapping("/my")
     fun getMySubmissions(
         @CurrentUser user: User,
-    ) = delegate.getMySubmissions(user)
+    ): List<Map<String, Any?>> {
+        val submissions = diaryService.getMySubmissions(user.id!!)
+        val replies = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
+        val lectureExternalIds =
+            lectureRepository
+                .findAllById(
+                    submissions.mapNotNull { it.lectureId },
+                ).associate { it.id!! to it.externalId }
+        return submissions
+            .groupBy { it.year to it.semester }
+            .map { (yearSemester, group) ->
+                linkedMapOf(
+                    "year" to yearSemester.first,
+                    "semester" to yearSemester.second.value,
+                    "submissions" to
+                        group.map { submission ->
+                            linkedMapOf(
+                                "id" to submission.externalId,
+                                "lectureId" to submission.lectureId?.let(lectureExternalIds::get),
+                                "date" to checkNotNull(submission.createdAt).atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDateTime(),
+                                "courseTitle" to submission.courseTitle,
+                                "shortQuestionReplies" to
+                                    (replies[submission.id] ?: emptyList()).map {
+                                        linkedMapOf("question" to it.shortQuestion, "answer" to it.shortAnswer)
+                                    },
+                                "comment" to submission.comment,
+                            )
+                        },
+                )
+            }
+    }
 
     @PostMapping("")
     fun submitDiary(
         @CurrentUser user: User,
         @RequestBody body: DiarySubmissionRequestDto,
-    ) = delegate.submitDiary(user, body)
+    ) = diaryService.submitDiary(
+        user.id!!,
+        com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest(
+            body.lectureId,
+            body.dailyClassTypes,
+            body.questionAnswers,
+            body.comment,
+        ),
+    )
 
     @DeleteMapping("/{submissionId}")
     fun removeDiarySubmission(
         @CurrentUser user: User,
         @PathVariable submissionId: String,
-    ) = delegate.removeDiarySubmission(user, submissionId)
+    ) = diaryService.removeSubmission(submissionId, user.id!!)
 }
 
 @RestController

@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyLectureDto
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyTimetableDto
 import com.wafflestudio.snutt.api.v2.bookmark.BookmarkLectureModifyRequest
 import com.wafflestudio.snutt.api.v2.config.ConfigController
 import com.wafflestudio.snutt.api.v2.feedback.FeedbackController
@@ -59,6 +60,9 @@ private fun FriendResponse.toLegacy() =
 @RequestMapping("/v1/friends", "/friends")
 class V1CompatFriendController(
     private val delegate: FriendController,
+    private val friendService: com.wafflestudio.snutt.core.domain.friend.service.FriendService,
+    private val timetableService: com.wafflestudio.snutt.core.domain.timetable.service.TimetableService,
+    private val userRepository: com.wafflestudio.snutt.core.domain.user.repository.UserRepository,
 ) {
     @GetMapping("")
     fun getFriends(
@@ -114,7 +118,36 @@ class V1CompatFriendController(
         @PathVariable friendId: String,
         @RequestParam year: Int,
         @RequestParam semester: Int,
-    ) = delegate.getPrimaryTable(user, friendId, year, semester)
+    ): LegacyTimetableDto {
+        val friend =
+            friendService.get(friendId)
+                ?: throw com.wafflestudio.snutt.core.common.error.SnuttException(
+                    com.wafflestudio.snutt.core.common.error.ErrorType.FRIEND_NOT_FOUND,
+                )
+        if (!friend.isAccepted ||
+            !friend.includes(user.id!!)
+        ) {
+            throw com.wafflestudio.snutt.core.common.error.SnuttException(
+                com.wafflestudio.snutt.core.common.error.ErrorType.FRIEND_NOT_FOUND,
+            )
+        }
+        val partnerId = friend.getPartnerUserId(user.id!!)
+        val timetable =
+            timetableService.getUserPrimaryTable(
+                partnerId,
+                year,
+                com.wafflestudio.snutt.core.common.enums.Semester
+                    .fromValue(semester),
+            )
+        val display = timetableService.getTimetableDisplay(partnerId, timetable.externalId)
+        val partner = userRepository.findById(partnerId).orElse(null)
+        return LegacyTimetableDto(
+            timetable = timetable,
+            userId = partner?.externalId.orEmpty(),
+            display = display,
+            evLectureIds = emptyMap(),
+        )
+    }
 
     @GetMapping("/{friendId}/coursebooks", "/{friendId}/registered-course-books")
     fun getCoursebooks(
