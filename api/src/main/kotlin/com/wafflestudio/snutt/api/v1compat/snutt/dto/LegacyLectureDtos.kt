@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v1compat.snutt.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 
 // v1 LectureDto (강의 검색/빈자리 알림 응답) — snake_case + class_time_json + 수강/포화 정보
@@ -35,13 +36,14 @@ data class LegacyLectureDto(
 
 fun LegacyLectureDto(
     lecture: Lecture,
+    classTimes: List<ClassPlaceAndTime>,
     evSummary: LegacyEvSummary? = null,
 ): LegacyLectureDto =
     LegacyLectureDto(
         id = lecture.externalId,
         academicYear = lecture.academicYear,
         category = lecture.category,
-        classPlaceAndTimes = lecture.classPlaceAndTime.map { LegacyClassPlaceAndTimeFullDto(it) },
+        classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
         classification = lecture.classification,
         credit = lecture.credit,
         department = lecture.department,
@@ -91,13 +93,14 @@ fun com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary.toLegacy
 
 fun LegacyBookmarkLectureDto(
     lecture: Lecture,
+    classTimes: List<ClassPlaceAndTime>,
     evSummary: LegacyEvSummary? = null,
 ): LegacyBookmarkLectureDto =
     LegacyBookmarkLectureDto(
         id = lecture.externalId,
         academicYear = lecture.academicYear,
         category = lecture.category,
-        classPlaceAndTimes = lecture.classPlaceAndTime.map { LegacyClassPlaceAndTimeFullDto(it) },
+        classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
         classification = lecture.classification,
         credit = lecture.credit,
         department = lecture.department,

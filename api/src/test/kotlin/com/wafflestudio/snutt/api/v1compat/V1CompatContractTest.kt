@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v1compat
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -8,6 +9,7 @@ import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookReposi
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -46,6 +48,8 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
+    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+
     @Autowired
     lateinit var courseRepository: CourseRepository
 
@@ -72,19 +76,20 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 ),
             )
         lectureId =
-            lectureRepository
-                .save(
-                    Lecture(
-                        year = 2026,
-                        semester = Semester.AUTUMN,
-                        courseNumber = "4190.777",
-                        lectureNumber = "001",
-                        courseTitle = "호환강의",
-                        instructor = "호환교수",
-                        courseId = course.id,
-                        classPlaceAndTime = listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
-                    ),
-                ).externalId
+            saveLectureWithTimes(
+                lectureRepository,
+                lectureClassTimeRepository,
+                Lecture(
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    courseNumber = "4190.777",
+                    lectureNumber = "001",
+                    courseTitle = "호환강의",
+                    instructor = "호환교수",
+                    courseId = course.id,
+                ),
+                listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
+            ).externalId
 
         // v1 회원가입으로 credentialHash 토큰 발급 (모든 테스트가 공유)
         val register =

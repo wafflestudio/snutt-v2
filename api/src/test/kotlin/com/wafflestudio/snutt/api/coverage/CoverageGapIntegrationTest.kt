@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.coverage
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
@@ -10,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
@@ -62,6 +64,8 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Autowired lateinit var lectureRepository: LectureRepository
 
+    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+
     @Autowired lateinit var courseRepository: CourseRepository
 
     @Autowired lateinit var themeRepository: TimetableThemeRepository
@@ -87,18 +91,19 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val course = courseRepository.save(Course(courseNumber = "M1522.000100", instructor = "김교수", title = "수강한강의"))
         lectureId =
-            lectureRepository
-                .save(
-                    Lecture(
-                        year = 2026,
-                        semester = Semester.SPRING,
-                        courseNumber = "M1522.000100",
-                        lectureNumber = "001",
-                        courseTitle = "수강한강의",
-                        instructor = "김교수",
-                        classPlaceAndTime = listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
-                    ).also { it.courseId = course.id },
-                ).externalId
+            saveLectureWithTimes(
+                lectureRepository,
+                lectureClassTimeRepository,
+                Lecture(
+                    year = 2026,
+                    semester = Semester.SPRING,
+                    courseNumber = "M1522.000100",
+                    lectureNumber = "001",
+                    courseTitle = "수강한강의",
+                    instructor = "김교수",
+                ).also { it.courseId = course.id },
+                listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
+            ).externalId
 
         userAToken = register("coverusera", "coverusera@snu.ac.kr")
         userBToken = register("coveruserb", "coveruserb@snu.ac.kr")

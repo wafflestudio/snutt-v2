@@ -1,11 +1,13 @@
 package com.wafflestudio.snutt.api.evaluation
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -45,6 +47,8 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
+    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+
     @Autowired
     lateinit var evaluationRepository: EvaluationRepository
 
@@ -76,7 +80,9 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 ),
             )
         val lecture =
-            lectureRepository.save(
+            saveLectureWithTimes(
+                lectureRepository,
+                lectureClassTimeRepository,
                 Lecture(
                     year = 2026,
                     semester = com.wafflestudio.snutt.core.common.enums.Semester.AUTUMN,
@@ -85,11 +91,8 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseTitle = "강의평강의",
                     instructor = "평가교수",
                     courseId = course.id,
-                    classPlaceAndTime =
-                        listOf(
-                            ClassPlaceAndTime(com.wafflestudio.snutt.core.common.enums.DayOfWeek.MONDAY, "302-101", 570, 660),
-                        ),
                 ),
+                listOf(ClassPlaceAndTime(com.wafflestudio.snutt.core.common.enums.DayOfWeek.MONDAY, "302-101", 570, 660)),
             )
         lectureId = lecture.externalId
         cursorLectureId =
@@ -103,7 +106,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                         courseTitle = "커서테스트강의",
                         instructor = "평가교수2",
                         courseId = course.id,
-                        classPlaceAndTime = emptyList(),
                     ),
                 ).externalId
 
@@ -376,7 +378,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseTitle = "프로퍼티강의",
                     instructor = "평가교수3",
                     courseId = course.id,
-                    classPlaceAndTime = emptyList(),
                 ),
             )
         users.zip(ratings).forEach { (user, rating) ->

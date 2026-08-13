@@ -103,7 +103,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     quota = 40,
                     registrationCount = 30,
                     wasFull = true,
-                    classPlaceAndTime = emptyList(),
                 ),
             )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
@@ -167,7 +166,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     quota = 40,
                     registrationCount = 30,
                     wasFull = true,
-                    classPlaceAndTime = emptyList(),
                 ),
             )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))

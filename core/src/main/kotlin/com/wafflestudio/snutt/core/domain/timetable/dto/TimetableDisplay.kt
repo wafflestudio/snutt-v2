@@ -33,6 +33,8 @@ data class TimetableLectureDisplay(
 fun TimetableLectureDisplay(
     timetableLecture: TimetableLecture,
     lecture: Lecture?,
+    // lecture_id가 가리키는 강의의 시간 (class_time 테이블에서 파생)
+    classTimes: List<ClassPlaceAndTime>,
 ): TimetableLectureDisplay =
     TimetableLectureDisplay(
         id = timetableLecture.externalId,
@@ -50,7 +52,7 @@ fun TimetableLectureDisplay(
         instructor = timetableLecture.instructor ?: lecture?.instructor,
         credit = timetableLecture.credit ?: lecture?.credit,
         remark = timetableLecture.remark ?: lecture?.remark,
-        classPlaceAndTime = timetableLecture.classPlaceAndTime ?: lecture?.classPlaceAndTime.orEmpty(),
+        classPlaceAndTime = timetableLecture.classPlaceAndTime ?: classTimes,
         color = timetableLecture.color,
         colorIndex = timetableLecture.colorIndex,
     )

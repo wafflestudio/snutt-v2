@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
-import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
@@ -504,5 +503,4 @@ private fun SeedLecture.toLecture() =
         registrationCount = 20,
         wasFull = false,
         courseId = course?.id,
-        classPlaceAndTime = classPlaceAndTimes.map { ClassPlaceAndTime(it.day, it.place, it.startMinute, it.endMinute) },
     )

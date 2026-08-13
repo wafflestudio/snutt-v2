@@ -1,12 +1,14 @@
 package com.wafflestudio.snutt.api.misc
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -59,6 +61,8 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
+    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+
     @Autowired
     lateinit var userRepository: UserRepository
 
@@ -92,18 +96,19 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     fun seedDatabase() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         lectureId =
-            lectureRepository
-                .save(
-                    Lecture(
-                        year = 2026,
-                        semester = Semester.AUTUMN,
-                        courseNumber = "4190.111",
-                        lectureNumber = "001",
-                        courseTitle = "빈자리알림강의",
-                        instructor = "교수",
-                        classPlaceAndTime = listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
-                    ),
-                ).externalId
+            saveLectureWithTimes(
+                lectureRepository,
+                lectureClassTimeRepository,
+                Lecture(
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    courseNumber = "4190.111",
+                    lectureNumber = "001",
+                    courseTitle = "빈자리알림강의",
+                    instructor = "교수",
+                ),
+                listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
+            ).externalId
 
         userAToken = register("miscuserA", "misca@snu.ac.kr")
         userBToken = register("miscuserB", "miscb@snu.ac.kr")

@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.diary
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -11,6 +12,7 @@ import com.wafflestudio.snutt.core.domain.diary.repository.DiaryDailyClassTypeRe
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
@@ -53,6 +55,8 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
+    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+
     @Autowired
     lateinit var timetableRepository: TimetableRepository
 
@@ -83,7 +87,9 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val lectures =
             listOf("일기장강의1", "일기장강의2").map { title ->
-                lectureRepository.save(
+                saveLectureWithTimes(
+                    lectureRepository,
+                    lectureClassTimeRepository,
                     Lecture(
                         year = 2026,
                         semester = Semester.AUTUMN,
@@ -91,8 +97,8 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
                         lectureNumber = "001",
                         courseTitle = title,
                         instructor = "교수",
-                        classPlaceAndTime = listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
                     ),
+                    listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
                 )
             }
         lectureIds = lectures.map { it.externalId }

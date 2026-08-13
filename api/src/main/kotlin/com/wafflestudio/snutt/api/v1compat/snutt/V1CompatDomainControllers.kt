@@ -181,6 +181,7 @@ class V1CompatNotificationController(
 class V1CompatBookmarkController(
     private val bookmarkService: com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService,
     private val evaluationService: EvaluationService,
+    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
 ) {
     @GetMapping("")
     fun getBookmarks(
@@ -196,12 +197,17 @@ class V1CompatBookmarkController(
                     .fromValue(semester),
             )
         val summaries = evaluationService.findSummariesByLectureIds(display.lectures.mapNotNull { it.id })
+        val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
         return linkedMapOf(
             "year" to year,
             "semester" to semester,
             "lectures" to
                 display.lectures.map { lecture ->
-                    LegacyBookmarkLectureDto(lecture, summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId))
+                    LegacyBookmarkLectureDto(
+                        lecture,
+                        classTimesMap[lecture.id].orEmpty(),
+                        summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                    )
                 },
         )
     }
@@ -230,6 +236,7 @@ class V1CompatBookmarkController(
 class V1CompatVacancyNotificationController(
     private val vacancyNotificationService: com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService,
     private val evaluationService: EvaluationService,
+    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
 ) {
     @GetMapping("/lectures")
     fun getLectures(
@@ -237,10 +244,15 @@ class V1CompatVacancyNotificationController(
     ): Map<String, Any?> {
         val lectures = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
         val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
         return mapOf(
             "lectures" to
                 lectures.map { lecture ->
-                    LegacyLectureDto(lecture, summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId))
+                    LegacyLectureDto(
+                        lecture,
+                        classTimesMap[lecture.id].orEmpty(),
+                        summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                    )
                 },
         )
     }

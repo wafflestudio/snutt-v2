@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
@@ -50,6 +51,7 @@ class TimetableLectureService(
     private val timetableService: TimetableService,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
+    private val lectureService: LectureService,
     private val timetableThemeService: TimetableThemeService,
     private val timetableLectureReminderService: TimetableLectureReminderService,
 ) {
@@ -68,7 +70,8 @@ class TimetableLectureService(
         val existingLectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
         if (existingLectures.any { it.lectureId == lecture.id }) throw SnuttException(ErrorType.DUPLICATE_LECTURE)
 
-        resolveTimeConflict(timetable, lecture.classPlaceAndTime, request.isForced, null)
+        val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
+        resolveTimeConflict(timetable, classTimes, request.isForced, null)
 
         // isForced로 겹침 강의가 삭제됐을 수 있으므로 재조회한다
         val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
@@ -168,7 +171,8 @@ class TimetableLectureService(
                 .findById(lectureId!!)
                 .orElse(null) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
-        resolveTimeConflict(timetable, lecture.classPlaceAndTime, isForced, timetableLectureExternalId)
+        val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
+        resolveTimeConflict(timetable, classTimes, isForced, timetableLectureExternalId)
 
         timetableLecture.courseTitle = null
         timetableLecture.instructor = null
@@ -179,7 +183,7 @@ class TimetableLectureService(
         timetableLecture.category = null
         timetableLecture.classification = null
         timetableLecture.categoryPre2025 = null
-        timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, lecture.classPlaceAndTime)
+        timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, classTimes)
         return timetableService.getTimetableDisplay(userId, timetableExternalId)
     }
 

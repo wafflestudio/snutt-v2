@@ -34,4 +34,6 @@ class LectureClassTime(
     // QueryDSL 상관 서브쿼리용 읽기 전용 FK (lecture_id 컬럼의 두 번째 매핑)
     @Column(name = "lecture_id", insertable = false, updatable = false)
     var lectureId: Long? = null
+
+    fun toClassPlaceAndTime() = ClassPlaceAndTime(day = day, place = place ?: "", startMinute = startMinute, endMinute = endMinute)
 }

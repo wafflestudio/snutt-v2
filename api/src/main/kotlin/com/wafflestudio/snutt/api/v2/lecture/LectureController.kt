@@ -77,29 +77,31 @@ data class ClassPlaceAndTimeResponse(
     val endMinute: Int,
 )
 
-private fun Lecture.toResponse(evSummary: LectureEvSummaryResponse? = null) =
-    LectureResponse(
-        id = externalId,
-        year = year,
-        semester = semester,
-        courseNumber = courseNumber,
-        lectureNumber = lectureNumber,
-        courseTitle = courseTitle,
-        instructor = instructor,
-        department = department,
-        academicYear = academicYear,
-        category = category,
-        categoryPre2025 = categoryPre2025,
-        classification = classification,
-        credit = credit,
-        quota = quota,
-        freshmanQuota = freshmanQuota,
-        remark = remark,
-        registrationCount = registrationCount,
-        wasFull = wasFull,
-        classPlaceAndTime = classPlaceAndTime.map { it.toResponse() },
-        evSummary = evSummary,
-    )
+private fun Lecture.toResponse(
+    classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    evSummary: LectureEvSummaryResponse? = null,
+) = LectureResponse(
+    id = externalId,
+    year = year,
+    semester = semester,
+    courseNumber = courseNumber,
+    lectureNumber = lectureNumber,
+    courseTitle = courseTitle,
+    instructor = instructor,
+    department = department,
+    academicYear = academicYear,
+    category = category,
+    categoryPre2025 = categoryPre2025,
+    classification = classification,
+    credit = credit,
+    quota = quota,
+    freshmanQuota = freshmanQuota,
+    remark = remark,
+    registrationCount = registrationCount,
+    wasFull = wasFull,
+    classPlaceAndTime = classTimes.map { it.toResponse() },
+    evSummary = evSummary,
+)
 
 private fun ClassPlaceAndTime.toResponse() =
     ClassPlaceAndTimeResponse(
@@ -141,10 +143,12 @@ class LectureController(
             )
         val lectures = lectureService.search(criteria)
         val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
         return lectures.map { lecture ->
-            summaries[lecture.id]?.let { summary ->
-                lecture.toResponse(LectureEvSummaryResponse(avgRating = summary.avgRating, evalCount = summary.evalCount))
-            } ?: lecture.toResponse()
+            val classTimes = classTimesMap[lecture.id].orEmpty()
+            val evSummary =
+                summaries[lecture.id]?.let { LectureEvSummaryResponse(avgRating = it.avgRating, evalCount = it.evalCount) }
+            lecture.toResponse(classTimes, evSummary)
         }
     }
 

@@ -75,29 +75,31 @@ data class LegacyLectureDto(
     val categoryPre2025: String?,
 )
 
-private fun Lecture.toLegacy(evSummary: LegacyEvSummary?) =
-    LegacyLectureDto(
-        id = externalId,
-        academicYear = academicYear,
-        category = category,
-        classPlaceAndTimes = classPlaceAndTime.map { LegacyClassPlaceAndTimeFullDto(it) },
-        classification = classification,
-        credit = credit,
-        department = department,
-        instructor = instructor,
-        lectureNumber = lectureNumber,
-        quota = quota,
-        freshmanQuota = freshmanQuota,
-        remark = remark,
-        semester = semester,
-        year = year,
-        courseNumber = courseNumber,
-        courseTitle = courseTitle,
-        registrationCount = registrationCount,
-        wasFull = wasFull,
-        snuttEvLecture = evSummary,
-        categoryPre2025 = categoryPre2025,
-    )
+private fun Lecture.toLegacy(
+    classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    evSummary: LegacyEvSummary?,
+) = LegacyLectureDto(
+    id = externalId,
+    academicYear = academicYear,
+    category = category,
+    classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
+    classification = classification,
+    credit = credit,
+    department = department,
+    instructor = instructor,
+    lectureNumber = lectureNumber,
+    quota = quota,
+    freshmanQuota = freshmanQuota,
+    remark = remark,
+    semester = semester,
+    year = year,
+    courseNumber = courseNumber,
+    courseTitle = courseTitle,
+    registrationCount = registrationCount,
+    wasFull = wasFull,
+    snuttEvLecture = evSummary,
+    categoryPre2025 = categoryPre2025,
+)
 
 @RestController
 @Public
@@ -147,8 +149,12 @@ class V1CompatLectureSearchController(
             )
         val lectures = lectureService.search(criteria)
         val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
         return lectures.map { lecture ->
-            lecture.toLegacy(summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId))
+            lecture.toLegacy(
+                classTimesMap[lecture.id].orEmpty(),
+                summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+            )
         }
     }
 }

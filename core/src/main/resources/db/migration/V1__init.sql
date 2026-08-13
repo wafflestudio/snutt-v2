@@ -150,7 +150,6 @@ CREATE TABLE lecture
     remark              TEXT         NULL,
     registration_count  INT          NOT NULL DEFAULT 0,
     was_full            BOOLEAN      NOT NULL DEFAULT FALSE,
-    class_place_and_time JSON        NOT NULL,
     created_at          DATETIME(6)  NOT NULL,
     updated_at          DATETIME(6)  NOT NULL,
     CONSTRAINT uk_lecture_external_id UNIQUE (external_id),
