@@ -5,6 +5,8 @@ import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.api.v1compat.snutt.dto.LegacyTimetableDto
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyLocalDateTimeString
+import com.wafflestudio.snutt.api.v1compat.snutt.dto.toLegacyZonedDateTimeString
 import com.wafflestudio.snutt.api.v2.bookmark.BookmarkLectureModifyRequest
 import com.wafflestudio.snutt.api.v2.config.ConfigController
 import com.wafflestudio.snutt.api.v2.feedback.FeedbackController
@@ -30,22 +32,9 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 // v1은 목록을 {content, totalCount}로 감싼다 (../snutt common/dto/ListResponse.kt)
 private fun <T> listResponse(content: List<T>) = linkedMapOf("content" to content, "totalCount" to content.size)
-
-// v1은 LocalDateTime(KST)을 ISO 문자열로 직렬화한다
-private fun Long.toLegacyDateTime(): String =
-    Instant
-        .ofEpochMilli(this)
-        .atZone(KST)
-        .toLocalDateTime()
-        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-
-private val KST: ZoneId = ZoneId.of("Asia/Seoul")
 
 private fun FriendResponse.toLegacy() =
     linkedMapOf(
@@ -53,7 +42,7 @@ private fun FriendResponse.toLegacy() =
         "userId" to userId,
         "displayName" to displayName,
         "nickname" to linkedMapOf("nickname" to nickname, "tag" to nicknameTag),
-        "createdAt" to createdAt.toLegacyDateTime(),
+        "createdAt" to createdAt.toLegacyLocalDateTimeString(),
     )
 
 @RestController
@@ -177,7 +166,7 @@ class V1CompatNotificationController(
                 "message" to it.message,
                 "type" to it.type.value,
                 "deeplink" to it.deeplink,
-                "created_at" to Instant.ofEpochMilli(it.createdAt).atZone(KST).toString(),
+                "created_at" to it.createdAt.toLegacyZonedDateTimeString(),
             )
         }
 
