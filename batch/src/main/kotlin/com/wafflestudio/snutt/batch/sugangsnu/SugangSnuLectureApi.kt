@@ -55,6 +55,27 @@ class SugangSnuLectureApi(
         return jsonMapper.readValue(body, SugangSnuLectureInfo::class.java)
     }
 
+    // 검색 결과 페이지 HTML. 빈자리 알림이 실시간 재안인원을 읽는 데 쓴다
+    fun getSearchPageHtml(
+        year: Int,
+        semester: Semester,
+        pageNo: Int,
+    ): String =
+        restClient
+            .get()
+            .uri { builder ->
+                builder
+                    .path("/sugang/cc/cc100InterfaceSrch.action")
+                    .query("workType=S&sortKey=&sortOrder=")
+                    .queryParam("srchOpenSchyy", year)
+                    .queryParam("srchOpenShtm", convertSemesterToSugangSnuSearchString(semester))
+                    .queryParam("pageNo", pageNo)
+                    .build()
+            }.accept(MediaType.TEXT_HTML)
+            .retrieve()
+            .body(String::class.java)
+            ?: throw IllegalStateException("수강스누 검색 페이지 조회 실패: page=$pageNo")
+
     fun downloadLectureXlsx(
         year: Int,
         semester: Semester,

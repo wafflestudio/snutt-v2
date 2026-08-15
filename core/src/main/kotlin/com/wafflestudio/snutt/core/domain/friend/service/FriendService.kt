@@ -37,7 +37,7 @@ class FriendService(
         private val friendDisplayNameRegex = "^[a-zA-Z가-힣0-9 ]+$".toRegex()
         private const val DISPLAY_NAME_MAX_LENGTH = 10
         private const val FRIEND_LINK_REDIS_PREFIX = "friend-link:"
-        private const val FRIEND_URL_SCHEME = "snutt://friends"
+        private const val FRIEND_URL_SCHEME = "snutt://friends?openDrawer=true"
         private val friendLinkTtl: Duration = Duration.ofDays(14)
     }
 
@@ -53,7 +53,8 @@ class FriendService(
             }
         if (friends.isEmpty()) return emptyList()
         val partnerIds = friends.map { it.getPartnerUserId(myUserId) }
-        val users = userRepository.findAllById(partnerIds).associateBy { it.id!! }
+        // 탈퇴한 파트너는 숨긴다 (v1 findAllByIdInAndActiveTrue 동일)
+        val users = userRepository.findAllByIdInAndActiveTrue(partnerIds).associateBy { it.id!! }
         return friends.mapNotNull { friend -> users[friend.getPartnerUserId(myUserId)]?.let { friend to it } }
     }
 

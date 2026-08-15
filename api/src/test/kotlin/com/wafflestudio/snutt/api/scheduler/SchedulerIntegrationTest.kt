@@ -76,6 +76,9 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var recordingPushClient: RecordingPushClient
 
+    @Autowired
+    lateinit var notificationRepository: com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+
     @BeforeEach
     fun cleanTables() {
         timetableLectureReminderRepository.deleteAll()
@@ -146,7 +149,11 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
             ),
         )
 
-        reminderScheduler.fireDueReminders()
+        reminderScheduler.fireDueReminders(
+            now,
+            com.wafflestudio.snutt.core.common.util.SemesterCalendar
+                .YearSemester(2026, Semester.AUTUMN),
+        )
 
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-reminder", recordingPushClient.sentMessages[0].fcmRegistrationId)
@@ -197,12 +204,30 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     isPrimary = true,
                 ),
             )
-        timetableLectureRepository.save(TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, colorIndex = 1))
+        // 강의 3개 미만인 대표 시간표는 발송 대상이 아니다 (v1 동일)
+        val more =
+            listOf("4190.003" to "일기장강의2", "4190.004" to "일기장강의3").map { (number, title) ->
+                lectureRepository.save(
+                    Lecture(
+                        year = 2026,
+                        semester = Semester.AUTUMN,
+                        courseNumber = number,
+                        lectureNumber = "001",
+                        courseTitle = title,
+                        instructor = "교수",
+                    ),
+                )
+            }
+        (listOf(lecture) + more).forEach {
+            timetableLectureRepository.save(TimetableLecture(timetableId = timetable.id!!, lectureId = it.id, colorIndex = 1))
+        }
 
         diaryScheduler.sendDiaryNotifications()
 
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertTrue(recordingPushClient.sentMessages[0].title.contains("강의일기"))
         assertTrue(recordingPushClient.sentMessages[0].body.contains("일기장강의"))
+        // 푸시 전용: 알림함에는 남지 않는다 (v1 동일)
+        assertTrue(notificationRepository.findAll().none { it.userId == user.id })
     }
 }

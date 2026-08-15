@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.batch
 
 import org.springframework.batch.core.BatchStatus
-import org.springframework.batch.core.job.parameters.JobParameters
+import org.springframework.batch.core.job.parameters.JobParametersBuilder
 import org.springframework.batch.core.launch.JobLauncher
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationArguments
@@ -34,7 +34,9 @@ class JobRunner(
             return
         }
         val job = jobRegistry.getJob(jobName)
-        val execution = jobLauncher.run(job, JobParameters())
+        // 매 실행을 새 JobInstance로 만든다. 동일 파라미터 재실행은 JobInstanceAlreadyCompleteException으로 막힌다
+        val params = JobParametersBuilder().addLong("run.id", System.currentTimeMillis()).toJobParameters()
+        val execution = jobLauncher.run(job, params)
         exitProcess(if (execution.status == BatchStatus.COMPLETED) 0 else 1)
     }
 }

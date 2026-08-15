@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.batch
 
+import com.wafflestudio.snutt.batch.vacancy.RegistrationStatus
+import com.wafflestudio.snutt.batch.vacancy.SugangSnuRegistrationStatusCrawler
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -15,11 +17,12 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.configuration.JobRegistry
 import org.springframework.batch.core.launch.JobLauncher
@@ -27,13 +30,18 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 
 /**
- * M7 DoD: 빈자리 알림 잡 — 만석 해제 감지 → push_preference 필터 → FCM + 알림함
+ * 빈자리 알림 잡: 크롤링한 실시간 재안인원이 저장된 만석 인원보다 줄어들면
+ * 구독자에게 FCM + 알림함 저장. 크롤러는 스텁한다
  */
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
+    @MockitoBean
+    lateinit var crawler: SugangSnuRegistrationStatusCrawler
+
     companion object {
         @JvmStatic
         @DynamicPropertySource
@@ -130,11 +138,14 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     courseTitle = "만석강의",
                     instructor = "교수",
                     quota = 40,
-                    registrationCount = 30,
+                    registrationCount = 40,
                     wasFull = true,
                 ),
             )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
+        whenever(crawler.getPageCount(any(), any())).thenReturn(1)
+        whenever(crawler.getRegistrationStatus(any(), any(), any()))
+            .thenReturn(listOf(RegistrationStatus("4190.111", "001", registrationCount = 39, wasFull = true)))
 
         val status =
             jobLauncher
@@ -149,11 +160,11 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                 ).status
         assertEquals(BatchStatus.COMPLETED, status)
 
-        // FCM 발송 + was_full 해제 + 알림함 저장
+        // FCM 발송 + 재안인원 반영 + 알림함 저장
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-token-1", recordingPushClient.sentMessages[0].fcmRegistrationId)
         assertTrue(recordingPushClient.sentMessages[0].body.contains("빈자리"))
-        assertFalse(lectureRepository.findById(lecture.id!!).get().wasFull)
+        assertEquals(39, lectureRepository.findById(lecture.id!!).get().registrationCount)
         assertEquals(1, notificationRepository.findAll().size)
     }
 
@@ -192,11 +203,14 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     courseTitle = "만석강의2",
                     instructor = "교수",
                     quota = 40,
-                    registrationCount = 30,
+                    registrationCount = 40,
                     wasFull = true,
                 ),
             )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
+        whenever(crawler.getPageCount(any(), any())).thenReturn(1)
+        whenever(crawler.getRegistrationStatus(any(), any(), any()))
+            .thenReturn(listOf(RegistrationStatus("4190.112", "001", registrationCount = 39, wasFull = true)))
 
         jobLauncher.run(
             jobRegistry.getJob("vacancyNotificationJob"),
@@ -208,8 +222,9 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                 ).toJobParameters(),
         )
 
+        // 푸시 설정은 FCM만 거르고 알림함에는 남는다 (v1 동일)
         assertTrue(recordingPushClient.sentMessages.isEmpty())
-        assertEquals(0, notificationRepository.findAll().size)
+        assertEquals(1, notificationRepository.findAll().size)
     }
 
     @Autowired

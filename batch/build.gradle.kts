@@ -3,6 +3,7 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-batch")
     implementation("org.apache.poi:poi-ooxml:5.5.1")
+    implementation("org.jsoup:jsoup:1.21.1")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
