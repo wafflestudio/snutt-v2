@@ -1,14 +1,18 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
@@ -30,9 +34,9 @@ data class LegacySearchQuery(
     val title: String? = null,
     val classification: List<String>? = null,
     val credit: List<Int>? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("course_number")
+    @JsonProperty("course_number")
     val courseNumber: List<String>? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("academic_year")
+    @JsonProperty("academic_year")
     val academicYear: List<String>? = null,
     val department: List<String>? = null,
     val category: List<String>? = null,
@@ -52,28 +56,28 @@ data class LegacySearchTime(
 )
 
 data class LegacyLectureDto(
-    @com.fasterxml.jackson.annotation.JsonProperty("_id")
+    @JsonProperty("_id")
     val id: String,
-    @com.fasterxml.jackson.annotation.JsonProperty("academic_year")
+    @JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
-    @com.fasterxml.jackson.annotation.JsonProperty("class_time_json")
+    @JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassPlaceAndTimeFullDto>,
     val classification: String?,
     val credit: Int,
     val department: String?,
     val instructor: String?,
-    @com.fasterxml.jackson.annotation.JsonProperty("lecture_number")
+    @JsonProperty("lecture_number")
     val lectureNumber: String,
     val quota: Int,
-    @com.fasterxml.jackson.annotation.JsonProperty("freshman_quota")
+    @JsonProperty("freshman_quota")
     val freshmanQuota: Int?,
     val remark: String?,
     val semester: Semester,
     val year: Int,
-    @com.fasterxml.jackson.annotation.JsonProperty("course_number")
+    @JsonProperty("course_number")
     val courseNumber: String,
-    @com.fasterxml.jackson.annotation.JsonProperty("course_title")
+    @JsonProperty("course_title")
     val courseTitle: String,
     val registrationCount: Int,
     val wasFull: Boolean,
@@ -82,7 +86,7 @@ data class LegacyLectureDto(
 )
 
 private fun Lecture.toLegacy(
-    classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    classTimes: List<ClassPlaceAndTime>,
     language: Language,
     evSummary: LegacyEvSummary?,
     status: LectureRegistrationStatus?,
@@ -114,7 +118,7 @@ private fun Lecture.toLegacy(
 @RequestMapping("/v1/search_query")
 class V1CompatLectureSearchController(
     private val lectureService: LectureService,
-    private val evaluationService: com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService,
+    private val evaluationService: EvaluationService,
     private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
 ) {
     @PostMapping("")
@@ -138,21 +142,11 @@ class V1CompatLectureSearchController(
                 etcTags = query.etc,
                 times =
                     query.times?.map {
-                        SearchTime(
-                            com.wafflestudio.snutt.core.common.enums.DayOfWeek
-                                .getOfValue(it.day)!!,
-                            it.startMinute,
-                            it.endMinute,
-                        )
+                        SearchTime(DayOfWeek.getOfValue(it.day)!!, it.startMinute, it.endMinute)
                     },
                 timesToExclude =
                     query.timesToExclude?.map {
-                        SearchTime(
-                            com.wafflestudio.snutt.core.common.enums.DayOfWeek
-                                .getOfValue(it.day)!!,
-                            it.startMinute,
-                            it.endMinute,
-                        )
+                        SearchTime(DayOfWeek.getOfValue(it.day)!!, it.startMinute, it.endMinute)
                     },
                 offset = query.page * query.limit.toLong(),
                 limit = query.limit,

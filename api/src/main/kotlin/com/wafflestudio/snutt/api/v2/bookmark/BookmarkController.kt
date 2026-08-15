@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkDisplay
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -59,8 +60,8 @@ data class BookmarkLectureModifyRequest(
 )
 
 private fun BookmarkDisplay.toResponse(
-    classTimesMap: Map<Long, List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>>,
-    language: com.wafflestudio.snutt.core.common.client.Language,
+    classTimesMap: Map<Long, List<ClassPlaceAndTime>>,
+    language: Language,
 ) = BookmarkResponse(
     year = year,
     semester = semester,
@@ -68,8 +69,8 @@ private fun BookmarkDisplay.toResponse(
 )
 
 private fun Lecture.toResponse(
-    classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
-    language: com.wafflestudio.snutt.core.common.client.Language,
+    classTimes: List<ClassPlaceAndTime>,
+    language: Language,
 ) = BookmarkLectureResponse(
     id = externalId,
     academicYear = language.select(academicYear, academicYearEn),
@@ -95,7 +96,7 @@ private fun ClassPlaceAndTime.toResponse() =
 @RequestMapping("/v2/bookmarks")
 class BookmarkController(
     private val bookmarkService: BookmarkService,
-    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
+    private val lectureService: LectureService,
 ) {
     @GetMapping("")
     fun getBookmarks(

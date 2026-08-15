@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.v1compat.snutt.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -37,7 +38,7 @@ fun LegacyTimetableDto(
     userId: String,
     display: TimetableDisplay,
     evLectureIds: Map<String, Long>,
-    language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
+    language: Language = Language.KO,
 ): LegacyTimetableDto =
     LegacyTimetableDto(
         id = timetable.externalId,
@@ -77,7 +78,7 @@ data class LegacyTimetableLectureDto(
 fun LegacyTimetableLectureDto(
     display: TimetableLectureDisplay,
     evLectureId: Long?,
-    language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
+    language: Language = Language.KO,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
         id = display.id,

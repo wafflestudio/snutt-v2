@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.auth.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
@@ -16,7 +17,6 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.service.UserNicknameService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -338,11 +338,7 @@ class AuthService(
         user: User,
         onConflict: ErrorType,
     ) {
-        try {
-            userRepository.saveAndFlush(user)
-        } catch (e: DataIntegrityViolationException) {
-            throw SnuttException(onConflict)
-        }
+        conflictAs(onConflict) { userRepository.saveAndFlush(user) }
     }
 
     private fun publishCredentialChanged(user: User) {

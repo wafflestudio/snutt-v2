@@ -10,6 +10,7 @@ import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryDailyClassTypeRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
@@ -54,7 +55,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var timetableRepository: TimetableRepository
@@ -85,21 +86,48 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
 
         val lectures =
-            listOf("일기장강의1", "일기장강의2").map { title ->
+            listOf(
                 saveLectureWithTimes(
                     lectureRepository,
                     lectureClassTimeRepository,
                     Lecture(
                         year = 2026,
                         semester = Semester.AUTUMN,
-                        courseNumber = "4190.$title",
-                        lectureNumber = "001",
-                        courseTitle = title,
-                        instructor = "교수",
+                        courseNumber = "400.320",
+                        lectureNumber = "002",
+                        courseTitle = "공학연구의 실습 1",
+                        instructor = "이제희",
+                        department = "컴퓨터공학부",
+                        academicYear = "3학년",
+                        classification = "전선",
+                        credit = 1,
+                        quota = 20,
                     ),
-                    listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
-                )
-            }
+                    listOf(ClassPlaceAndTime(DayOfWeek.FRIDAY, "302-310-2", 1140, 1250)),
+                ),
+                saveLectureWithTimes(
+                    lectureRepository,
+                    lectureClassTimeRepository,
+                    Lecture(
+                        year = 2026,
+                        semester = Semester.AUTUMN,
+                        courseNumber = "F27.301",
+                        lectureNumber = "001",
+                        courseTitle = "고급한국어",
+                        instructor = "황현동",
+                        department = "국어국문학과",
+                        academicYear = "1학년",
+                        category = "외국어",
+                        classification = "교양",
+                        credit = 3,
+                        quota = 20,
+                    ),
+                    listOf(
+                        ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645),
+                        ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "3-106", 570, 645),
+                    ),
+                ),
+            )
         lectureIds = lectures.map { it.externalId }
 
         // 어드민이 오늘 한 일 유형/질문 등록
@@ -150,7 +178,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Autowired
-    lateinit var diarySubmissionRepository: com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
+    lateinit var diarySubmissionRepository: DiarySubmissionRepository
 
     private fun client(): RestClient =
         RestClient
@@ -205,11 +233,11 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, questionnaire.statusCode.value())
         val body = asMap(questionnaire)
-        assertEquals("일기장강의1", body["courseTitle"])
+        assertEquals("공학연구의 실습 1", body["courseTitle"])
         assertEquals(3, (body["questions"] as List<*>).size)
         // 현재 강의는 다음 대상에서 제외된다
         val nextLecture = body["nextLecture"] as Map<*, *>
-        assertEquals("일기장강의2", nextLecture["courseTitle"])
+        assertEquals("고급한국어", nextLecture["courseTitle"])
     }
 
     @Test
@@ -217,7 +245,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         val target = get("/v2/diary/target?year=2026&semester=3")
         assertEquals(200, target.statusCode.value())
         val body = asMap(target)
-        assertTrue(body["courseTitle"].toString().startsWith("일기장강의"))
+        assertTrue(body["courseTitle"].toString() in listOf("공학연구의 실습 1", "고급한국어"))
     }
 
     @Test
@@ -237,7 +265,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         val submissions = groups[0]["submissions"] as List<*>
         assertEquals(1, submissions.size)
         val summary = submissions[0] as Map<*, *>
-        assertEquals("일기장강의1", summary["courseTitle"])
+        assertEquals("공학연구의 실습 1", summary["courseTitle"])
         val replies = summary["shortQuestionReplies"] as List<*>
         assertEquals(1, replies.size)
         assertEquals("좋아요", (replies[0] as Map<*, *>)["shortAnswer"])

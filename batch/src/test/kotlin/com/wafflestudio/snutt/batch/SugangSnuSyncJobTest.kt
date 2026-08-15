@@ -1,5 +1,12 @@
 package com.wafflestudio.snutt.batch
 
+import com.wafflestudio.snutt.batch.sugangsnu.LectureBuildingSync
+import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuCoursebookCondition
+import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureApi
+import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
+import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuXlsxParser
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -10,6 +17,10 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRep
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabularyRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -72,20 +83,20 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     lateinit var userRepository: UserRepository
 
     @Autowired
-    lateinit var timetableRepository: com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+    lateinit var timetableRepository: TimetableRepository
 
     @Autowired
-    lateinit var timetableLectureRepository: com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
+    lateinit var timetableLectureRepository: TimetableLectureRepository
 
     @MockitoBean
-    lateinit var sugangSnuLectureApi: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureApi
+    lateinit var sugangSnuLectureApi: SugangSnuLectureApi
 
     // 상세 API enrichment는 별도 테스트(SugangSnuLectureEnricherTest)에서 검증한다. 여기선 통과시킨다
     @MockitoBean
-    lateinit var sugangSnuLectureEnricher: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
+    lateinit var sugangSnuLectureEnricher: SugangSnuLectureEnricher
 
     @MockitoBean
-    lateinit var lectureBuildingSync: com.wafflestudio.snutt.batch.sugangsnu.LectureBuildingSync
+    lateinit var lectureBuildingSync: LectureBuildingSync
 
     @BeforeAll
     fun seedCoursebook() {
@@ -112,8 +123,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     private fun stubCurrentCoursebook() {
         Mockito
             .doReturn(
-                com.wafflestudio.snutt.batch.sugangsnu
-                    .SugangSnuCoursebookCondition(2026, "U000200002", "U000300001"),
+                SugangSnuCoursebookCondition(2026, "U000200002", "U000300001"),
             ).`when`(sugangSnuLectureApi)
             .getCoursebookCondition()
     }
@@ -131,7 +141,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             ).status
 
     @Autowired
-    lateinit var sugangSnuXlsxParser: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuXlsxParser
+    lateinit var sugangSnuXlsxParser: SugangSnuXlsxParser
 
     @Test
     fun `xlsx 파싱과 신규 강의 upsert`() {
@@ -139,16 +149,22 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             SugangXlsxFixture.xlsx(
                 listOf(
                     SugangXlsxFixture.RowData(
-                        courseNumber = "4190.204",
-                        lectureNumber = "001",
-                        courseTitle = "컴퓨터과학입문",
-                        instructor = "김컴퓨터",
+                        courseNumber = "400.320",
+                        lectureNumber = "002",
+                        courseTitle = "공학연구의 실습 1",
                     ),
                     SugangXlsxFixture.RowData(
-                        courseNumber = "430.201",
-                        lectureNumber = "002",
-                        courseTitle = "전기전자공학개론",
-                        instructor = "이전기",
+                        classification = "전필",
+                        department = "언론정보학과(연합전공 정보문화학)",
+                        academicYear = "4학년",
+                        courseNumber = "2114.408A",
+                        lectureNumber = "001",
+                        courseTitle = "HCI이론 및 실습",
+                        credit = 3,
+                        classTime = "화(14:00~16:50)",
+                        place = "83-601",
+                        instructor = "임하진",
+                        quota = 25,
                     ),
                 ),
             )
@@ -161,27 +177,27 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
         val lectures = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN)
         assertEquals(2, lectures.size)
-        val first = lectures.first { it.courseNumber == "4190.204" }
-        assertEquals("컴퓨터과학입문", first.courseTitle)
+        val first = lectures.first { it.courseNumber == "400.320" }
+        assertEquals("공학연구의 실습 1", first.courseTitle)
         assertEquals("3학년", first.academicYear)
         val firstTimes = lectureClassTimeRepository.findAllByLectureIdInOrderById(listOf(first.id!!)).map { it.toClassPlaceAndTime() }
-        assertEquals(listOf(DayOfWeek.MONDAY), firstTimes.map { it.day })
-        assertEquals(570, firstTimes.first().startMinute)
-        assertEquals(645, firstTimes.first().endMinute)
+        assertEquals(listOf(DayOfWeek.FRIDAY), firstTimes.map { it.day })
+        assertEquals(1140, firstTimes.first().startMinute)
+        assertEquals(1250, firstTimes.first().endMinute)
         // course 앵커 연결
         assertTrue(first.courseId != null)
-        assertEquals("김컴퓨터", courseRepository.findById(first.courseId!!).get().instructor)
+        assertEquals("이제희", courseRepository.findById(first.courseId!!).get().instructor)
 
         // 검색 어휘는 강의에서 파생한다
         val vocabulary =
             lectureVocabularyRepository.findVocabulary(
                 2026,
                 Semester.AUTUMN,
-                com.wafflestudio.snutt.core.common.client.Language.KO,
+                Language.KO,
             )
         assertTrue(vocabulary.department.contains("컴퓨터공학부"))
         assertTrue(vocabulary.credit.contains(3))
-        assertTrue(vocabulary.instructor.contains("김컴퓨터"))
+        assertTrue(vocabulary.instructor.contains("이제희"))
     }
 
     @Test
@@ -200,39 +216,48 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "4190.204",
+                    courseNumber = "F27.301",
                     lectureNumber = "001",
-                    courseTitle = "컴퓨터과학입문",
-                    instructor = "김컴퓨터",
-                    classification = "전선",
+                    courseTitle = "고급한국어",
+                    instructor = "황현동",
+                    department = "국어국문학과",
+                    academicYear = "1학년",
+                    category = "외국어",
+                    classification = "교양",
                     credit = 3,
-                    quota = 40,
+                    quota = 20,
                 ),
             )
         val timetable =
             timetableRepository.save(
-                com.wafflestudio.snutt.core.domain.timetable.model.Timetable(
+                Timetable(
                     userId = user.id!!,
                     year = 2026,
                     semester = Semester.AUTUMN,
                     title = "나의 시간표",
-                    theme = com.wafflestudio.snutt.core.common.enums.BasicThemeType.FALL,
+                    theme = BasicThemeType.FALL,
                 ),
             )
         timetableLectureRepository.save(
-            com.wafflestudio.snutt.core.domain.timetable.model
-                .TimetableLecture(timetableId = timetable.id!!, lectureId = oldLecture.id),
+            TimetableLecture(timetableId = timetable.id!!, lectureId = oldLecture.id),
         )
 
-        // 제목/교수가 바뀐 xlsx
+        // 강의실/시간이 바뀐 xlsx
         val xlsx =
             SugangXlsxFixture.xlsx(
                 listOf(
                     SugangXlsxFixture.RowData(
-                        courseNumber = "4190.204",
+                        classification = "교양",
+                        department = "국어국문학과",
+                        academicYear = "1학년",
+                        courseNumber = "F27.301",
                         lectureNumber = "001",
-                        courseTitle = "컴퓨터과학입문(바뀜)",
-                        instructor = "박컴퓨터",
+                        courseTitle = "고급한국어",
+                        credit = 3,
+                        classTime = "월(09:30~10:45)",
+                        place = "3-106",
+                        instructor = "황현동",
+                        quota = 20,
                     ),
                 ),
             )
@@ -244,8 +269,10 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
         val lectures = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN)
         assertEquals(1, lectures.size)
-        assertEquals("컴퓨터과학입문(바뀜)", lectures[0].courseTitle)
-        assertEquals("박컴퓨터", lectures[0].instructor)
+        assertEquals("고급한국어", lectures[0].courseTitle)
+        val times = lectureClassTimeRepository.findAllByLectureIdInOrderById(listOf(lectures[0].id!!)).map { it.toClassPlaceAndTime() }
+        assertEquals(listOf(DayOfWeek.MONDAY), times.map { it.day })
+        assertEquals(570, times.first().startMinute)
 
         // 변경 알림 (LECTURE_UPDATE)이 사용자에게 저장된다
         val notifications = notificationRepository.findAll()

@@ -7,14 +7,19 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
+import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
+import com.wafflestudio.snutt.core.domain.friend.model.Friend
+import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
+import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -52,13 +57,13 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Autowired lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired lateinit var courseRepository: CourseRepository
 
     @Autowired lateinit var themeRepository: TimetableThemeRepository
 
-    @Autowired lateinit var publishedThemeRepository: com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
+    @Autowired lateinit var publishedThemeRepository: PublishedThemeRepository
 
     @Autowired lateinit var userRepository: UserRepository
 
@@ -77,7 +82,16 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.SPRING))
         coursebookRepository.save(Coursebook(year = 2025, semester = Semester.AUTUMN))
 
-        val course = courseRepository.save(Course(courseNumber = "M1522.000100", instructor = "김교수", title = "수강한강의"))
+        val course =
+            courseRepository.save(
+                Course(
+                    courseNumber = "M2174.001600",
+                    instructor = "박지수",
+                    title = "생활과학신입생세미나",
+                    department = "생활과학대학",
+                    classification = "전필",
+                ),
+            )
         lectureId =
             saveLectureWithTimes(
                 lectureRepository,
@@ -85,12 +99,17 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                 Lecture(
                     year = 2026,
                     semester = Semester.SPRING,
-                    courseNumber = "M1522.000100",
+                    courseNumber = "M2174.001600",
                     lectureNumber = "001",
-                    courseTitle = "수강한강의",
-                    instructor = "김교수",
+                    courseTitle = "생활과학신입생세미나",
+                    instructor = "박지수",
+                    department = "생활과학대학",
+                    academicYear = "1학년",
+                    classification = "전필",
+                    credit = 1,
+                    quota = 150,
                 ).also { it.courseId = course.id },
-                listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
+                listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "222-701", 1020, 1070)),
             ).externalId
 
         userAToken = register("coverusera", "coverusera@snu.ac.kr")
@@ -186,7 +205,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     ): Int = userDeviceRepository.findAllByUserIdAndIsDeletedFalse(userId).count { it.deviceId == deviceId }
 
     @Autowired
-    lateinit var userDeviceRepository: com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
+    lateinit var userDeviceRepository: UserDeviceRepository
 
     @Autowired
     lateinit var legacyTokenService: com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
@@ -231,7 +250,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                 ),
             )
         publishedThemeRepository.save(
-            com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme(
+            PublishedTheme(
                 themeId = published.id!!,
                 publishName = "친구가공유한테마",
                 downloadCount = 7,
@@ -246,16 +265,16 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Autowired
-    lateinit var friendRepository: com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
+    lateinit var friendRepository: FriendRepository
 
     // 친구 쌍은 유니크 제약이 있어 테스트 간 재사용한다
     @Synchronized
-    private fun acceptedFriend(): com.wafflestudio.snutt.core.domain.friend.model.Friend {
+    private fun acceptedFriend(): Friend {
         val userA = userRepository.findByLocalIdAndActiveTrue("coverusera")!!
         val userB = userRepository.findByLocalIdAndActiveTrue("coveruserb")!!
         return friendRepository.findByUserPair(userA.id!!, userB.id!!)
             ?: friendRepository.save(
-                com.wafflestudio.snutt.core.domain.friend.model.Friend(
+                Friend(
                     fromUserId = userA.id!!,
                     toUserId = userB.id!!,
                     isAccepted = true,
@@ -311,7 +330,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, response.statusCode.value())
         val lectures = asList(response)
         assertEquals(1, lectures.size)
-        assertEquals("수강한강의", lectures[0]["title"])
+        assertEquals("생활과학신입생세미나", lectures[0]["title"])
         assertEquals(2026, lectures[0]["takenYear"])
     }
 }

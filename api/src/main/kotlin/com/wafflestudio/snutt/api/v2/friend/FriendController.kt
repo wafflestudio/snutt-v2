@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v2.friend
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.api.v2.timetable.TimetableResponse
 import com.wafflestudio.snutt.api.v2.timetable.toResponse
+import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
@@ -172,8 +173,5 @@ class FriendController(
         return friend
     }
 
-    private fun parseSemester(value: Int) =
-        com.wafflestudio.snutt.core.common.enums.Semester
-            .getOfValue(value)
-            ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+    private fun parseSemester(value: Int) = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

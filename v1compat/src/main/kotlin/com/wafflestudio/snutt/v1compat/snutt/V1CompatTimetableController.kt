@@ -1,11 +1,18 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
+import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectureAddRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddRequest
@@ -29,15 +36,15 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class LegacyTimetableBriefDto(
-    @com.fasterxml.jackson.annotation.JsonProperty("_id")
+    @JsonProperty("_id")
     val id: String,
     val year: Int,
     val semester: Semester,
     val title: String,
     val isPrimary: Boolean,
-    @com.fasterxml.jackson.annotation.JsonProperty("updated_at")
+    @JsonProperty("updated_at")
     val updatedAt: Long,
-    @com.fasterxml.jackson.annotation.JsonProperty("total_credit")
+    @JsonProperty("total_credit")
     val totalCredit: Int,
 )
 
@@ -85,7 +92,7 @@ class V1CompatTimetableController(
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
         @V1CurrentUser user: User,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getMostRecentlyUpdatedTimetable(user.id!!)
         return toLegacy(user, timetable, clientInfo.language)
@@ -96,7 +103,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Int,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): List<LegacyTimetableDto> =
         timetableService
             .getTimetablesBySemester(user.id!!, year, parseSemester(semester))
@@ -121,7 +128,7 @@ class V1CompatTimetableController(
     fun getTimetable(
         @V1CurrentUser user: User,
         @PathVariable timetableId: String,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId), clientInfo.language)
 
     @RequestMapping(
@@ -194,7 +201,7 @@ class V1CompatTimetableController(
         @PathVariable timetableId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyCustomLectureRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -207,13 +214,7 @@ class V1CompatTimetableController(
                     credit = body.credit,
                     classPlaceAndTime = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() }.orEmpty(),
                     remark = body.remark,
-                    color =
-                        body.color?.let {
-                            com.wafflestudio.snutt.core.domain.theme.model.ColorSet(
-                                backgroundColor = it.bg,
-                                foregroundColor = it.fg,
-                            )
-                        },
+                    color = body.color?.toColorSet(),
                     colorIndex = body.colorIndex,
                     isForced = isForced ?: body.isForced ?: false,
                 ),
@@ -228,7 +229,7 @@ class V1CompatTimetableController(
         @PathVariable lectureId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -247,7 +248,7 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -267,7 +268,7 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: String,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyModifyLectureRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -281,13 +282,7 @@ class V1CompatTimetableController(
                     credit = body.credit,
                     classPlaceAndTime = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() },
                     remark = body.remark,
-                    color =
-                        body.color?.let {
-                            com.wafflestudio.snutt.core.domain.theme.model.ColorSet(
-                                backgroundColor = it.bg,
-                                foregroundColor = it.fg,
-                            )
-                        },
+                    color = body.color?.toColorSet(),
                     colorIndex = body.colorIndex,
                     isForced = isForced ?: body.isForced ?: false,
                 ),
@@ -300,7 +295,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable timetableId: String,
         @PathVariable timetableLectureId: String,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: com.wafflestudio.snutt.core.common.client.ClientInfo,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display = timetableLectureService.deleteLecture(user.id!!, timetableId, timetableLectureId)
@@ -310,7 +305,7 @@ class V1CompatTimetableController(
     private fun toLegacy(
         user: User,
         timetable: Timetable,
-        language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
+        language: Language = Language.KO,
     ): LegacyTimetableDto {
         val display = timetableService.getTimetableDisplay(user.id!!, timetable.externalId)
         return toLegacy(user, timetable, display, language)
@@ -319,8 +314,8 @@ class V1CompatTimetableController(
     private fun toLegacy(
         user: User,
         timetable: Timetable,
-        display: com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay,
-        language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
+        display: TimetableDisplay,
+        language: Language = Language.KO,
     ): LegacyTimetableDto {
         val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
         return LegacyTimetableDto(
@@ -346,7 +341,7 @@ class V1CompatTimetableController(
 }
 
 data class LegacyForcedRequest(
-    @com.fasterxml.jackson.annotation.JsonProperty("is_forced")
+    @JsonProperty("is_forced")
     val isForced: Boolean? = null,
 )
 
@@ -355,52 +350,51 @@ data class LegacyColorRequest(
     val fg: String? = null,
 )
 
+fun LegacyColorRequest.toColorSet() = ColorSet(backgroundColor = bg, foregroundColor = fg)
+
 data class LegacyClassTimeRequest(
     val day: Int,
     val place: String? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("start_minute")
+    @JsonProperty("start_minute")
     val startMinute: Int,
-    @com.fasterxml.jackson.annotation.JsonProperty("end_minute")
+    @JsonProperty("end_minute")
     val endMinute: Int,
 )
 
 fun LegacyClassTimeRequest.toClassPlaceAndTime() =
-    com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime(
-        day =
-            com.wafflestudio.snutt.core.common.enums.DayOfWeek
-                .getOfValue(day)
-                ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+    ClassPlaceAndTime(
+        day = DayOfWeek.getOfValue(day) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
         place = place.orEmpty(),
         startMinute = startMinute,
         endMinute = endMinute,
     )
 
 data class LegacyCustomLectureRequest(
-    @com.fasterxml.jackson.annotation.JsonProperty("course_title")
+    @JsonProperty("course_title")
     val courseTitle: String,
     val instructor: String? = null,
     val credit: Int? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("class_time_json")
+    @JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassTimeRequest>? = null,
     val remark: String? = null,
     val color: LegacyColorRequest? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("color_index")
+    @JsonProperty("color_index")
     val colorIndex: Int? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("is_forced")
+    @JsonProperty("is_forced")
     val isForced: Boolean? = null,
 )
 
 data class LegacyModifyLectureRequest(
-    @com.fasterxml.jackson.annotation.JsonProperty("course_title")
+    @JsonProperty("course_title")
     val courseTitle: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("class_time_json")
+    @JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassTimeRequest>? = null,
     val remark: String? = null,
     val color: LegacyColorRequest? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("color_index")
+    @JsonProperty("color_index")
     val colorIndex: Int? = null,
-    @com.fasterxml.jackson.annotation.JsonProperty("is_forced")
+    @JsonProperty("is_forced")
     val isForced: Boolean? = null,
 )

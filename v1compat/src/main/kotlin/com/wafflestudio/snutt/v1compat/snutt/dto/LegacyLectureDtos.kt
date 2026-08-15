@@ -1,7 +1,9 @@
 package com.wafflestudio.snutt.v1compat.snutt.dto
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
@@ -38,7 +40,7 @@ data class LegacyLectureDto(
 fun LegacyLectureDto(
     lecture: Lecture,
     classTimes: List<ClassPlaceAndTime>,
-    language: com.wafflestudio.snutt.core.common.client.Language,
+    language: Language,
     evSummary: LegacyEvSummary? = null,
     status: LectureRegistrationStatus? = null,
 ): LegacyLectureDto =
@@ -90,13 +92,12 @@ data class LegacyBookmarkLectureDto(
     val categoryPre2025: String?,
 )
 
-fun com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary.toLegacyEvSummary(courseId: Long?): LegacyEvSummary? =
-    courseId?.let { LegacyEvSummary(it, avgRating, evalCount) }
+fun EvaluationSummary.toLegacyEvSummary(courseId: Long?): LegacyEvSummary? = courseId?.let { LegacyEvSummary(it, avgRating, evalCount) }
 
 fun LegacyBookmarkLectureDto(
     lecture: Lecture,
     classTimes: List<ClassPlaceAndTime>,
-    language: com.wafflestudio.snutt.core.common.client.Language,
+    language: Language,
     evSummary: LegacyEvSummary? = null,
 ): LegacyBookmarkLectureDto =
     LegacyBookmarkLectureDto(

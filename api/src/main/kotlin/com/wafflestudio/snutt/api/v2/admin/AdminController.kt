@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.v2.admin
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.wafflestudio.snutt.api.auth.AdminOnly
+import com.wafflestudio.snutt.api.scheduler.DiaryScheduler
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -16,6 +18,7 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
+import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupWriteRequest
@@ -40,7 +43,7 @@ data class InsertNotificationRequest(
     val userId: String? = null,
     @field:NotBlank val title: String,
     @field:NotBlank
-    @com.fasterxml.jackson.annotation.JsonAlias("body")
+    @JsonAlias("body")
     val message: String,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
@@ -57,7 +60,7 @@ data class AdminConfigWriteRequest(
 
 data class AdminPopupWriteRequest(
     @field:NotBlank
-    @com.fasterxml.jackson.annotation.JsonAlias("key")
+    @JsonAlias("key")
     val popupKey: String,
     @field:NotBlank val imageOriginUri: String,
     val linkUrl: String? = null,
@@ -86,13 +89,13 @@ data class AdminDiaryQuestionWriteRequest(
 @RequestMapping("/v2/admin")
 class AdminController(
     private val notificationService: NotificationService,
-    private val pushService: com.wafflestudio.snutt.core.domain.notification.service.PushService,
+    private val pushService: PushService,
     private val configService: ClientConfigService,
     private val popupService: PopupService,
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val userService: UserService,
     private val diaryService: DiaryService,
-    private val diaryScheduler: com.wafflestudio.snutt.api.scheduler.DiaryScheduler,
+    private val diaryScheduler: DiaryScheduler,
     private val uploadUriIssuer: UploadUriIssuer,
 ) {
     // 팝업 이미지 업로드용 사전 인증 URI 발급

@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportReq
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
+import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.constraints.NotBlank
@@ -48,7 +49,7 @@ data class TakenLectureResponse(
     val takenSemester: Semester,
 )
 
-internal fun com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser.toResponse() =
+internal fun LectureTakenByUser.toResponse() =
     TakenLectureResponse(
         id = requireNotNull(course.id).toString(),
         lectureId = lectureExternalId,

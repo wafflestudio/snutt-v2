@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 import com.querydsl.core.BooleanBuilder
 import com.querydsl.jpa.impl.JPAQueryFactory
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
 import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
 import org.springframework.stereotype.Repository
@@ -18,7 +19,7 @@ class CourseSearchRepository(
         private val MAJOR_CLASSIFICATIONS = listOf("전공선택", "전공필수")
     }
 
-    fun search(criteria: CourseSearchCriteria): List<com.wafflestudio.snutt.core.domain.evaluation.model.Course> {
+    fun search(criteria: CourseSearchCriteria): List<Course> {
         val course = QCourse.course
         return queryFactory
             .selectFrom(course)

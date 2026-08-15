@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.vacancy.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
@@ -9,7 +10,6 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistration
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -54,12 +54,8 @@ class VacancyNotificationService(
         if (lecture.year != latestCoursebook.year || lecture.semester != latestCoursebook.semester) {
             throw SnuttException(ErrorType.INVALID_REGISTRATION_FOR_PREVIOUS_SEMESTER_COURSE)
         }
-        try {
-            vacancyNotificationRepository.save(
-                VacancyNotification(userId = userId, lectureId = lecture.id!!),
-            )
-        } catch (e: DataIntegrityViolationException) {
-            throw SnuttException(ErrorType.DUPLICATE_VACANCY_NOTIFICATION)
+        conflictAs(ErrorType.DUPLICATE_VACANCY_NOTIFICATION) {
+            vacancyNotificationRepository.save(VacancyNotification(userId = userId, lectureId = lecture.id!!))
         }
     }
 

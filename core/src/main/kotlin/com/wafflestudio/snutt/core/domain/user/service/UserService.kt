@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -21,7 +22,7 @@ class UserService(
     fun getByExternalId(externalId: String): User =
         userRepository.findByExternalIdAndActiveTrue(externalId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
-    fun get(userId: Long): User = userRepository.findById(userId).orElse(null) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+    fun get(userId: Long): User = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
     // 응답에 내부 id 대신 공개 id를 스는 경로용 일괄 조회
     fun getExternalIds(userIds: Collection<Long>): Map<Long, String> =

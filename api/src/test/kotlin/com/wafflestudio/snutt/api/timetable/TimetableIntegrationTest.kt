@@ -65,33 +65,77 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     fun seedDatabase() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
 
-        // L1: 월 570-660, L2: 월 600-690(겹침), L3: 화 780-870(안 겹침)
+        // L1·L2: 월/수 570-645 (서로 겹침), L3: 금 1140-1250 (안 겹침)
+        data class Seed(
+            val lecture: Lecture,
+            val times: List<ClassPlaceAndTime>,
+        )
         val lectureSeeds =
             listOf(
-                Triple("시간표강의1", "4190.001", listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660))),
-                Triple("시간표강의2", "4190.002", listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 600, 690))),
-                Triple("시간표강의3", "4190.003", listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "43-1-302", 780, 870))),
+                Seed(
+                    Lecture(
+                        year = 2026,
+                        semester = Semester.AUTUMN,
+                        courseNumber = "F27.301",
+                        lectureNumber = "001",
+                        courseTitle = "고급한국어",
+                        instructor = "황현동",
+                        department = "국어국문학과",
+                        academicYear = "1학년",
+                        category = "외국어",
+                        classification = "교양",
+                        credit = 3,
+                        quota = 20,
+                    ),
+                    listOf(
+                        ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645),
+                        ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "3-106", 570, 645),
+                    ),
+                ),
+                Seed(
+                    Lecture(
+                        year = 2026,
+                        semester = Semester.AUTUMN,
+                        courseNumber = "F31.113",
+                        lectureNumber = "001",
+                        courseTitle = "경영학을 위한 수학",
+                        instructor = "안명숙",
+                        department = "수리과학부",
+                        academicYear = "1학년",
+                        category = "수학과학컴퓨팅",
+                        classification = "교양",
+                        credit = 3,
+                        quota = 50,
+                    ),
+                    listOf(
+                        ClassPlaceAndTime(DayOfWeek.MONDAY, "500-L301", 570, 645),
+                        ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "500-L301", 570, 645),
+                    ),
+                ),
+                Seed(
+                    Lecture(
+                        year = 2026,
+                        semester = Semester.AUTUMN,
+                        courseNumber = "400.320",
+                        lectureNumber = "002",
+                        courseTitle = "공학연구의 실습 1",
+                        instructor = "이제희",
+                        department = "컴퓨터공학부",
+                        academicYear = "3학년",
+                        classification = "전선",
+                        credit = 1,
+                        quota = 20,
+                    ),
+                    listOf(ClassPlaceAndTime(DayOfWeek.FRIDAY, "302-310-2", 1140, 1250)),
+                ),
             )
-        val lectures =
-            lectureSeeds.map { (title, courseNumber, _) ->
-                Lecture(
-                    year = 2026,
-                    semester = Semester.AUTUMN,
-                    courseNumber = courseNumber,
-                    lectureNumber = "001",
-                    courseTitle = title,
-                    instructor = "테스트교수",
-                    department = "컴퓨터공학부",
-                    classification = "전선",
-                    credit = 3,
-                )
-            }
+        val lectures = lectureSeeds.map { it.lecture }
         lectureRepository.saveAll(lectures)
         val classTimes =
-            lectures.zip(lectureSeeds).flatMap { (lecture, seed) ->
-                seed.third.map {
+            lectureSeeds.flatMap { seed ->
+                seed.times.map {
                     LectureClassTime(
-                        lecture = lecture,
+                        lecture = seed.lecture,
                         day = it.day,
                         place = it.place,
                         startMinute = it.startMinute,
@@ -219,7 +263,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, addLecture.statusCode.value())
         val lectures = asMap(addLecture)["lectures"] as List<*>
         assertEquals(1, lectures.size)
-        assertEquals("시간표강의1", (lectures[0] as Map<*, *>)["courseTitle"])
+        assertEquals("고급한국어", (lectures[0] as Map<*, *>)["courseTitle"])
 
         // 중복 추가
         val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
@@ -237,7 +281,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, forced.statusCode.value())
         val afterForced = asMap(forced)["lectures"] as List<*>
         assertEquals(1, afterForced.size)
-        assertEquals("시간표강의2", (afterForced[0] as Map<*, *>)["courseTitle"])
+        assertEquals("경영학을 위한 수학", (afterForced[0] as Map<*, *>)["courseTitle"])
 
         // 겹치지 않는 강의 추가
         val addAnother = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[2]}"}""")
@@ -282,7 +326,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, reset.statusCode.value())
         val resetLecture =
             (asMap(reset)["lectures"] as List<*>).first { (it as Map<*, *>)["id"] == referenceLectureId } as Map<*, *>
-        assertEquals("시간표강의1", resetLecture["courseTitle"])
+        assertEquals("고급한국어", resetLecture["courseTitle"])
     }
 
     @Test

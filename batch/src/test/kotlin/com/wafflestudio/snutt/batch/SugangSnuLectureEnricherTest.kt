@@ -34,17 +34,18 @@ class SugangSnuLectureEnricherTest {
             .`when`(api.getLectureInfo(2026, Semester.AUTUMN, "100.100", "001"))
             .thenReturn(realInfo)
 
+        // xlsx 측 값: 픽스처와 같은 실제 강좌(100.100 한국어연구입문)의 값
         val row =
             SugangLectureRow(
-                classification = "전필",
-                category = "전공필수",
-                department = "xlsx학과",
-                academicYear = "2학년",
+                classification = "전선",
+                category = "",
+                department = "국어국문학과",
+                academicYear = "1학년",
                 courseNumber = "100.100",
                 lectureNumber = "001",
-                courseTitle = "xlsx제목",
+                courseTitle = "한국어연구입문",
                 credit = 3,
-                instructor = "xlsx교수",
+                instructor = "황선엽",
                 remark = null,
                 quota = 40,
                 registrationCount = 10,
