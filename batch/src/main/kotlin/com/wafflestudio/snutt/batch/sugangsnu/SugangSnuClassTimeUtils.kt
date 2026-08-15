@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import org.slf4j.LoggerFactory
 
-// 상세 API의 시간/강의실 문자열을 ClassPlaceAndTime 목록으로 변환한다 (v1 이식)
 object SugangSnuClassTimeUtils {
     private val log = LoggerFactory.getLogger(javaClass)
     private val classTimeRegex =

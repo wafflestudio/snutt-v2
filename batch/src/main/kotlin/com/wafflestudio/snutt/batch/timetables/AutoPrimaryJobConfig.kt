@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
 import java.time.Instant
 
-// (year, semester)에 대표 시간표가 없는 사용자에게 가장 최근 시간표를 지정한다
 @Configuration
 class AutoPrimaryJobConfig(
     private val jobRepository: JobRepository,

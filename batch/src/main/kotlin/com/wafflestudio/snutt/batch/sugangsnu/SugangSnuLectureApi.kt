@@ -43,7 +43,6 @@ class SugangSnuLectureApi(
             .defaultHeader("Referer", REFERER)
             .build()
 
-    // 강좌 상세 팝업. xlsx에 없는 정확한 시간/강의실/교양분류를 채운다
     fun getLectureInfo(
         year: Int,
         semester: Semester,
@@ -73,7 +72,6 @@ class SugangSnuLectureApi(
         return jsonMapper.readValue(body, SugangSnuLectureInfo::class.java)
     }
 
-    // 수강스누가 현재 서비스하는 수강편람 학기
     fun getCoursebookCondition(): SugangSnuCoursebookCondition {
         val body =
             restClient
@@ -86,7 +84,6 @@ class SugangSnuLectureApi(
         return jsonMapper.readValue(body, SugangSnuCoursebookCondition::class.java)
     }
 
-    // 메인 페이지. 수강신청 일정 표를 파싱하는 데 쓴다
     fun getMainPageHtml(): String =
         restClient
             .get()
@@ -135,7 +132,6 @@ class SugangSnuLectureApi(
         return ByteArrayResource(bytes)
     }
 
-    // 검색 페이지 HD102 폼 필드. 빈 값이 기본이고 workType=EX가 엑셀 저장 모드다
     private fun excelForm(
         year: Int,
         semester: Semester,

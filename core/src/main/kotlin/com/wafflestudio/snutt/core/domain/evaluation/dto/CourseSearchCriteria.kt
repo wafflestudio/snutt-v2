@@ -9,7 +9,6 @@ data class CourseSearchCriteria(
     val academicYear: List<String> = emptyList(),
     val department: List<String> = emptyList(),
     val category: List<String> = emptyList(),
-    // 지정되면 해당 학기에 개설된 강의를 가진 course만 남긴다
     val yearSemesters: List<YearAndSemester> = emptyList(),
     val page: Int = 0,
 )

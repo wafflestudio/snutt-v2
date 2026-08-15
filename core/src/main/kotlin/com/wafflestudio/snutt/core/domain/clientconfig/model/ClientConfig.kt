@@ -10,7 +10,6 @@ import org.hibernate.type.SqlTypes
 @Table(name = "client_config")
 class ClientConfig(
     var name: String,
-    // JSON 문자열로 저장 (v1과 동일)
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var value: String,
     var minIosVersion: String? = null,

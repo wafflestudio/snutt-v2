@@ -20,7 +20,6 @@ interface MailClient {
     )
 }
 
-// SMTP 발송 (spring-boot-starter-mail). 운영은 spring.mail.* 환경변수로 구성한다
 @Service
 @Profile("!test")
 class SmtpMailClient(
@@ -41,7 +40,6 @@ class SmtpMailClient(
     }
 }
 
-// 테스트 프로파일 전용 메일 대역. 발송 내용을 기록만 한다
 @Service
 @Profile("test")
 class RecordingMailClient : MailClient {

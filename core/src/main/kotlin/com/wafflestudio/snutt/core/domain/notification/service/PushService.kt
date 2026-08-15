@@ -24,7 +24,6 @@ class PushService(
     private val pushPreferenceRepository: PushPreferenceRepository,
     private val notificationRepository: NotificationRepository,
 ) {
-    // FCM만 보내고 알림함에는 남기지 않는다
     @Transactional(readOnly = true)
     fun sendTargetedPushes(
         messagesByUserId: Map<Long, TargetedPush>,
@@ -74,7 +73,6 @@ class PushService(
         urlScheme: String? = null,
     ) {
         if (userIds.isEmpty()) return
-        // 푸시 수신 설정은 FCM만 거르고 알림함에는 항상 남는다
         val disabledUserIds =
             pushPreferenceRepository
                 .findByUserIdInAndTypeAndIsEnabledFalse(userIds, preferenceType)

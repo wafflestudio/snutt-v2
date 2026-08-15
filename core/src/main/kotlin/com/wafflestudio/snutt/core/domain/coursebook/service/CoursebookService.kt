@@ -13,7 +13,6 @@ class CoursebookService(
 ) {
     fun getLatestCoursebook(): Coursebook = findLatestCoursebook() ?: throw SnuttException(ErrorType.DEFAULT_ERROR)
 
-    // 수강편람이 하나도 없는 상태를 정상 흐름으로 다루는 호출자용만 쓴다 (초기 배포, 빈 DB)
     fun findLatestCoursebook(): Coursebook? = coursebookRepository.findFirstByOrderByYearDescSemesterDesc()
 
     fun getCoursebooks(): List<Coursebook> = coursebookRepository.findAllByOrderByYearDescSemesterDesc()

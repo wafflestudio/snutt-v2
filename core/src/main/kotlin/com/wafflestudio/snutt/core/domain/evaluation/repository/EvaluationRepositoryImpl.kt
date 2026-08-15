@@ -21,7 +21,6 @@ class EvaluationRepositoryImpl(
 ) : EvaluationCustomRepository {
     private val evaluation = QEvaluation.evaluation
 
-    // 상관 서브쿼리용 별칭 (QEvaluation.evaluation과 구분)
     private val innerEvaluation = QEvaluation("evaluation2")
 
     override fun findOthersByCourseAndSemester(
@@ -135,7 +134,6 @@ class EvaluationRepositoryImpl(
             }
     }
 
-    // (year desc, semester desc, id desc) keyset
     private fun beforeCursor(cursor: EvaluationCursor): BooleanExpression =
         evaluation.year
             .lt(cursor.year)
@@ -184,7 +182,6 @@ class EvaluationRepositoryImpl(
                 )
         }
 
-    // 같은 course의 강의평 평균이 조건을 만족하는 강의평만 남긴다 (course가 평가 앵커)
     private fun existsWithAvg(having: Predicate): BooleanExpression =
         JPAExpressions
             .selectOne()

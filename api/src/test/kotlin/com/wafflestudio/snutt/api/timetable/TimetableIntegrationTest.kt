@@ -27,10 +27,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * v1 TimetableIntegTest 시나리오의 v2 이식: 시간표 CRUD, 강의 추가/중복/겹침/덮어쓰기,
- * custom 강의, customization override, 리마인더, 테마, 북마크
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -66,7 +62,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     fun seedDatabase() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
 
-        // L1·L2: 월/수 570-645 (서로 겹침), L3: 금 1140-1250 (안 겹침)
         data class Seed(
             val lecture: Lecture,
             val times: List<ClassPlaceAndTime>,
@@ -152,9 +147,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         accessToken = asMap(register)["accessToken"] as String
     }
 
-    // 공유 MySQL이므로 다음 테스트 클래스에 데이터를 남기지 않는다.
-
-    // 테스트 간 시간표 잔여물로 중복 제목 403이 나지 않도록 각 테스트 전에 비운다
     @BeforeEach
     fun cleanTimetables() {
         timetableRepository.deleteAll()
@@ -266,25 +258,21 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(1, lectures.size)
         assertEquals("고급한국어", (lectures[0] as Map<*, *>)["courseTitle"])
 
-        // 중복 추가
         val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
         assertEquals(403, duplicate.statusCode.value())
         assertEquals(0x3004, asMap(duplicate)["errcode"])
 
-        // 시간 겹침 → 403 + 확인 메시지
         val overlap = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[1]}"}""")
         assertEquals(403, overlap.statusCode.value())
         assertEquals(0x300C, asMap(overlap)["errcode"])
         assertTrue((asMap(overlap)["displayMessage"] as String).contains("강의와 시간이 겹칩니다"))
 
-        // isForced → 덮어쓰기
         val forced = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[1]}","isForced":true}""")
         assertEquals(200, forced.statusCode.value())
         val afterForced = asMap(forced)["lectures"] as List<*>
         assertEquals(1, afterForced.size)
         assertEquals("경영학을 위한 수학", (afterForced[0] as Map<*, *>)["courseTitle"])
 
-        // 겹치지 않는 강의 추가
         val addAnother = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[2]}"}""")
         assertEquals(200, addAnother.statusCode.value())
         assertEquals(2, (asMap(addAnother)["lectures"] as List<*>).size)
@@ -294,7 +282,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `custom 강의와 customization override`() {
         val timetableId = createTimetable("나의 시간표")
 
-        // custom 강의 추가
         val custom =
             post(
                 "/v2/timetables/$timetableId/lectures/custom",
@@ -305,7 +292,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals("직접만든강의", customLecture["courseTitle"])
         assertEquals(null, customLecture["lectureId"])
 
-        // lecture 참조 강의 추가 후 제목 override
         post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
         val detail = get("/v2/timetables/$timetableId")
         val referenceLecture =
@@ -322,7 +308,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
             (asMap(modified)["lectures"] as List<*>).first { (it as Map<*, *>)["id"] == referenceLectureId } as Map<*, *>
         assertEquals("바뀐제목", modifiedLecture["courseTitle"])
 
-        // reset → 원래 제목 복원
         val reset = post("/v2/timetables/$timetableId/lectures/$referenceLectureId/reset", """{}""")
         assertEquals(200, reset.statusCode.value())
         val resetLecture =
@@ -345,7 +330,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(1, reminders.size)
         assertEquals("TEN_MINUTES_BEFORE", (reminders[0] as Map<*, *>)["option"])
 
-        // '없음' 옵션 → 삭제
         val clear = put("/v2/timetables/$timetableId/lectures/$timetableLectureId/reminder", """{"option":"NONE"}""")
         assertEquals("NONE", asMap(clear)["option"])
         val afterClear = get("/v2/timetables/$timetableId/lectures/reminders")
@@ -367,7 +351,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertFalse(copied["isPrimary"] as Boolean)
         val copiedId = copied["id"] as String
 
-        // 하나만 남은 시간표는 삭제 불가
         assertEquals(200, delete("/v2/timetables/$copiedId").statusCode.value())
         assertEquals(200, delete("/v2/timetables/$second").statusCode.value())
         val deleteLast = delete("/v2/timetables/$first")
@@ -394,7 +377,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, apply.statusCode.value())
         assertEquals(themeId, asMap(apply)["themeId"])
 
-        // 내장 테마로 전환 (theme는 int 값, v1과 동일)
         val basic =
             put(
                 "/v2/timetables/$timetableId/theme",

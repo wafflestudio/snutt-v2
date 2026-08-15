@@ -19,12 +19,10 @@ import java.util.Base64
 
 enum class FriendState {
     ACTIVE,
-    REQUESTING, // 내가 보낸 요청
-    REQUESTED, // 받은 요청
+    REQUESTING,
+    REQUESTED,
 }
 
-// v1 시맨틱 이식 (../snutt/core/src/main/kotlin/friend/service/FriendService.kt).
-// 친구 요청/수락 푸시는 M7 FCM 클라이언트와 함께 연동한다
 @Service
 class FriendService(
     private val friendRepository: FriendRepository,
@@ -53,7 +51,6 @@ class FriendService(
             }
         if (friends.isEmpty()) return emptyList()
         val partnerIds = friends.map { it.getPartnerUserId(myUserId) }
-        // 탈퇴한 파트너는 숨긴다 (v1 findAllByIdInAndActiveTrue 동일)
         val users = userRepository.findAllByIdInAndActiveTrue(partnerIds).associateBy { it.id!! }
         return friends.mapNotNull { friend -> users[friend.getPartnerUserId(myUserId)]?.let { friend to it } }
     }
@@ -133,7 +130,6 @@ class FriendService(
 
     fun get(friendExternalId: String): Friend? = friendRepository.findByExternalId(friendExternalId)
 
-    // 14일 TTL 링크 토큰 (v1 Redis 시맨틱 그대로)
     fun generateFriendRequestLink(userId: Long): String {
         val bytes = ByteArray(8)
         var token: String

@@ -9,8 +9,6 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
-// 시간표 항목: lecture 참조 + 표시 색상. lecture_id NULL은 완전 custom 강의로,
-// 아래 override 컬럼이 내용을 보유한다. lecture 참조 강의는 non-NULL 컬럼만 lecture 위에 덮어쓴다.
 @Entity
 @Table(name = "timetable_lecture")
 class TimetableLecture(

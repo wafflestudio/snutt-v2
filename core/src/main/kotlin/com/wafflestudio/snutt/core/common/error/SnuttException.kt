@@ -9,7 +9,6 @@ open class SnuttException(
     val displayMessage: String = error.displayMessage,
 ) : RuntimeException(errorMessage)
 
-// DB 유일성 제약 위반을 도메인 오류로 바꿔 던진다
 inline fun <T> conflictAs(
     errorType: ErrorType,
     block: () -> T,

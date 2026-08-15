@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.core.common.pagination
 import tools.jackson.databind.json.JsonMapper
 import java.util.Base64
 
-// keyset 커서 페이지네이션 공통 응답. cursor는 클라이언트에 opaque 문자열이다
 data class CursorPage<T>(
     val content: List<T>,
     val cursor: String?,
@@ -27,7 +26,6 @@ data class CursorPage<T>(
     }
 }
 
-// base64(JSON) 커서 코덱. 구 AES 커서는 이식하지 않는다 (opaque 문자열 계약 유지)
 object CursorCodec {
     @PublishedApi
     internal val jsonMapper = JsonMapper.builder().findAndAddModules().build()

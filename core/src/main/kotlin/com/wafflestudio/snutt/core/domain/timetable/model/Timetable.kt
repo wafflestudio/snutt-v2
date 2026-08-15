@@ -16,7 +16,6 @@ class Timetable(
     @JdbcTypeCode(SqlTypes.TINYINT)
     var semester: Semester,
     var title: String,
-    // 내장 테마 번호. custom 테마 사용 시 theme_id 참조
     @JdbcTypeCode(SqlTypes.TINYINT)
     var theme: BasicThemeType,
     var themeId: Long? = null,

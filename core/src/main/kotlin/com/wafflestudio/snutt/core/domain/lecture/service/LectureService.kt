@@ -33,7 +33,6 @@ class LectureService(
             lectureRepository.findAllByExternalIdIn(externalIds.distinct()).associate { it.externalId to it.id!! }
         }
 
-    // 강의 시간은 lecture_class_time 테이블이 단일 원천이다. 읽기 경로가 1회 배치로 파생한다 (N+1 없음)
     fun classTimesByLectureId(lectureIds: Collection<Long>): Map<Long, List<ClassPlaceAndTime>> =
         lectureClassTimeRepository
             .findAllByLectureIdInOrderById(lectureIds)

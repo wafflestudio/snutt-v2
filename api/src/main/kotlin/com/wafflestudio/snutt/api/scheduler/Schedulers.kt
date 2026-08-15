@@ -64,7 +64,6 @@ class ReminderScheduler(
     private fun findDueReminders(now: Instant): List<TimetableLectureReminder> {
         val end = Schedule.fromInstant(now)
         val start = end.plusMinutes(-TIME_WINDOW_MINUTES.toInt())
-        // 창 크기 + 1분 버퍼: 직전 발화분 재발송 방지
         val lastNotifiedBefore = now.minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
         return if (start.day == end.day) {
             timetableLectureReminderRepository.findDueRemindersInTimeRange(end.day.value, start.minute, end.minute, lastNotifiedBefore)

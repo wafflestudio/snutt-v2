@@ -14,10 +14,6 @@ import org.mockito.Mockito
 import org.springframework.core.io.DefaultResourceLoader
 import tools.jackson.databind.json.JsonMapper
 
-/**
- * 상세 API(강좌 팝업) enrichment가 실제 응답 픽스처를 올바르게 반영하는지 검증한다.
- * 픽스처는 sugang.snu.ac.kr에서 실제로 내려받은 cc101ajax.action 응답이다.
- */
 class SugangSnuLectureEnricherTest {
     private val api = Mockito.mock(SugangSnuLectureApi::class.java)
     private val enricher = SugangSnuLectureEnricher(api, DefaultResourceLoader())
@@ -34,7 +30,6 @@ class SugangSnuLectureEnricherTest {
             .`when`(api.getLectureInfo(2026, Semester.AUTUMN, "100.100", "001"))
             .thenReturn(realInfo)
 
-        // xlsx 측 값: 픽스처와 같은 실제 강좌(100.100 한국어연구입문)의 값
         val row =
             SugangLectureRow(
                 classification = "전선",
@@ -53,7 +48,6 @@ class SugangSnuLectureEnricherTest {
             )
         val enriched = enricher.enrich(2026, Semester.AUTUMN, row)
 
-        // 실제 픽스처 값: 화/목 12:30~13:45, 1-102(무선랜제공 제거)
         assertEquals("한국어연구입문", enriched.courseTitle)
         assertEquals("국어국문학과", enriched.department)
         assertEquals(

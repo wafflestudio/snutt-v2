@@ -39,7 +39,6 @@ data class TimetableLectureReminderDisplay(
     val option: TimetableLectureReminderOption,
 )
 
-// v1과 달리 모든 조회가 userId로 시간표 소유권을 검증한다
 @Service
 class TimetableLectureReminderService(
     private val timetableService: TimetableService,
@@ -115,7 +114,6 @@ class TimetableLectureReminderService(
         return TimetableLectureReminderDisplay(timetableLecture.externalId, display.courseTitle, option)
     }
 
-    // 강의 시간이 바뀌면 스케줄을 다시 계산한다. 시간이 비면 리마인더를 삭제한다 (v1 이벤트 리스너 이식)
     @Transactional
     fun recomputeForTimetableLecture(
         timetableLectureId: Long,
@@ -129,7 +127,6 @@ class TimetableLectureReminderService(
         val newSchedules =
             times.map { classTime ->
                 val newSchedule = Schedule(classTime.day, classTime.startMinute).plusMinutes(reminder.offsetMinutes)
-                // 이미 알림을 보낸 schedule의 recentNotifiedAt은 유지한다
                 reminder.scheduleList.firstOrNull { it.day == newSchedule.day && it.minute == newSchedule.minute } ?: newSchedule
             }
         if (newSchedules == reminder.scheduleList) return

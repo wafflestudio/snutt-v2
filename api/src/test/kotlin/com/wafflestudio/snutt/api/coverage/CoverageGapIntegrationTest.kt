@@ -36,10 +36,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * 기존 snutt/snutt-ev 대비 누락되어 있던 기능들의 계약 검증:
- * 기기 등록, 학기 상태, 친구 테마/기본 테마, 친구 코스북 별칭, 최근 수강 강의.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -77,7 +73,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @BeforeAll
     fun seed() {
-        // 현재 학기 + 직전 두 학기 (최근 수강 강의는 직전 두 학기를 본다)
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.SPRING))
         coursebookRepository.save(Coursebook(year = 2025, semester = Semester.AUTUMN))
@@ -184,7 +179,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, register.statusCode.value())
         assertTrue(recordingPushClient.globalTopicSubscriptions.contains(registrationId))
 
-        // 같은 기기에서 토큰이 갱신되면 행이 늘지 않고 갱신된다
         post(
             "/v2/users/me/devices/fcm-token-def",
             token = userAToken,
@@ -230,7 +224,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         val response = get("/v2/semesters/status")
         assertEquals(200, response.statusCode.value())
         val body = asMap(response)
-        // 방학 중이면 current가 없을 수 있지만 next는 항상 존재한다
         assertNotNull(body["next"])
         val next = body["next"] as Map<String, Any?>
         assertNotNull(next["year"])
@@ -267,7 +260,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var friendRepository: FriendRepository
 
-    // 친구 쌍은 유니크 제약이 있어 테스트 간 재사용한다
     @Synchronized
     private fun acceptedFriend(): Friend {
         val userA = userRepository.findByLocalIdAndActiveTrue("coverusera")!!
@@ -297,7 +289,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, setDefault.statusCode.value())
         assertEquals(true, asMap(setDefault)["isDefault"])
 
-        // 목록에서도 기본 테마로 보인다
         val themes = asList(get("/v2/themes", userBToken))
         val marked = themes.filter { it["isDefault"] == true }
         assertEquals(1, marked.size)
@@ -319,7 +310,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `최근 수강 강의를 강의평 작성 대상으로 돌려준다`() {
-        // 직전 학기(2026 봄) 시간표에 강의를 담는다
         val table = post("/v2/timetables", """{"year":2026,"semester":1,"title":"수강내역"}""", userAToken)
         assertEquals(200, table.statusCode.value())
         val tableId = asList(table).first { it["title"] == "수강내역" }["id"] as String

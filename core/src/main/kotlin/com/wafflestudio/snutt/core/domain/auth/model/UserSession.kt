@@ -17,7 +17,6 @@ class UserSession(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id")
     val user: User,
-    // refresh token 원문의 SHA-256 hex. 원문은 저장하지 않는다
     @Column(nullable = false, columnDefinition = "char(64)")
     var refreshTokenHash: String,
     @ManyToOne(fetch = FetchType.LAZY)

@@ -4,7 +4,6 @@ import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 import java.util.concurrent.CopyOnWriteArrayList
 
-// 테스트 프로파일 전용 FCM 대역. 발송 요청을 기록만 하고 실제 전송은 하지 않는다
 @Service
 @Profile("test")
 class RecordingPushClient : PushClient {

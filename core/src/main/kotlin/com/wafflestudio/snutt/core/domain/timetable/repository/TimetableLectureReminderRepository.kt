@@ -8,7 +8,6 @@ import java.time.Instant
 interface TimetableLectureReminderRepository : JpaRepository<TimetableLectureReminder, Long> {
     fun findByTimetableLectureId(timetableLectureId: Long): TimetableLectureReminder?
 
-    // 창 조회: 스케줄러가 몇 분 멈춰도 따라잡는다
     @Query(
         "SELECT r FROM TimetableLectureReminder r WHERE r.nextDay = :day " +
             "AND r.nextMinute BETWEEN :startMinute AND :endMinute " +

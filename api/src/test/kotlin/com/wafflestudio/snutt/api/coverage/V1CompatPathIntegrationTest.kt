@@ -27,11 +27,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * 구 클라이언트가 쓰던 /v1 경로가 그대로 살아있는지 확인한다.
- * v1은 계정 경로가 단수형(/v1/user)이고, 목록을 {content,totalCount}로 감싸며,
- * 테마 색상 필드가 colors 다.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -160,7 +155,6 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val providers = getV1("/v1/users/me/social_providers")
         assertEquals(200, providers.statusCode.value())
-        // v1 AuthProvidersCheckDto는 제공자별 불리언이다
         assertEquals(true, asMap(providers)["local"])
         assertEquals(false, asMap(providers)["facebook"])
     }
@@ -180,7 +174,6 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, response.statusCode.value())
         val themes = asList(response)
         assertTrue(themes.isNotEmpty())
-        // 내장 테마는 색상이 null이라 non_null 정책으로 생략된다 (v1 동일)
         assertTrue(themes[0].containsKey("theme"))
         assertTrue(themes[0].containsKey("isDefault"))
         assertTrue(themes[0].containsKey("isCustom"))
@@ -257,7 +250,6 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `구 강의평 경로가 살아있다`() {
-        // 강의평 경로는 이메일 인증을 요구한다 (v1 동일)
         assertEquals(403, getV1("/v1/ev-service/v1/evaluations/users/me").statusCode.value())
 
         userRepository.findByLocalIdAndActiveTrue("v1pathuser")!!.let {

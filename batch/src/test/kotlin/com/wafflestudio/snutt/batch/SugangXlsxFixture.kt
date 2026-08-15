@@ -5,7 +5,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.springframework.core.io.ByteArrayResource
 import java.io.ByteArrayOutputStream
 
-// 수강스누 xlsx 픽스처 빌더 (헤더는 3번째 행, 데이터는 4번째 행부터)
 object SugangXlsxFixture {
     private val HEADERS =
         listOf(
@@ -35,7 +34,6 @@ object SugangXlsxFixture {
             "개설상태",
         )
 
-    // 기본값은 실제 2026-2학기 개설 강좌(400.320-002 공학연구의 실습 1)의 값
     data class RowData(
         val classification: String = "전선",
         val department: String = "컴퓨터공학부",

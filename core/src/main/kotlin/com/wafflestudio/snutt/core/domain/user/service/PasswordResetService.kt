@@ -17,8 +17,6 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-// 비밀번호 초기화: 검증된 이메일로 6자리 코드를 보내고, 코드 확인 후 비밀번호를 교체한다.
-// 코드 저장은 이메일 인증과 같은 흐름(CodeChallengeStore).
 @Service
 class PasswordResetService(
     redisTemplate: StringRedisTemplate,
@@ -34,7 +32,6 @@ class PasswordResetService(
         private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
     }
 
-    // 아이디 찾기: 가입된 이메일로 아이디/소셜 수단 정보를 발송한다
     @Transactional
     fun sendLocalIdToEmail(email: String) {
         val users = userRepository.findAllByEmailAndActiveTrue(email.trim())
@@ -61,7 +58,6 @@ class PasswordResetService(
             if (user.authProviders.isNotEmpty()) add("<b>[소셜 로그인 수단]</b> ${user.authProviders.joinToString(", ")}")
         }.joinToString(separator = "<br/>", postfix = "<br/>")
 
-    // 초기화 코드 발송. 검증된 이메일만 수신자로 삼는다
     @Transactional
     fun requestReset(email: String) {
         val user =
@@ -73,7 +69,6 @@ class PasswordResetService(
         mailClient.sendCodeMail(MailType.PASSWORD_RESET, email.trim(), code)
     }
 
-    // 구 클라이언트 호환: localId로 사용자를 찾아 마스킹된 이메일을 준다
     @Transactional(readOnly = true)
     fun getMaskedEmailByLocalId(localId: String): String {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
@@ -81,7 +76,6 @@ class PasswordResetService(
         return email.replace(emailMaskRegex, "*")
     }
 
-    // 구 클라이언트 호환: 코드만 검증한다 (교체는 이후 요청에서)
     @Transactional(readOnly = true)
     fun verifyResetCodeByLocalId(
         localId: String,
@@ -101,7 +95,6 @@ class PasswordResetService(
         confirmReset(user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND), code, newPassword)
     }
 
-    // 코드 확인 후 비밀번호 교체. 보안상 기존 세션을 모두 폐기한다
     @Transactional
     fun confirmReset(
         email: String,

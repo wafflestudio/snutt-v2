@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonValue
 import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Converter
 
-// v1과 동일한 값: 클라이언트가 학기를 숫자로 파싱한다
 enum class Semester(
     @JsonValue val value: Int,
     val fullName: String,

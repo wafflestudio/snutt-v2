@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 
-// 테스트가 강의를 만들 때 시간(class_time 테이블)을 함께 저장한다. lecture.class_place_and_time 컬럼은 제거됨
 fun saveLectureWithTimes(
     lectureRepository: LectureRepository,
     classTimeRepository: LectureClassTimeRepository,

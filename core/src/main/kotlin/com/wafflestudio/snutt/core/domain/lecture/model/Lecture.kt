@@ -8,7 +8,6 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
-// 학기별 분반 단위 강의. course_id는 평가 도메인 연결용 FK
 @Entity
 @Table(name = "lecture")
 class Lecture(
@@ -27,10 +26,8 @@ class Lecture(
     var credit: Int = 0,
     var quota: Int = 0,
     var freshmanQuota: Int? = null,
-    // TEXT. 수강편람 원문 그대로 보관 (ⓔ/ⓜⓞ/권장과목 마커 포함)
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var remark: String? = null,
-    // 영문 (i18n). x-language=en이면 읽기 시점에 한글 대신 쓴다
     var courseTitleEn: String? = null,
     var instructorEn: String? = null,
     var departmentEn: String? = null,
@@ -42,7 +39,6 @@ class Lecture(
     @Column(name = "course_id")
     var courseId: Long? = null,
 ) : ExternalIdEntity() {
-    // 수강스누 sync diff 기준 (v1 Lecture.equalsMetadata 이식). 집계/신청 인원은 제외
     fun copyMetadataFrom(other: Lecture) {
         academicYear = other.academicYear
         category = other.category

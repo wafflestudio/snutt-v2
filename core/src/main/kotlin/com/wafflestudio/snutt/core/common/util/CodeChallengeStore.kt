@@ -6,7 +6,6 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 
-// 메일 코드 Redis 저장: 재발송 5회/검증 시도 5회, 3분 TTL
 class CodeChallengeStore(
     private val redisTemplate: StringRedisTemplate,
     namespace: String,
@@ -40,7 +39,6 @@ class CodeChallengeStore(
         redisTemplate.delete(attemptPrefix + key)
     }
 
-    // 코드가 맞으면 발송 시 저장한 payload를 준다
     fun verify(
         key: Any,
         code: String,

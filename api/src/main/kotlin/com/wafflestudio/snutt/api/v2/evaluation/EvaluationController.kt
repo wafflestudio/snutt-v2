@@ -33,7 +33,6 @@ data class EvaluationWriteRequestBody(
     val rating: Double,
 )
 
-// 최근 두 학기 수강 강의 (강의평 작성 대상 선택용)
 data class TakenLectureResponse(
     val id: String,
     val lectureId: String,
@@ -206,7 +205,6 @@ class EvaluationController(
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage(userService)
 
-    // 큰레이션 태그 목록. 조건이 코드에 있으므로 저장소 조회 없이 나열한다
     @GetMapping("/v2/evaluations/tags")
     fun getEvaluationTags(
         @CurrentUser user: User,

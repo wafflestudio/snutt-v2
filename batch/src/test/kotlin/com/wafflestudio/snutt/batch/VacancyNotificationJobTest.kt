@@ -44,10 +44,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-/**
- * 빈자리 알림 잡: 크롤링한 실시간 재안인원이 저장된 만석 인원보다 줄어들면
- * 구독자에게 FCM + 알림함 저장. 크롤러는 스텁한다
- */
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
@@ -107,7 +103,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         userDeviceRepository.deleteAll()
         recordingPushClient.sentMessages.clear()
 
-        // 잡은 대상 학기를 coursebook에서 구하고, 빈자리 조회 시간대에서만 발송한다
         if (!coursebookRepository.existsByYearAndSemester(2026, Semester.AUTUMN)) {
             coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         }
@@ -165,7 +160,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         val status = jobLauncher.run(jobRegistry.getJob("vacancyNotificationJob"), runIdParameters()).status
         assertEquals(BatchStatus.COMPLETED, status)
 
-        // FCM 발송 + 재안인원 반영 + 알림함 저장
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-token-1", recordingPushClient.sentMessages[0].fcmRegistrationId)
         assertTrue(recordingPushClient.sentMessages[0].body.contains("빈자리"))
@@ -215,7 +209,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
         jobLauncher.run(jobRegistry.getJob("vacancyNotificationJob"), runIdParameters())
 
-        // 푸시 설정은 FCM만 거르고 알림함에는 남는다 (v1 동일)
         assertTrue(recordingPushClient.sentMessages.isEmpty())
         assertEquals(1, notificationRepository.findAll().size)
     }

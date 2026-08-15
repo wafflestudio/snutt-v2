@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.common.error
 
 import org.springframework.http.HttpStatus
 
-// errcode 값은 v1 클라이언트가 분기 처리에 사용하므로 snutt v1의 값을 유지한다
 enum class ErrorType(
     val httpStatus: HttpStatus,
     val errorCode: Long,

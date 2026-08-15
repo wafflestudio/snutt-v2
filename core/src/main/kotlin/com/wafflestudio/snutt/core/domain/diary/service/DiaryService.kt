@@ -77,7 +77,6 @@ class DiaryService(
         )
     }
 
-    // 대표 시간표의 lecture 참조 강의 중, 최근 24시간 제출분을 제외하고 하나를 고른다 (v1 동일)
     fun getDiaryTargetLecture(
         userId: Long,
         year: Int,
@@ -143,7 +142,6 @@ class DiaryService(
         val shortAnswer: String,
     )
 
-    // 제출별 짧은 질문 답변. 질문이 비활성화됐으면 제외 (v1 동일)
     fun getSubmissionIdShortQuestionRepliesMap(submissions: List<DiarySubmission>): Map<Long, List<DiaryShortQuestionReply>> {
         val questions = diaryQuestionRepository.findAllByActiveTrue().associateBy { it.id!! }
         return submissions.associate { submission ->
@@ -171,7 +169,6 @@ class DiaryService(
         diarySubmissionRepository.delete(submission)
     }
 
-    // 어드민: 오늘 한 일 유형/질문 관리
     @Transactional
     fun addOrEnableDailyClassType(name: String) {
         val existing = diaryDailyClassTypeRepository.findAll().firstOrNull { it.name == name }

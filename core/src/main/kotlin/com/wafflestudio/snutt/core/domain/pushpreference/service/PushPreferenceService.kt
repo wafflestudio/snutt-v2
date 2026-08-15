@@ -27,7 +27,6 @@ class PushPreferenceService(
             pushPreferences = pushPreferenceRepository.findAllByUserId(user.id!!).map { it.toItem() },
         )
 
-    // 저장하지 않은 타입은 삭제, 저장한 타입은 upsert (v1 동일)
     @Transactional
     fun savePushPreferences(
         user: User,

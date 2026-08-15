@@ -6,7 +6,6 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 
-// 피드백을 GitHub Issue로 접수한다
 @Service
 class FeedbackService(
     private val restClient: RestClient,

@@ -1,9 +1,5 @@
 package com.wafflestudio.snutt.core.domain.evaluation.model
 
-/**
- * 강의평 홈의 큐레이션 태그. 태그는 저장된 데이터가 아니라 course 단위 평균에 대한 질의 조건이므로
- * 테이블 없이 enum으로 둔다. 판정 단위는 course이며 이는 course.avg_rating의 집계 단위와 같다.
- */
 enum class EvaluationTag(
     val key: String,
     val title: String,

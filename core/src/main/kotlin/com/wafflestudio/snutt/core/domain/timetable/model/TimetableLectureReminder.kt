@@ -42,7 +42,6 @@ data class Schedule(
     }
 }
 
-// 발화 시각 비정규화 컬럼(next_day/next_minute)은 매분 스케줄러가 인덱스로 조회한다
 @Entity
 @Table(name = "timetable_lecture_reminder")
 class TimetableLectureReminder(
@@ -56,7 +55,6 @@ class TimetableLectureReminder(
     var nextMinute: Int? = null,
     var recentNotifiedAt: Instant? = null,
 ) : ExternalIdEntity() {
-    // scheduleList에서 현재 시각 이후 가장 가까운 발화 시각으로 next_*를 갱신한다
     fun recomputeNextFire(now: Instant = Instant.now()) {
         val nowSchedule = Schedule.fromInstant(now)
         val next =

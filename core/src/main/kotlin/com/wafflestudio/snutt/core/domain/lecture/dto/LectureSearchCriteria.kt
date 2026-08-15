@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 
-// v1 SortCriteria(fullName)와 동일한 값 — 클라이언트가 sortBy로 되돌려 보낸다
 enum class LectureSort(
     val fullName: String,
 ) {
@@ -24,7 +23,6 @@ data class SearchTime(
     val endMinute: Int,
 )
 
-// v1 SearchDto의 v2 대응. offset/limit 페이지네이션은 v1 검색 계약 유지
 data class LectureSearchCriteria(
     val year: Int,
     val semester: Semester,

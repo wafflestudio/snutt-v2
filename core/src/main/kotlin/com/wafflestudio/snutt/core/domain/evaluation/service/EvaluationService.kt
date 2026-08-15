@@ -53,7 +53,6 @@ data class EvaluationDisplay(
     val isReportable: Boolean,
 )
 
-// course 집계 갱신은 강의평 쓰기 트랜잭션 안에서 수행한다 (구 RATING_SYNC_JOB/MongoService의 대체)
 @Service
 class EvaluationService(
     private val evaluationRepository: EvaluationRepository,
@@ -170,7 +169,6 @@ class EvaluationService(
         if (evaluation.userId != userId) throw SnuttException(ErrorType.NOT_MY_EVALUATION)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
 
-        // 내용이 실제로 바뀌면 공감을 초기화한다 (v1 동일)
         if (isUpdatingAny(evaluation, request)) {
             evaluation.likeCount = 0
             evaluationLikeRepository.deleteByEvaluationId(evaluationId)
@@ -233,7 +231,6 @@ class EvaluationService(
             .save(EvaluationReport(evaluationId = evaluationId, userId = userId, content = request.content))
     }
 
-    // 강의평이 가리키는 과목. 응답 조립에 필요한 만큼만 노출한다
     fun getCourses(courseIds: Collection<Long>): Map<Long, Course> =
         courseRepository.findAllById(courseIds.distinct()).associateBy { it.id!! }
 
@@ -264,7 +261,6 @@ class EvaluationService(
         evaluation.likeCount = (evaluation.likeCount - 1).coerceAtLeast(0)
     }
 
-    // 검색 응답용 ev summary: lecture id → (course 집계). lecture 도메인을 건드리지 않는다
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> =
         evaluationRepository.findSummariesByLectureIds(lectureIds)
 
@@ -296,7 +292,6 @@ class EvaluationService(
         return LectureAnchor(courseId, lecture.year, lecture.semester)
     }
 
-    // EV의 @Range(min = 1, max = 5) 이식
     private fun validateRatings(vararg ratings: Double?) {
         if (ratings.filterNotNull().any { it < 1.0 || it > 5.0 }) {
             throw SnuttException(ErrorType.EVALUATION_RATING_OUT_OF_RANGE)

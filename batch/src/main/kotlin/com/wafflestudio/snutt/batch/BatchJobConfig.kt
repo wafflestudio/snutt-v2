@@ -13,9 +13,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 import kotlin.system.exitProcess
 
-// k8s CronJob이 JOB_NAME 환경변수로 실행할 잡을 고른다
-// 잡 등록은 Boot의 JobRegistrySmartInitializingSingleton이 담당한다 (Spring Batch 6).
-// spring.batch.job.enabled=false면 Boot가 JobRegistry를 만들지 않으므로 직접 정의한다
 @Configuration
 class BatchJobConfig {
     @Bean

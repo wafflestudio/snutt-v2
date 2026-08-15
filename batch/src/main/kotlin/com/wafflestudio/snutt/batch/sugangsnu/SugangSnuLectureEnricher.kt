@@ -4,8 +4,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Component
 
-// xlsx 행에 상세 API(강좌 팝업) 정보를 덮어쓴다 (v1 SugangSnuFetchService 이식).
-// xlsx가 주지 않는 정확한 시간/강의실/교양분류/학과를 채운다.
 @Component
 class SugangSnuLectureEnricher(
     private val sugangSnuLectureApi: SugangSnuLectureApi,

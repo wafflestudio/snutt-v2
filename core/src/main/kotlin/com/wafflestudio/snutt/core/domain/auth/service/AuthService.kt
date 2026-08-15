@@ -212,7 +212,6 @@ class AuthService(
         publishCredentialChanged(user)
     }
 
-    /** 비밀번호 변경은 모든 세션을 폐기하고 새 토큰을 발급한다 (v1은 credentialHash 교체로 같은 효과) */
     @Transactional
     fun changePassword(
         user: User,
@@ -248,7 +247,6 @@ class AuthService(
             AuthProvider.KAKAO -> userRepository.findByKakaoSubAndActiveTrue(response.socialId)
             AuthProvider.APPLE ->
                 userRepository.findByAppleSubAndActiveTrue(response.socialId)
-                    // 개발사 계정 이전 후 토큰은 새 sub를 담으므로 transfer_sub로 찾으면 새 sub를 반영한다 (v1 transferAppleCredential)
                     ?: response.transferInfo?.let { transferSub ->
                         userRepository.findByAppleTransferSubAndActiveTrue(transferSub)?.apply {
                             appleSub = response.socialId

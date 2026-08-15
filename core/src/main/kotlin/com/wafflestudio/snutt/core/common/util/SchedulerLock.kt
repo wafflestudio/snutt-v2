@@ -4,7 +4,6 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
 import java.time.Duration
 
-// 다중 인스턴스 중복 실행 방지
 @Component
 class SchedulerLock(
     private val redisTemplate: StringRedisTemplate,

@@ -7,7 +7,6 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
-// course × 학기에 직접 달리는 강의평. user_id NULL = 탈퇴한 작성자 tombstone
 @Entity
 @Table(name = "evaluation")
 class Evaluation(
@@ -16,7 +15,6 @@ class Evaluation(
     var year: Int,
     @JdbcTypeCode(SqlTypes.TINYINT)
     var semester: Semester,
-    // TEXT. v1 longtext
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var content: String,
     var gradeSatisfaction: Double? = null,

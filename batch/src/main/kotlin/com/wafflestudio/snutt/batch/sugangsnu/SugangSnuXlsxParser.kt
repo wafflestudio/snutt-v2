@@ -8,13 +8,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.core.io.Resource
 import org.springframework.stereotype.Component
 
-// 수강스누 공식 xlsx(한글)를 강의 행으로 변환 (v1 SugangSnuFetchService 이식).
-// 엑셀 컬럼(2023/01/26 기준): 교과구분, 개설대학, 개설학과, 이수과정, 학년, 교과목번호, 강좌번호,
-// 교과목명, 부제명, 학점, 강의, 실습, 수업교시, 수업형태, 강의실(동-호)(#연건, *평창), 주담당교수,
-// 장바구니신청, ..., 정원, 수강신청인원, 비고, 강의언어, 개설상태
 data class SugangLectureRow(
     val classification: String,
-    // 교과구분에서 유도한 검색용 카테고리 (v1은 수강스누 상세 API로 보강 — 상세 API 이관 전까지 유도값 사용)
     val category: String,
     val department: String,
     val academicYear: String,
@@ -27,9 +22,7 @@ data class SugangLectureRow(
     val quota: Int,
     val registrationCount: Int,
     val classPlaceAndTimes: List<ClassPlaceAndTime>,
-    // 상세 API 이식으로 채워지는 2025 이전 교양분류 (courseNumber → category)
     val categoryPre2025: String? = null,
-    // 영문 (i18n). 영문 엑셀 + 상세 API로 채운다
     val courseTitleEn: String? = null,
     val instructorEn: String? = null,
     val departmentEn: String? = null,
@@ -46,7 +39,6 @@ class SugangSnuXlsxParser {
     private val classTimeRegex =
         """^(?<day>[월화수목금토일])\((?<startHour>\d{2}):(?<startMinute>\d{2})~(?<endHour>\d{2}):(?<endMinute>\d{2})\)$""".toRegex()
 
-    // 영문 엑셀의 강의별 영문 필드 (한글 엑셀과 같은 행 순서로 zip해서 합친다)
     data class SugangLectureRowEnglish(
         val courseNumber: String,
         val lectureNumber: String,
@@ -58,7 +50,6 @@ class SugangSnuXlsxParser {
         val remarkEn: String?,
     )
 
-    // 영문 엑셀은 한글과 행 순서가 다르므로 (courseNumber, lectureNumber) 키로 조인한다
     fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
         val sheet = WorkbookFactory.create(englishXlsx.inputStream).getSheetAt(0)
         val headerIndex =

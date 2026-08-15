@@ -4,7 +4,6 @@ import java.security.SecureRandom
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
-// Mongo ObjectId 레이아웃(4B epoch + 5B process random + 3B counter)의 24-hex 문자열.
 // bson 명세: https://www.mongodb.com/docs/manual/reference/bson-types/#objectid
 object ExternalIdGenerator {
     private val processRandom = ByteArray(5).also { SecureRandom().nextBytes(it) }

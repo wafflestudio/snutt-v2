@@ -19,7 +19,6 @@ data class ClientConfigWriteRequest(
 class ClientConfigService(
     private val clientConfigRepository: ClientConfigRepository,
 ) {
-    // os/버전 범위에 맞는 설정만, name 기준 최신 1건 (v1 동일)
     fun getConfigs(
         osType: String,
         appVersion: String,

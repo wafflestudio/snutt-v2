@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import java.time.Instant
 
-// lecture 최신 데이터 위에 customization의 non-NULL 필드를 덮어쓴 표시 모델
 data class TimetableLectureDisplay(
     val id: String,
     val lectureId: String?,
@@ -28,7 +27,6 @@ data class TimetableLectureDisplay(
     val classPlaceAndTime: List<ClassPlaceAndTime>,
     val color: ColorSet?,
     val colorIndex: Int,
-    // 영문 (i18n). lecture에서 가져온다 (custom 강의는 한글 입력만 존재)
     val courseTitleEn: String?,
     val instructorEn: String?,
     val departmentEn: String?,
@@ -41,7 +39,6 @@ data class TimetableLectureDisplay(
 fun TimetableLectureDisplay(
     timetableLecture: TimetableLecture,
     lecture: Lecture?,
-    // lecture_id가 가리키는 강의의 시간 (class_time 테이블에서 파생)
     classTimes: List<ClassPlaceAndTime>,
 ): TimetableLectureDisplay =
     TimetableLectureDisplay(
@@ -75,7 +72,6 @@ fun TimetableLectureDisplay(
 data class TimetableDisplay(
     val timetable: Timetable,
     val lectures: List<TimetableLectureDisplay>,
-    // custom 테마일 때 공개 id (external_id). 내장 테마면 null
     val themeExternalId: String? = null,
 )
 

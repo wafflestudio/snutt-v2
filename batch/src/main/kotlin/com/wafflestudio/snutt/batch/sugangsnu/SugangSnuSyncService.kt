@@ -42,7 +42,6 @@ private data class LectureUpdate(
     val lecture: Lecture,
     val input: LectureInput,
     val changedLabels: List<String>,
-    // _en 필드만 바뀐 경우 false: 데이터만 갱신하고 알리지 않는다
     val notifiable: Boolean,
     val classTimesChanged: Boolean,
 )
@@ -300,7 +299,6 @@ class SugangSnuSyncService(
         newTimes: List<ClassPlaceAndTime>,
     ): Boolean {
         val entries = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        // 해당 항목에 시간 override가 있으면 표시 시간이 변하지 않으므로 겹침 삭제 대상이 아니다
         if (entries.any { it.lectureId == lecture.id && it.classPlaceAndTime != null }) return false
         val otherEntries = entries.filter { it.lectureId != lecture.id }
         val otherLectureTimes =
@@ -367,7 +365,6 @@ class SugangSnuSyncService(
             diff("구) 교양영역", true, old.categoryPre2025, new.categoryPre2025)
             diff("강의 시간/장소", true, oldTimes, newTimes)
             diff("교과 구분", false, old.classificationEn, new.classificationEn)
-            // 수강신청인원은 상태 테이블 담당이므로 diff 대상이 아니다
             diff("학부", false, old.departmentEn, new.departmentEn)
             diff("학년", false, old.academicYearEn, new.academicYearEn)
             diff("강의명", false, old.courseTitleEn, new.courseTitleEn)
