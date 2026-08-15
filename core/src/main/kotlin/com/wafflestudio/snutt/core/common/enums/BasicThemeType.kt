@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonValue
 import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Converter
 
-// v1과 동일한 값: 클라이언트가 내장 테마 번호로 파싱한다 (SNUTT=0 … LAWN=5)
 enum class BasicThemeType(
     @JsonValue val value: Int,
     val displayName: String,

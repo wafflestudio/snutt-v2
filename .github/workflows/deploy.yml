@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ develop, main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: ${{ matrix.module }} (${{ github.ref_name == 'main' && 'prod' || 'dev' }})
+    runs-on: ubuntu-24.04-arm
+
+    strategy:
+      matrix:
+        module: [ api, batch ]
+
+    concurrency:
+      group: deploy-${{ matrix.module }}-${{ github.ref_name }}
+      cancel-in-progress: true
+
+    env:
+      OCIR_REGISTRY: yny.ocir.io
+      OCIR_NAMESPACE: ax1dvc8vmenm
+      OCIR_REPOSITORY: snutt-${{ github.ref_name == 'main' && 'prod' || 'dev' }}/snutt-v2${{ matrix.module == 'batch' && '-batch' || '' }}
+      IMAGE_TAG: ${{ github.run_number }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to OCIR
+        run: echo "${{ secrets.OCI_AUTH_TOKEN }}" | docker login $OCIR_REGISTRY -u ax1dvc8vmenm/members/snutt-deployer --password-stdin
+
+      - name: Build and push image
+        run: |
+          docker build \
+            -f ${{ matrix.module }}/Dockerfile \
+            -t $OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPOSITORY:$IMAGE_TAG \
+            . \
+            --platform linux/arm64
+          docker push $OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPOSITORY:$IMAGE_TAG
+
+      - name: Update GitOps image tag
+        uses: wafflestudio/waffle-world-oci/.github/actions/update-image@main
+        with:
+          image: ${{ env.OCIR_REGISTRY }}/${{ env.OCIR_NAMESPACE }}/${{ env.OCIR_REPOSITORY }}
+          tag: ${{ env.IMAGE_TAG }}
+          overlay-path: argocd/${{ env.OCIR_REPOSITORY }}
+          private-key: ${{ secrets.DEPLOYER_APP_PRIVATE_KEY }}

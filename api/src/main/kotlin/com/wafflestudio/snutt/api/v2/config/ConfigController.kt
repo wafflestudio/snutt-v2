@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
-// v1과 동일하게 value를 JSON 노드로 풀어서 반환한다
 @RestController
 @Public
 @RequestMapping("/v2/configs")

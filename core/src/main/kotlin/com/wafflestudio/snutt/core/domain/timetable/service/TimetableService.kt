@@ -45,7 +45,6 @@ class TimetableService(
         timetableRepository.findByUserIdAndExternalId(userId, timetableExternalId)
             ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
 
-    // 시간표 + 병합된 강의 표시 목록 (lecture 최신 데이터 + customization override)
     fun getTimetableDisplay(
         userId: Long,
         timetableExternalId: String,
@@ -65,7 +64,6 @@ class TimetableService(
         }
     }
 
-    // 배치 조회: N+1 없이 여러 시간표의 병합 표시를 만든다
     fun displaysOf(timetables: List<Timetable>): Map<Long, List<TimetableLectureDisplay>> {
         val timetableIds = timetables.mapNotNull { it.id }
         val lectures = timetableLectureRepository.findByTimetableIdIn(timetableIds)
@@ -155,7 +153,6 @@ class TimetableService(
                 ),
             )
 
-        // 강의 항목은 lecture 참조와 override 컬럼을 그대로 복사한다. 리마인더는 복사하지 않는다 (v1 동일)
         timetableLectureRepository.findByTimetableId(timetable.id!!).forEach { source ->
             timetableLectureRepository.save(source.copyFor(copied.id!!))
         }
@@ -175,7 +172,6 @@ class TimetableService(
         timetable.theme = if (customThemeId != null) BasicThemeType.SNUTT else theme!!
         timetable.themeId = customThemeId
 
-        // 테마 변경 시 모든 강의의 색상을 다시 부여한다 (v1 동일)
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
         val colors = customThemeId?.let { timetableThemeService.themeColors(it) }
         val colorCount = colors?.size ?: BasicThemeType.COLOR_COUNT

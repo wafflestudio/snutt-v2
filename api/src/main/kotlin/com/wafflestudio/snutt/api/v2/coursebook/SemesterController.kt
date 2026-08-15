@@ -15,7 +15,6 @@ data class YearAndSemesterResponse(
 )
 
 data class SemesterStatusResponse(
-    // 방학 등 학기 중이 아니면 null
     val current: YearAndSemesterResponse?,
     val next: YearAndSemesterResponse,
 )

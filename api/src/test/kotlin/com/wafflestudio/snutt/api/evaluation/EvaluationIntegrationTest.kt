@@ -28,10 +28,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * M4 DoD 검증: 강의평 CRUD/공감/신고, 이메일 인증 게이트, 커서 페이지네이션,
- * course.avg_rating/eval_count 비정규화 재계산
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -73,7 +69,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @BeforeAll
     fun seedDatabase() {
-        // 강의평 대상 강의 (course 링크 필요)
         val course =
             courseRepository.save(
                 Course(
@@ -141,7 +136,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         unverifiedToken = register("evaluser2", "eval2@snu.ac.kr")
         secondVerifiedToken = register("evaluser3", "eval3@snu.ac.kr")
 
-        // 이메일 인증은 v2 인증 흐름 밖이므로 저장소에서 직접 검증 상태로 만든다
         setEmailVerified("evaluser1")
         setEmailVerified("evaluser3")
     }
@@ -165,7 +159,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         userRepository.save(user)
     }
 
-    // 강의평은 테스트 간 공유되므로 각 테스트 전에 비우고 course 집계를 초기화한다
     @BeforeEach
     fun cleanEvaluations() {
         evaluationRepository.deleteAll()
@@ -315,7 +308,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         val list = get("/v2/lectures/$lectureId/evaluations", secondVerifiedToken)
         val evaluationId = ((asMap(list)["content"] as List<*>)[0] as Map<*, *>)["id"] as Int
 
-        // 내 강의평 신고
         val selfReport = post("/v2/evaluations/$evaluationId/report", """{"content":"신고"}""", verifiedToken)
         assertEquals(409, selfReport.statusCode.value())
         assertEquals(40914, asMap(selfReport)["errcode"])
@@ -341,7 +333,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `강의평 목록은 커서로 페이지네이션된다`() {
-        // userA가 보지 못하도록 다른 사용자 22명의 강의평을 직접 적재한다
         val users =
             (1..22).map { i ->
                 userRepository.save(
@@ -433,7 +424,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 ),
             )
         }
-        // 서비스 경로와 동일한 재계산을 호출하면 course 집계가 7건의 평균과 일치한다
         courseAggregateUpdater.update(course.id!!)
         val updated = courseRepository.findById(course.id!!).get()
         assertEquals(7, updated.evalCount)

@@ -37,7 +37,6 @@ interface EvaluationRepository :
 }
 
 interface EvaluationCustomRepository {
-    // (course, year, semester) 강의평 목록: 내 것 제외, (year desc, semester desc, id desc) keyset
     fun findOthersByCourseAndSemester(
         courseId: Long,
         year: Int,
@@ -59,16 +58,13 @@ interface EvaluationCustomRepository {
         pageSize: Int,
     ): List<Evaluation>
 
-    // is_hidden=false 강의평의 course 집계 (평점 비정규화 재계산용)
     fun findCourseAggregate(courseId: Long): Pair<Long, Double?>
 
-    // 강의평 요약: (course, year, semester)별 평균
     fun findEvaluationAverages(
         courseId: Long,
         year: Int,
         semester: Semester,
     ): EvaluationAverages?
 
-    // 검색 DTO의 ev summary 조인: lecture id → course 집계
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary>
 }

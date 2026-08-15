@@ -16,9 +16,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * M1 보완 DoD: 이메일 인증 흐름 — SNU 메일 코드 발송/검증/리셋 (v1 이식)
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -30,8 +27,6 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
             registry.add("spring.datasource.username") { mysql.username }
             registry.add("spring.datasource.password") { mysql.password }
         }
-
-        // 인증 코드 저장용 Redis
     }
 
     @Autowired
@@ -116,20 +111,16 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals("emailuser@snu.ac.kr", email)
         assertEquals(6, code.length)
 
-        // 잘못된 코드
         val wrong = post("/v2/users/me/email/verification/code", """{"code":"000000"}""")
         assertEquals(400, wrong.statusCode.value())
 
-        // 올바른 코드 → 인증 완료 + 이메일 갱신
         val verify = post("/v2/users/me/email/verification/code", """{"code":"$code"}""")
         assertEquals(200, verify.statusCode.value())
         assertEquals(true, asMap(verify)["isEmailVerified"])
 
-        // 재요청은 이미 인증됨으로 거부
         val again = post("/v2/users/me/email/verification", """{"email":"emailuser@snu.ac.kr"}""")
         assertEquals(400, again.statusCode.value())
 
-        // 리셋
         val reset = delete("/v2/users/me/email/verification")
         assertEquals(false, asMap(reset)["isEmailVerified"])
         assertEquals(false, asMap(get("/v2/users/me/email/verification"))["isEmailVerified"])
@@ -137,7 +128,6 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `v1 경로에서도 이메일 인증이 동작한다`() {
-        // v1 회원가입으로 credentialHash 토큰 발급
         val register =
             post("/v1/auth/register_local", """{"id":"v1emailuser","password":"password1","email":"v1temp@snu.ac.kr"}""")
         val v1Token = asMap(register)["token"] as String

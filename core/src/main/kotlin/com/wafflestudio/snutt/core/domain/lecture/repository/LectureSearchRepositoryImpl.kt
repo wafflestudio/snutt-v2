@@ -15,8 +15,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.QLectureClassTime
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Repository
 
-// snutt v1 LectureCustomRepository 시맨틱의 MySQL 이식.
-// 기준 문서: ../snutt/core/src/main/kotlin/lectures/repository/LectureCustomRepository.kt
 @Repository
 class LectureSearchRepositoryImpl(
     private val queryFactory: JPAQueryFactory,
@@ -45,7 +43,6 @@ class LectureSearchRepositoryImpl(
         sort: LectureSort,
     ) {
         when (sort) {
-            // v1은 Sort.unsorted()였으나 skip/limit이 비결정적이므로 id 기준으로 고정한다
             LectureSort.DEFAULT -> query.orderBy(lecture.id.asc())
 
             LectureSort.RATING_DESC, LectureSort.COUNT_DESC ->
@@ -64,9 +61,7 @@ class LectureSearchRepositoryImpl(
                 lecture.semester.eq(criteria.semester),
             )
 
-        // v1은 빈 키워드(연속 공백)에서 500이 발생했으나, v2는 무시한다
         criteria.query?.split(' ')?.forEach { keyword -> keywordPredicate(keyword)?.let(predicates::add) }
-        // EN 모드면 클라이언트가 영문 태그 값을 보내므로 ko OR en 매칭 (v1 isEn 동일)
         criteria.classification?.takeIf { it.isNotEmpty() }?.let {
             predicates +=
                 koOrEn(lecture.classification, lecture.classificationEn, it)
@@ -120,7 +115,6 @@ class LectureSearchRepositoryImpl(
         val fuzzyKeyword = fuzzyPattern(keyword)
         val departmentPredicate =
             when (keyword.last()) {
-                // '컴공과' → '컴.*공' prefix: 실제 학과명 '컴퓨터공학부'와 매칭 (v1 동일 규칙)
                 '과', '부' -> regexMatches(lecture.department, "^${fuzzyPattern(keyword.dropLast(1))}")
                 '학' -> null
                 else -> regexMatches(lecture.department, "^$fuzzyKeyword")
@@ -135,7 +129,6 @@ class LectureSearchRepositoryImpl(
         ).reduce(BooleanExpression::or)
     }
 
-    // EN 모드에서 클라이언트가 보낸 태그 값은 영문 컬럼과도 매칭해야 한다 (KO는 ko만)
     private fun koOrEn(
         ko: com.querydsl.core.types.dsl.StringPath,
         en: com.querydsl.core.types.dsl.StringPath,
@@ -152,7 +145,6 @@ class LectureSearchRepositoryImpl(
             exactlyMatches(lecture.lectureNumber, keyword),
         ).reduce(BooleanExpression::or)
 
-    // 모든 수업시간이 최소 하나의 검색 시간대에 완전히 포함되어야 한다 (v1 elemMatch 부정 시맨틱)
     private fun timesCoveredPredicate(times: List<SearchTime>): BooleanExpression =
         hasClassTime()
             .and(
@@ -172,7 +164,6 @@ class LectureSearchRepositoryImpl(
             .or(classTime.startMinute.lt(time.startMinute))
             .or(classTime.endMinute.gt(time.endMinute))
 
-    // 어떤 수업시간도 제외 시간대와 겹치면 안 된다 (v1 elemMatch 부정 시맨틱)
     private fun timesExcludedPredicate(timesToExclude: List<SearchTime>): BooleanExpression =
         hasClassTime()
             .and(

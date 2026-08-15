@@ -38,9 +38,6 @@ class TimetableThemeService(
         private val copyNumberRegex = """\s\(\d+\)$""".toRegex()
     }
 
-    /**
-     * 받아온 테마의 원본 정보. 공개 id만 다루고 목록당 1회씩 일괄 조회한다
-     */
     fun getOrigins(themeExternalIds: Collection<String>): Map<String, ThemeOrigin> {
         if (themeExternalIds.isEmpty()) return emptyMap()
         val themes = timetableThemeRepository.findAllByExternalIdIn(themeExternalIds)
@@ -58,7 +55,6 @@ class TimetableThemeService(
             }.toMap()
     }
 
-    // v1과 동일: 기본 테마(내장 6종, isDefault 포함) + 보관함 테마 목록
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
         val defaultThemeName = getDefaultTheme(userId).name
         val basicThemes = BasicThemeType.entries.map { it.toBasicDisplay(isDefault = it.displayName == defaultThemeName) }
@@ -113,7 +109,6 @@ class TimetableThemeService(
         colors?.let { newColors ->
             validateColorCount(newColors)
 
-            // 색상 변경은 해당 테마를 쓰는 시간표의 강의 색상에도 반영한다 (v1 동일)
             val colorMap = theme.colorList.mapIndexed { i, color -> color to newColors.getOrNull(i) }.toMap()
             timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
                 val lectures = timetableLecturesOf(timetable.id!!)
@@ -135,7 +130,6 @@ class TimetableThemeService(
         authorAnonymous: Boolean,
     ) {
         val theme = getOwnedTheme(userId, themeExternalId)
-        // 공개 정보는 테마 행과 분리되어 있으므로 재공개는 기존 행을 갱신한다
         val published =
             publishedThemeRepository.findByThemeId(theme.id!!)
                 ?: PublishedTheme(themeId = theme.id!!, publishName = publishName, authorAnonymous = authorAnonymous)
@@ -178,7 +172,6 @@ class TimetableThemeService(
         val theme = getOwnedTheme(userId, themeExternalId)
         if (publishedThemeRepository.existsByThemeId(theme.id!!)) throw SnuttException(ErrorType.PUBLISHED_THEME_DELETE_ERROR)
 
-        // 해당 테마를 쓰는 시간표는 내장 SNUTT 테마로 되돌린다 (v1 동일)
         timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
             timetable.theme = BasicThemeType.SNUTT
             timetable.themeId = null
@@ -222,7 +215,6 @@ class TimetableThemeService(
             ).toDisplay(published = null)
     }
 
-    // 기본 테마는 "가장 최근에 수정한 보관함 테마"이므로, 지정은 updatedAt 갱신으로 표현한다 (v1 동일)
     @Transactional
     fun setDefault(
         userId: Long,
@@ -235,7 +227,6 @@ class TimetableThemeService(
         return theme.toDisplay(published = publishedThemeRepository.findByThemeId(theme.id!!), isDefault = true)
     }
 
-    // 내장 테마는 사용자가 직접 기본으로 지정할 수 없다 (v1 3.5.0 대응)
     fun setBasicThemeDefault(userId: Long): TimetableThemeDisplay = getDefaultTheme(userId)
 
     @Transactional
@@ -260,7 +251,6 @@ class TimetableThemeService(
         return BasicThemeType.SNUTT.toBasicDisplay(isDefault = true)
     }
 
-    // v1 동일: 기본 테마 = 가장 최근 수정한 보관함 테마, 없으면 SNUTT
     fun getDefaultTheme(userId: Long): TimetableThemeDisplay {
         val theme = timetableThemeRepository.findFirstByUserIdOrderByUpdatedAtDesc(userId)
         return theme?.toDisplay(published = theme.id?.let { publishedThemeRepository.findByThemeId(it) }, isDefault = true)
@@ -281,7 +271,6 @@ class TimetableThemeService(
         } ?: checkNotNull(basicThemeType).toBasicDisplay(isDefault = false)
     }
 
-    // 시간표에 강의를 추가할 때 부여할 (colorIndex, color) (v1 getNewColorIndexAndColor 이식)
     fun getNewColorIndexAndColor(
         themeId: Long?,
         usedColors: List<ColorSet?>,
@@ -305,7 +294,6 @@ class TimetableThemeService(
                     .random()
         }
 
-    // v2 테마 공개 id(externalId) ↔ 테이블 FK용 숫자 id 변환
     fun findThemeId(themeExternalId: String): Long? = timetableThemeRepository.findByExternalId(themeExternalId)?.id
 
     fun findThemeIdOwnedBy(
@@ -330,7 +318,6 @@ class TimetableThemeService(
 
     private fun timetableLecturesOf(timetableId: Long) = timetableLectureRepository.findByTimetableId(timetableId)
 
-    // 마켓 응답: 공개 행 + 원본 테마 + 저자 닉네임을 합쳐 표시 모델로 만든다
     private fun List<PublishedTheme>.toMarketDisplays(): List<TimetableThemeDisplay> {
         if (isEmpty()) return emptyList()
         val themes = timetableThemeRepository.findAllById(mapNotNull { it.themeId }).associateBy { it.id!! }

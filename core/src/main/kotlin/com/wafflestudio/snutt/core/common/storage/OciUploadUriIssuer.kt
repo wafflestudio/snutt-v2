@@ -27,7 +27,6 @@ class OciConfig(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // 인스턴스 프린시펄이 가능하면 그것을, 아니면 로컬 설정 파일을 쓴다
     @Bean
     fun ociAuthProvider(): BasicAuthenticationDetailsProvider =
         when (authType.trim().lowercase()) {
@@ -42,10 +41,6 @@ class OciConfig(
         }
 }
 
-/**
- * 오브젝트 스토리지 사전 인증 요청(PAR)으로 업로드 URI를 발급한다.
- * PAR 생성은 OCI 요청 서명이 필요해 SDK를 통해 호출한다.
- */
 @Service
 @Profile("!test")
 class OciUploadUriIssuer(

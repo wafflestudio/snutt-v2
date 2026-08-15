@@ -34,9 +34,6 @@ import org.springframework.test.context.DynamicPropertySource
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-/**
- * M7b DoD: in-process 스케줄러 — 강의 리마인더(매분 keyset), 강의 일기장 알림(월수금 19시)
- */
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -163,7 +160,6 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
         assertTrue(recordingPushClient.sentMessages[0].body.contains("HCI이론 및 실습"))
         assertTrue(recordingPushClient.sentMessages[0].body.contains("10분 전"))
 
-        // 발화 후 다음 발화 시각은 현재 시각 이후여야 한다
         val after = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId)!!
         assertTrue(after.recentNotifiedAt != null)
         val nextMinute = after.nextDay!! * 1440 + after.nextMinute!!
@@ -211,7 +207,6 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     isPrimary = true,
                 ),
             )
-        // 강의 3개 미만인 대표 시간표는 발송 대상이 아니다
         val more =
             listOf(
                 Lecture(
@@ -253,7 +248,6 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertTrue(recordingPushClient.sentMessages[0].title.contains("강의일기"))
         assertTrue(recordingPushClient.sentMessages[0].body.contains("강의일기를 작성해보세요"))
-        // 푸시 전용: 알림함에는 남지 않는다 (v1 동일)
         assertTrue(notificationRepository.findAll().none { it.userId == user.id })
     }
 }

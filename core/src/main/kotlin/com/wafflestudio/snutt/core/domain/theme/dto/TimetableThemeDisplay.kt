@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
 
 data class TimetableThemeDisplay(
-    // null = builtin 테마 (DB 행 없음)
     val id: String?,
     val name: String,
     val colorList: List<ColorSet>?,

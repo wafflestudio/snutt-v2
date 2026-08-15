@@ -11,7 +11,6 @@ data class YearAndSemester(
     val semester: Semester,
 )
 
-// 학기 진행 상태. 학사 일정 고정 구간으로 판정한다 (v1 SemesterService 이식)
 @Service
 class SemesterService {
     private data class SemesterRange(
@@ -32,7 +31,6 @@ class SemesterService {
                 )
             }
 
-    // 방학 등 어느 학기에도 속하지 않는 기간은 null
     fun getCurrentYearAndSemester(currentTime: Instant): YearAndSemester? {
         val today = currentTime.atZone(KST).toLocalDate()
         return semesterSequence(today.year - 1)

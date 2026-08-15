@@ -30,7 +30,6 @@ enum class NotificationType(
     }
 }
 
-// user_id NULL = 전체 공지 (broadcast). created_at이 등록일 이후인 알림만 노출 (v1 동일)
 @Entity
 @Table(name = "notification")
 class Notification(

@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-// FCM 등록 토큰 관리. 기기는 device_id로 식별하고, 없으면 등록 토큰으로 대체 식별한다 (v1 DeviceService 이식)
 @Service
 class DeviceService(
     private val userDeviceRepository: UserDeviceRepository,

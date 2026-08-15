@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 
 interface NotificationRepository : JpaRepository<Notification, Long> {
-    // user_id가 나거나 전체 공지 중, 가입일 이후 생성된 알림
     @Query(
         value =
             "SELECT * FROM notification n WHERE (n.user_id = :userId OR n.user_id IS NULL) " +

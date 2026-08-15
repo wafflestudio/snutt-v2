@@ -13,7 +13,6 @@ enum class Language {
     }
 }
 
-// 읽기 시점 언어 선택 + 폴백. EN이면 영문 우선(없으면 한글), KO면 항상 한글
 fun Language.select(
     ko: String,
     en: String?,

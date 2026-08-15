@@ -24,7 +24,6 @@ class UserService(
 
     fun get(userId: Long): User = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
-    // 응답에 내부 id 대신 공개 id를 스는 경로용 일괄 조회
     fun getExternalIds(userIds: Collection<Long>): Map<Long, String> =
         userRepository.findAllById(userIds.distinct()).associate { it.id!! to it.externalId }
 

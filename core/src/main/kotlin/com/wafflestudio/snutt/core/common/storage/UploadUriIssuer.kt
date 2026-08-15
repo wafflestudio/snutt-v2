@@ -4,7 +4,6 @@ import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 import java.util.UUID
 
-// 업로드 대상 (v1 StorageSource). 현재는 팝업 이미지 하나뿐이다
 enum class StorageSource(
     val value: String,
     val bucketName: String,
@@ -31,7 +30,6 @@ interface UploadUriIssuer {
     ): List<FileUploadUri>
 }
 
-// 테스트 프로파일 전용. 실제 발급 없이 형태만 맞춘 URI를 준다
 @Service
 @Profile("test")
 class RecordingUploadUriIssuer(

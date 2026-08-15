@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
-// Firebase Admin SDK 기반 FCM HTTP v1 발송 (v1 FcmPushClient 이식)
 @Service
 @Profile("!test")
 class FcmPushClient(

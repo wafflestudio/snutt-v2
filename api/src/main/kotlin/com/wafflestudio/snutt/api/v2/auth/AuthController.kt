@@ -119,7 +119,6 @@ class AuthController(
         authService.logout(sessionId, request?.fcmRegistrationId)
     }
 
-    // 비밀번호 초기화: 검증된 이메일로 코드를 보낸다
     @Public
     @PostMapping("/password/reset/request")
     fun requestPasswordReset(
@@ -128,7 +127,6 @@ class AuthController(
         passwordResetService.requestReset(body.email)
     }
 
-    // 비밀번호 초기화: 코드 확인 후 비밀번호 교체
     @Public
     @PostMapping("/password/reset/confirm")
     fun confirmPasswordReset(
@@ -137,7 +135,6 @@ class AuthController(
         passwordResetService.confirmReset(body.email, body.code, body.newPassword)
     }
 
-    // 아이디 찾기: 가입된 이메일로 아이디/소셜 수단 정보를 보낸다
     @Public
     @PostMapping("/id/find")
     fun findId(

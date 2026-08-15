@@ -27,10 +27,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * M6 DoD: v1 호환 레이어 계약 테스트 — 이중 매핑, x-access-token(credentialHash) 인증,
- * Deprecation 헤더, ev 에러 봉투
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class V1CompatContractTest : AbstractMysqlIntegrationTest() {
@@ -103,7 +99,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 ),
             ).externalId
 
-        // v1 회원가입으로 credentialHash 토큰 발급 (모든 테스트가 공유)
         val register =
             post(
                 "/v1/auth/register_local",
@@ -115,7 +110,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         assertEquals("ok", asMap(register)["message"])
     }
 
-    // 시간표는 테스트 간 공유되므로 각 테스트 전에 비운다
     @BeforeEach
     fun cleanTimetables() {
         timetableRepository.deleteAll()
@@ -159,14 +153,12 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `v1 로그인은 credentialHash 토큰을 발급한다`() {
-        // @BeforeAll에서 발급한 토큰으로 v1 users/me 조회
         assertTrue(legacyToken.isNotBlank())
         val me = get("/v1/users/me", legacyToken)
         assertEquals(200, me.statusCode.value())
         assertEquals(userId, asMap(me)["id"])
         assertEquals("v1@snu.ac.kr", asMap(me)["email"])
 
-        // v2 JWT는 v1 경로에서 거부된다
         val v2Login =
             RestClient
                 .builder()
@@ -200,7 +192,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         assertEquals("나의 시간표", briefs[0]["title"])
         assertEquals("2026", briefs[0]["year"].toString())
 
-        // 경로는 /v1 접두사만 서빙한다
         assertEquals(404, post("/tables", """{"year":2026,"semester":3,"title":"루트"}""", legacyToken).statusCode.value())
     }
 
@@ -222,7 +213,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val lecture = lectures[0] as Map<*, *>
         assertEquals("고급한국어", lecture["courseTitle"])
         assertEquals(lectureId, lecture["lectureId"])
-        // 시간표 응답의 classPlaceAndTimes는 단순 DTO다 (start_time/len은 검색 전용)
         val classTimes = lecture["classPlaceAndTimes"] as List<*>
         assertEquals(0, (classTimes[0] as Map<*, *>)["day"])
         assertEquals(570, (classTimes[0] as Map<*, *>)["startMinute"])
@@ -242,7 +232,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         assertEquals("고급한국어", lecture["course_title"])
         assertTrue(lecture.containsKey("_id"))
         assertTrue(lecture.containsKey("class_time_json"))
-        // 검색 LectureDto는 확장 시각 필드를 가진다
         val classTimes = lecture["class_time_json"] as List<*>
         assertEquals("09:30", (classTimes[0] as Map<*, *>)["start_time"])
         // len은 교시 격자 길이: 09:30(1.5교시)~10:45(30분 올림→3교시) → 1.5
@@ -251,7 +240,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `ev 경로는 ev 에러 봉투를 사용한다`() {
-        // 이메일 미인증 → snutt 봉투 (proxy 게이트와 동일)
         val notVerified =
             post(
                 "/v1/ev-service/v1/semester-lectures/$lectureId/evaluations",

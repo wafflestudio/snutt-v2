@@ -62,10 +62,6 @@ class SugangSnuSyncJobConfig(
                 transactionManager,
             ).build()
 
-    /**
-     * 수강스누가 서비스하는 학기가 DB 최신 coursebook과 같으면 그 학기를 갱신하고,
-     * 앞서 있으면 다음 학기를 새로 연다 (v1 syncSugangSnuStep 이식)
-     */
     private fun run() {
         val latest = coursebookService.getLatestCoursebook()
         val condition = sugangSnuLectureApi.getCoursebookCondition()
@@ -88,7 +84,6 @@ class SugangSnuSyncJobConfig(
         }
     }
 
-    // 일정 페이지 구조 변화가 강의 sync 전체를 막지 않도록 실패는 기록만 한다
     private fun extractRegistrationPeriod(
         year: Int,
         semester: Semester,

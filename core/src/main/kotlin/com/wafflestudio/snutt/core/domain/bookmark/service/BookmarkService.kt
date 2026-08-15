@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional
 data class BookmarkDisplay(
     val year: Int,
     val semester: Semester,
-    // 북마크된 강의 표시 (id = lecture external_id)
     val lectures: List<Lecture>,
 )
 
@@ -25,7 +24,6 @@ class BookmarkService(
     private val bookmarkLectureRepository: BookmarkLectureRepository,
     private val lectureRepository: LectureRepository,
 ) {
-    // 북마크가 없으면 빈 목록을 반환한다 (v1 동일)
     fun getBookmark(
         userId: Long,
         year: Int,

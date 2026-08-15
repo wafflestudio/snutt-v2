@@ -1,7 +1,5 @@
 package com.wafflestudio.snutt.core.domain.building.model
 
-// 수업 장소 문자열("302-101", "#43동" 등)에서 캠퍼스와 건물 번호를 해석한다.
-// v1 PlaceInfo.kt의 로직을 그대로 이식 (../snutt/core/src/main/kotlin/lecturebuildings/data/PlaceInfo.kt)
 data class PlaceInfo(
     val campus: Campus,
     val buildingNumber: String,

@@ -76,7 +76,6 @@ class TimetableLectureService(
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
         resolveTimeConflict(timetable, classTimes, request.isForced, null)
 
-        // isForced로 겹침 강의가 삭제됐을 수 있으므로 재조회한다
         val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
         val (colorIndex, color) =
             timetableThemeService.getNewColorIndexAndColor(
@@ -187,7 +186,6 @@ class TimetableLectureService(
     ): TimetableDisplay {
         val timetable = timetableService.getTimetable(userId, timetableExternalId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
-        // reminder는 DB FK CASCADE로 함께 삭제된다
         timetableLectureRepository.delete(timetableLecture)
         return displayAfterLectureChange(userId, timetable)
     }
@@ -207,7 +205,6 @@ class TimetableLectureService(
         timetableLectureRepository.findByTimetableIdAndExternalId(timetable.id!!, timetableLectureExternalId)
             ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
 
-    // 겹치는 강의가 있으면 isForced 여부에 따라 예외 또는 덮어쓰기 삭제 (v1 resolveTimeConflict 이식)
     private fun resolveTimeConflict(
         timetable: Timetable,
         newTimes: List<ClassPlaceAndTime>,

@@ -19,7 +19,6 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
 
     fun findByUserIdOrderByUpdatedAtDesc(userId: Long): List<TimetableTheme>
 
-    // v1은 기본 테마를 "가장 최근 수정한 커스텀 테마"로 본다
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): TimetableTheme?
 
     fun existsByOriginThemeIdAndUserId(
@@ -44,7 +43,6 @@ interface PublishedThemeRepository : JpaRepository<PublishedTheme, Long> {
 
     fun findAllByOrderByDownloadCountDesc(pageable: Pageable): List<PublishedTheme>
 
-    // 친구가 공유한 테마 + 친구가 받아간 테마의 원본을 합쳐 다운로드순으로 준다
     @Query(
         """
         SELECT p FROM PublishedTheme p

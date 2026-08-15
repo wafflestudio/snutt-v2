@@ -12,7 +12,6 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-// v1 이메일 인증 흐름 이식: SNU 메일 6자리 코드, 3분 TTL + 재발송 5회 제한
 @Service
 class EmailVerificationService(
     redisTemplate: StringRedisTemplate,

@@ -66,7 +66,6 @@ class VacancyNotificationJobConfig(
                     runOnce(targetYear, targetSemester)
                     RepeatStatus.FINISHED
                 },
-                // 크롤링 중에는 트랜잭션을 열지 않는다. DB 반영은 chunk별 TransactionTemplate
                 ResourcelessTransactionManager(),
             ).build()
 
@@ -92,7 +91,6 @@ class VacancyNotificationJobConfig(
         val storedStatuses =
             lectureRegistrationStatusRepository.findByYearAndSemester(year, semester).associateBy { it.lectureId }
 
-        // 수강 사이트 부하 분산: 20등분 + chunk마다 지연
         (1..pageCount).chunked(maxOf(1, pageCount / 20)).forEach { pages ->
             val statuses =
                 runCatching { crawler.getRegistrationStatus(year, semester, pages) }

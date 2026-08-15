@@ -60,9 +60,6 @@ private fun Course.toResponse() =
         evaluation = CourseEvaluationSummaryResponse(avgRating = avgRating, count = evalCount),
     )
 
-/**
- * 강의평의 과목 검색. 필터 값은 강의 검색과 같은 어휘(`GET /v2/tags/{year}/{semester}`)를 쓴다.
- */
 @RestController
 @EmailVerifiedRequired
 @RequestMapping("/v2/courses")

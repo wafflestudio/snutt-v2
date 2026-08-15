@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
 import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
 import org.springframework.stereotype.Repository
 
-// 강의평 검색: course를 대상으로 속성 필터 + 한국어 fuzzy 질의 (구 ev LectureRepositoryImpl 이식)
 @Repository
 class CourseSearchRepository(
     private val queryFactory: JPAQueryFactory,
@@ -66,7 +65,6 @@ class CourseSearchRepository(
         return builder.value
     }
 
-    // 공백으로 나눈 각 키워드를 AND로 묶고, 키워드 안에서는 필드별 OR로 본다
     private fun queryPredicate(query: String?): com.querydsl.core.types.Predicate? {
         if (query.isNullOrBlank()) return null
         val course = QCourse.course
@@ -86,7 +84,6 @@ class CourseSearchRepository(
                     or.or(course.academicYear.eq(keyword))
                     or.or(course.classification.eq(keyword))
                     when (keyword.last()) {
-                        // "컴퓨터공학과" 처럼 끝 글자를 뗀 형태로도 학과를 맞춘다
                         '과', '부' -> or.or(course.department.like(fuzzy.substring(1, fuzzy.length - 2)))
                         '학' -> {}
                         else -> or.or(course.department.like(fuzzy.substring(1)))

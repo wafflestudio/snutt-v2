@@ -18,7 +18,6 @@ data class LectureTakenByUser(
     val takenSemester: Semester,
 )
 
-// 최근 두 학기에 수강한 강의 목록. 강의평 작성 대상을 고르는 데 쓴다 (구 ev /v1/users/me/lectures/latest)
 @Service
 class TakenLectureService(
     private val coursebookRepository: CoursebookRepository,
@@ -33,7 +32,6 @@ class TakenLectureService(
         userId: Long,
         excludeEvaluated: Boolean,
     ): List<LectureTakenByUser> {
-        // 현재 학기를 뺀 직전 두 학기 (v1 getLastTwoCourseBooksBeforeCurrent)
         val coursebooks =
             coursebookRepository
                 .findAllByOrderByYearDescSemesterDesc()

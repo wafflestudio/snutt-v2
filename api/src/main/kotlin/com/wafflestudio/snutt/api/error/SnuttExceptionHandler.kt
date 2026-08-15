@@ -55,8 +55,6 @@ class SnuttExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(e: Exception): ResponseEntity<ErrorResponse> {
-        // 라우팅·메서드·바인딩 실패는 Spring이 상태를 정해 둔다(미매칭 경로 404 등).
-        // errcode는 ErrorType과 같은 규칙(<상태코드><일련번호>)을 따른다
         if (e is SpringErrorResponse) {
             val status = e.statusCode.value()
             return ResponseEntity

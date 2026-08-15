@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.domain.timetable.service
 
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 
-// v1 ClassTimeUtils.kt 이식 (../snutt/core/src/main/kotlin/lectures/utils/ClassTimeUtils.kt)
 object ClassTimeUtils {
     fun timesOverlap(times: List<ClassPlaceAndTime>): Boolean =
         times.indices.any { i ->

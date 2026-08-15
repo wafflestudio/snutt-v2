@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonValue
 import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Converter
 
-// v1과 동일한 값: 월요일=0 … 일요일=6
 enum class DayOfWeek(
     @JsonValue val value: Int,
     val korText: String,

@@ -29,14 +29,6 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import kotlin.random.Random
 
-/**
- * M2 DoD 검증: LectureCustomRepository(Mongo) 시맨틱의 참조 포트와
- * MySQL(QueryDSL) 검색 결과를 동일 쿼리 corpus로 대조한다.
- *
- * 참조 포트는 LectureSearchReference.kt — Mongo 코드의 1:1 번역이며,
- * corpus에는 REGEXP 이스케이프("C++", "4190.204"), 한국어 fuzzy, 시간 포함/제외,
- * 등등 필터, 평점 정렬, 페이지네이션을 포함한다.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
@@ -67,7 +59,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
 
     private lateinit var referenceLectures: List<ReferenceLecture>
 
-    // 과목 템플릿: (제목, 학과, 과목코드)
     private val titles =
         listOf(
             Triple("컴퓨터과학입문", "컴퓨터공학부", "4190.204"),
@@ -162,7 +153,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                 seeds += lectureSeed(title, department, courseNumber, section, random)
             }
         }
-        // 특수 마커 강의 — corpus 쿼리가 반드시 데이터에 걸리도록 명시 고정
         val explicit =
             listOf(
                 SeedLecture(
@@ -267,7 +257,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                 )
             }
 
-        // course: (courseNumber, instructor) 단위로 약 70% 링크
         val courses = mutableMapOf<Pair<String, String>, Course>()
         val linkedSeeds =
             seeds.map { seed ->
@@ -442,7 +431,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         corpus.forEach { (name, c) -> assertSearch(name, c) }
     }
 
-    // HTTP QUERY 메서드(RFC 10008)로 검색이 동작한다 — QueryMethodFilter가 내부적으로 POST로 전환
     @Test
     fun `QUERY 메서드로 검색이 동작한다`() {
         val request =

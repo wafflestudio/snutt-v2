@@ -40,9 +40,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 
-/**
- * M7 DoD: 수강스누 sync 잡 — xlsx 파싱 → lecture/course upsert → tag_list → 변경 알림
- */
 @SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
@@ -92,7 +89,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     @MockitoBean
     lateinit var sugangSnuLectureApi: SugangSnuLectureApi
 
-    // 상세 API enrichment는 별도 테스트(SugangSnuLectureEnricherTest)에서 검증한다. 여기선 통과시킨다
     @MockitoBean
     lateinit var sugangSnuLectureEnricher: SugangSnuLectureEnricher
 
@@ -180,11 +176,9 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         assertEquals(listOf(DayOfWeek.FRIDAY), firstTimes.map { it.day })
         assertEquals(1140, firstTimes.first().startMinute)
         assertEquals(1250, firstTimes.first().endMinute)
-        // course 앵커 연결
         assertTrue(first.courseId != null)
         assertEquals("이제희", courseRepository.findById(first.courseId!!).get().instructor)
 
-        // 검색 어휘는 강의에서 파생한다
         val vocabulary =
             lectureVocabularyRepository.findVocabulary(
                 2026,
@@ -238,7 +232,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             TimetableLecture(timetableId = timetable.id!!, lectureId = oldLecture.id),
         )
 
-        // 강의실/시간이 바뀐 xlsx
         val xlsx =
             SugangXlsxFixture.xlsx(
                 listOf(
@@ -270,7 +263,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         assertEquals(listOf(DayOfWeek.MONDAY), times.map { it.day })
         assertEquals(570, times.first().startMinute)
 
-        // 변경 알림 (LECTURE_UPDATE)이 사용자에게 저장된다
         val notifications = notificationRepository.findAll()
         assertTrue(notifications.isNotEmpty())
         assertEquals(user.id, notifications[0].userId)

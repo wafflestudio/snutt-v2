@@ -21,7 +21,6 @@ class DiarySubmission(
     var semester: Semester,
     var lectureId: Long? = null,
     var courseTitle: String,
-    // TEXT. 1,000자 제한 (v1 동일)
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var comment: String,
     @JdbcTypeCode(SqlTypes.JSON)

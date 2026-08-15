@@ -50,7 +50,6 @@ class VacancyNotificationService(
             lectureRepository.findByExternalId(lectureExternalId)
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val latestCoursebook = coursebookService.getLatestCoursebook()
-        // 이전 학기 강의에는 빈자리 알림을 등록할 수 없다 (v1 동일)
         if (lecture.year != latestCoursebook.year || lecture.semester != latestCoursebook.semester) {
             throw SnuttException(ErrorType.INVALID_REGISTRATION_FOR_PREVIOUS_SEMESTER_COURSE)
         }

@@ -5,7 +5,6 @@ import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.mysql.MySQLContainer
 
-// api 모듈과 동일한 패턴: 테스트 클래스마다 전용 DB (서버 1회 기동)
 abstract class AbstractBatchIntegrationTest {
     companion object {
         @JvmStatic

@@ -39,7 +39,6 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class InsertNotificationRequest(
-    // null = 전체 공지
     val userId: String? = null,
     @field:NotBlank val title: String,
     @field:NotBlank
@@ -98,7 +97,6 @@ class AdminController(
     private val diaryScheduler: DiaryScheduler,
     private val uploadUriIssuer: UploadUriIssuer,
 ) {
-    // 팝업 이미지 업로드용 사전 인증 URI 발급
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
         @PathVariable source: String,
@@ -113,7 +111,6 @@ class AdminController(
         const val MAX_UPLOAD_FILE_COUNT = 10
     }
 
-    // 정기 발송을 기다리지 않고 즉시 발송한다 (v1 /admin/diary/notifier/trigger)
     @PostMapping("/diary/notifier/trigger")
     fun triggerDiaryNotifier() {
         diaryScheduler.sendDiaryNotifications()
@@ -241,7 +238,6 @@ class AdminController(
             )
         }
 
-    // 일기장 어드민 (v1 AdminController 이식). 알림 발송(notifier trigger)은 M7 스케줄러와 함께
     @GetMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
     fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
 

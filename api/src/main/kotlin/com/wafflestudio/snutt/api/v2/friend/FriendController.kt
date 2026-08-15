@@ -139,7 +139,6 @@ class FriendController(
         return FriendResponse(friend, partner, friend.getPartnerDisplayName(user.id!!))
     }
 
-    // 친구의 대표 시간표/수강편람 (v1 FriendTableController 이식)
     @GetMapping("/{friendId}/primary-table")
     fun getPrimaryTable(
         @CurrentUser user: User,

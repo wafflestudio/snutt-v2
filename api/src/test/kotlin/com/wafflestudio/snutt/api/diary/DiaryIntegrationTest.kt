@@ -33,9 +33,6 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
-/**
- * M5b DoD: 강의 일기장 — 질문지 생성, 대상 강의 추천, 제출/조회/삭제
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
@@ -130,7 +127,6 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         lectureIds = lectures.map { it.externalId }
 
-        // 어드민이 오늘 한 일 유형/질문 등록
         val classTypes =
             listOf("수업듣기", "공부하기").map { name ->
                 diaryDailyClassTypeRepository.save(DiaryDailyClassType(name = name))
@@ -171,7 +167,6 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         }
     }
 
-    // 일기장 제출은 24시간 이내 대상 제외에 영향을 주므로 테스트 간 비운다
     @BeforeEach
     fun cleanSubmissions() {
         diarySubmissionRepository.deleteAll()
@@ -235,7 +230,6 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         val body = asMap(questionnaire)
         assertEquals("공학연구의 실습 1", body["courseTitle"])
         assertEquals(3, (body["questions"] as List<*>).size)
-        // 현재 강의는 다음 대상에서 제외된다
         val nextLecture = body["nextLecture"] as Map<*, *>
         assertEquals("고급한국어", nextLecture["courseTitle"])
     }
@@ -270,7 +264,6 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(1, replies.size)
         assertEquals("좋아요", (replies[0] as Map<*, *>)["shortAnswer"])
 
-        // 1,000자 초과 댓글 거부
         val tooLong =
             post(
                 "/v2/diary",
@@ -278,7 +271,6 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(400, tooLong.statusCode.value())
 
-        // 삭제
         val submissionId = summary["id"] as String
         assertEquals(200, delete("/v2/diary/$submissionId").statusCode.value())
         assertEquals(0, asList(get("/v2/diary/my")).size)

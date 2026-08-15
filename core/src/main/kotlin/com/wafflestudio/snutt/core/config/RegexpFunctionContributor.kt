@@ -3,8 +3,6 @@ package com.wafflestudio.snutt.core.config
 import org.hibernate.boot.model.FunctionContributions
 import org.hibernate.boot.model.FunctionContributor
 
-// MySQL 전용 함수를 boolean 반환으로 등록한다. QueryDSL 템플릿이 predicate 컨텍스트에서
-// 쓰므로 타입 등록이 필요하다.
 class RegexpFunctionContributor : FunctionContributor {
     override fun contributeFunctions(functionContributions: FunctionContributions) {
         val booleanType = functionContributions.typeConfiguration.getBasicTypeForJavaType(Boolean::class.java)

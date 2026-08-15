@@ -24,7 +24,6 @@ data class AccessTokenPayload(
 
 @Service
 class AccessTokenService(
-    // base64(PKCS8 DER) EC P-256 개인키 / base64(X509 DER) 공개키. 환경변수 주입
     @param:Value("\${snutt.auth.jwt.private-key}") privateKeyBase64: String,
     @param:Value("\${snutt.auth.jwt.public-key}") publicKeyBase64: String,
     @param:Value("\${snutt.auth.jwt.access-token-ttl:PT2H}") private val accessTokenTtl: Duration,

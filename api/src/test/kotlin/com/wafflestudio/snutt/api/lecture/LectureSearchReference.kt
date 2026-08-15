@@ -5,14 +5,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 
-/**
- * LectureCustomRepository(Mongo) 시맨틱의 인메모리 참조 포트.
- * 기준 문서: ../snutt/core/src/main/kotlin/lectures/repository/LectureCustomRepository.kt
- *
- * v2 저장소에 Mongo를 두지 않으므로, 이 포트를 참값으로 삼아 같은 쿼리 corpus를
- * MySQL 검색 결과와 대조한다.
- * Mongo를 다시 붙이는 경우 이 파일만 교체하면 하네스가 그대로 동작한다.
- */
 data class ReferenceClassTime(
     val day: DayOfWeek,
     val place: String,
@@ -54,7 +46,6 @@ object LectureSearchReference {
             }
         val sorted =
             when (criteria.sort) {
-                // Mongo natural order를 삽입 순서(=id)로 근사. SQL은 id ASC로 동일
                 LectureSort.DEFAULT -> filtered.sortedBy { it.id }
                 LectureSort.RATING_DESC ->
                     filtered.sortedWith(compareByDescending<ReferenceLecture> { it.avgRating }.thenBy { it.id })
@@ -89,14 +80,13 @@ object LectureSearchReference {
                     "E" -> lecture.remark?.contains("ⓔ") == true
                     "MO" -> lecture.remark?.contains("ⓜⓞ") == true
                     "R" -> lecture.remark?.contains("권장과목") == true
-                    else -> true // 미지의 태그는 조건 없음 (v1과 동일)
+                    else -> true
                 }
             if (!matches) return false
         }
 
         criteria.times?.takeIf { it.isNotEmpty() }?.let { times ->
             if (lecture.classPlaceAndTimes.isEmpty()) return false
-            // 모든 수업시간이 최소 하나의 검색 시간대에 완전히 포함되어야 한다
             val hasUncovered =
                 lecture.classPlaceAndTimes.any { classTime ->
                     times.all { time ->
@@ -170,7 +160,6 @@ object LectureSearchReference {
         if (lecture.academicYear == keyword) return true
         if (lecture.classification == keyword) return true
         return when (keyword.last()) {
-            // '컴공과' → '컴.*공' prefix: 실제 학과명 '컴퓨터공학부'와 매칭
             '과', '부' ->
                 Regex("^${fuzzyPattern(keyword.dropLast(1))}", RegexOption.IGNORE_CASE)
                     .containsMatchIn(lecture.department.orEmpty())

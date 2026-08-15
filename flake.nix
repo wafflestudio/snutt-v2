@@ -15,23 +15,18 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          config.allowUnfree = true;
-        };
-        graalvm = pkgs.graalvmPackages.graalvm-oracle;
+        pkgs = import nixpkgs { inherit system; };
+        jdk = pkgs.jdk25;
       in
       {
         devShells.default = pkgs.mkShell {
           buildInputs = [
-            graalvm
-            # 이관 원본을 컨테이너에 적재하고 결과를 확인하는 데 쓴다 (docs/migration.md §6)
+            jdk
             pkgs.mongodb-tools
             pkgs.mysql84
           ];
 
-          JAVA_HOME = "${graalvm}";
-          GRAALVM_HOME = "${graalvm}";
+          JAVA_HOME = "${jdk}";
 
           shellHook = ''
             export PATH="$JAVA_HOME/bin:$PATH"

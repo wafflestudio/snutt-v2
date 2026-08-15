@@ -68,7 +68,6 @@ class UserController(
         userService.deactivate(user)
     }
 
-    // 이메일 인증 (v1 이식: SNU 메일 6자리 코드, 3분 TTL)
     data class SendVerificationEmailRequest(
         val email: String,
     )
@@ -111,7 +110,6 @@ class UserController(
         return EmailVerificationResultResponse(true)
     }
 
-    // 계정 관리: 로컬 계정 연결 / 비밀번호 변경 / 소셜 연동·해제
     data class AttachLocalRequest(
         val localId: String,
         val password: String,
@@ -131,7 +129,6 @@ class UserController(
         val token: String,
     )
 
-    /** 자격 증명을 바꾼 뒤 남아 있는 로그인 수단 */
     data class AuthProvidersResponse(
         val authProviders: List<AuthProvider>,
     )
@@ -145,7 +142,6 @@ class UserController(
         return AuthProvidersResponse(user.authProviders)
     }
 
-    // 변경 시 기존 세션이 모두 폐기되므로 새 토큰을 돌려준다
     @PatchMapping("/me/password")
     fun changePassword(
         @CurrentUser user: User,

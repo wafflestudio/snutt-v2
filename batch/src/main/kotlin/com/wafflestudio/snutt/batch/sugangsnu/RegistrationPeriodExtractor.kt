@@ -81,7 +81,6 @@ class RegistrationPeriodExtractor(
             )
         }
 
-    // "2026-01-30(금) ~ 2026-02-02(월)" 형식
     private fun parseDateRange(dateText: String): Pair<LocalDate, LocalDate> {
         val dates = Regex("""\d{4}-\d{2}-\d{2}""").findAll(dateText).map { it.value }.toList()
         val startDate = LocalDate.parse(dates[0])

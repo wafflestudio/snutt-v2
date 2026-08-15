@@ -9,14 +9,12 @@ import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 enum class ThemeStatus {
-    BASIC, // 내장 테마 (DB 행 없음)
-    DOWNLOADED, // 마켓에서 받아온 사본
-    PUBLISHED, // 공개 중인 테마
-    PRIVATE, // 개인 테마
+    BASIC,
+    DOWNLOADED,
+    PUBLISHED,
+    PRIVATE,
 }
 
-// 개인 보관함의 테마 (직접 만든 테마 또는 마켓에서 받아온 사본). 공개 여부는 published_theme로 분리했다.
-// builtin 테마(6종)는 DB 행 없이 서비스가 합성한다.
 @Entity
 @Table(name = "theme")
 class TimetableTheme(
@@ -25,7 +23,6 @@ class TimetableTheme(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
     var colorList: List<ColorSet>,
-    // NULL = 직접 만든 테마, SET = 받아온 테마의 원본 참조
     @Column(name = "origin_theme_id")
     var originThemeId: Long? = null,
     @Column(name = "origin_author_id")

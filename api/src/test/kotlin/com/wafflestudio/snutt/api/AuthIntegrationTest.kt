@@ -126,11 +126,9 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
         val newRefreshToken = rotated.body!!["refreshToken"] as String
         assertNotEquals(oldRefreshToken, newRefreshToken)
 
-        // 회전된 토큰 재사용 → 401 + 전체 폐기
         val reuse = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
         assertEquals(401, reuse.statusCode.value())
 
-        // 재사용 감지로 새 토큰도 무효화됨
         val afterReuse = post("/v2/auth/refresh", """{"refreshToken":"$newRefreshToken"}""")
         assertEquals(401, afterReuse.statusCode.value())
     }
