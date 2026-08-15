@@ -24,7 +24,7 @@ class LectureStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "lecture"
-    override val tables = listOf("lecture_class_time", "lecture")
+    override val tables = listOf("lecture_class_time", "lecture_registration_status", "lecture")
 
     override fun run() {
         val ids = IdSequence()
@@ -34,71 +34,78 @@ class LectureStep(
 
         writer("lecture", LECTURE_COLUMNS).use { lectures ->
             writer("lecture_class_time", CLASS_TIME_COLUMNS, parent = lectures).use { classTimes ->
-                mongo.each("lectures") { doc ->
-                    val externalId = doc.id()
-                    val offeringKey = offeringKey(doc)
-                    val existing = offerings[offeringKey]
-                    if (existing != null) {
-                        context.lectureIds[externalId] = existing
-                        context.resolved("같은 (연도, 학기, 교과목번호, 분반)의 강의가 중복되어 하나로 합침")
-                        return@each
-                    }
+                writer("lecture_registration_status", STATUS_COLUMNS, parent = lectures).use { statuses ->
+                    mongo.each("lectures") { doc ->
+                        val externalId = doc.id()
+                        val offeringKey = offeringKey(doc)
+                        val existing = offerings[offeringKey]
+                        if (existing != null) {
+                            context.lectureIds[externalId] = existing
+                            context.resolved("같은 (연도, 학기, 교과목번호, 분반)의 강의가 중복되어 하나로 합침")
+                            return@each
+                        }
 
-                    val id = ids.next()
-                    offerings[offeringKey] = id
-                    context.lectureIds[externalId] = id
+                        val id = ids.next()
+                        offerings[offeringKey] = id
+                        context.lectureIds[externalId] = id
 
-                    val instructor = context.intern(doc.str("instructor"))
-                    val courseId =
-                        context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
-                    val createdAt = doc.instant("created_at").orNow()
-                    val places = doc.docs("class_time_json")
+                        val instructor = context.intern(doc.str("instructor"))
+                        val courseId =
+                            context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
+                        val createdAt = doc.instant("created_at").orNow()
+                        val places = doc.docs("class_time_json")
 
-                    lectures.add(
-                        id,
-                        externalId,
-                        courseId,
-                        doc.int("year"),
-                        doc.int("semester"),
-                        doc.str("course_number").orEmpty(),
-                        doc.str("lecture_number").orEmpty(),
-                        doc.str("course_title").orEmpty(),
-                        instructor,
-                        context.intern(doc.str("department")),
-                        context.intern(doc.str("academic_year")),
-                        context.intern(doc.str("category")),
-                        context.intern(doc.str("categoryPre2025")),
-                        context.intern(doc.str("classification")),
-                        doc.str("course_title_en"),
-                        doc.str("instructor_en"),
-                        context.intern(doc.str("department_en")),
-                        context.intern(doc.str("academic_year_en")),
-                        context.intern(doc.str("category_en")),
-                        context.intern(doc.str("classification_en")),
-                        doc.str("remark_en"),
-                        doc.int("credit") ?: 0,
-                        doc.int("quota") ?: 0,
-                        doc.int("freshmanQuota"),
-                        doc.str("remark"),
-                        doc.int("registrationCount") ?: 0,
-                        doc.bool("wasFull"),
-                        createdAt.toSqlTimestamp(),
-                        createdAt.toSqlTimestamp(),
-                    )
-
-                    places.forEach { place ->
-                        classTimes.add(
-                            classTimeIds.next(),
+                        lectures.add(
                             id,
-                            place.int("day") ?: 0,
-                            place.str("place"),
-                            place.int("startMinute") ?: 0,
-                            place.int("endMinute") ?: 0,
+                            externalId,
+                            courseId,
+                            doc.int("year"),
+                            doc.int("semester"),
+                            doc.str("course_number").orEmpty(),
+                            doc.str("lecture_number").orEmpty(),
+                            doc.str("course_title").orEmpty(),
+                            instructor,
+                            context.intern(doc.str("department")),
+                            context.intern(doc.str("academic_year")),
+                            context.intern(doc.str("category")),
+                            context.intern(doc.str("categoryPre2025")),
+                            context.intern(doc.str("classification")),
+                            doc.str("course_title_en"),
+                            doc.str("instructor_en"),
+                            context.intern(doc.str("department_en")),
+                            context.intern(doc.str("academic_year_en")),
+                            context.intern(doc.str("category_en")),
+                            context.intern(doc.str("classification_en")),
+                            doc.str("remark_en"),
+                            doc.int("credit") ?: 0,
+                            doc.int("quota") ?: 0,
+                            doc.int("freshmanQuota"),
+                            doc.str("remark"),
+                            createdAt.toSqlTimestamp(),
+                            createdAt.toSqlTimestamp(),
                         )
-                        classTimeCount++
-                    }
 
-                    context.lectureSnapshots[id] = doc.toSnapshot(places)
+                        statuses.add(
+                            id,
+                            doc.int("registrationCount") ?: 0,
+                            doc.bool("wasFull"),
+                            createdAt.toSqlTimestamp(),
+                        )
+
+                        places.forEach { place ->
+                            classTimes.add(
+                                classTimeIds.next(),
+                                id,
+                                place.int("day") ?: 0,
+                                place.str("place"),
+                                place.int("startMinute") ?: 0,
+                                place.int("endMinute") ?: 0,
+                            )
+                            classTimeCount++
+                        }
+
+                        context.lectureSnapshots[id] = doc.toSnapshot(places)
+                    }
                 }
             }
         }
@@ -166,11 +173,10 @@ class LectureStep(
                 "quota",
                 "freshman_quota",
                 "remark",
-                "registration_count",
-                "was_full",
                 "created_at",
                 "updated_at",
             )
+        private val STATUS_COLUMNS = listOf("lecture_id", "registration_count", "was_full", "updated_at")
         private val CLASS_TIME_COLUMNS = listOf("id", "lecture_id", "day", "place", "start_minute", "end_minute")
     }
 }

@@ -63,8 +63,6 @@ data class LectureResponse(
     val quota: Int,
     val freshmanQuota: Int?,
     val remark: String?,
-    val registrationCount: Int,
-    val wasFull: Boolean,
     val classPlaceAndTime: List<ClassPlaceAndTimeResponse>,
     val evSummary: LectureEvSummaryResponse?,
 )
@@ -102,8 +100,6 @@ private fun Lecture.toResponse(
     quota = quota,
     freshmanQuota = freshmanQuota,
     remark = language.select(remark, remarkEn),
-    registrationCount = registrationCount,
-    wasFull = wasFull,
     classPlaceAndTime = classTimes.map { it.toResponse() },
     evSummary = evSummary,
 )

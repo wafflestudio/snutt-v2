@@ -34,4 +34,33 @@ class TimetableLecture(
     var classification: String? = null,
     @Column(name = "category_pre2025")
     var categoryPre2025: String? = null,
-) : ExternalIdEntity()
+) : ExternalIdEntity() {
+    fun copyFor(targetTimetableId: Long) =
+        TimetableLecture(
+            timetableId = targetTimetableId,
+            lectureId = lectureId,
+            color = color,
+            colorIndex = colorIndex,
+            courseTitle = courseTitle,
+            instructor = instructor,
+            credit = credit,
+            remark = remark,
+            classPlaceAndTime = classPlaceAndTime,
+            academicYear = academicYear,
+            category = category,
+            classification = classification,
+            categoryPre2025 = categoryPre2025,
+        )
+
+    fun clearOverrides() {
+        courseTitle = null
+        instructor = null
+        credit = null
+        remark = null
+        classPlaceAndTime = null
+        academicYear = null
+        category = null
+        classification = null
+        categoryPre2025 = null
+    }
+}

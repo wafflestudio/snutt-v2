@@ -156,8 +156,6 @@ CREATE TABLE lecture
     quota              INT          NOT NULL DEFAULT 0,
     freshman_quota     INT          NULL,
     remark             TEXT         NULL,
-    registration_count INT          NOT NULL DEFAULT 0,
-    was_full           BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at         DATETIME(6)  NOT NULL,
     updated_at         DATETIME(6)  NOT NULL,
     CONSTRAINT uk_lecture_external_id UNIQUE (external_id),
@@ -172,6 +170,15 @@ CREATE TABLE lecture
     INDEX idx_lecture_category (category),
     INDEX idx_lecture_category_pre2025 (category_pre2025),
     INDEX idx_lecture_credit (credit)
+);
+
+CREATE TABLE lecture_registration_status
+(
+    lecture_id         BIGINT PRIMARY KEY,
+    registration_count INT         NOT NULL DEFAULT 0,
+    was_full           BOOLEAN     NOT NULL DEFAULT FALSE,
+    updated_at         DATETIME(6) NOT NULL,
+    CONSTRAINT fk_lecture_registration_status_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE
 );
 
 CREATE TABLE lecture_class_time

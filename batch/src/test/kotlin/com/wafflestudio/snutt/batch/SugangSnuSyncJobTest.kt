@@ -194,7 +194,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     classification = "전선",
                     credit = 3,
                     quota = 40,
-                    registrationCount = 10,
                 ),
             )
         val timetable =

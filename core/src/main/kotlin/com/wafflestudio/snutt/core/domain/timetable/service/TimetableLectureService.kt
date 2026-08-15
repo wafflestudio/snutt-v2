@@ -175,15 +175,7 @@ class TimetableLectureService(
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
         resolveTimeConflict(timetable, classTimes, isForced, timetableLectureExternalId)
 
-        timetableLecture.courseTitle = null
-        timetableLecture.instructor = null
-        timetableLecture.credit = null
-        timetableLecture.remark = null
-        timetableLecture.classPlaceAndTime = null
-        timetableLecture.academicYear = null
-        timetableLecture.category = null
-        timetableLecture.classification = null
-        timetableLecture.categoryPre2025 = null
+        timetableLecture.clearOverrides()
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, classTimes)
         return displayAfterLectureChange(userId, timetable)
     }

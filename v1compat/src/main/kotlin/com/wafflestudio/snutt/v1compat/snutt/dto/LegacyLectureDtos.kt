@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 
 data class LegacyLectureDto(
     @param:JsonProperty("_id")
@@ -39,6 +40,7 @@ fun LegacyLectureDto(
     classTimes: List<ClassPlaceAndTime>,
     language: com.wafflestudio.snutt.core.common.client.Language,
     evSummary: LegacyEvSummary? = null,
+    status: LectureRegistrationStatus? = null,
 ): LegacyLectureDto =
     LegacyLectureDto(
         id = lecture.externalId,
@@ -57,8 +59,8 @@ fun LegacyLectureDto(
         year = lecture.year,
         courseNumber = lecture.courseNumber,
         courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
-        registrationCount = lecture.registrationCount,
-        wasFull = lecture.wasFull,
+        registrationCount = status?.registrationCount ?: 0,
+        wasFull = status?.wasFull ?: false,
         snuttEvLecture = evSummary,
         categoryPre2025 = lecture.categoryPre2025,
     )
