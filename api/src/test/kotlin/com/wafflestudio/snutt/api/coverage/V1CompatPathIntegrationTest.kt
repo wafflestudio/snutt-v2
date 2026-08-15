@@ -1,14 +1,17 @@
 package com.wafflestudio.snutt.api.coverage
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
-import com.wafflestudio.snutt.core.domain.tag.model.TagCollection
-import com.wafflestudio.snutt.core.domain.tag.model.TagList
-import com.wafflestudio.snutt.core.domain.tag.repository.TagListRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -52,9 +55,11 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Autowired lateinit var coursebookRepository: CoursebookRepository
 
-    @Autowired lateinit var tagListRepository: TagListRepository
-
     @Autowired lateinit var popupRepository: PopupRepository
+
+    @Autowired lateinit var lectureRepository: LectureRepository
+
+    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @LocalServerPort var port = 0
 
@@ -63,19 +68,30 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
     @BeforeAll
     fun seed() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
-        tagListRepository.save(
-            TagList(
+        saveLectureWithTimes(
+            lectureRepository,
+            lectureClassTimeRepository,
+            Lecture(
                 year = 2026,
                 semester = Semester.AUTUMN,
-                tagCollection =
-                    TagCollection(
-                        classification = listOf("전공"),
-                        department = listOf("컴퓨터공학부"),
-                        academicYear = listOf("3학년"),
-                        credit = listOf("3학점"),
-                        instructor = listOf("교수"),
-                        category = listOf("교양"),
-                    ),
+                courseNumber = "M1522.004700",
+                lectureNumber = "001",
+                courseTitle = "계산이론연구 (Theoretical Foundation of AI)",
+                instructor = "Chenglin Fan",
+                department = "컴퓨터공학부",
+                academicYear = "석박사통합",
+                classification = "전선",
+                credit = 3,
+                quota = 10,
+                remark = "Ⓔ®강의 교수의 지도학생만 수강신청 가능",
+                courseTitleEn = "Studies in Theory of Computation (Theoretical Foundation of AI)",
+                departmentEn = "Department of Computer Science and Engineering",
+                academicYearEn = "Combined Masters/Doctorate",
+                classificationEn = "Elective Subject for Major",
+            ),
+            listOf(
+                ClassPlaceAndTime(DayOfWeek.MONDAY, "302-107", 930, 1005),
+                ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "302-107", 930, 1005),
             ),
         )
         popupRepository.save(

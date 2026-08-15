@@ -69,6 +69,6 @@ interface EvaluationCustomRepository {
         semester: Semester,
     ): EvaluationAverages?
 
-    // 검색 DTO의 ev summary 조인: lecture id → course 집계 (PLAN.md §7 M4)
+    // 검색 DTO의 ev summary 조인: lecture id → course 집계
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary>
 }

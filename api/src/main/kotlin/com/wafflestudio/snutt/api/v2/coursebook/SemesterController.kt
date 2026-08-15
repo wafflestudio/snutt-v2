@@ -23,7 +23,7 @@ data class SemesterStatusResponse(
 private fun YearAndSemester.toResponse() = YearAndSemesterResponse(year = year, semester = semester)
 
 @RestController
-@RequestMapping("/v2/semesters", "/v1/semesters")
+@RequestMapping("/v2/semesters")
 class SemesterController(
     private val semesterService: SemesterService,
 ) {

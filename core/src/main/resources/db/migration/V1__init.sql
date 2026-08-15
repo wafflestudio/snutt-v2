@@ -1,6 +1,3 @@
--- snutt v2 통합 스키마. 설계 근거는 PLAN.md §2.
--- 테이블·컬럼명 단수. external_id: v1 클라이언트가 저장하는 24-hex 공개 id (이관 행은 Mongo ObjectId).
-
 CREATE TABLE `user`
 (
     id                      BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -19,25 +16,28 @@ CREATE TABLE `user`
     google_email            VARCHAR(255) NULL,
     kakao_sub               VARCHAR(128) NULL,
     kakao_email             VARCHAR(255) NULL,
-    credential_hash         VARCHAR(255) NOT NULL,
-    fcm_key                 VARCHAR(512) NULL,
     active                  BOOLEAN      NOT NULL DEFAULT TRUE,
     is_admin                BOOLEAN      NOT NULL DEFAULT FALSE,
     last_login_at           DATETIME(6)  NOT NULL,
     notification_checked_at DATETIME(6)  NOT NULL,
     created_at              DATETIME(6)  NOT NULL,
     updated_at              DATETIME(6)  NOT NULL,
+    active_local_id         VARCHAR(64) GENERATED ALWAYS AS (IF(active, local_id, NULL)) VIRTUAL,
+    active_email            VARCHAR(255) GENERATED ALWAYS AS (IF(active AND is_email_verified, LOWER(email), NULL)) VIRTUAL,
+    active_facebook_sub     VARCHAR(128) GENERATED ALWAYS AS (IF(active, facebook_sub, NULL)) VIRTUAL,
+    active_apple_sub        VARCHAR(128) GENERATED ALWAYS AS (IF(active, apple_sub, NULL)) VIRTUAL,
+    active_google_sub       VARCHAR(128) GENERATED ALWAYS AS (IF(active, google_sub, NULL)) VIRTUAL,
+    active_kakao_sub        VARCHAR(128) GENERATED ALWAYS AS (IF(active, kakao_sub, NULL)) VIRTUAL,
     CONSTRAINT uk_user_external_id UNIQUE (external_id),
-    CONSTRAINT uk_user_credential_hash UNIQUE (credential_hash),
     CONSTRAINT uk_user_nickname UNIQUE (nickname),
-    -- email/소셜 sub의 유일성은 active 사용자에 한정되므로 (Mongo partial unique index의 계승)
-    -- UNIQUE가 아닌 보조 인덱스 + 서비스 계층 검증으로 강제한다. PLAN.md §2 주의 참조.
+    CONSTRAINT uk_user_active_local_id UNIQUE (active_local_id),
+    CONSTRAINT uk_user_active_email UNIQUE (active_email),
+    CONSTRAINT uk_user_active_facebook_sub UNIQUE (active_facebook_sub),
+    CONSTRAINT uk_user_active_apple_sub UNIQUE (active_apple_sub),
+    CONSTRAINT uk_user_active_google_sub UNIQUE (active_google_sub),
+    CONSTRAINT uk_user_active_kakao_sub UNIQUE (active_kakao_sub),
     INDEX idx_user_email (email),
-    INDEX idx_user_local_id (local_id),
-    INDEX idx_user_facebook_sub (facebook_sub),
-    INDEX idx_user_apple_sub (apple_sub),
-    INDEX idx_user_google_sub (google_sub),
-    INDEX idx_user_kakao_sub (kakao_sub)
+    INDEX idx_user_apple_transfer_sub (apple_transfer_sub)
 );
 
 CREATE TABLE user_device
@@ -57,6 +57,7 @@ CREATE TABLE user_device
     updated_at          DATETIME(6)  NOT NULL,
     CONSTRAINT uk_user_device_external_id UNIQUE (external_id),
     CONSTRAINT fk_user_device_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
+    INDEX idx_user_device_user (user_id, is_deleted),
     INDEX idx_user_device_fcm_registration_id (fcm_registration_id)
 );
 
@@ -75,7 +76,8 @@ CREATE TABLE user_session
     CONSTRAINT uk_user_session_external_id UNIQUE (external_id),
     CONSTRAINT uk_user_session_refresh_token_hash UNIQUE (refresh_token_hash),
     CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_session_user_device FOREIGN KEY (user_device_id) REFERENCES user_device (id) ON DELETE SET NULL
+    CONSTRAINT fk_user_session_user_device FOREIGN KEY (user_device_id) REFERENCES user_device (id) ON DELETE SET NULL,
+    INDEX idx_user_session_user (user_id)
 );
 
 CREATE TABLE push_preference
@@ -94,7 +96,6 @@ CREATE TABLE notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     external_id CHAR(24)     NOT NULL,
-    -- user_id NULL = 전체 공지 (broadcast)
     user_id     BIGINT       NULL,
     title       VARCHAR(255) NOT NULL,
     message     TEXT         NOT NULL,
@@ -110,61 +111,66 @@ CREATE TABLE notification
 
 CREATE TABLE course
 (
-    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
-    course_number VARCHAR(32)  NOT NULL,
-    instructor    VARCHAR(128) NOT NULL,
-    title         VARCHAR(256) NOT NULL,
-    department    VARCHAR(128) NULL,
-    credit        INT          NULL,
-    academic_year VARCHAR(32)  NULL,
-    category      VARCHAR(64)  NULL,
-    classification VARCHAR(16) NULL,
-    -- 강의평 트랜잭션에서 갱신되는 비정규화 집계 (구 Mongo lectures.evInfo의 대체)
-    eval_count    BIGINT       NOT NULL DEFAULT 0,
-    avg_rating    DOUBLE       NULL,
-    created_at    DATETIME(6)  NOT NULL,
-    updated_at    DATETIME(6)  NOT NULL,
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    course_number  VARCHAR(32)  NOT NULL,
+    instructor     VARCHAR(128) NOT NULL,
+    title          VARCHAR(256) NOT NULL,
+    department     VARCHAR(128) NULL,
+    credit         INT          NULL,
+    academic_year  VARCHAR(32)  NULL,
+    category       VARCHAR(64)  NULL,
+    classification VARCHAR(16)  NULL,
+    eval_count     BIGINT       NOT NULL DEFAULT 0,
+    avg_rating     DOUBLE       NULL,
+    created_at     DATETIME(6)  NOT NULL,
+    updated_at     DATETIME(6)  NOT NULL,
     CONSTRAINT uk_course_number_instructor UNIQUE (course_number, instructor),
     INDEX idx_course_avg_rating (avg_rating DESC)
 );
 
 CREATE TABLE lecture
 (
-    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         CHAR(24)     NOT NULL,
-    course_id           BIGINT       NULL,
-    year                INT          NOT NULL,
-    semester            TINYINT      NOT NULL,
-    course_number       VARCHAR(32)  NOT NULL,
-    lecture_number      VARCHAR(16)  NOT NULL,
-    course_title        VARCHAR(256) NOT NULL,
-    instructor          VARCHAR(128) NULL,
-    department          VARCHAR(128) NULL,
-    academic_year       VARCHAR(32)  NULL,
-    category            VARCHAR(64)  NULL,
-    category_pre2025    VARCHAR(64)  NULL,
-    classification      VARCHAR(16)  NULL,
-    -- 영문 (i18n). x-language=en일 때 읽기 시점에 한글 대신 쓴다 (v1과 동일 스키마 불변)
-    course_title_en     VARCHAR(256) NULL,
-    instructor_en       VARCHAR(128) NULL,
-    department_en       VARCHAR(256) NULL,
-    academic_year_en    VARCHAR(64)  NULL,
-    category_en         VARCHAR(128) NULL,
-    classification_en   VARCHAR(64)  NULL,
-    remark_en           TEXT         NULL,
-    credit              INT          NOT NULL DEFAULT 0,
-    quota               INT          NOT NULL DEFAULT 0,
-    freshman_quota      INT          NULL,
-    remark              TEXT         NULL,
-    registration_count  INT          NOT NULL DEFAULT 0,
-    was_full            BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at          DATETIME(6)  NOT NULL,
-    updated_at          DATETIME(6)  NOT NULL,
+    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+    external_id        CHAR(24)     NOT NULL,
+    course_id          BIGINT       NULL,
+    year               INT          NOT NULL,
+    semester           TINYINT      NOT NULL,
+    course_number      VARCHAR(32)  NOT NULL,
+    lecture_number     VARCHAR(16)  NOT NULL,
+    course_title       VARCHAR(256) NOT NULL,
+    instructor         VARCHAR(128) NULL,
+    department         VARCHAR(128) NULL,
+    academic_year      VARCHAR(32)  NULL,
+    category           VARCHAR(64)  NULL,
+    category_pre2025   VARCHAR(64)  NULL,
+    classification     VARCHAR(16)  NULL,
+    course_title_en    VARCHAR(256) NULL,
+    instructor_en      VARCHAR(128) NULL,
+    department_en      VARCHAR(256) NULL,
+    academic_year_en   VARCHAR(64)  NULL,
+    category_en        VARCHAR(128) NULL,
+    classification_en  VARCHAR(64)  NULL,
+    remark_en          TEXT         NULL,
+    credit             INT          NOT NULL DEFAULT 0,
+    quota              INT          NOT NULL DEFAULT 0,
+    freshman_quota     INT          NULL,
+    remark             TEXT         NULL,
+    registration_count INT          NOT NULL DEFAULT 0,
+    was_full           BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at         DATETIME(6)  NOT NULL,
+    updated_at         DATETIME(6)  NOT NULL,
     CONSTRAINT uk_lecture_external_id UNIQUE (external_id),
-    CONSTRAINT uk_lecture_semester_course_lecture_number UNIQUE (year, semester, course_number, lecture_number),
+    CONSTRAINT uk_lecture_offering UNIQUE (year, semester, course_number, lecture_number),
     CONSTRAINT fk_lecture_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE SET NULL,
     INDEX idx_lecture_year_semester (year, semester),
-    INDEX idx_lecture_course_lecture_number (course_number, lecture_number)
+    INDEX idx_lecture_course (course_id, year, semester),
+    INDEX idx_lecture_course_lecture_number (course_number, lecture_number),
+    INDEX idx_lecture_department (department),
+    INDEX idx_lecture_classification (classification),
+    INDEX idx_lecture_academic_year (academic_year),
+    INDEX idx_lecture_category (category),
+    INDEX idx_lecture_category_pre2025 (category_pre2025),
+    INDEX idx_lecture_credit (credit)
 );
 
 CREATE TABLE lecture_class_time
@@ -176,6 +182,7 @@ CREATE TABLE lecture_class_time
     start_minute SMALLINT     NOT NULL,
     end_minute   SMALLINT     NOT NULL,
     CONSTRAINT fk_lecture_class_time_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE,
+    INDEX idx_lecture_class_time_lecture (lecture_id),
     INDEX idx_lecture_class_time_slot (day, start_minute, end_minute)
 );
 
@@ -191,22 +198,10 @@ CREATE TABLE coursebook
     CONSTRAINT uk_coursebook_year_semester UNIQUE (year, semester)
 );
 
-CREATE TABLE tag_list
-(
-    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    year           INT         NOT NULL,
-    semester       TINYINT     NOT NULL,
-    tag_collection JSON        NOT NULL,
-    created_at     DATETIME(6) NOT NULL,
-    updated_at     DATETIME(6) NOT NULL,
-    CONSTRAINT uk_tag_list_year_semester UNIQUE (year, semester)
-);
-
 CREATE TABLE evaluation
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
     course_id          BIGINT      NOT NULL,
-    -- NULL = 탈퇴 등으로 소멸한 작성자 (이관 시 고아 행 tombstone)
     user_id            BIGINT      NULL,
     year               INT         NOT NULL,
     semester           TINYINT     NOT NULL,
@@ -222,9 +217,12 @@ CREATE TABLE evaluation
     from_snuev         BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at         DATETIME(6) NOT NULL,
     updated_at         DATETIME(6) NOT NULL,
+    active_user_id     BIGINT GENERATED ALWAYS AS (IF(is_hidden, NULL, user_id)) VIRTUAL,
     CONSTRAINT fk_evaluation_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE CASCADE,
     CONSTRAINT fk_evaluation_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE SET NULL,
+    CONSTRAINT uk_evaluation_author UNIQUE (course_id, year, semester, active_user_id),
     INDEX idx_evaluation_course_semester (course_id, year, semester, id DESC),
+    INDEX idx_evaluation_course_visible (course_id, is_hidden),
     INDEX idx_evaluation_user (user_id, id DESC)
 );
 
@@ -261,7 +259,6 @@ CREATE TABLE theme
     user_id          BIGINT       NOT NULL,
     name             VARCHAR(128) NOT NULL,
     color_list       JSON         NOT NULL,
-    -- NULL = 직접 만든 테마, SET = 마켓에서 받아온 테마 (원본 참조)
     origin_theme_id  BIGINT       NULL,
     origin_author_id BIGINT       NULL,
     created_at       DATETIME(6)  NOT NULL,
@@ -270,10 +267,9 @@ CREATE TABLE theme
     CONSTRAINT fk_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_theme_origin_theme FOREIGN KEY (origin_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
     CONSTRAINT fk_theme_origin_author FOREIGN KEY (origin_author_id) REFERENCES `user` (id) ON DELETE SET NULL,
-    INDEX idx_theme_user (user_id)
+    INDEX idx_theme_user_updated (user_id, updated_at DESC)
 );
 
--- 마켓 공개 정보는 테마 행과 분리한다. 공개 = published_theme 행 존재, 비공개 = 삭제
 CREATE TABLE published_theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -296,13 +292,13 @@ CREATE TABLE timetable
     year        INT          NOT NULL,
     semester    TINYINT      NOT NULL,
     title       VARCHAR(255) NOT NULL,
-    -- builtin 테마 번호. custom 테마 사용 시 theme_id 참조
     theme       TINYINT      NOT NULL DEFAULT 0,
     theme_id    BIGINT       NULL,
     is_primary  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT uk_timetable_external_id UNIQUE (external_id),
+    CONSTRAINT uk_timetable_title UNIQUE (user_id, year, semester, title),
     CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE SET NULL,
     INDEX idx_timetable_user_semester (user_id, year, semester)
@@ -310,14 +306,12 @@ CREATE TABLE timetable
 
 CREATE TABLE timetable_lecture
 (
-    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         CHAR(24)    NOT NULL,
-    timetable_id        BIGINT      NOT NULL,
-    -- NULL = 완전 custom 강의 (내용은 아래 override 컬럼이 보유)
-    lecture_id          BIGINT      NULL,
-    color               JSON        NULL,
-    color_index         INT         NOT NULL DEFAULT 0,
-    -- lecture 참조 강의의 사용자 수정분 (non-NULL만 덮어쓴다). custom 강의면 내용 자체를 보유한다
+    id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
+    external_id          CHAR(24)     NOT NULL,
+    timetable_id         BIGINT       NOT NULL,
+    lecture_id           BIGINT       NULL,
+    color                JSON         NULL,
+    color_index          INT          NOT NULL DEFAULT 0,
     course_title         VARCHAR(256) NULL,
     instructor           VARCHAR(128) NULL,
     credit               INT          NULL,
@@ -331,8 +325,8 @@ CREATE TABLE timetable_lecture
     updated_at           DATETIME(6)  NOT NULL,
     CONSTRAINT uk_timetable_lecture_external_id UNIQUE (external_id),
     CONSTRAINT fk_timetable_lecture_timetable FOREIGN KEY (timetable_id) REFERENCES timetable (id) ON DELETE CASCADE,
-    -- 강의 삭제는 sugang-sync가 custom 전환 처리 후에만 가능 (RESTRICT로 강제)
-    CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id),
+    CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE RESTRICT,
+    INDEX idx_timetable_lecture_timetable (timetable_id),
     INDEX idx_timetable_lecture_lecture (lecture_id)
 );
 
@@ -343,7 +337,6 @@ CREATE TABLE timetable_lecture_reminder
     timetable_lecture_id BIGINT      NOT NULL,
     offset_minutes       INT         NOT NULL,
     schedule_list        JSON        NOT NULL,
-    -- schedule_list에서 계산한 다음 발화 시각. 매분 스케줄러가 인덱스로 조회
     next_day             TINYINT     NULL,
     next_minute          SMALLINT    NULL,
     recent_notified_at   DATETIME(6) NULL,
@@ -409,11 +402,14 @@ CREATE TABLE friend
     is_accepted       BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at        DATETIME(6) NOT NULL,
     updated_at        DATETIME(6) NOT NULL,
+    user_low          BIGINT GENERATED ALWAYS AS (LEAST(from_user_id, to_user_id)) VIRTUAL,
+    user_high         BIGINT GENERATED ALWAYS AS (GREATEST(from_user_id, to_user_id)) VIRTUAL,
     CONSTRAINT uk_friend_external_id UNIQUE (external_id),
-    CONSTRAINT uk_friend_pair UNIQUE (from_user_id, to_user_id),
+    CONSTRAINT uk_friend_pair UNIQUE (user_low, user_high),
     CONSTRAINT fk_friend_from_user FOREIGN KEY (from_user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_friend_to_user FOREIGN KEY (to_user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    INDEX idx_friend_to_user (to_user_id)
+    INDEX idx_friend_from_user (from_user_id, is_accepted),
+    INDEX idx_friend_to_user (to_user_id, is_accepted)
 );
 
 CREATE TABLE popup
@@ -435,7 +431,7 @@ CREATE TABLE client_config
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     external_id         CHAR(24)    NOT NULL,
     name                VARCHAR(64) NOT NULL,
-    value               JSON        NOT NULL,
+    value               TEXT        NOT NULL,
     min_ios_version     VARCHAR(32) NULL,
     max_ios_version     VARCHAR(32) NULL,
     min_android_version VARCHAR(32) NULL,
@@ -489,16 +485,16 @@ CREATE TABLE diary_daily_class_type
 
 CREATE TABLE diary_question
 (
-    id                             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id                    CHAR(24)     NOT NULL,
-    question                       VARCHAR(255) NOT NULL,
-    short_question                 VARCHAR(255) NOT NULL,
-    answer_list                    JSON         NOT NULL,
-    short_answer_list              JSON         NOT NULL,
-    target_daily_class_type_id_list JSON        NOT NULL,
-    active                         BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at                     DATETIME(6)  NOT NULL,
-    updated_at                     DATETIME(6)  NOT NULL,
+    id                              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    external_id                     CHAR(24)     NOT NULL,
+    question                        VARCHAR(255) NOT NULL,
+    short_question                  VARCHAR(255) NOT NULL,
+    answer_list                     JSON         NOT NULL,
+    short_answer_list               JSON         NOT NULL,
+    target_daily_class_type_id_list JSON         NOT NULL,
+    active                          BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at                      DATETIME(6)  NOT NULL,
+    updated_at                      DATETIME(6)  NOT NULL,
     CONSTRAINT uk_diary_question_external_id UNIQUE (external_id)
 );
 

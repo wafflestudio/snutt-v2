@@ -3,53 +3,64 @@ package com.wafflestudio.snutt.migration
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import kotlin.system.measureTimeMillis
 
-// 단계별 CLI: 인자로 "all" 또는 단계 이름 목록("users lectures timetables ...")을 받는다 (PLAN.md §5 순서)
 @Component
 class MigrationRunner(
     private val steps: List<MigrationStep>,
+    private val jdbc: JdbcTemplate,
+    private val context: MigrationContext,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        val requested = args.nonOptionArgs
-        val stepMap = steps.associateBy { it.name }
+        val truncate = args.containsOption("truncate")
+        val requested = args.nonOptionArgs.filterNot { it == "all" }
+        val byName = steps.associateBy { it.name }
         val selected =
-            if (requested.isEmpty() || requested.contains("all")) {
-                ORDER.map { stepMap[it] ?: error("unknown step: $it") }
-            } else {
-                requested.map { stepMap[it] ?: error("unknown step: $it") }
+            (if (requested.isEmpty()) ORDER else requested).map { name ->
+                byName[name] ?: error("알 수 없는 단계: $name (가능한 값: ${ORDER.joinToString()})")
             }
-        log.info("=== 마이그레이션 시작: {}", selected.joinToString { it.name })
-        selected.forEach { step ->
-            log.info("--- step {} 시작", step.name)
-            step.run()
-            log.info("--- step {} 완료", step.name)
+
+        log.info("이관 시작: {} (truncate={})", selected.joinToString { it.name }, truncate)
+        val total =
+            measureTimeMillis {
+                selected.forEach { step ->
+                    if (truncate) {
+                        MigrationSupport.truncate(jdbc, step.tables.reversed())
+                    } else {
+                        MigrationSupport.requireEmpty(jdbc, step.tables)
+                    }
+                    val elapsed = measureTimeMillis { step.run() }
+                    log.info("[{}] 완료 ({} ms)", step.name, elapsed)
+                }
+            }
+        if (context.resolutions.isNotEmpty()) {
+            log.warn("원본이 v2 제약을 위반해 손본 항목:")
+            context.resolutions.forEach { (reason, count) -> log.warn("  - {}: {}건", reason, count) }
         }
-        log.info("=== 마이그레이션 완료")
+        log.info("이관 완료 ({} ms)", total)
     }
 
     companion object {
-        // PLAN.md §5 순서
-        private val ORDER =
+        val ORDER =
             listOf(
-                "users",
+                "catalog",
+                "user",
                 "course",
                 "lecture",
-                "timetable",
-                "bookmark",
                 "theme",
-                "friend",
-                "misc",
+                "timetable",
+                "reminder",
+                "userdata",
+                "notification",
                 "evaluation",
+                "aggregate",
+                "legacytoken",
+                "legacytag",
                 "validate",
             )
     }
-}
-
-interface MigrationStep {
-    val name: String
-
-    fun run()
 }

@@ -8,7 +8,7 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
-// 학기별 분반 단위 강의 (PLAN.md §2 lecture 중심 모델). course_id는 평가 도메인 연결용 FK
+// 학기별 분반 단위 강의. course_id는 평가 도메인 연결용 FK
 @Entity
 @Table(name = "lecture")
 class Lecture(

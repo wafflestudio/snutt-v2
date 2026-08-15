@@ -4,6 +4,8 @@ import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
+    fun findAllByIsDeletedFalse(): List<UserDevice>
+
     fun findAllByUserIdAndIsDeletedFalse(userId: Long): List<UserDevice>
 
     fun findAllByUserIdInAndIsDeletedFalse(userIds: Collection<Long>): List<UserDevice>

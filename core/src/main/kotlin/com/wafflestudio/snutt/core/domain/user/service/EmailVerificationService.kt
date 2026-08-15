@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.mail.MailClient
 import com.wafflestudio.snutt.core.common.mail.MailType
+import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
-import kotlin.random.Random
 
 // v1 이메일 인증 흐름 이식: SNU 메일 6자리 코드, 3분 TTL + 재요청 제한 (Redis)
 @Service
@@ -22,6 +22,7 @@ class EmailVerificationService(
 ) {
     companion object {
         private const val CODE_PREFIX = "verification:code:"
+        private const val ATTEMPT_PREFIX = "verification:attempt:"
         private val snuMailRegex = Regex("^[a-zA-Z0-9._%+-]+@snu\\.ac\\.kr$")
         private val codeTtl: Duration = Duration.ofMinutes(3)
         private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
@@ -40,8 +41,9 @@ class EmailVerificationService(
         }
         val key = CODE_PREFIX + user.id
         if (redisTemplate.hasKey(key)) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
-        val code = Random.nextInt(100000, 1000000).toString()
+        val code = VerificationCode.generate()
         redisTemplate.opsForValue().set(key, jsonMapper.writeValueAsString(StoredCode(trimmed, code)), codeTtl)
+        redisTemplate.delete(ATTEMPT_PREFIX + user.id)
         mailClient.sendCodeMail(MailType.VERIFICATION, trimmed, code)
     }
 
@@ -50,6 +52,10 @@ class EmailVerificationService(
         user: User,
         code: String,
     ) {
+        val attempts = redisTemplate.opsForValue().increment(ATTEMPT_PREFIX + user.id) ?: 1L
+        redisTemplate.expire(ATTEMPT_PREFIX + user.id, codeTtl)
+        if (attempts > VerificationCode.MAX_ATTEMPTS) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+
         val stored =
             redisTemplate
                 .opsForValue()
@@ -61,6 +67,7 @@ class EmailVerificationService(
         user.isEmailVerified = true
         userRepository.save(user)
         redisTemplate.delete(CODE_PREFIX + user.id)
+        redisTemplate.delete(ATTEMPT_PREFIX + user.id)
     }
 
     @Transactional

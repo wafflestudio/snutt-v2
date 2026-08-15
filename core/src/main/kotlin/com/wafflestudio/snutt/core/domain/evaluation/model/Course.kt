@@ -4,7 +4,7 @@ import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
-// 강의평 도메인 전용 앵커: course_number+instructor 단위, 학기 불변 (PLAN.md §2)
+// 강의평 도메인 전용 앵커: course_number+instructor 단위, 학기 불변
 @Entity
 @Table(name = "course")
 class Course(

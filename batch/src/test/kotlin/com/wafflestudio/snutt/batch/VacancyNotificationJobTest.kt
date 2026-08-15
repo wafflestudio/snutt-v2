@@ -7,6 +7,9 @@ import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookReposi
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
+import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationPhase
+import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationTimeSlot
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
@@ -80,17 +83,21 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         userDeviceRepository.deleteAll()
         recordingPushClient.sentMessages.clear()
 
-        // 잡은 대상 학기를 coursebook에서 구하고, 수강신청 기간 안에서만 발송한다
+        // 잡은 대상 학기를 coursebook에서 구하고, 빈자리 조회 시간대에서만 발송한다
         if (!coursebookRepository.existsByYearAndSemester(2026, Semester.AUTUMN)) {
             coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         }
-        val now = System.currentTimeMillis()
+        val now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
+        val currentMinute = now.hour * 60 + now.minute
         semesterRegistrationPeriodService.upsert(
             2026,
             Semester.AUTUMN,
             listOf(
-                com.wafflestudio.snutt.core.domain.registrationperiod.model
-                    .RegistrationDate(startAt = now - 3_600_000, endAt = now + 3_600_000, type = "수강신청"),
+                RegistrationDate(
+                    date = now.toLocalDate(),
+                    vacantSeatRegistrationTimes = listOf(RegistrationTimeSlot(currentMinute, currentMinute + 1)),
+                    phase = RegistrationPhase.COURSE_CHANGE,
+                ),
             ),
         )
     }
@@ -104,7 +111,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     isEmailVerified = true,
                     nickname = "vacancyuser",
                     localId = "vacancyuser",
-                    credentialHash = "vacancycred",
                 ),
             )
         userDeviceRepository.save(
@@ -160,7 +166,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     isEmailVerified = true,
                     nickname = "vacancyoff",
                     localId = "vacancyoff",
-                    credentialHash = "vacancyoffcred",
                 ),
             )
         userDeviceRepository.save(

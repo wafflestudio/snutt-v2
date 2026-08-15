@@ -20,6 +20,22 @@ class PushService(
     private val notificationRepository: NotificationRepository,
 ) {
     @Transactional
+    fun sendGlobalPushAndNotification(
+        title: String,
+        body: String,
+        type: NotificationType,
+        urlScheme: String? = null,
+    ) {
+        val devices = userDeviceRepository.findAllByIsDeletedFalse()
+        pushClient.sendMessages(
+            devices.map { TargetedPushMessage(title, body, urlScheme, it.fcmRegistrationId) },
+        )
+        notificationRepository.save(
+            Notification(userId = null, title = title, message = body, type = type, deeplink = urlScheme),
+        )
+    }
+
+    @Transactional
     fun sendPushAndNotification(
         userIds: Collection<Long>,
         title: String,

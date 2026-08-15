@@ -188,14 +188,17 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var userDeviceRepository: com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 
+    @Autowired
+    lateinit var legacyTokenService: com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
+
     @Test
     fun `구 경로로도 기기를 등록한다`() {
-        val credentialHash = userRepository.findByLocalIdAndActiveTrue("coverusera")!!.credentialHash
+        val legacyToken = legacyTokenService.issue(userRepository.findByLocalIdAndActiveTrue("coverusera")!!)
         val response =
             client()
                 .post()
                 .uri("/v1/user/device/legacy-fcm-token")
-                .header("x-access-token", credentialHash)
+                .header("x-access-token", legacyToken)
                 .header("x-device-id", "legacy-device")
                 .retrieve()
                 .toEntity(Any::class.java)
@@ -250,7 +253,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     private fun acceptedFriend(): com.wafflestudio.snutt.core.domain.friend.model.Friend {
         val userA = userRepository.findByLocalIdAndActiveTrue("coverusera")!!
         val userB = userRepository.findByLocalIdAndActiveTrue("coveruserb")!!
-        return friendRepository.findByFromUserIdAndToUserId(userA.id!!, userB.id!!)
+        return friendRepository.findByUserPair(userA.id!!, userB.id!!)
             ?: friendRepository.save(
                 com.wafflestudio.snutt.core.domain.friend.model.Friend(
                     fromUserId = userA.id!!,

@@ -49,6 +49,7 @@ data class TimetableLectureModifyRequest(
 @Service
 class TimetableLectureService(
     private val timetableService: TimetableService,
+    private val timetableRepository: com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
     private val lectureService: LectureService,
@@ -84,7 +85,7 @@ class TimetableLectureService(
         timetableLectureRepository.save(
             TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, color = color, colorIndex = colorIndex),
         )
-        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+        return displayAfterLectureChange(userId, timetable)
     }
 
     @Transactional
@@ -118,7 +119,7 @@ class TimetableLectureService(
                 classPlaceAndTime = request.classPlaceAndTime,
             ),
         )
-        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+        return displayAfterLectureChange(userId, timetable)
     }
 
     @Transactional
@@ -152,7 +153,7 @@ class TimetableLectureService(
         request.categoryPre2025?.let { timetableLecture.categoryPre2025 = it }
 
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
-        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+        return displayAfterLectureChange(userId, timetable)
     }
 
     @Transactional
@@ -184,7 +185,7 @@ class TimetableLectureService(
         timetableLecture.classification = null
         timetableLecture.categoryPre2025 = null
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, classTimes)
-        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+        return displayAfterLectureChange(userId, timetable)
     }
 
     @Transactional
@@ -197,7 +198,15 @@ class TimetableLectureService(
         val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
         // reminder는 DB FK CASCADE로 함께 삭제된다
         timetableLectureRepository.delete(timetableLecture)
-        return timetableService.getTimetableDisplay(userId, timetableExternalId)
+        return displayAfterLectureChange(userId, timetable)
+    }
+
+    private fun displayAfterLectureChange(
+        userId: Long,
+        timetable: Timetable,
+    ): TimetableDisplay {
+        timetableRepository.touchUpdatedAt(timetable.id!!)
+        return timetableService.getTimetableDisplay(userId, timetable.externalId)
     }
 
     fun getTimetableLecture(

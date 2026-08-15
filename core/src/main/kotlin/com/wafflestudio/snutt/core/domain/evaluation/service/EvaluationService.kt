@@ -37,6 +37,7 @@ data class EvaluationUpdateRequest(
     val gains: Double? = null,
     val lifeBalance: Double? = null,
     val rating: Double? = null,
+    val moveToLectureExternalId: String? = null,
 )
 
 data class EvaluationReportRequest(
@@ -179,9 +180,26 @@ class EvaluationService(
         request.gains?.let { evaluation.gains = it }
         request.lifeBalance?.let { evaluation.lifeBalance = it }
         request.rating?.let { evaluation.rating = it }
+        request.moveToLectureExternalId?.let { moveTo(evaluation, it) }
 
         courseAggregateUpdater.update(evaluation.courseId)
         return evaluation.toDisplay(userId)
+    }
+
+    private fun moveTo(
+        evaluation: Evaluation,
+        lectureExternalId: String,
+    ) {
+        val (courseId, year, semester) = resolveLectureAnchor(lectureExternalId)
+        if (courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
+        if (year == evaluation.year && semester == evaluation.semester) return
+        evaluation.year = year
+        evaluation.semester = semester
+        try {
+            evaluationRepository.flush()
+        } catch (e: DataIntegrityViolationException) {
+            throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
+        }
     }
 
     @Transactional
@@ -244,7 +262,7 @@ class EvaluationService(
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         val deleted = evaluationLikeRepository.deleteByEvaluationIdAndUserId(evaluationId, userId)
         if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_LIKE_NOT_FOUND)
-        evaluation.likeCount--
+        evaluation.likeCount = (evaluation.likeCount - 1).coerceAtLeast(0)
     }
 
     // 검색 응답용 ev summary: lecture id → (course 집계). lecture 도메인을 건드리지 않는다

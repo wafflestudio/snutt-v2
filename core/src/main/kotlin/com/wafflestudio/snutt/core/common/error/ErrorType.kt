@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.common.error
 
 import org.springframework.http.HttpStatus
 
-// errcode 값은 v1 클라이언트가 분기 처리에 사용하므로 snutt v1의 값을 유지한다 (PLAN.md §3 에러 봉투)
+// errcode 값은 v1 클라이언트가 분기 처리에 사용하므로 snutt v1의 값을 유지한다
 enum class ErrorType(
     val httpStatus: HttpStatus,
     val errorCode: Long,
@@ -91,7 +91,6 @@ enum class ErrorType(
     USER_NOT_FOUND_BY_NICKNAME(HttpStatus.NOT_FOUND, 40405, "해당 닉네임의 유저를 찾을 수 없습니다", "해당 닉네임의 유저를 찾을 수 없습니다"),
     THEME_NOT_FOUND(HttpStatus.NOT_FOUND, 40406, "테마를 찾을 수 없습니다", "테마를 찾을 수 없습니다"),
     EV_DATA_NOT_FOUND(HttpStatus.NOT_FOUND, 40407, "강의평 데이터를 찾을 수 없습니다", "강의평 데이터를 찾을 수 없습니다"),
-    TAG_LIST_NOT_FOUND(HttpStatus.NOT_FOUND, 40408, "태그 리스트를 찾을 수 없습니다", "태그 리스트를 찾을 수 없습니다"),
     FRIEND_LINK_NOT_FOUND(HttpStatus.NOT_FOUND, 40409, "친구 링크가 유효하지 않습니다", "친구 링크가 유효하지 않습니다"),
     SOCIAL_PROVIDER_NOT_ATTACHED(HttpStatus.NOT_FOUND, 40410, "소셜 계정이 연동되지 않았습니다", "소셜 계정이 연동되지 않았습니다"),
     DIARY_QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, 40411, "강의 일기장 질문이 유효하지 않습니다", "강의 일기장 질문이 유효하지 않습니다"),
@@ -115,6 +114,7 @@ enum class ErrorType(
     DUPLICATE_EVALUATION_LIKE(HttpStatus.CONFLICT, 40912, "이미 공감한 강의평입니다", "이미 공감한 강의평입니다"),
     EVALUATION_LIKE_NOT_FOUND(HttpStatus.CONFLICT, 40913, "공감하지 않은 강의평입니다", "공감하지 않은 강의평입니다"),
     MY_EVALUATION_REPORT(HttpStatus.CONFLICT, 40914, "내 강의평은 신고할 수 없습니다", "내 강의평은 신고할 수 없습니다"),
+    EVALUATION_LECTURE_MISMATCH(HttpStatus.CONFLICT, 40915, "같은 과목의 개설이 아닙니다", "같은 과목의 다른 학기로만 옮길 수 있습니다"),
     NOT_MY_EVALUATION(HttpStatus.FORBIDDEN, 40301, "내 강의평이 아닙니다", "내 강의평이 아닙니다"),
     EVALUATION_CONTENT_BLANK(HttpStatus.BAD_REQUEST, 40028, "강의평 내용이 비어 있습니다", "강의평 내용을 입력해 주세요"),
 

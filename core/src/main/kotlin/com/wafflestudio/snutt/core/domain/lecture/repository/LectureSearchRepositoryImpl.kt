@@ -15,7 +15,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.QLectureClassTime
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.stereotype.Repository
 
-// snutt v1 LectureCustomRepository 시맨틱의 MySQL 이식 (PLAN.md §7 M2).
+// snutt v1 LectureCustomRepository 시맨틱의 MySQL 이식.
 // 기준 문서: ../snutt/core/src/main/kotlin/lectures/repository/LectureCustomRepository.kt
 @Repository
 class LectureSearchRepositoryImpl(

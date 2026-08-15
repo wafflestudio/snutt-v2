@@ -14,7 +14,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
@@ -34,7 +33,7 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 
 /**
- * M5b DoD: 강의 일기장 — 질문지 생성, 대상 강의 추천, 제출/조회/삭제 (PLAN.md §7 M5)
+ * M5b DoD: 강의 일기장 — 질문지 생성, 대상 강의 추천, 제출/조회/삭제
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -127,7 +126,6 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             }
         questionIds = questions.mapNotNull { it.id }
 
-        // 사용자 + 대표 시간표 + 강의 2개
         val register =
             post(
                 "/v2/auth/register",
@@ -137,16 +135,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         token = asMap(register)["accessToken"] as String
         userId = userRepository.findByLocalIdAndActiveTrue("diaryuser")!!.id!!
         val timetable =
-            timetableRepository.save(
-                Timetable(
-                    userId = userId,
-                    year = 2026,
-                    semester = Semester.AUTUMN,
-                    title = "나의 시간표",
-                    theme = com.wafflestudio.snutt.core.common.enums.BasicThemeType.FALL,
-                    isPrimary = true,
-                ),
-            )
+            timetableRepository.findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, 2026, Semester.AUTUMN)!!
         lectureRepository.findAll().forEach { lecture ->
             timetableLectureRepository.save(
                 TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, colorIndex = 1),

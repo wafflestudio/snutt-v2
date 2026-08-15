@@ -27,7 +27,7 @@ import org.springframework.web.client.RestClient
 
 /**
  * M6 DoD: v1 호환 레이어 계약 테스트 — 이중 매핑, x-access-token(credentialHash) 인증,
- * Deprecation 헤더, ev 에러 봉투 (PLAN.md §6)
+ * Deprecation 헤더, ev 에러 봉투
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

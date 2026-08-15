@@ -6,7 +6,7 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 
-// 피드백을 GitHub Issue로 접수한다 (v1 octokit → v2 RestClient, PLAN.md 외부 클라이언트)
+// 피드백을 GitHub Issue로 접수한다
 @Service
 class FeedbackService(
     private val restClient: RestClient,

@@ -6,11 +6,23 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import java.time.LocalDate
+
+enum class RegistrationPhase {
+    CURRENT_STUDENT,
+    FRESHMAN,
+    COURSE_CHANGE,
+}
+
+data class RegistrationTimeSlot(
+    val startMinute: Int,
+    val endMinute: Int,
+)
 
 data class RegistrationDate(
-    val startAt: Long,
-    val endAt: Long,
-    val type: String,
+    val date: LocalDate,
+    val vacantSeatRegistrationTimes: List<RegistrationTimeSlot>,
+    val phase: RegistrationPhase,
 )
 
 @Entity

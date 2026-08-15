@@ -19,6 +19,7 @@ import com.wafflestudio.snutt.core.domain.notification.service.NotificationServi
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupWriteRequest
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
@@ -43,6 +44,7 @@ data class InsertNotificationRequest(
     val message: String,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
+    val insertFcm: Boolean = false,
 )
 
 data class AdminConfigWriteRequest(
@@ -81,9 +83,10 @@ data class AdminDiaryQuestionWriteRequest(
 
 @RestController
 @AdminOnly
-@RequestMapping("/v2/admin", "/v1/admin")
+@RequestMapping("/v2/admin")
 class AdminController(
     private val notificationService: NotificationService,
+    private val pushService: com.wafflestudio.snutt.core.domain.notification.service.PushService,
     private val configService: ClientConfigService,
     private val popupService: PopupService,
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
@@ -113,15 +116,39 @@ class AdminController(
         diaryScheduler.sendDiaryNotifications()
     }
 
-    // FCM 발송(insertFcm)은 M7 PushService와 함께 연동한다 — 여기서는 알림함 저장만
     @PostMapping("/notifications", "/insert_noti")
     fun insertNotification(
         @RequestBody body: InsertNotificationRequest,
     ) {
         val userId = body.userId?.let { resolveUserExternalId(it) }
-        notificationService.sendNotification(
-            Notification(userId = userId, title = body.title, message = body.message, type = body.type, deeplink = body.deeplink),
-        )
+        when {
+            !body.insertFcm ->
+                notificationService.sendNotification(
+                    Notification(
+                        userId = userId,
+                        title = body.title,
+                        message = body.message,
+                        type = body.type,
+                        deeplink = body.deeplink,
+                    ),
+                )
+            userId != null ->
+                pushService.sendPushAndNotification(
+                    userIds = listOf(userId),
+                    title = body.title,
+                    body = body.message,
+                    type = body.type,
+                    preferenceType = PushPreferenceType.NORMAL,
+                    urlScheme = body.deeplink,
+                )
+            else ->
+                pushService.sendGlobalPushAndNotification(
+                    title = body.title,
+                    body = body.message,
+                    type = body.type,
+                    urlScheme = body.deeplink,
+                )
+        }
     }
 
     @PostMapping("/configs/{name}")
