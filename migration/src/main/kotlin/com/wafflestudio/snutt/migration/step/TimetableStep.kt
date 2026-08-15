@@ -19,6 +19,7 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import java.sql.Timestamp
 
 @Component
 class TimetableStep(
@@ -80,7 +81,7 @@ class TimetableStep(
     private fun Document.toRow(
         id: Long,
         timetableId: Long,
-        updatedAt: java.sql.Timestamp,
+        updatedAt: Timestamp,
     ): Array<Any?> {
         val lectureId = oid("lecture_id")?.let(context.lectureIds::get)
         val snapshot = lectureId?.let(context.lectureSnapshots::get)

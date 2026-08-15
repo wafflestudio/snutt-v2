@@ -32,6 +32,7 @@ import org.junit.jupiter.api.TestInstance
 import org.mockito.Mockito
 import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.configuration.JobRegistry
+import org.springframework.batch.core.job.parameters.JobParametersBuilder
 import org.springframework.batch.core.launch.JobLauncher
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -132,12 +133,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         jobLauncher
             .run(
                 jobRegistry.getJob("sugangSnuMigrationJob"),
-                org.springframework.batch.core.job.parameters
-                    .JobParametersBuilder()
-                    .addLong(
-                        "run.id",
-                        System.currentTimeMillis(),
-                    ).toJobParameters(),
+                JobParametersBuilder().addLong("run.id", System.currentTimeMillis()).toJobParameters(),
             ).status
 
     @Autowired

@@ -23,6 +23,10 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import kotlin.random.Random
 
 /**
@@ -442,24 +446,14 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `QUERY 메서드로 검색이 동작한다`() {
         val request =
-            java.net.http.HttpRequest
-                .newBuilder(java.net.URI.create("http://localhost:$port/v2/lectures/search"))
-                .method(
-                    "QUERY",
-                    java.net.http.HttpRequest.BodyPublishers
-                        .ofString("""{"year":2026,"semester":3,"query":"컴퓨터","limit":10}"""),
-                ).header("Content-Type", "application/json")
+            HttpRequest
+                .newBuilder(URI.create("http://localhost:$port/v2/lectures/search"))
+                .method("QUERY", HttpRequest.BodyPublishers.ofString("""{"year":2026,"semester":3,"query":"컴퓨터","limit":10}"""))
+                .header("Content-Type", "application/json")
                 .header("x-client-platform", "ios")
                 .header("x-client-key", "test-ios-key")
                 .build()
-        val response =
-            java.net.http.HttpClient
-                .newHttpClient()
-                .send(
-                    request,
-                    java.net.http.HttpResponse.BodyHandlers
-                        .ofString(),
-                )
+        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
         assertEquals(200, response.statusCode())
         assertTrue(response.body().contains("courseTitle"))
     }

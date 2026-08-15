@@ -19,6 +19,7 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import java.time.Instant
 
 @Component
 class CatalogStep(
@@ -80,10 +81,7 @@ class CatalogStep(
             ),
         ).use { out ->
             mongo.each("lectureBuilding") { doc ->
-                val now =
-                    java.time.Instant
-                        .now()
-                        .toSqlTimestamp()
+                val now = Instant.now().toSqlTimestamp()
                 out.add(
                     ids.next(),
                     doc.id(),
@@ -116,10 +114,7 @@ class CatalogStep(
             listOf("id", "external_id", "year", "semester", "registration_period_list", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("semesterRegistrationPeriod") { doc ->
-                val now =
-                    java.time.Instant
-                        .now()
-                        .toSqlTimestamp()
+                val now = Instant.now().toSqlTimestamp()
                 val periods =
                     doc.let { root ->
                         (root["registrationPeriods"] as? List<*>).orEmpty().filterIsInstance<Document>().map { period ->
@@ -211,10 +206,7 @@ class CatalogStep(
             mongo.each("diaryDailyClassType") { doc ->
                 val id = typeIds.next()
                 context.diaryClassTypeIds[doc.id()] = id
-                val now =
-                    java.time.Instant
-                        .now()
-                        .toSqlTimestamp()
+                val now = Instant.now().toSqlTimestamp()
                 out.add(id, doc.id(), doc.str("name") ?: "", doc.bool("active"), now, now)
             }
         }
@@ -242,10 +234,7 @@ class CatalogStep(
                 val id = questionIds.next()
                 context.diaryQuestionIds[doc.id()] = id
                 val targets = doc.oids("targetDailyClassTypeIds").mapNotNull { context.diaryClassTypeIds[it] }
-                val now =
-                    java.time.Instant
-                        .now()
-                        .toSqlTimestamp()
+                val now = Instant.now().toSqlTimestamp()
                 out.add(
                     id,
                     doc.id(),

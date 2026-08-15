@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.core.common.pagination
 
 import tools.jackson.databind.json.JsonMapper
+import java.util.Base64
 
 // keyset 커서 페이지네이션 공통 응답. cursor는 클라이언트에 opaque 문자열이다
 data class CursorPage<T>(
@@ -32,18 +33,11 @@ object CursorCodec {
     internal val jsonMapper = JsonMapper.builder().findAndAddModules().build()
 
     inline fun <reified T> encode(value: T): String =
-        java.util.Base64
+        Base64
             .getUrlEncoder()
             .withoutPadding()
             .encodeToString(jsonMapper.writeValueAsBytes(value))
 
     inline fun <reified T> decode(cursor: String?): T? =
-        cursor?.let {
-            jsonMapper.readValue(
-                java.util.Base64
-                    .getUrlDecoder()
-                    .decode(it),
-                T::class.java,
-            )
-        }
+        cursor?.let { jsonMapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java) }
 }

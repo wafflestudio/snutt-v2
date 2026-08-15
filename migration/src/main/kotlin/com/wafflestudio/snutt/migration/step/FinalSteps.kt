@@ -16,6 +16,7 @@ import com.wafflestudio.snutt.migration.str
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
+import java.sql.Timestamp
 import java.time.Instant
 import java.util.HexFormat
 
@@ -63,7 +64,7 @@ class ReminderStep(
                         mapOf("day" to (it.int("day") ?: 0), "minute" to (it.int("minute") ?: 0), "recentNotifiedAt" to null)
                     }
                 val next = schedules.minByOrNull { (it["day"] as Int) * 1440 + (it["minute"] as Int) }
-                val now = java.sql.Timestamp.from(Instant.now())
+                val now = Timestamp.from(Instant.now())
                 out.add(
                     ids.next(),
                     doc.id(),
@@ -142,7 +143,7 @@ class LegacyTokenStep(
                     return@forEach
                 }
                 val userId = context.userIds[externalId] ?: return@forEach
-                val now = java.sql.Timestamp.from(Instant.now())
+                val now = Timestamp.from(Instant.now())
                 out.add(ids.next(), userId, sha256Hex(token), now, now)
                 count++
             }
