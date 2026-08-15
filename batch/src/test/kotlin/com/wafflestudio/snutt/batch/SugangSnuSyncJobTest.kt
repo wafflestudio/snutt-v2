@@ -84,6 +84,9 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     @MockitoBean
     lateinit var sugangSnuLectureEnricher: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
 
+    @MockitoBean
+    lateinit var lectureBuildingSync: com.wafflestudio.snutt.batch.sugangsnu.LectureBuildingSync
+
     @BeforeAll
     fun seedCoursebook() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
@@ -104,6 +107,15 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         courseRepository.deleteAll()
         notificationRepository.deleteAll()
         timetableRepository.deleteAll()
+    }
+
+    private fun stubCurrentCoursebook() {
+        Mockito
+            .doReturn(
+                com.wafflestudio.snutt.batch.sugangsnu
+                    .SugangSnuCoursebookCondition(2026, "U000200002", "U000300001"),
+            ).`when`(sugangSnuLectureApi)
+            .getCoursebookCondition()
     }
 
     private fun runJob(): BatchStatus =
@@ -142,6 +154,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             )
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
+        stubCurrentCoursebook()
         assertEquals(2, sugangSnuXlsxParser.parse(xlsx).size)
 
         assertEquals(BatchStatus.COMPLETED, runJob())
@@ -225,6 +238,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             )
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
+        stubCurrentCoursebook()
 
         assertEquals(BatchStatus.COMPLETED, runJob())
 

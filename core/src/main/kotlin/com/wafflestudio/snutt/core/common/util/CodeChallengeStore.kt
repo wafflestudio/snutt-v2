@@ -6,11 +6,7 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 
-/**
- * 메일 코드 흐름의 Redis 저장. 이메일 인증과 비밀번호 초기화가 공유한다.
- * - 발송: 3분 창 안에서 5회까지 재발송 (v1 saveNewVerificationValue 동일)
- * - 검증: 5회 시도 제한 (v2 강화)
- */
+// 메일 코드 Redis 저장: 재발송 5회/검증 시도 5회, 3분 TTL
 class CodeChallengeStore(
     private val redisTemplate: StringRedisTemplate,
     namespace: String,
@@ -44,7 +40,7 @@ class CodeChallengeStore(
         redisTemplate.delete(attemptPrefix + key)
     }
 
-    /** 코드가 맞으면 발송 시 저장한 payload를 준다. 아니면 INVALID_VERIFICATION_CODE */
+    // 코드가 맞으면 발송 시 저장한 payload를 준다
     fun verify(
         key: Any,
         code: String,

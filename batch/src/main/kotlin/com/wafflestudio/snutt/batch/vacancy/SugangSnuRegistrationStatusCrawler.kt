@@ -11,11 +11,10 @@ data class RegistrationStatus(
     val courseNumber: String,
     val lectureNumber: String,
     val registrationCount: Int,
-    // 검색 결과의 '빈자리 알림' 상태 마커: 만석을 겪은 강의에만 붙는다
+    // 검색 결과의 취소여석 마커: 만석을 겪은 강의에만 붙는다
     val wasFull: Boolean,
 )
 
-// 수강스누 검색 페이지에서 실시간 재안인원을 읽는다 (v1 VacancyNotifierService 크롤링 이식)
 @Component
 class SugangSnuRegistrationStatusCrawler(
     private val sugangSnuLectureApi: SugangSnuLectureApi,

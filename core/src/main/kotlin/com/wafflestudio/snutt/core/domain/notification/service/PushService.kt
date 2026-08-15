@@ -11,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferen
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-// push_preference 필터 + 기기 FCM 발송 + 알림함 저장 (v1 PushWithNotificationService 이식)
 data class TargetedPush(
     val title: String,
     val body: String,
@@ -25,7 +24,7 @@ class PushService(
     private val pushPreferenceRepository: PushPreferenceRepository,
     private val notificationRepository: NotificationRepository,
 ) {
-    /** 사용자별 개별 메시지를 FCM으로만 보낸다. 알림함에는 남지 않는다 (v1 sendTargetPushes) */
+    // FCM만 보내고 알림함에는 남기지 않는다
     @Transactional(readOnly = true)
     fun sendTargetedPushes(
         messagesByUserId: Map<Long, TargetedPush>,
@@ -75,7 +74,7 @@ class PushService(
         urlScheme: String? = null,
     ) {
         if (userIds.isEmpty()) return
-        // 푸시 설정은 FCM 발송만 거른다. 알림함에는 항상 남는다 (v1 PushWithNotificationService 동일)
+        // 푸시 수신 설정은 FCM만 거르고 알림함에는 항상 남는다
         val disabledUserIds =
             pushPreferenceRepository
                 .findByUserIdInAndTypeAndIsEnabledFalse(userIds, preferenceType)

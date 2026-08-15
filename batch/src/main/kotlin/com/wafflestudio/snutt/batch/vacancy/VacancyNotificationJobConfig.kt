@@ -31,8 +31,6 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-// 빈자리 알림 잡: 수강스누 검색 페이지를 실시간 크롤링해 만석 강의의 재안인원 감소를 감지하고
-// 구독자에게 FCM + 알림함 저장 (v1 VacancyNotifierService 이식)
 @Configuration
 class VacancyNotificationJobConfig(
     private val jobRepository: JobRepository,
@@ -68,7 +66,7 @@ class VacancyNotificationJobConfig(
                     runOnce(targetYear, targetSemester)
                     RepeatStatus.FINISHED
                 },
-                // 크롤링이 오래 걸리므로 트랜잭션은 chunk 처리 시에만 연다
+                // 크롤링 중에는 트랜잭션을 열지 않는다. DB 반영은 chunk별 TransactionTemplate
                 ResourcelessTransactionManager(),
             ).build()
 
@@ -76,7 +74,6 @@ class VacancyNotificationJobConfig(
         year: Int,
         semester: Semester,
     ) {
-        // 빈자리 조회가 열려 있는 시간대에만 크롤링한다
         val window = currentRegistrationWindow(year, semester)
         if (window == null) {
             log.info("빈자리 조회 시간대가 아니므로 건너뛴다: {} {}", year, semester)
@@ -95,7 +92,7 @@ class VacancyNotificationJobConfig(
         val storedStatuses =
             lectureRegistrationStatusRepository.findByYearAndSemester(year, semester).associateBy { it.lectureId }
 
-        // 수강 사이트 부하를 분산하기 위해 전체 페이지를 20등분해서 요청한다 (v1 동일)
+        // 수강 사이트 부하 분산: 20등분 + chunk마다 지연
         (1..pageCount).chunked(maxOf(1, pageCount / 20)).forEach { pages ->
             val statuses =
                 runCatching { crawler.getRegistrationStatus(year, semester, pages) }
@@ -176,7 +173,6 @@ class VacancyNotificationJobConfig(
         }
     }
 
-    // 지금이 빈자리 조회가 열린 시간대이면 그 단계와 당일 조회 시간대들을 준다. 아니면 null
     private fun currentRegistrationWindow(
         year: Int,
         semester: Semester,
@@ -194,7 +190,7 @@ class VacancyNotificationJobConfig(
     private fun RegistrationDate.isOpenAt(minute: Int): Boolean =
         vacantSeatRegistrationTimes.any { minute >= it.startMinute && minute < it.endMinute }
 
-    // 1학기 재학생 선착순 기간에는 신입생 몫이 정원에서 빠져 있어 그만큼이 만석 기준이다 (v1 isFull)
+    // 1학기 재학생 선착순 기간에는 신입생 몫이 정원에서 빠져 있다
     private fun Lecture.effectiveQuota(phase: RegistrationPhase): Int =
         if (semester == Semester.SPRING && phase == RegistrationPhase.CURRENT_STUDENT) {
             quota - (freshmanQuota ?: 0)

@@ -42,7 +42,7 @@ private data class LectureUpdate(
     val lecture: Lecture,
     val input: LectureInput,
     val changedLabels: List<String>,
-    // 영문(_en)·수강신청인원만 바뀐 경우는 데이터만 갱신하고 알리지 않는다 (v1 동일)
+    // _en 필드만 바뀐 경우 false: 데이터만 갱신하고 알리지 않는다
     val notifiable: Boolean,
     val classTimesChanged: Boolean,
 )
@@ -52,8 +52,6 @@ private data class FieldChange(
     val notifiable: Boolean,
 )
 
-// 수강스누 sync: lecture/lecture_class_time/course를 한 트랜잭션에 upsert하고,
-// 시간표·관심강좌에 담긴 강의의 변경/폐강을 사용자에게 알린다 (v1 SugangSnuSyncService 이식)
 @Service
 class SugangSnuSyncService(
     private val lectureRepository: LectureRepository,
@@ -67,6 +65,7 @@ class SugangSnuSyncService(
     private val bookmarkLectureRepository: BookmarkLectureRepository,
     private val notificationRepository: NotificationRepository,
     private val pushService: PushService,
+    private val lectureBuildingSync: LectureBuildingSync,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -113,6 +112,10 @@ class SugangSnuSyncService(
         deleted.forEach(lectureRepository::delete)
         lectureVocabularyService.invalidate()
 
+        runCatching {
+            lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
+        }.onFailure { log.error("강의 건물 갱신 실패: {}", it.message) }
+
         log.info("sugang sync: created={} updated={} deleted={}", created.size, updated.size, deleted.size)
         return SugangSnuSyncResult(createdCount = created.size, updatedCount = updated.size, deletedCount = deleted.size)
     }
@@ -138,7 +141,7 @@ class SugangSnuSyncService(
         }
     }
 
-    // 신청 인원은 상태 테이블이 들고 있다. was_full은 크롤러 소유라 건드리지 않는다
+    // was_full은 크롤러 소유라 건드리지 않는다
     private fun syncRegistrationCounts(
         year: Int,
         semester: Semester,
@@ -159,7 +162,6 @@ class SugangSnuSyncService(
         }
     }
 
-    // course 앵커 upsert. 같은 sync 안의 중복 조회는 영속성 컨텍스트가 흡수한다
     private fun resolveCourseId(lecture: Lecture): Long? {
         val instructor = lecture.instructor?.takeIf { it.isNotBlank() } ?: return null
         val course =
@@ -190,12 +192,6 @@ class SugangSnuSyncService(
         )
     }
 
-    /**
-     * 시간표·관심강좌에 담긴 강의의 변경/폐강 처리 (v1 syncSavedUserLectures 이식).
-     * - 변경: 알림. 시간이 바뀌어 다른 강의와 겹치면 시간표에서 삭제 후 알림
-     * - 폐강: 시간표·관심강좌에서 삭제 후 알림
-     * - 시간표 변경분은 사용자별 요약 푸시 1건
-     */
     private fun syncUserLectures(
         updated: List<LectureUpdate>,
         deleted: List<Lecture>,
@@ -250,7 +246,6 @@ class SugangSnuSyncService(
                         NotificationType.LECTURE_REMOVE,
                     )
             }
-            // bookmark_lecture 행 자체는 lecture 삭제 시 FK CASCADE로 지워진다
             forEachContainingBookmark(lecture) { userId ->
                 notifications +=
                     bookmarkNotification(userId, lecture, "'${lecture.courseTitle}' 강의가 폐강되어 삭제되었습니다.", NotificationType.LECTURE_REMOVE)
@@ -299,7 +294,6 @@ class SugangSnuSyncService(
             .forEach { action(it.userId) }
     }
 
-    // 시간 변경이 시간표의 다른 강의(사용자 override 반영)와 겹치는지 (v1 isUpdatedTimetableLectureOverlapped)
     private fun overlapsOtherLecture(
         timetable: Timetable,
         lecture: Lecture,
@@ -345,7 +339,6 @@ class SugangSnuSyncService(
         deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.externalId}",
     )
 
-    // 한국어 알림 문구 기준의 변경 항목 (v1 toKoreanFieldName 이식)
     private fun changedFields(
         old: Lecture,
         new: Lecture,
