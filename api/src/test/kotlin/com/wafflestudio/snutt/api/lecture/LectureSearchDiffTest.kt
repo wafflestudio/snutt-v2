@@ -27,7 +27,7 @@ import kotlin.random.Random
 
 /**
  * M2 DoD 검증: LectureCustomRepository(Mongo) 시맨틱의 참조 포트와
- * MySQL(QueryDSL) 검색 결과를 동일 쿼리 corpus로 대조한다 (PLAN.md §7 M2).
+ * MySQL(QueryDSL) 검색 결과를 동일 쿼리 corpus로 대조한다.
  *
  * 참조 포트는 LectureSearchReference.kt — Mongo 코드의 1:1 번역이며,
  * corpus에는 REGEXP 이스케이프("C++", "4190.204"), 한국어 fuzzy, 시간 포함/제외,

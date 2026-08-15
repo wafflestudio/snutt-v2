@@ -126,34 +126,47 @@ class UserController(
         val token: String,
     )
 
-    data class CredentialHashResponse(
-        val token: String,
+    /** 자격 증명을 바꾼 뒤 남아 있는 로그인 수단 */
+    data class AuthProvidersResponse(
+        val authProviders: List<AuthProvider>,
     )
 
     @PostMapping("/me/password")
     fun attachLocal(
         @CurrentUser user: User,
         @RequestBody body: AttachLocalRequest,
-    ): CredentialHashResponse = CredentialHashResponse(authService.attachLocal(user, body.localId, body.password))
+    ): AuthProvidersResponse {
+        authService.attachLocal(user, body.localId, body.password)
+        return AuthProvidersResponse(user.authProviders)
+    }
 
     @PatchMapping("/me/password")
     fun changePassword(
         @CurrentUser user: User,
         @RequestBody body: ChangePasswordRequest,
-    ): CredentialHashResponse = CredentialHashResponse(authService.changePassword(user, body.currentPassword, body.newPassword))
+    ): AuthProvidersResponse {
+        authService.changePassword(user, body.currentPassword, body.newPassword)
+        return AuthProvidersResponse(user.authProviders)
+    }
 
     @PostMapping("/me/social/{provider}")
     fun attachSocial(
         @CurrentUser user: User,
         @PathVariable provider: String,
         @RequestBody body: SocialTokenRequest,
-    ): CredentialHashResponse = CredentialHashResponse(authService.attachSocial(user, parseSocialProvider(provider), body.token))
+    ): AuthProvidersResponse {
+        authService.attachSocial(user, parseSocialProvider(provider), body.token)
+        return AuthProvidersResponse(user.authProviders)
+    }
 
     @DeleteMapping("/me/social/{provider}")
     fun detachSocial(
         @CurrentUser user: User,
         @PathVariable provider: String,
-    ): CredentialHashResponse = CredentialHashResponse(authService.detachSocial(user, parseSocialProvider(provider)))
+    ): AuthProvidersResponse {
+        authService.detachSocial(user, parseSocialProvider(provider))
+        return AuthProvidersResponse(user.authProviders)
+    }
 
     private fun parseSocialProvider(value: String): AuthProvider =
         AuthProvider.from(value)?.takeIf { it != AuthProvider.LOCAL }

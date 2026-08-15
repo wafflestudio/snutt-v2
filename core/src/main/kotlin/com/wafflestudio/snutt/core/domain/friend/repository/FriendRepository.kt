@@ -7,9 +7,13 @@ import org.springframework.data.jpa.repository.Query
 interface FriendRepository : JpaRepository<Friend, Long> {
     fun findByExternalId(externalId: String): Friend?
 
-    fun findByFromUserIdAndToUserId(
-        fromUserId: Long,
-        toUserId: Long,
+    @Query(
+        "SELECT f FROM Friend f WHERE (f.fromUserId = :a AND f.toUserId = :b) OR " +
+            "(f.fromUserId = :b AND f.toUserId = :a)",
+    )
+    fun findByUserPair(
+        a: Long,
+        b: Long,
     ): Friend?
 
     @Query(

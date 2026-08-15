@@ -28,7 +28,7 @@ import org.springframework.web.client.RestClient
 
 /**
  * v1 TimetableIntegTest 시나리오의 v2 이식: 시간표 CRUD, 강의 추가/중복/겹침/덮어쓰기,
- * custom 강의, customization override, 리마인더, 테마, 북마크 (PLAN.md §7 M3)
+ * custom 강의, customization override, 리마인더, 테마, 북마크
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

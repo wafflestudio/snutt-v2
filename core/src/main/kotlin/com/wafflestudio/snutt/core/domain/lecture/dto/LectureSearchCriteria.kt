@@ -23,7 +23,7 @@ data class SearchTime(
     val endMinute: Int,
 )
 
-// v1 SearchDto의 v2 대응 (PLAN.md §7 M2). offset/limit 페이지네이션은 v1 검색 계약 유지
+// v1 SearchDto의 v2 대응. offset/limit 페이지네이션은 v1 검색 계약 유지
 data class LectureSearchCriteria(
     val year: Int,
     val semester: Semester,

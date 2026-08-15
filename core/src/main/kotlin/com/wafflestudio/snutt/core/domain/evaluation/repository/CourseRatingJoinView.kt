@@ -8,7 +8,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRatingJoinView
 import org.springframework.stereotype.Component
 
-// 검색 평점 정렬용 lecture ⋈ course 조인 뷰 (PLAN.md §2: lecture 도메인은 course를 모른다)
+// 검색 평점 정렬용 lecture ⋈ course 조인 뷰
 @Component
 class CourseRatingJoinView : LectureRatingJoinView {
     override fun applyOrderBy(

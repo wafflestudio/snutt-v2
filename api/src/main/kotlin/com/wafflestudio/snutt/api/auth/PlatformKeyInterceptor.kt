@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.HandlerInterceptor
 
-// 클라이언트 식별용 플랫폼 키 검증. "platform:key,platform:key" 형태로 환경변수 주입 (PLAN.md §3 API key)
+// 클라이언트 식별용 플랫폼 키 검증. "platform:key,platform:key" 형태로 환경변수 주입
 @Component
 class PlatformKeyInterceptor(
     @param:Value("\${snutt.auth.platform-keys}") platformKeysConfig: String,

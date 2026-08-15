@@ -39,7 +39,7 @@ data class TimetableLectureReminderDisplay(
     val option: TimetableLectureReminderOption,
 )
 
-// v1과 달리 모든 조회가 userId로 시간표 소유권을 검증한다 (PLAN.md §4: v1 소유권 검증 누락 수정)
+// v1과 달리 모든 조회가 userId로 시간표 소유권을 검증한다
 @Service
 class TimetableLectureReminderService(
     private val timetableService: TimetableService,

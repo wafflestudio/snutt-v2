@@ -21,7 +21,7 @@ interface LectureRepository : JpaRepository<Lecture, Long> {
         semester: Semester,
     ): List<Lecture>
 
-    // 수강스누 sync upsert 키 (PLAN.md §2 uk_lecture_semester_course_lecture_number)
+    // 수강스누 sync upsert 키
     fun findByYearAndSemesterAndCourseNumberAndLectureNumber(
         year: Int,
         semester: Semester,

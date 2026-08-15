@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.core.domain.timetable.repository
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
 
 interface TimetableRepository : JpaRepository<Timetable, Long> {
     fun findByExternalId(externalId: String): Timetable?
@@ -31,6 +33,10 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
     ): List<Timetable>
 
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): Timetable?
+
+    @Modifying
+    @Query("UPDATE Timetable t SET t.updatedAt = CURRENT_TIMESTAMP WHERE t.id = :timetableId")
+    fun touchUpdatedAt(timetableId: Long)
 
     fun findByUserIdAndYearAndSemesterAndTitle(
         userId: Long,

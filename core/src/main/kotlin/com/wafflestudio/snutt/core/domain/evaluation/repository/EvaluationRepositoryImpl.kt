@@ -38,7 +38,7 @@ class EvaluationRepositoryImpl(
                 evaluation.courseId.eq(courseId),
                 evaluation.year.eq(year),
                 evaluation.semester.eq(semester),
-                evaluation.userId.ne(userId),
+                evaluation.userId.isNull.or(evaluation.userId.ne(userId)),
                 evaluation.isHidden.isFalse,
                 cursor?.let { beforeCursor(it) },
             ).orderBy(evaluation.year.desc(), evaluation.semester.desc(), evaluation.id.desc())

@@ -8,7 +8,7 @@ import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import java.time.Instant
 
-// lecture 최신 데이터 위에 customization의 non-NULL 필드를 덮어쓴 표시 모델 (PLAN.md §2)
+// lecture 최신 데이터 위에 customization의 non-NULL 필드를 덮어쓴 표시 모델
 data class TimetableLectureDisplay(
     val id: String,
     val lectureId: String?,

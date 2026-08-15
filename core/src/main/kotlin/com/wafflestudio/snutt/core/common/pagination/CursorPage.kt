@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.common.pagination
 
 import tools.jackson.databind.json.JsonMapper
 
-// keyset 커서 페이지네이션 공통 응답. cursor는 클라이언트에 opaque 문자열이다 (PLAN.md §3)
+// keyset 커서 페이지네이션 공통 응답. cursor는 클라이언트에 opaque 문자열이다
 data class CursorPage<T>(
     val content: List<T>,
     val cursor: String?,

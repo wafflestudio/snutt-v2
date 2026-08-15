@@ -20,6 +20,24 @@ class CourseSearchRepository(
 
     fun search(criteria: CourseSearchCriteria): List<com.wafflestudio.snutt.core.domain.evaluation.model.Course> {
         val course = QCourse.course
+        return queryFactory
+            .selectFrom(course)
+            .where(predicate(criteria))
+            .orderBy(course.evalCount.desc(), course.id.asc())
+            .offset(criteria.page.toLong() * PAGE_SIZE)
+            .limit(PAGE_SIZE.toLong())
+            .fetch()
+    }
+
+    fun count(criteria: CourseSearchCriteria): Long =
+        queryFactory
+            .select(QCourse.course.count())
+            .from(QCourse.course)
+            .where(predicate(criteria))
+            .fetchOne() ?: 0L
+
+    private fun predicate(criteria: CourseSearchCriteria): com.querydsl.core.types.Predicate? {
+        val course = QCourse.course
         val builder = BooleanBuilder()
         criteria.credit.takeIf { it.isNotEmpty() }?.let { builder.and(course.credit.`in`(it)) }
         criteria.academicYear.takeIf { it.isNotEmpty() }?.let { builder.and(course.academicYear.`in`(it)) }
@@ -44,13 +62,7 @@ class CourseSearchRepository(
             )
         }
 
-        return queryFactory
-            .selectFrom(course)
-            .where(builder.value)
-            .orderBy(course.evalCount.desc(), course.id.asc())
-            .offset(criteria.page.toLong() * PAGE_SIZE)
-            .limit(PAGE_SIZE.toLong())
-            .fetch()
+        return builder.value
     }
 
     // 공백으로 나눈 각 키워드를 AND로 묶고, 키워드 안에서는 필드별 OR로 본다

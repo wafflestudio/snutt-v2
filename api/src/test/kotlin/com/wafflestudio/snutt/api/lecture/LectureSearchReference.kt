@@ -10,7 +10,7 @@ import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
  * 기준 문서: ../snutt/core/src/main/kotlin/lectures/repository/LectureCustomRepository.kt
  *
  * v2 저장소에 Mongo를 두지 않으므로, 이 포트를 참값으로 삼아 같은 쿼리 corpus를
- * MySQL 검색 결과와 대조한다 (PLAN.md §7 M2 DoD: 동일 쿼리 corpus side-by-side diff).
+ * MySQL 검색 결과와 대조한다.
  * Mongo를 다시 붙이는 경우 이 파일만 교체하면 하네스가 그대로 동작한다.
  */
 data class ReferenceClassTime(

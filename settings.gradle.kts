@@ -4,4 +4,5 @@ include(
     "batch",
     "core",
     "migration",
+    "v1compat",
 )

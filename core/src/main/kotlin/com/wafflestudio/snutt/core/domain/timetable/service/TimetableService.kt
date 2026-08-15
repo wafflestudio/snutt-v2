@@ -131,14 +131,16 @@ class TimetableService(
     ): Timetable {
         val timetable = getTimetable(userId, timetableExternalId)
         val baseTitle = (title ?: timetable.title).replace(COPY_NUMBER_REGEX, "")
+        val copyNumber = Regex("^${Regex.escape(baseTitle)} \\((\\d+)\\)$")
         val lastCopiedNumber =
             timetableRepository
                 .findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester)
                 .mapNotNull {
-                    it.title
-                        .replace(baseTitle, "")
-                        .filter(Char::isDigit)
-                        .toIntOrNull()
+                    copyNumber
+                        .find(it.title)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toIntOrNull()
                 }.maxOrNull() ?: 0
         val copied =
             timetableRepository.save(
@@ -217,10 +219,10 @@ class TimetableService(
     ) {
         val newPrimary = getTimetable(userId, timetableExternalId)
         if (newPrimary.isPrimary) return
-        newPrimary.isPrimary = true
         timetableRepository
             .findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, newPrimary.year, newPrimary.semester)
             ?.let { it.isPrimary = false }
+        newPrimary.isPrimary = true
     }
 
     @Transactional

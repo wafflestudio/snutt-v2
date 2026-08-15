@@ -4,8 +4,12 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
+import com.wafflestudio.snutt.core.domain.notification.service.PushService
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -26,12 +30,14 @@ class FriendService(
     private val friendRepository: FriendRepository,
     private val userRepository: UserRepository,
     private val redisTemplate: StringRedisTemplate,
+    private val pushService: PushService,
 ) {
     companion object {
         private val secureRandom = SecureRandom()
         private val friendDisplayNameRegex = "^[a-zA-Z가-힣0-9 ]+$".toRegex()
         private const val DISPLAY_NAME_MAX_LENGTH = 10
         private const val FRIEND_LINK_REDIS_PREFIX = "friend-link:"
+        private const val FRIEND_URL_SCHEME = "snutt://friends"
         private val friendLinkTtl: Duration = Duration.ofDays(14)
     }
 
@@ -61,10 +67,20 @@ class FriendService(
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND_BY_NICKNAME)
         val toUserId = toUser.id!!
         if (fromUserId == toUserId) throw SnuttException(ErrorType.INVALID_FRIEND)
-        if (friendRepository.findByFromUserIdAndToUserId(fromUserId, toUserId) != null) {
+        if (friendRepository.findByUserPair(fromUserId, toUserId) != null) {
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
-        friendRepository.save(Friend(fromUserId = fromUserId, toUserId = toUserId))
+        try {
+            friendRepository.save(Friend(fromUserId = fromUserId, toUserId = toUserId))
+        } catch (e: DataIntegrityViolationException) {
+            throw SnuttException(ErrorType.DUPLICATE_FRIEND)
+        }
+        val fromUser = userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        notify(
+            userId = toUserId,
+            title = "친구 요청",
+            body = "'${fromUser.nicknameWithoutTag}'님의 친구 요청을 수락하고 서로의 대표 시간표를 확인해보세요!",
+        )
     }
 
     @Transactional
@@ -75,6 +91,12 @@ class FriendService(
         val friend = get(friendExternalId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         friend.isAccepted = true
+        val toUser = userRepository.findByIdAndActiveTrue(toUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        notify(
+            userId = friend.fromUserId,
+            title = "친구 요청 수락",
+            body = "'${toUser.nicknameWithoutTag}'님과 친구가 되었어요.",
+        )
     }
 
     @Transactional
@@ -135,17 +157,42 @@ class FriendService(
         val fromUser =
             userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (fromUser.id == userId) throw SnuttException(ErrorType.INVALID_FRIEND)
-        if (friendRepository.findByFromUserIdAndToUserId(fromUserId, userId) != null) {
+        if (friendRepository.findByUserPair(fromUserId, userId) != null) {
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
         val friend =
-            friendRepository.save(
-                Friend(
-                    fromUserId = fromUserId,
-                    toUserId = userId,
-                    isAccepted = true,
-                ),
-            )
+            try {
+                friendRepository.save(
+                    Friend(
+                        fromUserId = fromUserId,
+                        toUserId = userId,
+                        isAccepted = true,
+                    ),
+                )
+            } catch (e: DataIntegrityViolationException) {
+                throw SnuttException(ErrorType.DUPLICATE_FRIEND)
+            }
+        val toUser = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        notify(
+            userId = fromUserId,
+            title = "친구 요청 수락",
+            body = "'${toUser.nicknameWithoutTag}'님과 친구가 되었어요.",
+        )
         return friend to fromUser
+    }
+
+    private fun notify(
+        userId: Long,
+        title: String,
+        body: String,
+    ) {
+        pushService.sendPushAndNotification(
+            userIds = listOf(userId),
+            title = title,
+            body = body,
+            type = NotificationType.FRIEND,
+            preferenceType = PushPreferenceType.NORMAL,
+            urlScheme = FRIEND_URL_SCHEME,
+        )
     }
 }

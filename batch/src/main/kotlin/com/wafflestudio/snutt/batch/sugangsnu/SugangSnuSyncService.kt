@@ -11,9 +11,6 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
-import com.wafflestudio.snutt.core.domain.tag.model.TagCollection
-import com.wafflestudio.snutt.core.domain.tag.model.TagList
-import com.wafflestudio.snutt.core.domain.tag.repository.TagListRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
@@ -33,13 +30,13 @@ private data class LectureInput(
 )
 
 // 수강스누 sync: lecture/lecture_class_time/course 3계층을 한 트랜잭션에 upsert하고
-// tag_list를 재생성한다. 스냅샷·북마크 전파 스텝은 v2에서 삭제 (PLAN.md §4)
+// 검색 어휘 캐시를 무효화한다
 @Service
 class SugangSnuSyncService(
     private val lectureRepository: LectureRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val courseRepository: CourseRepository,
-    private val tagListRepository: TagListRepository,
+    private val lectureVocabularyService: com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableRepository: TimetableRepository,
     private val notificationRepository: NotificationRepository,
@@ -80,7 +77,8 @@ class SugangSnuSyncService(
         if (deleted.isNotEmpty()) {
             deleteLectures(deleted)
         }
-        rebuildTagList(year, semester, rows)
+        // 검색 필터 어휘는 강의에서 파생하므로, 강의가 바뀌면 캐시만 무효화하면 된다
+        lectureVocabularyService.invalidate()
 
         log.info("sugang sync: created={} updated={} deleted={}", created.size, updated.size, deleted.size)
         return SugangSnuSyncResult(createdCount = created.size, updatedCount = updated.size, deletedCount = deleted.size)
@@ -92,7 +90,7 @@ class SugangSnuSyncService(
         created: List<LectureInput>,
         updated: List<Pair<Lecture, LectureInput>>,
     ) {
-        // course 앵커 upsert 후 lecture.course_id 연결 (PLAN.md §2)
+        // course 앵커 upsert 후 lecture.course_id 연결
         val courses = mutableMapOf<Pair<String, String>, Course>()
 
         fun resolveCourse(lecture: Lecture): Long? {
@@ -162,6 +160,23 @@ class SugangSnuSyncService(
     private fun deleteLectures(deleted: List<Lecture>) {
         deleted.forEach { lecture ->
             notifyLectureChange(NotificationType.LECTURE_REMOVE, lecture)
+            val classPlaceAndTimes =
+                lectureClassTimeRepository
+                    .findAllByLectureIdInOrderById(listOf(lecture.id!!))
+                    .map { it.toClassPlaceAndTime() }
+            timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!)).forEach { timetableLecture ->
+                timetableLecture.courseTitle = timetableLecture.courseTitle ?: lecture.courseTitle
+                timetableLecture.instructor = timetableLecture.instructor ?: lecture.instructor
+                timetableLecture.credit = timetableLecture.credit ?: lecture.credit
+                timetableLecture.remark = timetableLecture.remark ?: lecture.remark
+                timetableLecture.academicYear = timetableLecture.academicYear ?: lecture.academicYear
+                timetableLecture.category = timetableLecture.category ?: lecture.category
+                timetableLecture.classification = timetableLecture.classification ?: lecture.classification
+                timetableLecture.categoryPre2025 = timetableLecture.categoryPre2025 ?: lecture.categoryPre2025
+                timetableLecture.classPlaceAndTime = timetableLecture.classPlaceAndTime ?: classPlaceAndTimes
+                timetableLecture.lectureId = null
+                timetableLectureRepository.save(timetableLecture)
+            }
             lectureRepository.delete(lecture)
         }
     }
@@ -214,35 +229,4 @@ class SugangSnuSyncService(
         classificationEn = classificationEn,
         remarkEn = remarkEn,
     )
-
-    private fun rebuildTagList(
-        year: Int,
-        semester: Semester,
-        rows: List<SugangLectureRow>,
-    ) {
-        val tagCollection =
-            TagCollection(
-                academicYear = rows.map { it.academicYear }.filter { it.length > 1 }.sorted(),
-                classification = rows.map { it.classification }.filter { it.isNotBlank() }.sorted(),
-                department = rows.map { it.department }.filter { it.isNotBlank() }.sorted(),
-                credit =
-                    rows
-                        .map { it.credit }
-                        .distinct()
-                        .sorted()
-                        .map { "${it}학점" },
-                instructor = rows.map { it.instructor }.filter { it.isNotBlank() }.sorted(),
-                category = rows.map { it.category }.filter { it.isNotBlank() }.sorted(),
-                classificationEn = rows.mapNotNull { it.classificationEn }.filter { it.isNotBlank() }.sorted(),
-                departmentEn = rows.mapNotNull { it.departmentEn }.filter { it.isNotBlank() }.sorted(),
-                academicYearEn = rows.mapNotNull { it.academicYearEn }.filter { it.length > 1 }.sorted(),
-                instructorEn = rows.mapNotNull { it.instructorEn }.filter { it.isNotBlank() }.sorted(),
-                categoryEn = rows.mapNotNull { it.categoryEn }.filter { it.isNotBlank() }.sorted(),
-            )
-        val tagList =
-            tagListRepository.findByYearAndSemester(year, semester)
-                ?: TagList(year = year, semester = semester, tagCollection = tagCollection)
-        tagList.tagCollection = tagCollection
-        tagListRepository.save(tagList)
-    }
 }

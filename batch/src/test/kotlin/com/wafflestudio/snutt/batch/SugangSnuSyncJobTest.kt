@@ -8,8 +8,8 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabularyRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
-import com.wafflestudio.snutt.core.domain.tag.repository.TagListRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -63,7 +63,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     lateinit var courseRepository: CourseRepository
 
     @Autowired
-    lateinit var tagListRepository: TagListRepository
+    lateinit var lectureVocabularyRepository: LectureVocabularyRepository
 
     @Autowired
     lateinit var notificationRepository: NotificationRepository
@@ -102,7 +102,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         lectureClassTimeRepository.deleteAll()
         lectureRepository.deleteAll()
         courseRepository.deleteAll()
-        tagListRepository.deleteAll()
         notificationRepository.deleteAll()
         timetableRepository.deleteAll()
     }
@@ -123,7 +122,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     lateinit var sugangSnuXlsxParser: com.wafflestudio.snutt.batch.sugangsnu.SugangSnuXlsxParser
 
     @Test
-    fun `xlsx 파싱과 신규 강의 upsert와 tag_list 생성`() {
+    fun `xlsx 파싱과 신규 강의 upsert`() {
         val xlsx =
             SugangXlsxFixture.xlsx(
                 listOf(
@@ -160,11 +159,16 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         assertTrue(first.courseId != null)
         assertEquals("김컴퓨터", courseRepository.findById(first.courseId!!).get().instructor)
 
-        // tag_list 생성
-        val tagList = tagListRepository.findByYearAndSemester(2026, Semester.AUTUMN)!!
-        assertTrue(tagList.tagCollection.department.contains("컴퓨터공학부"))
-        assertTrue(tagList.tagCollection.credit.contains("3학점"))
-        assertTrue(tagList.tagCollection.instructor.contains("김컴퓨터"))
+        // 검색 어휘는 강의에서 파생한다
+        val vocabulary =
+            lectureVocabularyRepository.findVocabulary(
+                2026,
+                Semester.AUTUMN,
+                com.wafflestudio.snutt.core.common.client.Language.KO,
+            )
+        assertTrue(vocabulary.department.contains("컴퓨터공학부"))
+        assertTrue(vocabulary.credit.contains(3))
+        assertTrue(vocabulary.instructor.contains("김컴퓨터"))
     }
 
     @Test
@@ -176,7 +180,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     isEmailVerified = true,
                     nickname = "syncuser",
                     localId = "syncuser",
-                    credentialHash = "synccred",
                 ),
             )
         val oldLecture =

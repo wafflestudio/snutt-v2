@@ -26,7 +26,7 @@ import org.springframework.web.client.RestClient
 
 /**
  * M4 DoD 검증: 강의평 CRUD/공감/신고, 이메일 인증 게이트, 커서 페이지네이션,
- * course.avg_rating/eval_count 비정규화 재계산 (PLAN.md §7 M4)
+ * course.avg_rating/eval_count 비정규화 재계산
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -322,7 +322,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                         isEmailVerified = true,
                         nickname = "evalbulk$i",
                         localId = "evalbulk$i",
-                        credentialHash = "bulkcred$i",
                     ),
                 )
             }
@@ -363,7 +362,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                         isEmailVerified = true,
                         nickname = "evalprop$i",
                         localId = "evalprop$i",
-                        credentialHash = "propcred$i",
                     ),
                 )
             }

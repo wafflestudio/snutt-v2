@@ -38,10 +38,6 @@ data class LogoutRequest(
     val fcmRegistrationId: String? = null,
 )
 
-data class LegacyTokenExchangeRequest(
-    @field:NotBlank val legacyToken: String,
-)
-
 data class RequestPasswordResetRequest(
     @field:NotBlank val email: String,
 )
@@ -80,8 +76,8 @@ class AuthController(
     fun registerLocal(
         @RequestBody request: RegisterLocalRequest,
     ): TokenResponse {
-        val (user, tokens) = authService.registerLocal(request.localId, request.password, request.email)
-        return tokens.toResponse(user.externalId)
+        val user = authService.registerLocal(request.localId, request.password, request.email)
+        return authService.issueTokens(user).toResponse(user.externalId)
     }
 
     @Public
@@ -89,8 +85,8 @@ class AuthController(
     fun loginLocal(
         @RequestBody request: LoginLocalRequest,
     ): TokenResponse {
-        val (user, tokens) = authService.loginLocal(request.localId, request.password)
-        return tokens.toResponse(user.externalId)
+        val user = authService.loginLocal(request.localId, request.password)
+        return authService.issueTokens(user).toResponse(user.externalId)
     }
 
     @Public
@@ -102,8 +98,8 @@ class AuthController(
         val authProvider =
             AuthProvider.from(provider)?.takeIf { it != AuthProvider.LOCAL }
                 ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val (user, tokens) = authService.loginSocial(authProvider, request.token)
-        return tokens.toResponse(user.externalId)
+        val user = authService.loginSocial(authProvider, request.token)
+        return authService.issueTokens(user).toResponse(user.externalId)
     }
 
     @Public
@@ -148,15 +144,5 @@ class AuthController(
         @RequestBody body: FindIdRequest,
     ) {
         passwordResetService.sendLocalIdToEmail(body.email)
-    }
-
-    // 구 클라이언트 업그레이드 경로: v1 credentialHash → v2 토큰 쌍 (PLAN.md §3 인증)
-    @Public
-    @PostMapping("/token/exchange")
-    fun exchangeLegacyToken(
-        @RequestBody request: LegacyTokenExchangeRequest,
-    ): TokenResponse {
-        val (user, tokens) = authService.exchangeLegacyToken(request.legacyToken)
-        return tokens.toResponse(user.externalId)
     }
 }

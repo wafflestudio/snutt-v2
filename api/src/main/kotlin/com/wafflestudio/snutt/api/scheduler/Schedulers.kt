@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-// 강의 리마인더: 매분 next_day/next_minute 인덱스로 발화 대상 조회 (PLAN.md §4)
+// 강의 리마인더: 매분 next_day/next_minute 인덱스로 발화 대상 조회
 @Component
 class ReminderScheduler(
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
@@ -70,7 +70,7 @@ class ReminderScheduler(
     }
 }
 
-// 강의 일기장 알림: 월/수/금 19시 (KST) — 대표 시간표의 강의 하나를 골라 안내 (PLAN.md §4)
+// 강의 일기장 알림: 월/수/금 19시 (KST) — 대표 시간표의 강의 하나를 골라 안내
 @Component
 class DiaryScheduler(
     private val timetableRepository: TimetableRepository,

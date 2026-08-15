@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.domain.user.model
 
 import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
-import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import java.time.Instant
@@ -24,10 +23,6 @@ class User(
     var googleEmail: String? = null,
     var kakaoSub: String? = null,
     var kakaoEmail: String? = null,
-    // v1 x-access-token. 자격 증명 변경 시 LegacyCredentialHasher로 재생성 (v1compat 전용)
-    @Column(nullable = false)
-    var credentialHash: String,
-    var fcmKey: String? = null,
     var active: Boolean = true,
     var isAdmin: Boolean = false,
     var lastLoginAt: Instant = Instant.now(),

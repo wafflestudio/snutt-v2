@@ -35,6 +35,7 @@ data class EvaluationWriteRequestBody(
 // 최근 두 학기 수강 강의 (강의평 작성 대상 선택용)
 data class TakenLectureResponse(
     val id: String,
+    val lectureId: String,
     val title: String,
     val instructor: String,
     val courseNumber: String,
@@ -50,6 +51,7 @@ data class TakenLectureResponse(
 internal fun com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser.toResponse() =
     TakenLectureResponse(
         id = requireNotNull(course.id).toString(),
+        lectureId = lectureExternalId,
         title = course.title,
         instructor = course.instructor,
         courseNumber = course.courseNumber,

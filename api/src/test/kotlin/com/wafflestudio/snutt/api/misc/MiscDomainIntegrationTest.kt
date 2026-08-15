@@ -27,7 +27,7 @@ import org.springframework.web.client.RestClient
 
 /**
  * M5a DoD: 친구(+초대 링크), 빈자리 알림, 알림함, 팝업, 클라이언트 설정, 푸시 프리퍼런스,
- * 정적 페이지, 어드민 (PLAN.md §7 M5)
+ * 정적 페이지, 어드민
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

@@ -96,7 +96,6 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     isEmailVerified = true,
                     nickname = "reminderuser",
                     localId = "reminderuser",
-                    credentialHash = "remindercred",
                 ),
             )
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-reminder"))
@@ -173,7 +172,6 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     isEmailVerified = true,
                     nickname = "diarysched",
                     localId = "diarysched",
-                    credentialHash = "diaryschedcred",
                 ),
             )
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-diary"))

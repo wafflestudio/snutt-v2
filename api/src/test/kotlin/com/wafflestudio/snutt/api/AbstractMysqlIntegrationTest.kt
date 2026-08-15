@@ -3,7 +3,7 @@ package com.wafflestudio.snutt.api
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.GenericContainer
-import org.testcontainers.containers.MySQLContainer
+import org.testcontainers.mysql.MySQLContainer
 
 /**
  * 테스트 클래스마다 전용 데이터베이스를 사용해 데이터를 격리한다.
@@ -16,7 +16,7 @@ import org.testcontainers.containers.MySQLContainer
 abstract class AbstractMysqlIntegrationTest {
     companion object {
         @JvmStatic
-        val mysql: MySQLContainer<*> =
+        val mysql: MySQLContainer =
             MySQLContainer("mysql:8.4")
                 .apply { start() }
                 .apply {

@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -26,7 +25,8 @@ class NotificationService(
             notificationRepository.findNotifications(
                 userId = user.id!!,
                 registeredAt = checkNotNull(user.createdAt),
-                pageable = PageRequest.of((offset / limit).toInt(), limit),
+                offset = offset,
+                limit = limit,
             )
         if (explicit) {
             // 인터셉터가 로드한 detached user이므로 명시적으로 저장한다

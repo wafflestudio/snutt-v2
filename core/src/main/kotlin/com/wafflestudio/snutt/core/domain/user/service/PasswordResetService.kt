@@ -6,9 +6,10 @@ import com.wafflestudio.snutt.core.common.mail.MailClient
 import com.wafflestudio.snutt.core.common.mail.MailType
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
-import com.wafflestudio.snutt.core.domain.auth.service.LegacyCredentialHasher
+import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -25,7 +26,7 @@ class PasswordResetService(
     private val userSessionRepository: UserSessionRepository,
     private val mailClient: MailClient,
     private val passwordEncoder: PasswordEncoder,
-    private val legacyCredentialHasher: LegacyCredentialHasher,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     companion object {
         private const val RESET_CODE_PREFIX = "reset-password-code:"
@@ -96,7 +97,6 @@ class PasswordResetService(
         if (stored != code) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
     }
 
-    // 구 클라이언트 호환: localId + 코드로 비밀번호를 교체한다
     @Transactional
     fun confirmResetByLocalId(
         localId: String,
@@ -113,7 +113,7 @@ class PasswordResetService(
         email: String,
         code: String,
         newPassword: String,
-    ): String {
+    ) {
         val user =
             userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
@@ -123,10 +123,9 @@ class PasswordResetService(
         if (stored != code) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
-        user.credentialHash = legacyCredentialHasher.hash(user)
         userRepository.save(user)
         redisTemplate.delete(key)
         userSessionRepository.revokeAllByUserId(userId)
-        return user.credentialHash
+        eventPublisher.publishEvent(UserCredentialChangedEvent(userId))
     }
 }

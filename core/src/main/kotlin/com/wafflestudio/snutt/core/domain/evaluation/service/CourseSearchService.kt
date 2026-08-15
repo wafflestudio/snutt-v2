@@ -24,10 +24,6 @@ data class CourseWithSemesters(
     val semesters: List<CourseSemester>,
 )
 
-/**
- * 강의평 탭의 과목 검색/상세. 필터 어휘(구분·학과·학년·학점·교양분류)는 강의 검색과 같은
- * tag_list에서 오므로 강의평 전용 태그 테이블을 두지 않는다.
- */
 @Service
 class CourseSearchService(
     private val courseSearchRepository: CourseSearchRepository,
@@ -38,7 +34,9 @@ class CourseSearchService(
     @Transactional(readOnly = true)
     fun search(criteria: CourseSearchCriteria): List<Course> = courseSearchRepository.search(criteria)
 
-    // 강의평 상세: 개설 학기 목록과 내가 이미 평가했는지
+    @Transactional(readOnly = true)
+    fun count(criteria: CourseSearchCriteria): Long = courseSearchRepository.count(criteria)
+
     @Transactional(readOnly = true)
     fun getCourseWithSemesters(
         courseId: Long,
