@@ -21,12 +21,13 @@ jobs:
     env:
       OCIR_REGISTRY: yny.ocir.io
       OCIR_NAMESPACE: ax1dvc8vmenm
-      OCIR_REPOSITORY: snutt-${{ github.ref_name == 'main' && 'prod' || 'dev' }}/snutt-v2${{ matrix.module == 'batch' && '-batch' || '' }}
-      IMAGE_TAG: ${{ github.run_number }}
-
+      OCIR_REPOSITORY: snutt-${{ github.ref_name == 'main' && 'prod' || 'dev' }}/snutt-${{ matrix.module }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
 
       - name: Login to OCIR
         run: echo "${{ secrets.OCI_AUTH_TOKEN }}" | docker login $OCIR_REGISTRY -u ax1dvc8vmenm/members/snutt-deployer --password-stdin
