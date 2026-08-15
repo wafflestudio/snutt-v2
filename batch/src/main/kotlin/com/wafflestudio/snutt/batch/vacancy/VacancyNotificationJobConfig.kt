@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.batch.vacancy
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
@@ -36,6 +38,7 @@ class VacancyNotificationJobConfig(
     private val jobRepository: JobRepository,
     private val transactionManager: PlatformTransactionManager,
     private val lectureRepository: LectureRepository,
+    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val vacancyNotificationRepository: VacancyNotificationRepository,
     private val pushService: PushService,
     private val coursebookService: CoursebookService,
@@ -89,6 +92,8 @@ class VacancyNotificationJobConfig(
             lectureRepository
                 .findByYearAndSemester(year, semester)
                 .associateBy { it.courseNumber + "##" + it.lectureNumber }
+        val storedStatuses =
+            lectureRegistrationStatusRepository.findByYearAndSemester(year, semester).associateBy { it.lectureId }
 
         // 수강 사이트 부하를 분산하기 위해 전체 페이지를 20등분해서 요청한다 (v1 동일)
         (1..pageCount).chunked(maxOf(1, pageCount / 20)).forEach { pages ->
@@ -103,41 +108,42 @@ class VacancyNotificationJobConfig(
                 return
             }
             TransactionTemplate(transactionManager).executeWithoutResult {
-                processChunk(year, semester, lectureMap, statuses, window)
+                processChunk(lectureMap, storedStatuses, statuses, window)
             }
             Thread.sleep(DELAY_PER_CHUNK_MS)
         }
     }
 
     private fun processChunk(
-        year: Int,
-        semester: Semester,
         lectureMap: Map<String, Lecture>,
-        statuses: List<RegistrationStatus>,
+        storedStatuses: Map<Long, LectureRegistrationStatus>,
+        crawled: List<RegistrationStatus>,
         window: RegistrationWindow,
     ) {
-        val pairs =
-            statuses.mapNotNull { status ->
-                lectureMap[status.courseNumber + "##" + status.lectureNumber]?.let { it to status }
+        val rows =
+            crawled.mapNotNull { status ->
+                val lecture = lectureMap[status.courseNumber + "##" + status.lectureNumber] ?: return@mapNotNull null
+                val stored = storedStatuses[lecture.id] ?: return@mapNotNull null
+                Triple(lecture, stored, status)
             }
         val notiTargets =
-            pairs
-                .filter { (lecture, _) -> lecture.isFull(window.phase) }
-                .filter { (_, status) -> status.wasFull }
-                .filter { (lecture, status) -> lecture.registrationCount > status.registrationCount }
-                .map { (lecture, _) -> lecture }
+            rows
+                .filter { (lecture, stored, _) -> stored.registrationCount == lecture.effectiveQuota(window.phase) }
+                .filter { (_, _, status) -> status.wasFull }
+                .filter { (_, stored, status) -> stored.registrationCount > status.registrationCount }
+                .map { (lecture, _, _) -> lecture }
 
         val updated =
-            pairs
-                .filter { (lecture, status) ->
-                    lecture.registrationCount != status.registrationCount || lecture.wasFull != status.wasFull
-                }.map { (lecture, status) ->
-                    lecture.apply {
+            rows
+                .filter { (_, stored, status) ->
+                    stored.registrationCount != status.registrationCount || stored.wasFull != status.wasFull
+                }.map { (_, stored, status) ->
+                    stored.apply {
                         registrationCount = status.registrationCount
                         wasFull = status.wasFull
                     }
                 }
-        lectureRepository.saveAll(updated)
+        lectureRegistrationStatusRepository.saveAll(updated)
 
         val targetTimeString = window.nextOpenTimeString()
         notiTargets.forEach { lecture ->
@@ -189,11 +195,11 @@ class VacancyNotificationJobConfig(
         vacantSeatRegistrationTimes.any { minute >= it.startMinute && minute < it.endMinute }
 
     // 1학기 재학생 선착순 기간에는 신입생 몫이 정원에서 빠져 있어 그만큼이 만석 기준이다 (v1 isFull)
-    private fun Lecture.isFull(phase: RegistrationPhase): Boolean =
+    private fun Lecture.effectiveQuota(phase: RegistrationPhase): Int =
         if (semester == Semester.SPRING && phase == RegistrationPhase.CURRENT_STUDENT) {
-            quota - (freshmanQuota ?: 0) == registrationCount
+            quota - (freshmanQuota ?: 0)
         } else {
-            quota == registrationCount
+            quota
         }
 
     companion object {

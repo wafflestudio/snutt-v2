@@ -500,7 +500,5 @@ private fun SeedLecture.toLecture() =
         quota = 40,
         freshmanQuota = 10,
         remark = remark,
-        registrationCount = 20,
-        wasFull = false,
         courseId = course?.id,
     )

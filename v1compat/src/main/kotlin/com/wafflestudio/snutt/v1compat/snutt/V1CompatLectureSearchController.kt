@@ -10,6 +10,8 @@ import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1Public
@@ -83,6 +85,7 @@ private fun Lecture.toLegacy(
     classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
     language: Language,
     evSummary: LegacyEvSummary?,
+    status: LectureRegistrationStatus?,
 ) = LegacyLectureDto(
     id = externalId,
     academicYear = language.select(academicYear, academicYearEn),
@@ -100,8 +103,8 @@ private fun Lecture.toLegacy(
     year = year,
     courseNumber = courseNumber,
     courseTitle = language.select(courseTitle, courseTitleEn),
-    registrationCount = registrationCount,
-    wasFull = wasFull,
+    registrationCount = status?.registrationCount ?: 0,
+    wasFull = status?.wasFull ?: false,
     snuttEvLecture = evSummary,
     categoryPre2025 = categoryPre2025,
 )
@@ -112,6 +115,7 @@ private fun Lecture.toLegacy(
 class V1CompatLectureSearchController(
     private val lectureService: LectureService,
     private val evaluationService: com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService,
+    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
 ) {
     @PostMapping("")
     fun searchLectures(
@@ -155,13 +159,16 @@ class V1CompatLectureSearchController(
                 sort = LectureSort.getOfName(query.sortCriteria) ?: LectureSort.DEFAULT,
             )
         val lectures = lectureService.search(criteria)
-        val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
-        val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
+        val lectureIds = lectures.mapNotNull { it.id }
+        val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
+        val classTimesMap = lectureService.classTimesByLectureId(lectureIds)
+        val statuses = lectureRegistrationStatusRepository.findAllById(lectureIds).associateBy { it.lectureId }
         return lectures.map { lecture ->
             lecture.toLegacy(
                 classTimesMap[lecture.id].orEmpty(),
                 clientInfo.language,
                 summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                statuses[lecture.id],
             )
         }
     }

@@ -7,6 +7,8 @@ import com.wafflestudio.snutt.core.common.push.RecordingPushClient
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
@@ -62,6 +64,9 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     lateinit var lectureRepository: LectureRepository
 
     @Autowired
+    lateinit var lectureRegistrationStatusRepository: LectureRegistrationStatusRepository
+
+    @Autowired
     lateinit var userRepository: UserRepository
 
     @Autowired
@@ -85,6 +90,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @BeforeEach
     fun cleanTables() {
+        lectureRegistrationStatusRepository.deleteAll()
         lectureRepository.deleteAll()
         vacancyNotificationRepository.deleteAll()
         notificationRepository.deleteAll()
@@ -138,10 +144,11 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     courseTitle = "만석강의",
                     instructor = "교수",
                     quota = 40,
-                    registrationCount = 40,
-                    wasFull = true,
                 ),
             )
+        lectureRegistrationStatusRepository.save(
+            LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 40, wasFull = true),
+        )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
@@ -164,7 +171,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-token-1", recordingPushClient.sentMessages[0].fcmRegistrationId)
         assertTrue(recordingPushClient.sentMessages[0].body.contains("빈자리"))
-        assertEquals(39, lectureRepository.findById(lecture.id!!).get().registrationCount)
+        assertEquals(39, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
         assertEquals(1, notificationRepository.findAll().size)
     }
 
@@ -203,10 +210,11 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     courseTitle = "만석강의2",
                     instructor = "교수",
                     quota = 40,
-                    registrationCount = 40,
-                    wasFull = true,
                 ),
             )
+        lectureRegistrationStatusRepository.save(
+            LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 40, wasFull = true),
+        )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))

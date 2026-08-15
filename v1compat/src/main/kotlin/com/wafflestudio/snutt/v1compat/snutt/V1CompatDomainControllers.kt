@@ -295,17 +295,19 @@ class V1CompatVacancyNotificationController(
         @V1CurrentUser user: User,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): Map<String, Any?> {
-        val lectures = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
-        val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
-        val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
+        val displays = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
+        val lectureIds = displays.mapNotNull { it.lecture.id }
+        val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
+        val classTimesMap = lectureService.classTimesByLectureId(lectureIds)
         return mapOf(
             "lectures" to
-                lectures.map { lecture ->
+                displays.map { (lecture, status) ->
                     LegacyLectureDto(
                         lecture,
                         classTimesMap[lecture.id].orEmpty(),
                         clientInfo.language,
                         summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                        status,
                     )
                 },
         )

@@ -1,18 +1,28 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
+import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
+import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+import com.wafflestudio.snutt.core.domain.notification.service.PushService
+import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+import com.wafflestudio.snutt.core.domain.timetable.service.ClassTimeUtils
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,23 +33,40 @@ data class SugangSnuSyncResult(
     val deletedCount: Int,
 )
 
-// lecture 행과 시간(class_time 테이블)을 함께 나르는 입력
 private data class LectureInput(
     val lecture: Lecture,
     val classTimes: List<ClassPlaceAndTime>,
 )
 
-// 수강스누 sync: lecture/lecture_class_time/course 3계층을 한 트랜잭션에 upsert하고
-// 검색 어휘 캐시를 무효화한다
+private data class LectureUpdate(
+    val lecture: Lecture,
+    val input: LectureInput,
+    val changedLabels: List<String>,
+    // 영문(_en)·수강신청인원만 바뀐 경우는 데이터만 갱신하고 알리지 않는다 (v1 동일)
+    val notifiable: Boolean,
+    val classTimesChanged: Boolean,
+)
+
+private data class FieldChange(
+    val label: String,
+    val notifiable: Boolean,
+)
+
+// 수강스누 sync: lecture/lecture_class_time/course를 한 트랜잭션에 upsert하고,
+// 시간표·관심강좌에 담긴 강의의 변경/폐강을 사용자에게 알린다 (v1 SugangSnuSyncService 이식)
 @Service
 class SugangSnuSyncService(
     private val lectureRepository: LectureRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
+    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val courseRepository: CourseRepository,
-    private val lectureVocabularyService: com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService,
+    private val lectureVocabularyService: LectureVocabularyService,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableRepository: TimetableRepository,
+    private val bookmarkRepository: BookmarkRepository,
+    private val bookmarkLectureRepository: BookmarkLectureRepository,
     private val notificationRepository: NotificationRepository,
+    private val pushService: PushService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -57,27 +84,33 @@ class SugangSnuSyncService(
                 .findAllByLectureIdInOrderById(oldLectures.mapNotNull { it.id })
                 .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
 
-        val created = rows.filter { (it.courseNumber to it.lectureNumber) !in oldMap }
-        val updated =
+        val created =
             rows
-                .mapNotNull { row ->
-                    val old = oldMap[row.courseNumber to row.lectureNumber] ?: return@mapNotNull null
-                    val new = row.toLecture(year, semester)
-                    val unchanged = old.equalsMetadata(new) && oldClassTimesMap[old.id].orEmpty() == row.classPlaceAndTimes
-                    if (unchanged) null else old to LectureInput(new, row.classPlaceAndTimes)
-                }
+                .filter { (it.courseNumber to it.lectureNumber) !in oldMap }
+                .map { LectureInput(it.toLecture(year, semester), it.classPlaceAndTimes) }
+        val updated =
+            rows.mapNotNull { row ->
+                val old = oldMap[row.courseNumber to row.lectureNumber] ?: return@mapNotNull null
+                val new = row.toLecture(year, semester)
+                val oldTimes = oldClassTimesMap[old.id].orEmpty()
+                val changes = changedFields(old, new, oldTimes, row.classPlaceAndTimes)
+                if (changes.isEmpty()) return@mapNotNull null
+                LectureUpdate(
+                    lecture = old,
+                    input = LectureInput(new, row.classPlaceAndTimes),
+                    changedLabels = changes.map { it.label }.distinct(),
+                    notifiable = changes.any { it.notifiable },
+                    classTimesChanged = oldTimes != row.classPlaceAndTimes,
+                )
+            }
         val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
 
-        upsertLectures(
-            year,
-            semester,
-            created.map { LectureInput(it.toLecture(year, semester), it.classPlaceAndTimes) },
-            updated,
-        )
-        if (deleted.isNotEmpty()) {
-            deleteLectures(deleted)
-        }
-        // 검색 필터 어휘는 강의에서 파생하므로, 강의가 바뀌면 캐시만 무효화하면 된다
+        upsertLectures(created, updated)
+        val lectureByKey =
+            oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
+        syncRegistrationCounts(year, semester, rows, lectureByKey)
+        syncUserLectures(updated, deleted)
+        deleted.forEach(lectureRepository::delete)
         lectureVocabularyService.invalidate()
 
         log.info("sugang sync: created={} updated={} deleted={}", created.size, updated.size, deleted.size)
@@ -85,68 +118,68 @@ class SugangSnuSyncService(
     }
 
     private fun upsertLectures(
-        year: Int,
-        semester: Semester,
         created: List<LectureInput>,
-        updated: List<Pair<Lecture, LectureInput>>,
+        updated: List<LectureUpdate>,
     ) {
-        // course 앵커 upsert 후 lecture.course_id 연결
-        val courses = mutableMapOf<Pair<String, String>, Course>()
-
-        fun resolveCourse(lecture: Lecture): Long? {
-            if (lecture.instructor.isNullOrBlank()) return null
-            return courses
-                .getOrPut(lecture.courseNumber to lecture.instructor!!) {
-                    courseRepository.findByCourseNumberAndInstructor(lecture.courseNumber, lecture.instructor!!)
-                        ?: courseRepository.save(
-                            Course(
-                                courseNumber = lecture.courseNumber,
-                                instructor = lecture.instructor!!,
-                                title = lecture.courseTitle,
-                                department = lecture.department,
-                                credit = lecture.credit,
-                                academicYear = lecture.academicYear,
-                                category = lecture.category,
-                                classification = lecture.classification,
-                            ),
-                        )
-                }.id
-        }
-
         created.forEach { input ->
             val lecture = input.lecture
-            lecture.courseId = resolveCourse(lecture)
-            lecture.wasFull = lecture.registrationCount >= lecture.quota
+            lecture.courseId = resolveCourseId(lecture)
             lectureRepository.save(lecture)
-            syncClassTimes(lecture, input.classTimes)
+            saveClassTimes(lecture, input.classTimes)
         }
-        updated.forEach { (old, input) ->
-            val new = input.lecture
-            old.apply {
-                courseId = old.courseId ?: resolveCourse(new)
-                registrationCount = new.registrationCount
-                wasFull = new.registrationCount >= new.quota
-                academicYear = new.academicYear
-                category = new.category
-                categoryPre2025 = new.categoryPre2025
-                classification = new.classification
-                credit = new.credit
-                department = new.department
-                instructor = new.instructor
-                lectureNumber = new.lectureNumber
-                quota = new.quota
-                freshmanQuota = new.freshmanQuota
-                remark = new.remark
-                courseNumber = new.courseNumber
-                courseTitle = new.courseTitle
+        updated.forEach { update ->
+            val old = update.lecture
+            old.copyMetadataFrom(update.input.lecture)
+            old.courseId = old.courseId ?: resolveCourseId(old)
+            if (update.classTimesChanged) {
+                lectureClassTimeRepository.deleteByLectureId(old.id!!)
+                saveClassTimes(old, update.input.classTimes)
             }
-            lectureClassTimeRepository.deleteByLectureId(old.id!!)
-            syncClassTimes(old, input.classTimes)
-            notifyLectureChange(NotificationType.LECTURE_UPDATE, old)
         }
     }
 
-    private fun syncClassTimes(
+    // 신청 인원은 상태 테이블이 들고 있다. was_full은 크롤러 소유라 건드리지 않는다
+    private fun syncRegistrationCounts(
+        year: Int,
+        semester: Semester,
+        rows: List<SugangLectureRow>,
+        lectureByKey: Map<Pair<String, String>, Lecture>,
+    ) {
+        val statuses = lectureRegistrationStatusRepository.findByYearAndSemester(year, semester).associateBy { it.lectureId }
+        rows.forEach { row ->
+            val lectureId = lectureByKey[row.courseNumber to row.lectureNumber]?.id ?: return@forEach
+            val status = statuses[lectureId]
+            if (status == null) {
+                lectureRegistrationStatusRepository.save(
+                    LectureRegistrationStatus(lectureId = lectureId, registrationCount = row.registrationCount),
+                )
+            } else {
+                status.registrationCount = row.registrationCount
+            }
+        }
+    }
+
+    // course 앵커 upsert. 같은 sync 안의 중복 조회는 영속성 컨텍스트가 흡수한다
+    private fun resolveCourseId(lecture: Lecture): Long? {
+        val instructor = lecture.instructor?.takeIf { it.isNotBlank() } ?: return null
+        val course =
+            courseRepository.findByCourseNumberAndInstructor(lecture.courseNumber, instructor)
+                ?: courseRepository.save(
+                    Course(
+                        courseNumber = lecture.courseNumber,
+                        instructor = instructor,
+                        title = lecture.courseTitle,
+                        department = lecture.department,
+                        credit = lecture.credit,
+                        academicYear = lecture.academicYear,
+                        category = lecture.category,
+                        classification = lecture.classification,
+                    ),
+                )
+        return course.id
+    }
+
+    private fun saveClassTimes(
         lecture: Lecture,
         classTimes: List<ClassPlaceAndTime>,
     ) {
@@ -157,50 +190,198 @@ class SugangSnuSyncService(
         )
     }
 
-    private fun deleteLectures(deleted: List<Lecture>) {
-        deleted.forEach { lecture ->
-            notifyLectureChange(NotificationType.LECTURE_REMOVE, lecture)
-            val classPlaceAndTimes =
-                lectureClassTimeRepository
-                    .findAllByLectureIdInOrderById(listOf(lecture.id!!))
-                    .map { it.toClassPlaceAndTime() }
-            timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!)).forEach { timetableLecture ->
-                timetableLecture.courseTitle = timetableLecture.courseTitle ?: lecture.courseTitle
-                timetableLecture.instructor = timetableLecture.instructor ?: lecture.instructor
-                timetableLecture.credit = timetableLecture.credit ?: lecture.credit
-                timetableLecture.remark = timetableLecture.remark ?: lecture.remark
-                timetableLecture.academicYear = timetableLecture.academicYear ?: lecture.academicYear
-                timetableLecture.category = timetableLecture.category ?: lecture.category
-                timetableLecture.classification = timetableLecture.classification ?: lecture.classification
-                timetableLecture.categoryPre2025 = timetableLecture.categoryPre2025 ?: lecture.categoryPre2025
-                timetableLecture.classPlaceAndTime = timetableLecture.classPlaceAndTime ?: classPlaceAndTimes
-                timetableLecture.lectureId = null
-                timetableLectureRepository.save(timetableLecture)
+    /**
+     * 시간표·관심강좌에 담긴 강의의 변경/폐강 처리 (v1 syncSavedUserLectures 이식).
+     * - 변경: 알림. 시간이 바뀌어 다른 강의와 겹치면 시간표에서 삭제 후 알림
+     * - 폐강: 시간표·관심강좌에서 삭제 후 알림
+     * - 시간표 변경분은 사용자별 요약 푸시 1건
+     */
+    private fun syncUserLectures(
+        updated: List<LectureUpdate>,
+        deleted: List<Lecture>,
+    ) {
+        val notifications = mutableListOf<Notification>()
+        val timetableChangeCounts = mutableMapOf<Long, TimetableChangeCount>()
+
+        updated.filter { it.notifiable }.forEach { update ->
+            val lecture = update.lecture
+            val labels = update.changedLabels.joinToString()
+            forEachContainingTimetable(lecture) { timetable, entryExternalId ->
+                val counts = timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }
+                if (update.classTimesChanged && overlapsOtherLecture(timetable, lecture, update.input.classTimes)) {
+                    timetableLectureRepository.deleteByTimetableIdAndExternalId(timetable.id!!, entryExternalId)
+                    counts.deleted += 1
+                    notifications +=
+                        timetableNotification(
+                            timetable,
+                            "'${lecture.courseTitle}' 강의가 업데이트되었으나, 시간표의 다른 강의와 겹쳐 삭제되었습니다.",
+                            NotificationType.LECTURE_REMOVE,
+                        )
+                } else {
+                    counts.updated += 1
+                    notifications +=
+                        timetableNotification(
+                            timetable,
+                            "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
+                            NotificationType.LECTURE_UPDATE,
+                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.externalId}&lectureId=$entryExternalId",
+                        )
+                }
             }
-            lectureRepository.delete(lecture)
+            forEachContainingBookmark(lecture) { userId ->
+                notifications +=
+                    bookmarkNotification(
+                        userId,
+                        lecture,
+                        "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
+                        NotificationType.LECTURE_UPDATE,
+                    )
+            }
+        }
+
+        deleted.forEach { lecture ->
+            forEachContainingTimetable(lecture) { timetable, entryExternalId ->
+                timetableLectureRepository.deleteByTimetableIdAndExternalId(timetable.id!!, entryExternalId)
+                timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
+                notifications +=
+                    timetableNotification(
+                        timetable,
+                        "'${lecture.courseTitle}' 강의가 폐강되어 삭제되었습니다.",
+                        NotificationType.LECTURE_REMOVE,
+                    )
+            }
+            // bookmark_lecture 행 자체는 lecture 삭제 시 FK CASCADE로 지워진다
+            forEachContainingBookmark(lecture) { userId ->
+                notifications +=
+                    bookmarkNotification(userId, lecture, "'${lecture.courseTitle}' 강의가 폐강되어 삭제되었습니다.", NotificationType.LECTURE_REMOVE)
+            }
+        }
+
+        notificationRepository.saveAll(notifications)
+        pushService.sendTargetedPushes(
+            timetableChangeCounts.mapValues { (_, counts) ->
+                TargetedPush(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
+            },
+            PushPreferenceType.LECTURE_UPDATE,
+        )
+    }
+
+    private class TimetableChangeCount(
+        var updated: Int = 0,
+        var deleted: Int = 0,
+    ) {
+        fun toMessage(): String =
+            when {
+                updated > 0 && deleted > 0 -> "강의 ${updated}개가 변경, ${deleted}개가 삭제되었습니다. 알림함에서 자세히 확인하세요."
+                updated > 0 -> "강의 ${updated}개가 변경되었습니다. 알림함에서 자세히 확인하세요."
+                else -> "강의 ${deleted}개가 삭제되었습니다. 알림함에서 자세히 확인하세요."
+            }
+    }
+
+    private fun forEachContainingTimetable(
+        lecture: Lecture,
+        action: (Timetable, String) -> Unit,
+    ) {
+        val entries = timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!))
+        if (entries.isEmpty()) return
+        val timetables = timetableRepository.findAllById(entries.map { it.timetableId }.distinct()).associateBy { it.id!! }
+        entries.forEach { entry -> timetables[entry.timetableId]?.let { action(it, entry.externalId) } }
+    }
+
+    private fun forEachContainingBookmark(
+        lecture: Lecture,
+        action: (userId: Long) -> Unit,
+    ) {
+        val bookmarkLectures = bookmarkLectureRepository.findByLectureIdIn(listOf(lecture.id!!))
+        if (bookmarkLectures.isEmpty()) return
+        bookmarkRepository
+            .findAllById(bookmarkLectures.map { it.bookmarkId }.distinct())
+            .forEach { action(it.userId) }
+    }
+
+    // 시간 변경이 시간표의 다른 강의(사용자 override 반영)와 겹치는지 (v1 isUpdatedTimetableLectureOverlapped)
+    private fun overlapsOtherLecture(
+        timetable: Timetable,
+        lecture: Lecture,
+        newTimes: List<ClassPlaceAndTime>,
+    ): Boolean {
+        val entries = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        // 해당 항목에 시간 override가 있으면 표시 시간이 변하지 않으므로 겹침 삭제 대상이 아니다
+        if (entries.any { it.lectureId == lecture.id && it.classPlaceAndTime != null }) return false
+        val otherEntries = entries.filter { it.lectureId != lecture.id }
+        val otherLectureTimes =
+            lectureClassTimeRepository
+                .findAllByLectureIdInOrderById(otherEntries.mapNotNull { it.lectureId })
+                .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
+        return otherEntries.any { entry ->
+            val times = entry.classPlaceAndTime ?: entry.lectureId?.let { otherLectureTimes[it] }.orEmpty()
+            ClassTimeUtils.timesOverlap(times, newTimes)
         }
     }
 
-    // 강의 정보 변경/폐지를 해당 강의를 시간표에 담은 사용자에게 알린다 (v1 이벤트 알림 이식)
-    private fun notifyLectureChange(
+    private fun timetableNotification(
+        timetable: Timetable,
+        message: String,
         type: NotificationType,
+        deeplink: String = "snutt://notifications",
+    ) = Notification(
+        userId = timetable.userId,
+        title = "수강편람 업데이트",
+        message = "${timetable.year}-${timetable.semester.fullName} '${timetable.title}' 시간표의 $message",
+        type = type,
+        deeplink = deeplink,
+    )
+
+    private fun bookmarkNotification(
+        userId: Long,
         lecture: Lecture,
-    ) {
-        val timetableIds = timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!)).map { it.timetableId }.toSet()
-        if (timetableIds.isEmpty()) return
-        val userIds = timetableRepository.findAllById(timetableIds).mapNotNull { it.userId }.toSet()
-        val message =
-            when (type) {
-                NotificationType.LECTURE_UPDATE -> "'${lecture.courseTitle}' 강의 정보가 변경되었습니다"
-                NotificationType.LECTURE_REMOVE -> "'${lecture.courseTitle}' 강의가 폐지되었습니다"
-                else -> return
+        message: String,
+        type: NotificationType,
+    ) = Notification(
+        userId = userId,
+        title = "수강편람 업데이트",
+        message = "${lecture.year}-${lecture.semester.fullName} 관심강좌 목록의 $message",
+        type = type,
+        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.externalId}",
+    )
+
+    // 한국어 알림 문구 기준의 변경 항목 (v1 toKoreanFieldName 이식)
+    private fun changedFields(
+        old: Lecture,
+        new: Lecture,
+        oldTimes: List<ClassPlaceAndTime>,
+        newTimes: List<ClassPlaceAndTime>,
+    ): List<FieldChange> =
+        buildList {
+            fun diff(
+                label: String,
+                notifiable: Boolean,
+                a: Any?,
+                b: Any?,
+            ) {
+                if (a != b) add(FieldChange(label, notifiable))
             }
-        notificationRepository.saveAll(
-            userIds.map { userId ->
-                Notification(userId = userId, title = "강의 정보 변경", message = message, type = type)
-            },
-        )
-    }
+            diff("교과 구분", true, old.classification, new.classification)
+            diff("학부", true, old.department, new.department)
+            diff("학년", true, old.academicYear, new.academicYear)
+            diff("강의명", true, old.courseTitle, new.courseTitle)
+            diff("학점", true, old.credit, new.credit)
+            diff("교수", true, old.instructor, new.instructor)
+            diff("정원", true, old.quota, new.quota)
+            diff("기타", true, old.freshmanQuota, new.freshmanQuota)
+            diff("비고", true, old.remark, new.remark)
+            diff("교양영역", true, old.category, new.category)
+            diff("구) 교양영역", true, old.categoryPre2025, new.categoryPre2025)
+            diff("강의 시간/장소", true, oldTimes, newTimes)
+            diff("교과 구분", false, old.classificationEn, new.classificationEn)
+            // 수강신청인원은 상태 테이블 담당이므로 diff 대상이 아니다
+            diff("학부", false, old.departmentEn, new.departmentEn)
+            diff("학년", false, old.academicYearEn, new.academicYearEn)
+            diff("강의명", false, old.courseTitleEn, new.courseTitleEn)
+            diff("교수", false, old.instructorEn, new.instructorEn)
+            diff("비고", false, old.remarkEn, new.remarkEn)
+            diff("교양영역", false, old.categoryEn, new.categoryEn)
+        }
 
     private fun SugangLectureRow.toLecture(
         year: Int,
@@ -219,7 +400,6 @@ class SugangSnuSyncService(
         credit = credit,
         quota = quota,
         remark = remark,
-        registrationCount = registrationCount,
         categoryPre2025 = categoryPre2025,
         courseTitleEn = courseTitleEn,
         instructorEn = instructorEn,

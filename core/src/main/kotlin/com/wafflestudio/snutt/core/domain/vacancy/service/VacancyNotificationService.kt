@@ -4,6 +4,8 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
@@ -11,15 +13,22 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+data class VacancyLectureDisplay(
+    val lecture: Lecture,
+    val status: LectureRegistrationStatus?,
+)
+
 @Service
 class VacancyNotificationService(
     private val vacancyNotificationRepository: VacancyNotificationRepository,
     private val lectureRepository: LectureRepository,
+    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val coursebookService: CoursebookService,
 ) {
-    fun getVacancyNotificationLectures(userId: Long): List<Lecture> {
+    fun getVacancyNotificationLectures(userId: Long): List<VacancyLectureDisplay> {
         val lectureIds = vacancyNotificationRepository.findByUserId(userId).map { it.lectureId }
-        return lectureRepository.findAllById(lectureIds)
+        val statuses = lectureRegistrationStatusRepository.findAllById(lectureIds).associateBy { it.lectureId }
+        return lectureRepository.findAllById(lectureIds).map { VacancyLectureDisplay(it, statuses[it.id]) }
     }
 
     fun existsVacancyNotification(
