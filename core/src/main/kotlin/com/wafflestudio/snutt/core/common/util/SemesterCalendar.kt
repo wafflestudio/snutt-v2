@@ -4,7 +4,7 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import java.time.LocalDate
 import java.time.ZoneId
 
-// 학기 날짜 범위 (v1 SemesterServiceImpl 이식). 알림성 기능이 방학 중 발화하지 않도록 게이트로 쓴다
+// 알림성 기능이 방학 중 발화하지 않도록 게이트로 쓴다
 object SemesterCalendar {
     data class YearSemester(
         val year: Int,

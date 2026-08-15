@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.batch.sugangsnu.data.SugangSnuLectureInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
 import org.springframework.beans.factory.annotation.Value
@@ -11,8 +12,25 @@ import org.springframework.util.MultiValueMap
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.json.JsonMapper
 
-// 수강스누 공식 xlsx 다운로드 (v1 SugangSnuRepository 이식).
-// 검색 페이지의 HD102 폼을 그대로 POST로 제출한다. referer는 snu.ac.kr 계열이면 된다.
+data class SugangSnuCoursebookCondition(
+    @param:JsonProperty("currSchyy")
+    val latestYear: Int,
+    @param:JsonProperty("currShtmFg")
+    val semesterFlagPrev: String,
+    @param:JsonProperty("currDetaShtmFg")
+    val semesterFlagNext: String,
+) {
+    val latestSemester: Semester
+        get() =
+            when (semesterFlagPrev + semesterFlagNext) {
+                "U000200001U000300001" -> Semester.SPRING
+                "U000200001U000300002" -> Semester.SUMMER
+                "U000200002U000300001" -> Semester.AUTUMN
+                "U000200002U000300002" -> Semester.WINTER
+                else -> throw IllegalArgumentException("알 수 없는 학기 플래그: $semesterFlagPrev$semesterFlagNext")
+            }
+}
+
 @Component
 class SugangSnuLectureApi(
     @param:Value("\${snutt.sugang.base-url:https://sugang.snu.ac.kr}") baseUrl: String,
@@ -55,7 +73,29 @@ class SugangSnuLectureApi(
         return jsonMapper.readValue(body, SugangSnuLectureInfo::class.java)
     }
 
-    // 검색 결과 페이지 HTML. 빈자리 알림이 실시간 재안인원을 읽는 데 쓴다
+    // 수강스누가 현재 서비스하는 수강편람 학기
+    fun getCoursebookCondition(): SugangSnuCoursebookCondition {
+        val body =
+            restClient
+                .get()
+                .uri { it.path("/sugang/cc/cc100ajax.action").query("openUpDeptCd=&openDeptCd=").build() }
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(String::class.java)
+                ?: throw IllegalStateException("수강스누 수강편람 조건 조회 실패")
+        return jsonMapper.readValue(body, SugangSnuCoursebookCondition::class.java)
+    }
+
+    // 메인 페이지. 수강신청 일정 표를 파싱하는 데 쓴다
+    fun getMainPageHtml(): String =
+        restClient
+            .get()
+            .uri("/sugang/co/co010.action")
+            .accept(MediaType.TEXT_HTML)
+            .retrieve()
+            .body(String::class.java)
+            ?: throw IllegalStateException("수강스누 메인 페이지 조회 실패")
+
     fun getSearchPageHtml(
         year: Int,
         semester: Semester,

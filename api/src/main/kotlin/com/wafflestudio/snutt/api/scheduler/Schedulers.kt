@@ -25,10 +25,6 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
-/**
- * 강의 리마인더: 매분 실행하되 최근 10분 창 안의 발화 예정분을 함께 조회해,
- * 스케줄러가 몇 분 멈춰도 따라잡는다 (v1 TimetableLectureReminderNotifierService 이식)
- */
 @Component
 class ReminderScheduler(
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
@@ -67,7 +63,7 @@ class ReminderScheduler(
     private fun findDueReminders(now: Instant): List<TimetableLectureReminder> {
         val end = Schedule.fromInstant(now)
         val start = end.plusMinutes(-TIME_WINDOW_MINUTES.toInt())
-        // 창 크기 + 1분 버퍼: 직전 발화분 재발송을 막는다 (v1 동일)
+        // 창 크기 + 1분 버퍼: 직전 발화분 재발송 방지
         val lastNotifiedBefore = now.minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
         return if (start.day == end.day) {
             timetableLectureReminderRepository.findDueRemindersInTimeRange(end.day.value, start.minute, end.minute, lastNotifiedBefore)
@@ -86,7 +82,6 @@ class ReminderScheduler(
             timetableLectureRepository.findById(reminder.timetableLectureId).orElse(null) ?: return
         val timetable =
             timetableRepository.findById(timetableLecture.timetableId).orElse(null) ?: return
-        // 지난 학기 시간표의 리마인더는 발화하지 않는다 (v1 동일)
         if (timetable.year != current.year || timetable.semester != current.semester) return
         val courseTitle =
             timetableService
@@ -113,10 +108,6 @@ class ReminderScheduler(
     }
 }
 
-/**
- * 강의 일기장 알림: 월/수/금 19시 (KST). 대표 시간표(강의 3개 이상) 사용자를 표본 추출해
- * 강의 하나를 골라 푸시만 보낸다. 알림함에는 남기지 않는다 (v1 DiaryNotifierService 이식)
- */
 @Component
 class DiaryScheduler(
     private val timetableRepository: TimetableRepository,
