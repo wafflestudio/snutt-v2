@@ -122,6 +122,11 @@ class UserController(
         val newPassword: String,
     )
 
+    data class ChangePasswordResponse(
+        val accessToken: String,
+        val refreshToken: String,
+    )
+
     data class SocialTokenRequest(
         val token: String,
     )
@@ -140,13 +145,14 @@ class UserController(
         return AuthProvidersResponse(user.authProviders)
     }
 
+    // 변경 시 기존 세션이 모두 폐기되므로 새 토큰을 돌려준다
     @PatchMapping("/me/password")
     fun changePassword(
         @CurrentUser user: User,
         @RequestBody body: ChangePasswordRequest,
-    ): AuthProvidersResponse {
-        authService.changePassword(user, body.currentPassword, body.newPassword)
-        return AuthProvidersResponse(user.authProviders)
+    ): ChangePasswordResponse {
+        val tokens = authService.changePassword(user, body.currentPassword, body.newPassword)
+        return ChangePasswordResponse(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
     }
 
     @PostMapping("/me/social/{provider}")

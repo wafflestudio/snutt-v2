@@ -117,6 +117,8 @@ enum class ErrorType(
     EVALUATION_LECTURE_MISMATCH(HttpStatus.CONFLICT, 40915, "같은 과목의 개설이 아닙니다", "같은 과목의 다른 학기로만 옮길 수 있습니다"),
     NOT_MY_EVALUATION(HttpStatus.FORBIDDEN, 40301, "내 강의평이 아닙니다", "내 강의평이 아닙니다"),
     EVALUATION_CONTENT_BLANK(HttpStatus.BAD_REQUEST, 40028, "강의평 내용이 비어 있습니다", "강의평 내용을 입력해 주세요"),
+    EVALUATION_RATING_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, 40029, "평점은 1점부터 5점까지입니다", "평점은 1점부터 5점까지입니다"),
+    EVALUATION_REPORT_CONTENT_BLANK(HttpStatus.BAD_REQUEST, 40030, "신고 내용이 비어 있습니다", "신고 내용을 입력해 주세요"),
 
     DYNAMIC_LINK_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 50001, "링크 생성 실패", "링크 생성에 실패했습니다. 잠시 후 다시 시도해주세요"),
     COURSEBOOK_RECENT_THAN_SUGANGSNU(

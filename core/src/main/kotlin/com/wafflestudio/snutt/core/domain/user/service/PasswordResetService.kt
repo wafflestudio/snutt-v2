@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.mail.MailClient
 import com.wafflestudio.snutt.core.common.mail.MailType
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
+import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -15,7 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
-import kotlin.random.Random
 
 // 비밀번호 초기화: 검증된 이메일로 6자리 코드를 보내고, 코드 확인 후 비밀번호를 교체한다.
 // 코드는 (사용자 id 키, 3분 TTL)로 Redis에 저장한다. 이메일 인증(EmailVerificationService)과 동일한 흐름.
@@ -30,6 +30,7 @@ class PasswordResetService(
 ) {
     companion object {
         private const val RESET_CODE_PREFIX = "reset-password-code:"
+        private const val RESET_ATTEMPT_PREFIX = "reset-password-attempt:"
         private val codeTtl: Duration = Duration.ofMinutes(3)
         private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
     }
@@ -70,8 +71,9 @@ class PasswordResetService(
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
         val key = RESET_CODE_PREFIX + userId
         if (redisTemplate.hasKey(key)) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
-        val code = Random.nextInt(100000, 1000000).toString()
+        val code = VerificationCode.generate()
         redisTemplate.opsForValue().set(key, code, codeTtl)
+        redisTemplate.delete(RESET_ATTEMPT_PREFIX + userId)
         mailClient.sendCodeMail(MailType.PASSWORD_RESET, email.trim(), code)
     }
 
@@ -90,7 +92,17 @@ class PasswordResetService(
         code: String,
     ) {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        val userId = requireNotNull(user.id)
+        checkResetCode(requireNotNull(user.id), code)
+    }
+
+    private fun checkResetCode(
+        userId: Long,
+        code: String,
+    ) {
+        val attemptKey = RESET_ATTEMPT_PREFIX + userId
+        val attempts = redisTemplate.opsForValue().increment(attemptKey) ?: 1L
+        redisTemplate.expire(attemptKey, codeTtl)
+        if (attempts > VerificationCode.MAX_ATTEMPTS) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
         val stored =
             redisTemplate.opsForValue().get(RESET_CODE_PREFIX + userId)
                 ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
@@ -118,13 +130,12 @@ class PasswordResetService(
             userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
-        val key = RESET_CODE_PREFIX + userId
-        val stored = redisTemplate.opsForValue().get(key) ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
-        if (stored != code) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+        checkResetCode(userId, code)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
         userRepository.save(user)
-        redisTemplate.delete(key)
+        redisTemplate.delete(RESET_CODE_PREFIX + userId)
+        redisTemplate.delete(RESET_ATTEMPT_PREFIX + userId)
         userSessionRepository.revokeAllByUserId(userId)
         eventPublisher.publishEvent(UserCredentialChangedEvent(userId))
     }

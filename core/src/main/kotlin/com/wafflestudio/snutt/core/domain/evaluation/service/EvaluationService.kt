@@ -72,6 +72,7 @@ class EvaluationService(
         request: EvaluationWriteRequest,
     ): EvaluationDisplay {
         val (courseId, year, semester) = resolveLectureAnchor(lectureExternalId)
+        validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         if (evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(courseId, year, semester, userId)) {
             throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
         }
@@ -165,6 +166,7 @@ class EvaluationService(
             evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         if (evaluation.userId != userId) throw SnuttException(ErrorType.NOT_MY_EVALUATION)
+        validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
 
         // 내용이 실제로 바뀌면 공감을 초기화한다 (v1 동일)
         if (isUpdatingAny(evaluation, request)) {
@@ -221,6 +223,7 @@ class EvaluationService(
         evaluationId: Long,
         request: EvaluationReportRequest,
     ): EvaluationReport {
+        if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_REPORT_CONTENT_BLANK)
         val evaluation =
             evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
@@ -289,6 +292,13 @@ class EvaluationService(
             lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
         return Triple(courseId, lecture.year, lecture.semester)
+    }
+
+    // EV의 @Range(min = 1, max = 5) 이식
+    private fun validateRatings(vararg ratings: Double?) {
+        if (ratings.filterNotNull().any { it < 1.0 || it > 5.0 }) {
+            throw SnuttException(ErrorType.EVALUATION_RATING_OUT_OF_RANGE)
+        }
     }
 
     private fun isUpdatingAny(

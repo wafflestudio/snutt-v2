@@ -212,18 +212,21 @@ class AuthService(
         publishCredentialChanged(user)
     }
 
+    /** 비밀번호 변경은 모든 세션을 폐기하고 새 토큰을 발급한다 (v1은 credentialHash 교체로 같은 효과) */
     @Transactional
     fun changePassword(
         user: User,
         currentPassword: String,
         newPassword: String,
-    ) {
+    ): TokenPair {
         if (user.localPw == null) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
         userRepository.save(user)
+        userSessionRepository.revokeAllByUserId(user.id!!)
         publishCredentialChanged(user)
+        return issueTokens(user)
     }
 
     private fun fetchSocialUser(
@@ -245,7 +248,13 @@ class AuthService(
             AuthProvider.KAKAO -> userRepository.findByKakaoSubAndActiveTrue(response.socialId)
             AuthProvider.APPLE ->
                 userRepository.findByAppleSubAndActiveTrue(response.socialId)
-                    ?: response.transferInfo?.let { userRepository.findByAppleTransferSubAndActiveTrue(it) }
+                    // 개발사 계정 이전 후 토큰은 새 sub를 담으므로 transfer_sub로 찾으면 새 sub를 반영한다 (v1 transferAppleCredential)
+                    ?: response.transferInfo?.let { transferSub ->
+                        userRepository.findByAppleTransferSubAndActiveTrue(transferSub)?.apply {
+                            appleSub = response.socialId
+                            appleEmail = response.email
+                        }
+                    }
             AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
         }
 

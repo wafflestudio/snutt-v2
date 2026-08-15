@@ -115,6 +115,10 @@ class DiaryService(
         val lecture =
             lectureRepository.findByExternalId(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
+        val questionIds = request.questionAnswers.map { it.questionId }.distinct()
+        if (diaryQuestionRepository.countByIdIn(questionIds) != questionIds.size.toLong()) {
+            throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
+        }
         val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).mapNotNull { it.id }
         diarySubmissionRepository.save(
             DiarySubmission(
