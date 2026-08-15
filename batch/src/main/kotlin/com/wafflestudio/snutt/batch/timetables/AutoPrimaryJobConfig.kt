@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
+import java.time.Instant
 
 // (year, semester)에 대표 시간표가 없는 사용자에게 가장 최근 시간표를 지정한다
 @Configuration
@@ -53,7 +54,7 @@ class AutoPrimaryJobConfig(
                         timetables
                             .filter { it.userId !in userIdsWithPrimary }
                             .groupBy { it.userId }
-                            .map { (_, userTimetables) -> userTimetables.maxBy { it.updatedAt ?: java.time.Instant.EPOCH } }
+                            .map { (_, userTimetables) -> userTimetables.maxBy { it.updatedAt ?: Instant.EPOCH } }
                     assigned.forEach { it.isPrimary = true }
                     log.info("대표 시간표 자동 지정: {}명", assigned.size)
                     RepeatStatus.FINISHED

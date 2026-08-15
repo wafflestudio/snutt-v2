@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.batch
 
 import org.springframework.batch.core.BatchStatus
+import org.springframework.batch.core.configuration.JobRegistry
+import org.springframework.batch.core.configuration.support.MapJobRegistry
 import org.springframework.batch.core.job.parameters.JobParametersBuilder
 import org.springframework.batch.core.launch.JobLauncher
 import org.springframework.beans.factory.annotation.Value
@@ -17,15 +19,13 @@ import kotlin.system.exitProcess
 @Configuration
 class BatchJobConfig {
     @Bean
-    fun jobRegistry(): org.springframework.batch.core.configuration.JobRegistry =
-        org.springframework.batch.core.configuration.support
-            .MapJobRegistry()
+    fun jobRegistry(): JobRegistry = MapJobRegistry()
 }
 
 @Component
 class JobRunner(
     private val jobLauncher: JobLauncher,
-    private val jobRegistry: org.springframework.batch.core.configuration.JobRegistry,
+    private val jobRegistry: JobRegistry,
     @Value("\${job.name:}") private val jobName: String,
 ) : ApplicationRunner {
     override fun run(args: ApplicationArguments) {

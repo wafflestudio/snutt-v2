@@ -33,12 +33,16 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.configuration.JobRegistry
+import org.springframework.batch.core.job.parameters.JobParameters
+import org.springframework.batch.core.job.parameters.JobParametersBuilder
 import org.springframework.batch.core.launch.JobLauncher
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 /**
  * 빈자리 알림 잡: 크롤링한 실시간 재안인원이 저장된 만석 인원보다 줄어들면
@@ -107,7 +111,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         if (!coursebookRepository.existsByYearAndSemester(2026, Semester.AUTUMN)) {
             coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         }
-        val now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
+        val now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"))
         val currentMinute = now.hour * 60 + now.minute
         semesterRegistrationPeriodService.upsert(
             2026,
@@ -158,17 +162,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)))
 
-        val status =
-            jobLauncher
-                .run(
-                    jobRegistry.getJob("vacancyNotificationJob"),
-                    org.springframework.batch.core.job.parameters
-                        .JobParametersBuilder()
-                        .addLong(
-                            "run.id",
-                            System.currentTimeMillis(),
-                        ).toJobParameters(),
-                ).status
+        val status = jobLauncher.run(jobRegistry.getJob("vacancyNotificationJob"), runIdParameters()).status
         assertEquals(BatchStatus.COMPLETED, status)
 
         // FCM 발송 + 재안인원 반영 + 알림함 저장
@@ -219,15 +213,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)))
 
-        jobLauncher.run(
-            jobRegistry.getJob("vacancyNotificationJob"),
-            org.springframework.batch.core.job.parameters
-                .JobParametersBuilder()
-                .addLong(
-                    "run.id",
-                    System.currentTimeMillis(),
-                ).toJobParameters(),
-        )
+        jobLauncher.run(jobRegistry.getJob("vacancyNotificationJob"), runIdParameters())
 
         // 푸시 설정은 FCM만 거르고 알림함에는 남는다 (v1 동일)
         assertTrue(recordingPushClient.sentMessages.isEmpty())
@@ -236,4 +222,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @Autowired
     lateinit var pushPreferenceRepository: PushPreferenceRepository
+
+    private fun runIdParameters(): JobParameters = JobParametersBuilder().addLong("run.id", System.currentTimeMillis()).toJobParameters()
 }

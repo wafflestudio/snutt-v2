@@ -13,6 +13,7 @@ import java.sql.Timestamp
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.util.Date
 
 interface MigrationStep {
     val name: String
@@ -210,7 +211,7 @@ fun Document.oids(key: String): List<String> =
 
 fun Document.instant(key: String): Instant? =
     when (val value = get(key)) {
-        is java.util.Date -> value.toInstant()
+        is Date -> value.toInstant()
         is Number -> Instant.ofEpochMilli(value.toLong())
         is String -> runCatching { Instant.parse(value) }.getOrNull()
         else -> null

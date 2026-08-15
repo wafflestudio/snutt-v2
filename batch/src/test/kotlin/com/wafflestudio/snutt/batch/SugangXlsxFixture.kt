@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.batch
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.springframework.core.io.ByteArrayResource
+import java.io.ByteArrayOutputStream
 
 // 수강스누 xlsx 픽스처 빌더 (헤더는 3번째 행, 데이터는 4번째 행부터)
 object SugangXlsxFixture {
@@ -60,11 +61,7 @@ object SugangXlsxFixture {
         val headerRow = sheet.createRow(2)
         HEADERS.forEachIndexed { index, header -> headerRow.createCell(index).setCellValue(header) }
         rows.forEachIndexed { i, row -> fillRow(sheet.createRow(3 + i), row) }
-        val bytes =
-            java.io
-                .ByteArrayOutputStream()
-                .also { workbook.write(it) }
-                .toByteArray()
+        val bytes = ByteArrayOutputStream().also { workbook.write(it) }.toByteArray()
         workbook.close()
         return ByteArrayResource(bytes)
     }
