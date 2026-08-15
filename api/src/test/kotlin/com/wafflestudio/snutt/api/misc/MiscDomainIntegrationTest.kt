@@ -4,13 +4,19 @@ import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.clientconfig.repository.ClientConfigRepository
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
+import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+import com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
+import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -50,28 +56,28 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var userRepository: UserRepository
 
     @Autowired
-    lateinit var friendRepository: com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
+    lateinit var friendRepository: FriendRepository
 
     @Autowired
-    lateinit var vacancyNotificationRepository: com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
+    lateinit var vacancyNotificationRepository: VacancyNotificationRepository
 
     @Autowired
-    lateinit var notificationRepository: com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+    lateinit var notificationRepository: NotificationRepository
 
     @Autowired
-    lateinit var popupRepository: com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
+    lateinit var popupRepository: PopupRepository
 
     @Autowired
-    lateinit var configRepository: com.wafflestudio.snutt.core.domain.clientconfig.repository.ClientConfigRepository
+    lateinit var configRepository: ClientConfigRepository
 
     @Autowired
-    lateinit var pushPreferenceRepository: com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
+    lateinit var pushPreferenceRepository: PushPreferenceRepository
 
     @LocalServerPort
     var port = 0
@@ -91,12 +97,19 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "4190.111",
+                    courseNumber = "E43.101",
                     lectureNumber = "001",
-                    courseTitle = "빈자리알림강의",
-                    instructor = "교수",
+                    courseTitle = "건강과 삶",
+                    instructor = "김부석",
+                    department = "체육교육과",
+                    academicYear = "1학년",
+                    category = "예술과 체육",
+                    categoryPre2025 = "체육",
+                    classification = "교양",
+                    credit = 1,
+                    quota = 30,
                 ),
-                listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
+                listOf(ClassPlaceAndTime(DayOfWeek.THURSDAY, "71-1-214", 540, 590)),
             ).externalId
 
         userAToken = register("miscuserA", "misca@snu.ac.kr")
@@ -251,7 +264,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         val lectures = asMap(get("/v2/vacancy-notifications/lectures", userAToken))
         val lectureList = lectures["lectures"] as List<*>
         assertEquals(1, lectureList.size)
-        assertEquals("빈자리알림강의", (lectureList[0] as Map<*, *>)["courseTitle"])
+        assertEquals("건강과 삶", (lectureList[0] as Map<*, *>)["courseTitle"])
 
         val remove = delete("/v2/vacancy-notifications/lectures/$lectureId", userAToken)
         assertEquals(200, remove.statusCode.value())

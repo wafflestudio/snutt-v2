@@ -15,6 +15,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureR
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -294,7 +295,7 @@ class TimetableThemeService(
                 .map { it.key }
                 .random() to null
         } else {
-            val theme = timetableThemeRepository.findById(themeId).orElse(null) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+            val theme = timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
             val colorToCount = theme.colorList.associateWith { color -> usedColors.count { it == color } }
             val minCount = colorToCount.minOf { it.value }
             0 to
@@ -314,11 +315,11 @@ class TimetableThemeService(
         timetableThemeRepository.findByExternalIdAndUserId(themeExternalId, userId)?.id
             ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
-    fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findById(themeId).orElse(null)?.colorList
+    fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findByIdOrNull(themeId)?.colorList
 
     fun themeColorCount(themeId: Long): Int? = themeColors(themeId)?.size
 
-    fun findThemeExternalId(themeId: Long): String? = timetableThemeRepository.findById(themeId).orElse(null)?.externalId
+    fun findThemeExternalId(themeId: Long): String? = timetableThemeRepository.findByIdOrNull(themeId)?.externalId
 
     private fun getOwnedTheme(
         userId: Long,

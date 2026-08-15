@@ -1,10 +1,9 @@
 package com.wafflestudio.snutt.core.domain.popup.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -30,11 +29,7 @@ class PopupService(
                 linkUrl = request.linkUrl,
                 hiddenDays = request.hiddenDays,
             )
-        return try {
-            popupRepository.save(popup)
-        } catch (e: DataIntegrityViolationException) {
-            throw SnuttException(ErrorType.DUPLICATE_POPUP_KEY)
-        }
+        return conflictAs(ErrorType.DUPLICATE_POPUP_KEY) { popupRepository.save(popup) }
     }
 
     @Transactional

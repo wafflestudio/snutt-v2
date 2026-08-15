@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.lecture.repository
 
+import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
@@ -11,6 +12,6 @@ interface LectureRegistrationStatusRepository : JpaRepository<LectureRegistratio
     )
     fun findByYearAndSemester(
         year: Int,
-        semester: com.wafflestudio.snutt.core.common.enums.Semester,
+        semester: Semester,
     ): List<LectureRegistrationStatus>
 }

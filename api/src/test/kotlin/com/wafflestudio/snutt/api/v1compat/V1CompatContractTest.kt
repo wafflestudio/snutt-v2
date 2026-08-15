@@ -6,11 +6,13 @@ import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -48,13 +50,13 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var courseRepository: CourseRepository
 
     @Autowired
-    lateinit var timetableRepository: com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+    lateinit var timetableRepository: TimetableRepository
 
     @LocalServerPort
     var port = 0
@@ -68,11 +70,12 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         val course =
             courseRepository.save(
-                com.wafflestudio.snutt.core.domain.evaluation.model.Course(
-                    courseNumber = "4190.777",
-                    instructor = "호환교수",
-                    title = "호환강의",
-                    classification = "전선",
+                Course(
+                    courseNumber = "F27.301",
+                    instructor = "황현동",
+                    title = "고급한국어",
+                    department = "국어국문학과",
+                    classification = "교양",
                 ),
             )
         lectureId =
@@ -82,13 +85,22 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "4190.777",
+                    courseNumber = "F27.301",
                     lectureNumber = "001",
-                    courseTitle = "호환강의",
-                    instructor = "호환교수",
+                    courseTitle = "고급한국어",
+                    instructor = "황현동",
+                    department = "국어국문학과",
+                    academicYear = "1학년",
+                    category = "외국어",
+                    classification = "교양",
+                    credit = 3,
+                    quota = 20,
                     courseId = course.id,
                 ),
-                listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "302-101", 570, 660)),
+                listOf(
+                    ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645),
+                    ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "3-106", 570, 645),
+                ),
             ).externalId
 
         // v1 회원가입으로 credentialHash 토큰 발급 (모든 테스트가 공유)
@@ -208,7 +220,7 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val lectures = body["lectures"] as List<*>
         assertEquals(1, lectures.size)
         val lecture = lectures[0] as Map<*, *>
-        assertEquals("호환강의", lecture["courseTitle"])
+        assertEquals("고급한국어", lecture["courseTitle"])
         assertEquals(lectureId, lecture["lectureId"])
         // 시간표 응답의 classPlaceAndTimes는 단순 DTO다 (start_time/len은 검색 전용)
         val classTimes = lecture["classPlaceAndTimes"] as List<*>
@@ -221,18 +233,19 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val search =
             post(
                 "/v1/search_query",
-                """{"year":2026,"semester":3,"title":"호환"}""",
+                """{"year":2026,"semester":3,"title":"한국어"}""",
             )
         assertEquals(200, search.statusCode.value())
         val lectures = asList(search)
         assertTrue(lectures.isNotEmpty())
         val lecture = lectures[0]
-        assertEquals("호환강의", lecture["course_title"])
+        assertEquals("고급한국어", lecture["course_title"])
         assertTrue(lecture.containsKey("_id"))
         assertTrue(lecture.containsKey("class_time_json"))
         // 검색 LectureDto는 확장 시각 필드를 가진다
         val classTimes = lecture["class_time_json"] as List<*>
         assertEquals("09:30", (classTimes[0] as Map<*, *>)["start_time"])
+        // len은 교시 격자 길이: 09:30(1.5교시)~10:45(30분 올림→3교시) → 1.5
         assertEquals(1.5, (classTimes[0] as Map<*, *>)["len"])
     }
 

@@ -1,7 +1,9 @@
 package com.wafflestudio.snutt.core.domain.evaluation.service
 
+import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
@@ -16,8 +18,8 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationLikeRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationReportRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -197,11 +199,7 @@ class EvaluationService(
         if (year == evaluation.year && semester == evaluation.semester) return
         evaluation.year = year
         evaluation.semester = semester
-        try {
-            evaluationRepository.flush()
-        } catch (e: DataIntegrityViolationException) {
-            throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
-        }
+        conflictAs(ErrorType.DUPLICATE_EVALUATION) { evaluationRepository.flush() }
     }
 
     @Transactional
@@ -247,10 +245,8 @@ class EvaluationService(
         val evaluation =
             evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
-        try {
+        conflictAs(ErrorType.DUPLICATE_EVALUATION_LIKE) {
             evaluationLikeRepository.save(EvaluationLike(evaluationId = evaluationId, userId = userId))
-        } catch (e: DataIntegrityViolationException) {
-            throw SnuttException(ErrorType.DUPLICATE_EVALUATION_LIKE)
         }
         evaluation.likeCount++
     }
@@ -273,7 +269,7 @@ class EvaluationService(
         evaluationRepository.findSummariesByLectureIds(lectureIds)
 
     data class LectureEvaluationSummaryDisplay(
-        val lecture: com.wafflestudio.snutt.core.domain.lecture.model.Lecture,
+        val lecture: Lecture,
         val averages: EvaluationAverages?,
     )
 
@@ -287,11 +283,17 @@ class EvaluationService(
         )
     }
 
-    private fun resolveLectureAnchor(lectureExternalId: String): Triple<Long, Int, com.wafflestudio.snutt.core.common.enums.Semester> {
+    private data class LectureAnchor(
+        val courseId: Long,
+        val year: Int,
+        val semester: Semester,
+    )
+
+    private fun resolveLectureAnchor(lectureExternalId: String): LectureAnchor {
         val lecture =
             lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        return Triple(courseId, lecture.year, lecture.semester)
+        return LectureAnchor(courseId, lecture.year, lecture.semester)
     }
 
     // EV의 @Range(min = 1, max = 5) 이식

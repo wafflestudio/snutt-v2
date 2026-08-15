@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v2.timetable
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -54,7 +55,7 @@ class TimetableLectureReminderController(
             .toResponse()
 }
 
-private fun com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderDisplay.toResponse() =
+private fun TimetableLectureReminderDisplay.toResponse() =
     TimetableLectureReminderResponse(
         timetableLectureId = timetableLectureId,
         courseTitle = courseTitle,

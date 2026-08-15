@@ -2,9 +2,13 @@ package com.wafflestudio.snutt.api.evaluation
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
+import com.wafflestudio.snutt.core.domain.evaluation.service.CourseAggregateUpdater
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
@@ -47,7 +51,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
+    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var evaluationRepository: EvaluationRepository
@@ -56,7 +60,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     lateinit var userRepository: UserRepository
 
     @Autowired
-    lateinit var courseAggregateUpdater: com.wafflestudio.snutt.core.domain.evaluation.service.CourseAggregateUpdater
+    lateinit var courseAggregateUpdater: CourseAggregateUpdater
 
     @LocalServerPort
     var port = 0
@@ -72,10 +76,11 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         // 강의평 대상 강의 (course 링크 필요)
         val course =
             courseRepository.save(
-                com.wafflestudio.snutt.core.domain.evaluation.model.Course(
-                    courseNumber = "4190.999",
-                    instructor = "평가교수",
-                    title = "강의평강의",
+                Course(
+                    courseNumber = "M1522.004700",
+                    instructor = "Chenglin Fan",
+                    title = "계산이론연구 (Theoretical Foundation of AI)",
+                    department = "컴퓨터공학부",
                     classification = "전선",
                 ),
             )
@@ -85,27 +90,50 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 lectureClassTimeRepository,
                 Lecture(
                     year = 2026,
-                    semester = com.wafflestudio.snutt.core.common.enums.Semester.AUTUMN,
-                    courseNumber = "4190.999",
+                    semester = Semester.AUTUMN,
+                    courseNumber = "M1522.004700",
                     lectureNumber = "001",
-                    courseTitle = "강의평강의",
-                    instructor = "평가교수",
+                    courseTitle = "계산이론연구 (Theoretical Foundation of AI)",
+                    instructor = "Chenglin Fan",
+                    department = "컴퓨터공학부",
+                    academicYear = "석박사통합",
+                    classification = "전선",
+                    credit = 3,
+                    quota = 10,
                     courseId = course.id,
                 ),
-                listOf(ClassPlaceAndTime(com.wafflestudio.snutt.core.common.enums.DayOfWeek.MONDAY, "302-101", 570, 660)),
+                listOf(
+                    ClassPlaceAndTime(DayOfWeek.MONDAY, "302-107", 930, 1005),
+                    ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "302-107", 930, 1005),
+                ),
             )
         lectureId = lecture.externalId
+        val cursorCourse =
+            courseRepository.save(
+                Course(
+                    courseNumber = "2114.408A",
+                    instructor = "임하진",
+                    title = "HCI이론 및 실습",
+                    department = "언론정보학과(연합전공 정보문화학)",
+                    classification = "전필",
+                ),
+            )
         cursorLectureId =
             lectureRepository
                 .save(
                     Lecture(
                         year = 2026,
-                        semester = com.wafflestudio.snutt.core.common.enums.Semester.AUTUMN,
-                        courseNumber = "4190.998",
+                        semester = Semester.AUTUMN,
+                        courseNumber = "2114.408A",
                         lectureNumber = "001",
-                        courseTitle = "커서테스트강의",
-                        instructor = "평가교수2",
-                        courseId = course.id,
+                        courseTitle = "HCI이론 및 실습",
+                        instructor = "임하진",
+                        department = "언론정보학과(연합전공 정보문화학)",
+                        academicYear = "4학년",
+                        classification = "전필",
+                        credit = 3,
+                        quota = 25,
+                        courseId = cursorCourse.id,
                     ),
                 ).externalId
 
@@ -223,7 +251,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, response.statusCode.value())
         assertEquals(4.5, asMap(response)["rating"])
 
-        val course = courseRepository.findAll().first { it.courseNumber == "4190.999" }
+        val course = courseRepository.findAll().first { it.courseNumber == "M1522.004700" }
         assertEquals(1, course.evalCount)
         assertEquals(4.5, course.avgRating)
     }
@@ -275,7 +303,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, update.statusCode.value())
 
-        val course = courseRepository.findAll().first { it.courseNumber == "4190.999" }
+        val course = courseRepository.findAll().first { it.courseNumber == "M1522.004700" }
         assertEquals(2, course.evalCount)
         assertEquals(2.0, course.avgRating)
         assertEquals(0, (asMap(get("/v2/evaluations/$otherId", verifiedToken))["likeCount"] as Int).toLong())
@@ -306,7 +334,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         val delete = delete("/v2/evaluations/$evaluationId", verifiedToken)
         assertEquals(200, delete.statusCode.value())
 
-        val course = courseRepository.findAll().first { it.courseNumber == "4190.999" }
+        val course = courseRepository.findAll().first { it.courseNumber == "M1522.004700" }
         assertEquals(0, course.evalCount)
         assertEquals(null, course.avgRating)
     }
@@ -325,14 +353,14 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     ),
                 )
             }
-        val cursorCourse = courseRepository.findAll().first { it.courseNumber == "4190.999" }
+        val cursorCourse = courseRepository.findAll().first { it.courseNumber == "2114.408A" }
         users.forEachIndexed { i, user ->
             evaluationRepository.save(
                 Evaluation(
                     courseId = cursorCourse.id!!,
                     userId = user.id,
                     year = 2026,
-                    semester = com.wafflestudio.snutt.core.common.enums.Semester.AUTUMN,
+                    semester = Semester.AUTUMN,
                     content = "커서강의평${i + 1}",
                     rating = 4.0,
                 ),
@@ -365,16 +393,31 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     ),
                 )
             }
-        val course = courseRepository.findAll().first { it.courseNumber == "4190.999" }
+        val course =
+            courseRepository.save(
+                Course(
+                    courseNumber = "F31.113",
+                    instructor = "안명숙",
+                    title = "경영학을 위한 수학",
+                    department = "수리과학부",
+                    classification = "교양",
+                ),
+            )
         val lecture =
             lectureRepository.save(
                 Lecture(
                     year = 2026,
-                    semester = com.wafflestudio.snutt.core.common.enums.Semester.AUTUMN,
-                    courseNumber = "4190.997",
+                    semester = Semester.AUTUMN,
+                    courseNumber = "F31.113",
                     lectureNumber = "001",
-                    courseTitle = "프로퍼티강의",
-                    instructor = "평가교수3",
+                    courseTitle = "경영학을 위한 수학",
+                    instructor = "안명숙",
+                    department = "수리과학부",
+                    academicYear = "1학년",
+                    category = "수학과학컴퓨팅",
+                    classification = "교양",
+                    credit = 3,
+                    quota = 50,
                     courseId = course.id,
                 ),
             )
@@ -384,7 +427,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseId = course.id!!,
                     userId = user.id,
                     year = 2026,
-                    semester = com.wafflestudio.snutt.core.common.enums.Semester.AUTUMN,
+                    semester = Semester.AUTUMN,
                     content = "프로퍼티강의평",
                     rating = rating,
                 ),

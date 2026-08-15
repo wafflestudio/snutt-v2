@@ -14,6 +14,7 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireDispla
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.validation.constraints.NotBlank
@@ -58,7 +59,7 @@ data class DiaryTargetLectureResponse(
     val courseTitle: String,
     val instructor: String?,
     val credit: Int?,
-    val classPlaceAndTime: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
+    val classPlaceAndTime: List<ClassPlaceAndTime>,
 )
 
 data class DiaryDailyClassTypeResponse(

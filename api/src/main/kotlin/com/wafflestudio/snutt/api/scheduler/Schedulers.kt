@@ -16,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -79,9 +80,9 @@ class ReminderScheduler(
         current: SemesterCalendar.YearSemester,
     ) {
         val timetableLecture =
-            timetableLectureRepository.findById(reminder.timetableLectureId).orElse(null) ?: return
+            timetableLectureRepository.findByIdOrNull(reminder.timetableLectureId) ?: return
         val timetable =
-            timetableRepository.findById(timetableLecture.timetableId).orElse(null) ?: return
+            timetableRepository.findByIdOrNull(timetableLecture.timetableId) ?: return
         if (timetable.year != current.year || timetable.semester != current.semester) return
         val courseTitle =
             timetableService
@@ -144,7 +145,7 @@ class DiaryScheduler(
                     val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.lectureId != null }
                     if (lectures.size <= 2) return@mapNotNull null
                     val target = lectures.random()
-                    val lecture = lectureRepository.findById(target.lectureId!!).orElse(null) ?: return@mapNotNull null
+                    val lecture = lectureRepository.findByIdOrNull(target.lectureId!!) ?: return@mapNotNull null
                     timetable.userId to
                         TargetedPush(
                             title = "이번주 강의일기를 작성해보세요.",

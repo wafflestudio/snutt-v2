@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.diary.service
 
+import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
@@ -80,7 +81,7 @@ class DiaryService(
     fun getDiaryTargetLecture(
         userId: Long,
         year: Int,
-        semester: com.wafflestudio.snutt.core.common.enums.Semester,
+        semester: Semester,
         lectureIdsToExclude: List<Long>,
     ): TimetableLectureDisplay? {
         val timetable =

@@ -80,8 +80,8 @@ data class ClassPlaceAndTimeResponse(
 )
 
 private fun Lecture.toResponse(
-    classTimes: List<com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime>,
-    language: com.wafflestudio.snutt.core.common.client.Language,
+    classTimes: List<ClassPlaceAndTime>,
+    language: Language,
     evSummary: LectureEvSummaryResponse? = null,
 ) = LectureResponse(
     id = externalId,

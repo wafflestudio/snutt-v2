@@ -34,6 +34,7 @@ object SugangXlsxFixture {
             "개설상태",
         )
 
+    // 기본값은 실제 2026-2학기 개설 강좌(400.320-002 공학연구의 실습 1)의 값
     data class RowData(
         val classification: String = "전선",
         val department: String = "컴퓨터공학부",
@@ -42,11 +43,11 @@ object SugangXlsxFixture {
         val lectureNumber: String,
         val courseTitle: String,
         val subtitle: String = "",
-        val credit: Int = 3,
-        val classTime: String = "월(09:30~10:45)",
-        val place: String = "302-101",
-        val instructor: String = "김컴퓨터",
-        val quota: Int = 40,
+        val credit: Int = 1,
+        val classTime: String = "금(19:00~20:50)",
+        val place: String = "302-310-2",
+        val instructor: String = "이제희",
+        val quota: Int = 20,
         val registrationCount: Int = 10,
         val remark: String = "",
     )

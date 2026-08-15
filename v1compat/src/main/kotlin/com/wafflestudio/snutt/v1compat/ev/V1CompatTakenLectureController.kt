@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
+import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
@@ -49,7 +51,7 @@ class V1CompatTakenLectureController(
 @RestController
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatCourseSearchController(
-    private val courseSearchService: com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService,
+    private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
 ) {
     @GetMapping("/tags/search")
@@ -89,7 +91,7 @@ class V1CompatCourseSearchController(
     }
 }
 
-private fun com.wafflestudio.snutt.core.domain.evaluation.model.Course.toLegacyCourse(): Map<String, Any?> =
+private fun Course.toLegacyCourse(): Map<String, Any?> =
     linkedMapOf(
         "id" to id,
         "title" to title,

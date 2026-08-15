@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.lecture.dto
 
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 
@@ -27,7 +28,7 @@ data class SearchTime(
 data class LectureSearchCriteria(
     val year: Int,
     val semester: Semester,
-    val language: com.wafflestudio.snutt.core.common.client.Language = com.wafflestudio.snutt.core.common.client.Language.KO,
+    val language: Language = Language.KO,
     val query: String? = null,
     val classification: List<String>? = null,
     val credit: List<Int>? = null,

@@ -6,14 +6,20 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
+import com.wafflestudio.snutt.core.domain.device.model.UserDevice
+import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreference
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
+import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationPhase
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationTimeSlot
+import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
@@ -79,14 +85,14 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     lateinit var recordingPushClient: RecordingPushClient
 
     @Autowired
-    lateinit var userDeviceRepository: com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
+    lateinit var userDeviceRepository: UserDeviceRepository
 
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 
     @Autowired
     lateinit var semesterRegistrationPeriodService:
-        com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
+        SemesterRegistrationPeriodService
 
     @BeforeEach
     fun cleanTables() {
@@ -127,32 +133,30 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     localId = "vacancyuser",
                 ),
             )
-        userDeviceRepository.save(
-            com.wafflestudio.snutt.core.domain.device.model.UserDevice(
-                user = user,
-                osType = "ios",
-                fcmRegistrationId = "fcm-token-1",
-            ),
-        )
+        userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-1"))
         val lecture =
             lectureRepository.save(
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "4190.111",
+                    courseNumber = "2114.408A",
                     lectureNumber = "001",
-                    courseTitle = "만석강의",
-                    instructor = "교수",
-                    quota = 40,
+                    courseTitle = "HCI이론 및 실습",
+                    instructor = "임하진",
+                    department = "언론정보학과(연합전공 정보문화학)",
+                    academicYear = "4학년",
+                    classification = "전필",
+                    credit = 3,
+                    quota = 25,
                 ),
             )
         lectureRegistrationStatusRepository.save(
-            LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 40, wasFull = true),
+            LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 25, wasFull = true),
         )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
-            .thenReturn(listOf(RegistrationStatus("4190.111", "001", registrationCount = 39, wasFull = true)))
+            .thenReturn(listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)))
 
         val status =
             jobLauncher
@@ -171,7 +175,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-token-1", recordingPushClient.sentMessages[0].fcmRegistrationId)
         assertTrue(recordingPushClient.sentMessages[0].body.contains("빈자리"))
-        assertEquals(39, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
+        assertEquals(24, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
         assertEquals(1, notificationRepository.findAll().size)
     }
 
@@ -186,39 +190,34 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     localId = "vacancyoff",
                 ),
             )
-        userDeviceRepository.save(
-            com.wafflestudio.snutt.core.domain.device.model.UserDevice(
-                user = user,
-                osType = "ios",
-                fcmRegistrationId = "fcm-token-2",
-            ),
-        )
+        userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-2"))
         pushPreferenceRepository.save(
-            com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreference(
-                user = user,
-                type = com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType.VACANCY_NOTIFICATION,
-                isEnabled = false,
-            ),
+            PushPreference(user = user, type = PushPreferenceType.VACANCY_NOTIFICATION, isEnabled = false),
         )
         val lecture =
             lectureRepository.save(
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "4190.112",
+                    courseNumber = "F31.113",
                     lectureNumber = "001",
-                    courseTitle = "만석강의2",
-                    instructor = "교수",
-                    quota = 40,
+                    courseTitle = "경영학을 위한 수학",
+                    instructor = "안명숙",
+                    department = "수리과학부",
+                    academicYear = "1학년",
+                    category = "수학과학컴퓨팅",
+                    classification = "교양",
+                    credit = 3,
+                    quota = 50,
                 ),
             )
         lectureRegistrationStatusRepository.save(
-            LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 40, wasFull = true),
+            LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 50, wasFull = true),
         )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
-            .thenReturn(listOf(RegistrationStatus("4190.112", "001", registrationCount = 39, wasFull = true)))
+            .thenReturn(listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)))
 
         jobLauncher.run(
             jobRegistry.getJob("vacancyNotificationJob"),
@@ -236,5 +235,5 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Autowired
-    lateinit var pushPreferenceRepository: com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
+    lateinit var pushPreferenceRepository: PushPreferenceRepository
 }

@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.friend.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
@@ -9,7 +10,6 @@ import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -71,10 +71,8 @@ class FriendService(
         if (friendRepository.findByUserPair(fromUserId, toUserId) != null) {
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
-        try {
+        conflictAs(ErrorType.DUPLICATE_FRIEND) {
             friendRepository.save(Friend(fromUserId = fromUserId, toUserId = toUserId))
-        } catch (e: DataIntegrityViolationException) {
-            throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
         val fromUser = userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(
@@ -162,16 +160,8 @@ class FriendService(
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
         val friend =
-            try {
-                friendRepository.save(
-                    Friend(
-                        fromUserId = fromUserId,
-                        toUserId = userId,
-                        isAccepted = true,
-                    ),
-                )
-            } catch (e: DataIntegrityViolationException) {
-                throw SnuttException(ErrorType.DUPLICATE_FRIEND)
+            conflictAs(ErrorType.DUPLICATE_FRIEND) {
+                friendRepository.save(Friend(fromUserId = fromUserId, toUserId = userId, isAccepted = true))
             }
         val toUser = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(

@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.theme.model
 
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -42,4 +43,4 @@ class PublishedTheme(
     var authorAnonymous: Boolean = false,
     @Column(name = "download_count", nullable = false)
     var downloadCount: Long = 0,
-) : com.wafflestudio.snutt.core.common.model.BaseEntity()
+) : BaseEntity()

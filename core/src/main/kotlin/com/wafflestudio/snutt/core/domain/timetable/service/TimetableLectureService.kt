@@ -12,6 +12,8 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -49,7 +51,7 @@ data class TimetableLectureModifyRequest(
 @Service
 class TimetableLectureService(
     private val timetableService: TimetableService,
-    private val timetableRepository: com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository,
+    private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
     private val lectureService: LectureService,
@@ -166,11 +168,8 @@ class TimetableLectureService(
         val timetable = timetableService.getTimetable(userId, timetableExternalId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
         if (timetableLecture.lectureId == null) throw SnuttException(ErrorType.CANNOT_RESET_CUSTOM_LECTURE)
-        val lectureId = timetableLecture.lectureId
         val lecture =
-            lectureRepository
-                .findById(lectureId!!)
-                .orElse(null) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+            lectureRepository.findByIdOrNull(timetableLecture.lectureId!!) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
         resolveTimeConflict(timetable, classTimes, isForced, timetableLectureExternalId)

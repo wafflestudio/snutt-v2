@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
@@ -22,7 +23,7 @@ class TimetableService(
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
-    private val lectureService: com.wafflestudio.snutt.core.domain.lecture.service.LectureService,
+    private val lectureService: LectureService,
     private val coursebookService: CoursebookService,
     private val timetableThemeService: TimetableThemeService,
 ) {
@@ -48,14 +49,14 @@ class TimetableService(
     fun getTimetableDisplay(
         userId: Long,
         timetableExternalId: String,
-    ): TimetableDisplay {
-        val timetable = getTimetable(userId, timetableExternalId)
-        return TimetableDisplay(
+    ): TimetableDisplay = displayOf(getTimetable(userId, timetableExternalId))
+
+    fun displayOf(timetable: Timetable): TimetableDisplay =
+        TimetableDisplay(
             timetable = timetable,
             lectures = displaysOf(listOf(timetable))[timetable.id!!].orEmpty(),
             themeExternalId = timetable.themeId?.let(timetableThemeService::findThemeExternalId),
         )
-    }
 
     fun toBriefs(timetables: List<Timetable>): List<TimetableBriefDto> {
         val displays = displaysOf(timetables)
@@ -187,11 +188,7 @@ class TimetableService(
                 timetableLecture.colorIndex = (index % colorCount) + 1
             }
         }
-        return TimetableDisplay(
-            timetable = timetable,
-            lectures = displaysOf(listOf(timetable))[timetable.id!!].orEmpty(),
-            themeExternalId = customThemeId?.let(timetableThemeService::findThemeExternalId),
-        )
+        return displayOf(timetable)
     }
 
     @Transactional
