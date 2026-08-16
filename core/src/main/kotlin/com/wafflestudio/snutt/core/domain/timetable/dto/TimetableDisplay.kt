@@ -9,8 +9,10 @@ import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import java.time.Instant
 
 data class TimetableLectureDisplay(
-    val id: String,
-    val lectureId: String?,
+    val id: Long,
+    val externalId: String,
+    val lectureId: Long?,
+    val lectureExternalId: String?,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -42,8 +44,10 @@ fun TimetableLectureDisplay(
     classTimes: List<ClassPlaceAndTime>,
 ): TimetableLectureDisplay =
     TimetableLectureDisplay(
-        id = timetableLecture.externalId,
-        lectureId = lecture?.externalId,
+        id = checkNotNull(timetableLecture.id),
+        externalId = timetableLecture.externalId,
+        lectureId = lecture?.id,
+        lectureExternalId = lecture?.externalId,
         academicYear = timetableLecture.academicYear ?: lecture?.academicYear,
         category = timetableLecture.category ?: lecture?.category,
         categoryPre2025 = timetableLecture.categoryPre2025 ?: lecture?.categoryPre2025,
@@ -73,10 +77,13 @@ data class TimetableDisplay(
     val timetable: Timetable,
     val lectures: List<TimetableLectureDisplay>,
     val themeExternalId: String? = null,
+    val themeIsBuiltin: Boolean = true,
+    val themeBuiltinType: Int = 0,
 )
 
 data class TimetableBriefDto(
-    val id: String,
+    val id: Long,
+    val externalId: String,
     val year: Int,
     val semester: Semester,
     val title: String,
@@ -89,7 +96,8 @@ fun TimetableBriefDto(
     timetable: Timetable,
     totalCredit: Int,
 ) = TimetableBriefDto(
-    id = timetable.externalId,
+    id = checkNotNull(timetable.id),
+    externalId = timetable.externalId,
     year = timetable.year,
     semester = timetable.semester,
     title = timetable.title,

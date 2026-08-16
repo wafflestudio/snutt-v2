@@ -101,7 +101,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
         accessToken = node["accessToken"].asString()
         refreshToken = node["refreshToken"].asString()
         userId = node["userId"].asString()
-        assertTrue(userId.matches(Regex("^[0-9a-f]{24}$")))
+        assertTrue(userId.toLong() > 0)
         assertTrue(accessToken.isNotBlank())
     }
 

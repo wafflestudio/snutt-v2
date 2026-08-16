@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.repository.ClientConfigRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -50,11 +51,11 @@ class ClientConfigService(
     @Transactional
     fun patchConfig(
         name: String,
-        configExternalId: String,
+        configId: Long,
         request: ClientConfigWriteRequest,
     ): ClientConfig {
         val config =
-            clientConfigRepository.findByExternalId(configExternalId)
+            clientConfigRepository.findByIdOrNull(configId)
                 ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         if (config.name != name) throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         config.value = request.value
@@ -68,12 +69,37 @@ class ClientConfigService(
     @Transactional
     fun deleteConfig(
         name: String,
-        configExternalId: String,
+        configId: Long,
     ) {
         val config =
-            clientConfigRepository.findByExternalId(configExternalId)
+            clientConfigRepository.findByIdOrNull(configId)
                 ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         if (config.name != name) throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         clientConfigRepository.delete(config)
     }
+
+    @Transactional
+    fun patchConfig(
+        name: String,
+        configExternalId: String,
+        request: ClientConfigWriteRequest,
+    ): ClientConfig = patchConfig(name, resolveConfigIdByExternalId(name, configExternalId), request)
+
+    @Transactional
+    fun deleteConfig(
+        name: String,
+        configExternalId: String,
+    ) {
+        deleteConfig(name, resolveConfigIdByExternalId(name, configExternalId))
+    }
+
+    private fun resolveConfigIdByExternalId(
+        name: String,
+        configExternalId: String,
+    ): Long =
+        clientConfigRepository
+            .findByExternalId(configExternalId)
+            ?.takeIf { it.name == name }
+            ?.id
+            ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
 }

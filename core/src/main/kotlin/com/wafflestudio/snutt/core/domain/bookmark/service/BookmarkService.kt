@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRep
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -41,9 +42,9 @@ class BookmarkService(
 
     fun existsBookmarkLecture(
         userId: Long,
-        lectureExternalId: String,
+        lectureId: Long,
     ): Boolean {
-        val lecture = lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        val lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val bookmark = bookmarkRepository.findByUserIdAndYearAndSemester(userId, lecture.year, lecture.semester) ?: return false
         return bookmarkLectureRepository.existsByBookmarkIdAndLectureId(bookmark.id!!, lecture.id!!)
     }
@@ -51,9 +52,46 @@ class BookmarkService(
     @Transactional
     fun addLecture(
         userId: Long,
+        lectureId: Long,
+    ) {
+        val lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        addLecture(userId, lecture)
+    }
+
+    @Transactional
+    fun deleteLecture(
+        userId: Long,
+        lectureId: Long,
+    ) {
+        val lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        deleteLecture(userId, lecture)
+    }
+
+    fun existsBookmarkLecture(
+        userId: Long,
+        lectureExternalId: String,
+    ): Boolean = existsBookmarkLecture(userId, resolveLectureIdByExternalId(lectureExternalId))
+
+    @Transactional
+    fun addLecture(
+        userId: Long,
         lectureExternalId: String,
     ) {
-        val lecture = lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        addLecture(userId, resolveLectureByExternalId(lectureExternalId))
+    }
+
+    @Transactional
+    fun deleteLecture(
+        userId: Long,
+        lectureExternalId: String,
+    ) {
+        deleteLecture(userId, resolveLectureByExternalId(lectureExternalId))
+    }
+
+    private fun addLecture(
+        userId: Long,
+        lecture: Lecture,
+    ) {
         val bookmark =
             bookmarkRepository.findByUserIdAndYearAndSemester(userId, lecture.year, lecture.semester)
                 ?: bookmarkRepository.save(Bookmark(userId = userId, year = lecture.year, semester = lecture.semester))
@@ -63,13 +101,17 @@ class BookmarkService(
         }
     }
 
-    @Transactional
-    fun deleteLecture(
+    private fun deleteLecture(
         userId: Long,
-        lectureExternalId: String,
+        lecture: Lecture,
     ) {
-        val lecture = lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val bookmark = bookmarkRepository.findByUserIdAndYearAndSemester(userId, lecture.year, lecture.semester) ?: return
         bookmarkLectureRepository.deleteByBookmarkIdAndLectureId(bookmark.id!!, lecture.id!!)
     }
+
+    private fun resolveLectureIdByExternalId(lectureExternalId: String): Long =
+        lectureRepository.findByExternalId(lectureExternalId)?.id ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+
+    private fun resolveLectureByExternalId(lectureExternalId: String): Lecture =
+        lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 }

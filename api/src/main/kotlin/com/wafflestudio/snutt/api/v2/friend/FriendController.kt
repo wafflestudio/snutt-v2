@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class FriendResponse(
-    val id: String,
-    val userId: String,
+    val id: Long,
+    val userId: Long,
     val displayName: String?,
     val nickname: String,
     val nicknameTag: Int?,
@@ -57,8 +57,8 @@ private fun FriendResponse(
     displayName: String?,
 ): FriendResponse =
     FriendResponse(
-        id = friend.externalId,
-        userId = user.externalId,
+        id = friend.id!!,
+        userId = user.id!!,
         displayName = displayName,
         nickname = user.nicknameWithoutTag,
         nicknameTag = user.nicknameTag,
@@ -95,7 +95,7 @@ class FriendController(
     @PostMapping("/{friendId}/accept")
     fun acceptFriend(
         @CurrentUser user: User,
-        @PathVariable friendId: String,
+        @PathVariable friendId: Long,
     ) {
         friendService.acceptFriend(friendId, user.id!!)
     }
@@ -103,7 +103,7 @@ class FriendController(
     @PostMapping("/{friendId}/decline")
     fun declineFriend(
         @CurrentUser user: User,
-        @PathVariable friendId: String,
+        @PathVariable friendId: Long,
     ) {
         friendService.declineFriend(friendId, user.id!!)
     }
@@ -111,7 +111,7 @@ class FriendController(
     @PatchMapping("/{friendId}/display-name")
     fun updateFriendDisplayName(
         @CurrentUser user: User,
-        @PathVariable friendId: String,
+        @PathVariable friendId: Long,
         @RequestBody body: UpdateFriendDisplayNameRequest,
     ) {
         friendService.updateFriendDisplayName(user.id!!, friendId, body.displayName)
@@ -120,7 +120,7 @@ class FriendController(
     @DeleteMapping("/{friendId}")
     fun breakFriend(
         @CurrentUser user: User,
-        @PathVariable friendId: String,
+        @PathVariable friendId: Long,
     ) {
         friendService.breakFriend(friendId, user.id!!)
     }
@@ -142,20 +142,20 @@ class FriendController(
     @GetMapping("/{friendId}/primary-table")
     fun getPrimaryTable(
         @CurrentUser user: User,
-        @PathVariable friendId: String,
+        @PathVariable friendId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Int,
     ): TimetableResponse {
         val friend = getAcceptedFriend(user.id!!, friendId)
         val partnerId = friend.getPartnerUserId(user.id!!)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, parseSemester(semester))
-        return timetableService.getTimetableDisplay(partnerId, timetable.externalId).toResponse()
+        return timetableService.getTimetableDisplay(partnerId, timetable.id!!).toResponse()
     }
 
     @GetMapping("/{friendId}/coursebooks", "/{friendId}/registered-course-books")
     fun getCoursebooks(
         @CurrentUser user: User,
-        @PathVariable friendId: String,
+        @PathVariable friendId: Long,
     ): List<FriendCoursebookResponse> {
         val friend = getAcceptedFriend(user.id!!, friendId)
         return timetableService
@@ -165,9 +165,9 @@ class FriendController(
 
     private fun getAcceptedFriend(
         userId: Long,
-        friendExternalId: String,
+        friendId: Long,
     ): Friend {
-        val friend = friendService.get(friendExternalId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = friendService.get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         if (!friend.isAccepted || !friend.includes(userId)) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         return friend
     }

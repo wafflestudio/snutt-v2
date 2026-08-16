@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -39,12 +38,11 @@ data class TimetableModifyRequest(
 )
 
 data class TimetableModifyThemeRequest(
-    val theme: BasicThemeType? = null,
-    val themeId: String? = null,
+    val themeId: Long,
 )
 
 data class TimetableBriefResponse(
-    val id: String,
+    val id: Long,
     val year: Int,
     val semester: Semester,
     val title: String,
@@ -54,20 +52,19 @@ data class TimetableBriefResponse(
 )
 
 data class TimetableResponse(
-    val id: String,
+    val id: Long,
     val year: Int,
     val semester: Semester,
     val title: String,
-    val theme: BasicThemeType,
-    val themeId: String?,
+    val themeId: Long,
     val isPrimary: Boolean,
     val updatedAt: Long,
     val lectures: List<TimetableLectureResponse>,
 )
 
 data class TimetableLectureResponse(
-    val id: String,
-    val lectureId: String?,
+    val id: Long,
+    val lectureId: Long?,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -106,12 +103,11 @@ private fun TimetableBriefDto.toResponse() =
 
 internal fun TimetableDisplay.toResponse(language: Language = Language.KO) =
     TimetableResponse(
-        id = timetable.externalId,
+        id = timetable.id!!,
         year = timetable.year,
         semester = timetable.semester,
         title = timetable.title,
-        theme = timetable.theme,
-        themeId = themeExternalId,
+        themeId = timetable.themeId,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt).toEpochMilli(),
         lectures = lectures.map { it.toResponse(language) },
@@ -160,7 +156,7 @@ class TimetableController(
         timetableService
             .getTimetableDisplay(
                 user.id!!,
-                timetableService.getMostRecentlyUpdatedTimetable(user.id!!).externalId,
+                timetableService.getMostRecentlyUpdatedTimetable(user.id!!).id!!,
             ).toResponse(clientInfo.language)
 
     @GetMapping("/{year}/{semester}")
@@ -172,12 +168,12 @@ class TimetableController(
     ): List<TimetableResponse> =
         timetableService
             .getTimetablesBySemester(user.id!!, year, parseSemester(semester))
-            .map { timetableService.getTimetableDisplay(user.id!!, it.externalId).toResponse(clientInfo.language) }
+            .map { timetableService.getTimetableDisplay(user.id!!, it.id!!).toResponse(clientInfo.language) }
 
     @PostMapping("")
     fun addTimetable(
         @CurrentUser user: User,
-        @RequestParam(required = false) source: String?,
+        @RequestParam(required = false) source: Long?,
         @RequestBody body: TimetableAddRequest,
     ): List<TimetableBriefResponse> {
         val userId = user.id!!
@@ -192,14 +188,14 @@ class TimetableController(
     @GetMapping("/{timetableId}")
     fun getTimetable(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse = timetableService.getTimetableDisplay(user.id!!, timetableId).toResponse(clientInfo.language)
 
     @PatchMapping("/{timetableId}")
     fun modifyTimetable(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestBody body: TimetableModifyRequest,
     ): List<TimetableBriefResponse> {
         val userId = user.id!!
@@ -210,7 +206,7 @@ class TimetableController(
     @DeleteMapping("/{timetableId}")
     fun deleteTimetable(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ): List<TimetableBriefResponse> {
         val userId = user.id!!
         timetableService.deleteTimetable(userId, timetableId)
@@ -220,7 +216,7 @@ class TimetableController(
     @PostMapping("/{timetableId}/copy")
     fun copyTimetable(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ): List<TimetableBriefResponse> {
         val userId = user.id!!
         timetableService.copyTimetable(userId, timetableId)
@@ -230,19 +226,14 @@ class TimetableController(
     @PutMapping("/{timetableId}/theme")
     fun modifyTimetableTheme(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestBody body: TimetableModifyThemeRequest,
-    ): TimetableResponse {
-        if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return timetableService
-            .modifyTimetableTheme(user.id!!, timetableId, body.theme, body.themeId)
-            .toResponse()
-    }
+    ): TimetableResponse = timetableService.modifyTimetableTheme(user.id!!, timetableId, body.themeId).toResponse()
 
     @PutMapping("/{timetableId}/primary")
     fun setPrimary(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ) {
         timetableService.setPrimary(user.id!!, timetableId)
     }
@@ -250,7 +241,7 @@ class TimetableController(
     @DeleteMapping("/{timetableId}/primary")
     fun unsetPrimary(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ) {
         timetableService.unsetPrimary(user.id!!, timetableId)
     }

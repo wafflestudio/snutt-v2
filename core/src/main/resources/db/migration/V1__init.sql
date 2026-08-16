@@ -1,7 +1,7 @@
 CREATE TABLE `user`
 (
     id                      BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id             CHAR(24)     NOT NULL,
+    external_id             VARCHAR(32)  NOT NULL,
     email                   VARCHAR(255) NULL,
     is_email_verified       BOOLEAN      NOT NULL DEFAULT FALSE,
     nickname                VARCHAR(64)  NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE `user`
 CREATE TABLE user_device
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         CHAR(24)     NOT NULL,
+    external_id         VARCHAR(32)  NOT NULL,
     user_id             BIGINT       NOT NULL,
     os_type             VARCHAR(16)  NULL,
     os_version          VARCHAR(32)  NULL,
@@ -65,7 +65,7 @@ CREATE TABLE user_device
 CREATE TABLE user_session
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id        CHAR(24)    NOT NULL,
+    external_id        VARCHAR(32) NOT NULL,
     user_id            BIGINT      NOT NULL,
     refresh_token_hash CHAR(64)    NOT NULL,
     user_device_id     BIGINT      NULL,
@@ -96,7 +96,7 @@ CREATE TABLE push_preference
 CREATE TABLE notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id CHAR(24)     NOT NULL,
+    external_id VARCHAR(32)  NOT NULL,
     user_id     BIGINT       NULL,
     title       VARCHAR(255) NOT NULL,
     message     TEXT         NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE course
 CREATE TABLE lecture
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id        CHAR(24)     NOT NULL,
+    external_id        VARCHAR(32)  NOT NULL,
     course_id          BIGINT       NULL,
     year               INT          NOT NULL,
     semester           TINYINT      NOT NULL,
@@ -197,7 +197,7 @@ CREATE TABLE lecture_class_time
 CREATE TABLE coursebook
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id CHAR(24)    NOT NULL,
+    external_id VARCHAR(32) NOT NULL,
     year        INT         NOT NULL,
     semester    TINYINT     NOT NULL,
     created_at  DATETIME(6) NOT NULL,
@@ -263,8 +263,9 @@ CREATE TABLE evaluation_report
 CREATE TABLE theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id      CHAR(24)     NOT NULL,
-    user_id          BIGINT       NOT NULL,
+    external_id      VARCHAR(32)  NOT NULL,
+    user_id          BIGINT       NULL,
+    builtin_type     INT          NULL,
     name             VARCHAR(128) NOT NULL,
     colors       JSON         NOT NULL,
     origin_theme_id  BIGINT       NULL,
@@ -272,11 +273,32 @@ CREATE TABLE theme
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
     CONSTRAINT uk_theme_external_id UNIQUE (external_id),
+    CONSTRAINT uk_theme_builtin_type UNIQUE (builtin_type),
     CONSTRAINT fk_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_theme_origin_theme FOREIGN KEY (origin_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
     CONSTRAINT fk_theme_origin_author FOREIGN KEY (origin_author_id) REFERENCES `user` (id) ON DELETE SET NULL,
     INDEX idx_theme_user_updated (user_id, updated_at DESC)
 );
+
+INSERT INTO theme (id, external_id, user_id, builtin_type, name, colors, created_at, updated_at) VALUES
+    (1, 'builtin-snutt', NULL, 0, 'SNUTT',
+     '[{"backgroundColor":"#E54459","foregroundColor":"#ffffff"},{"backgroundColor":"#F58D3D","foregroundColor":"#ffffff"},{"backgroundColor":"#FAC42D","foregroundColor":"#ffffff"},{"backgroundColor":"#A6D930","foregroundColor":"#ffffff"},{"backgroundColor":"#2BC267","foregroundColor":"#ffffff"},{"backgroundColor":"#1BD0C8","foregroundColor":"#ffffff"},{"backgroundColor":"#1D99E8","foregroundColor":"#ffffff"},{"backgroundColor":"#4F48C4","foregroundColor":"#ffffff"},{"backgroundColor":"#AF56B3","foregroundColor":"#ffffff"}]',
+     NOW(6), NOW(6)),
+    (2, 'builtin-fall', NULL, 1, '가을',
+     '[{"backgroundColor":"#B82E31","foregroundColor":"#ffffff"},{"backgroundColor":"#DB701C","foregroundColor":"#ffffff"},{"backgroundColor":"#EAA32A","foregroundColor":"#ffffff"},{"backgroundColor":"#C6C013","foregroundColor":"#ffffff"},{"backgroundColor":"#3A856E","foregroundColor":"#ffffff"},{"backgroundColor":"#19B2AC","foregroundColor":"#ffffff"},{"backgroundColor":"#3994CE","foregroundColor":"#ffffff"},{"backgroundColor":"#3F3A9C","foregroundColor":"#ffffff"},{"backgroundColor":"#924396","foregroundColor":"#ffffff"}]',
+     NOW(6), NOW(6)),
+    (3, 'builtin-modern', NULL, 2, '모던',
+     '[{"backgroundColor":"#F0652A","foregroundColor":"#ffffff"},{"backgroundColor":"#F5AD3E","foregroundColor":"#ffffff"},{"backgroundColor":"#998F36","foregroundColor":"#ffffff"},{"backgroundColor":"#89C291","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#13808F","foregroundColor":"#ffffff"},{"backgroundColor":"#366689","foregroundColor":"#ffffff"},{"backgroundColor":"#432920","foregroundColor":"#ffffff"},{"backgroundColor":"#D82F3D","foregroundColor":"#ffffff"}]',
+     NOW(6), NOW(6)),
+    (4, 'builtin-blossom', NULL, 3, '벚꽃',
+     '[{"backgroundColor":"#FD79A8","foregroundColor":"#ffffff"},{"backgroundColor":"#FEC9DD","foregroundColor":"#ffffff"},{"backgroundColor":"#FEB0CC","foregroundColor":"#ffffff"},{"backgroundColor":"#FE93BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E9B1D0","foregroundColor":"#ffffff"},{"backgroundColor":"#C67D97","foregroundColor":"#ffffff"},{"backgroundColor":"#BB8EA7","foregroundColor":"#ffffff"},{"backgroundColor":"#BDB4BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E16597","foregroundColor":"#ffffff"}]',
+     NOW(6), NOW(6)),
+    (5, 'builtin-ice', NULL, 4, '얼음',
+     '[{"backgroundColor":"#AABDCF","foregroundColor":"#ffffff"},{"backgroundColor":"#C0E9E8","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#015F95","foregroundColor":"#ffffff"},{"backgroundColor":"#A8D0DB","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#62A9D1","foregroundColor":"#ffffff"},{"backgroundColor":"#20363D","foregroundColor":"#ffffff"},{"backgroundColor":"#6D8A96","foregroundColor":"#ffffff"}]',
+     NOW(6), NOW(6)),
+    (6, 'builtin-lawn', NULL, 5, '잔디',
+     '[{"backgroundColor":"#4FBEAA","foregroundColor":"#ffffff"},{"backgroundColor":"#9FC1A4","foregroundColor":"#ffffff"},{"backgroundColor":"#5A8173","foregroundColor":"#ffffff"},{"backgroundColor":"#84AEB1","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#D0E0C4","foregroundColor":"#ffffff"},{"backgroundColor":"#59886D","foregroundColor":"#ffffff"},{"backgroundColor":"#476060","foregroundColor":"#ffffff"},{"backgroundColor":"#3D7068","foregroundColor":"#ffffff"}]',
+     NOW(6), NOW(6));
 
 CREATE TABLE published_theme
 (
@@ -295,27 +317,26 @@ CREATE TABLE published_theme
 CREATE TABLE timetable
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id CHAR(24)     NOT NULL,
+    external_id VARCHAR(32)  NOT NULL,
     user_id     BIGINT       NOT NULL,
     year        INT          NOT NULL,
     semester    TINYINT      NOT NULL,
     title       VARCHAR(255) NOT NULL,
-    theme       TINYINT      NOT NULL DEFAULT 0,
-    theme_id    BIGINT       NULL,
+    theme_id    BIGINT       NOT NULL DEFAULT 1,
     is_primary  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT uk_timetable_external_id UNIQUE (external_id),
     CONSTRAINT uk_timetable_title UNIQUE (user_id, year, semester, title),
     CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE SET NULL,
+    CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE RESTRICT,
     INDEX idx_timetable_user_semester (user_id, year, semester)
 );
 
 CREATE TABLE timetable_lecture
 (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id          CHAR(24)     NOT NULL,
+    external_id          VARCHAR(32)  NOT NULL,
     timetable_id         BIGINT       NOT NULL,
     lecture_id           BIGINT       NULL,
     color                JSON         NULL,
@@ -341,7 +362,7 @@ CREATE TABLE timetable_lecture
 CREATE TABLE timetable_lecture_reminder
 (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id          CHAR(24)    NOT NULL,
+    external_id          VARCHAR(32) NOT NULL,
     timetable_lecture_id BIGINT      NOT NULL,
     offset_minutes       INT         NOT NULL,
     schedule_list        JSON        NOT NULL,
@@ -360,7 +381,7 @@ CREATE TABLE timetable_lecture_reminder
 CREATE TABLE bookmark
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id CHAR(24)    NOT NULL,
+    external_id VARCHAR(32) NOT NULL,
     user_id     BIGINT      NOT NULL,
     year        INT         NOT NULL,
     semester    TINYINT     NOT NULL,
@@ -387,7 +408,7 @@ CREATE TABLE bookmark_lecture
 CREATE TABLE vacancy_notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id CHAR(24)    NOT NULL,
+    external_id VARCHAR(32) NOT NULL,
     user_id     BIGINT      NOT NULL,
     lecture_id  BIGINT      NOT NULL,
     created_at  DATETIME(6) NOT NULL,
@@ -402,7 +423,7 @@ CREATE TABLE vacancy_notification
 CREATE TABLE friend
 (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id       CHAR(24)    NOT NULL,
+    external_id       VARCHAR(32) NOT NULL,
     from_user_id      BIGINT      NOT NULL,
     to_user_id        BIGINT      NOT NULL,
     from_display_name VARCHAR(64) NULL,
@@ -423,7 +444,7 @@ CREATE TABLE friend
 CREATE TABLE popup
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id      CHAR(24)     NOT NULL,
+    external_id      VARCHAR(32)  NOT NULL,
     popup_key        VARCHAR(64)  NOT NULL,
     image_origin_uri VARCHAR(512) NOT NULL,
     link_url         VARCHAR(512) NULL,
@@ -437,7 +458,7 @@ CREATE TABLE popup
 CREATE TABLE client_config
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         CHAR(24)    NOT NULL,
+    external_id         VARCHAR(32) NOT NULL,
     name                VARCHAR(64) NOT NULL,
     value               TEXT        NOT NULL,
     min_ios_version     VARCHAR(32) NULL,
@@ -453,7 +474,7 @@ CREATE TABLE client_config
 CREATE TABLE lecture_building
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         CHAR(24)     NOT NULL,
+    external_id         VARCHAR(32)  NOT NULL,
     building_number     VARCHAR(16)  NOT NULL,
     building_name_kor   VARCHAR(64)  NOT NULL,
     building_name_eng   VARCHAR(128) NOT NULL DEFAULT '',
@@ -469,7 +490,7 @@ CREATE TABLE lecture_building
 CREATE TABLE semester_registration_period
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id              CHAR(24)    NOT NULL,
+    external_id              VARCHAR(32) NOT NULL,
     year                     INT         NOT NULL,
     semester                 TINYINT     NOT NULL,
     registration_period_list JSON        NOT NULL,
@@ -482,7 +503,7 @@ CREATE TABLE semester_registration_period
 CREATE TABLE diary_daily_class_type
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id CHAR(24)    NOT NULL,
+    external_id VARCHAR(32) NOT NULL,
     name        VARCHAR(64) NOT NULL,
     active      BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at  DATETIME(6) NOT NULL,
@@ -494,7 +515,7 @@ CREATE TABLE diary_daily_class_type
 CREATE TABLE diary_question
 (
     id                              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id                     CHAR(24)     NOT NULL,
+    external_id                     VARCHAR(32)  NOT NULL,
     question                        VARCHAR(255) NOT NULL,
     short_question                  VARCHAR(255) NOT NULL,
     answer_list                     JSON         NOT NULL,
@@ -509,7 +530,7 @@ CREATE TABLE diary_question
 CREATE TABLE diary_submission
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id              CHAR(24)     NOT NULL,
+    external_id              VARCHAR(32)  NOT NULL,
     user_id                  BIGINT       NOT NULL,
     year                     INT          NOT NULL,
     semester                 TINYINT      NOT NULL,

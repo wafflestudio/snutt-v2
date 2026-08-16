@@ -6,7 +6,7 @@ import jakarta.persistence.PrePersist
 
 @MappedSuperclass
 abstract class ExternalIdEntity(
-    @Column(nullable = false, updatable = false, unique = true, columnDefinition = "char(24)")
+    @Column(nullable = false, updatable = false, unique = true, columnDefinition = "varchar(32)")
     var externalId: String = "",
 ) : BaseEntity() {
     @PrePersist

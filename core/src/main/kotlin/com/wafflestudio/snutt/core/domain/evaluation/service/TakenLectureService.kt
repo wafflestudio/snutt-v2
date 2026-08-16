@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional
 
 data class LectureTakenByUser(
     val course: Course,
+    val lectureId: Long,
     val lectureExternalId: String,
     val takenYear: Int,
     val takenSemester: Semester,
@@ -64,7 +65,7 @@ class TakenLectureService(
                     val coursebook = timetableSemester[timetableLecture.timetableId] ?: return@mapNotNull null
                     val lecture = timetableLecture.lectureId?.let { lecturesById[it] } ?: return@mapNotNull null
                     val course = lecture.courseId?.let { coursesById[it] } ?: return@mapNotNull null
-                    LectureTakenByUser(course, lecture.externalId, coursebook.year, coursebook.semester)
+                    LectureTakenByUser(course, lecture.id!!, lecture.externalId, coursebook.year, coursebook.semester)
                 }.distinctBy { Triple(it.course.id, it.takenYear, it.takenSemester) }
 
         if (!excludeEvaluated) return taken

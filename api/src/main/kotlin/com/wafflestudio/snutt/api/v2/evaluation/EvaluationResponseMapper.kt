@@ -29,7 +29,7 @@ internal fun EvaluationDisplay.toEvaluationResponse(userMap: Map<Long, User>): E
         user =
             evaluation.userId?.let { userId ->
                 userMap[userId]?.let {
-                    EvaluationUserResponse(id = it.externalId, nickname = it.nicknameWithoutTag)
+                    EvaluationUserResponse(id = it.id!!, nickname = it.nicknameWithoutTag)
                 }
             },
         content = evaluation.content,

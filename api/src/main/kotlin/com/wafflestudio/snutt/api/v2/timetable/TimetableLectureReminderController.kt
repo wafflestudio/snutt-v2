@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 data class TimetableLectureReminderResponse(
-    val timetableLectureId: String,
+    val timetableLectureId: Long,
     val courseTitle: String,
     val option: TimetableLectureReminderOption,
 )
@@ -30,8 +30,8 @@ class TimetableLectureReminderController(
     @GetMapping("/{timetableLectureId}/reminder")
     fun getReminder(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
     ): TimetableLectureReminderResponse =
         timetableLectureReminderService
             .getReminder(user.id!!, timetableId, timetableLectureId)
@@ -40,14 +40,14 @@ class TimetableLectureReminderController(
     @GetMapping("/reminders")
     fun getReminders(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ): List<TimetableLectureReminderResponse> = timetableLectureReminderService.getReminders(user.id!!, timetableId).map { it.toResponse() }
 
     @PutMapping("/{timetableLectureId}/reminder")
     fun modifyReminder(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestBody body: TimetableLectureReminderModifyRequest,
     ): TimetableLectureReminderResponse =
         timetableLectureReminderService

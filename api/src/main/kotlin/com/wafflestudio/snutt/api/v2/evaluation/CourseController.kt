@@ -35,7 +35,7 @@ data class CourseEvaluationSummaryResponse(
 )
 
 data class CourseSemesterResponse(
-    val lectureId: String,
+    val lectureId: Long,
     val year: Int,
     val semester: Semester,
     val myEvaluationExists: Boolean,
@@ -112,7 +112,7 @@ class CourseController(
             semesters =
                 result.semesters.map {
                     CourseSemesterResponse(
-                        lectureId = it.lectureExternalId,
+                        lectureId = it.lectureId,
                         year = it.year,
                         semester = it.semester,
                         myEvaluationExists = it.myEvaluationExists,

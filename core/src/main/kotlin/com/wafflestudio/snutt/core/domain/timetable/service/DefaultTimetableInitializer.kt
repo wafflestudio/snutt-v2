@@ -14,6 +14,6 @@ class DefaultTimetableInitializer(
     fun createDefaultTimetable(event: UserRegisteredEvent) {
         if (coursebookService.findLatestCoursebook() == null) return
         val timetable = timetableService.createDefaultTable(event.userId)
-        timetableService.setPrimary(event.userId, timetable.externalId)
+        timetableService.setPrimary(event.userId, timetable.id!!)
     }
 }

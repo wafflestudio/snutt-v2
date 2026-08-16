@@ -20,7 +20,7 @@ data class VacancyNotificationLecturesResponse(
 )
 
 data class VacancyNotificationLectureResponse(
-    val id: String,
+    val id: Long,
     val courseTitle: String,
     val courseNumber: String,
     val lectureNumber: String,
@@ -33,7 +33,7 @@ data class VacancyNotificationLectureResponse(
 
 private fun VacancyLectureDisplay.toResponse(language: Language) =
     VacancyNotificationLectureResponse(
-        id = lecture.externalId,
+        id = lecture.id!!,
         courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
         courseNumber = lecture.courseNumber,
         lectureNumber = lecture.lectureNumber,
@@ -64,13 +64,13 @@ class VacancyNotificationController(
     @GetMapping("/lectures/{lectureId}/state")
     fun existsVacancyNotification(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ): Boolean = vacancyNotificationService.existsVacancyNotification(user.id!!, lectureId)
 
     @PostMapping("/lectures/{lectureId}")
     fun addVacancyNotification(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ) {
         vacancyNotificationService.addVacancyNotification(user.id!!, lectureId)
     }
@@ -78,7 +78,7 @@ class VacancyNotificationController(
     @DeleteMapping("/lectures/{lectureId}")
     fun deleteVacancyNotification(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ) {
         vacancyNotificationService.deleteVacancyNotification(user.id!!, lectureId)
     }

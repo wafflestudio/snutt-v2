@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
@@ -126,7 +125,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     year = 2026,
                     semester = Semester.AUTUMN,
                     title = "나의 시간표",
-                    theme = BasicThemeType.FALL,
+                    themeId = 2L,
                 ),
             )
         val timetableLecture =
@@ -203,7 +202,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     year = 2026,
                     semester = Semester.AUTUMN,
                     title = "나의 시간표",
-                    theme = BasicThemeType.FALL,
+                    themeId = 2L,
                     isPrimary = true,
                 ),
             )

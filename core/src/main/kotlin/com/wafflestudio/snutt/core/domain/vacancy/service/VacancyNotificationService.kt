@@ -10,6 +10,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistration
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,10 +34,10 @@ class VacancyNotificationService(
 
     fun existsVacancyNotification(
         userId: Long,
-        lectureExternalId: String,
+        lectureId: Long,
     ): Boolean {
         val lecture =
-            lectureRepository.findByExternalId(lectureExternalId)
+            lectureRepository.findByIdOrNull(lectureId)
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         return vacancyNotificationRepository.existsByUserIdAndLectureId(userId, lecture.id!!)
     }
@@ -44,10 +45,10 @@ class VacancyNotificationService(
     @Transactional
     fun addVacancyNotification(
         userId: Long,
-        lectureExternalId: String,
+        lectureId: Long,
     ) {
         val lecture =
-            lectureRepository.findByExternalId(lectureExternalId)
+            lectureRepository.findByIdOrNull(lectureId)
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val latestCoursebook = coursebookService.getLatestCoursebook()
         if (lecture.year != latestCoursebook.year || lecture.semester != latestCoursebook.semester) {
@@ -61,11 +62,35 @@ class VacancyNotificationService(
     @Transactional
     fun deleteVacancyNotification(
         userId: Long,
-        lectureExternalId: String,
+        lectureId: Long,
     ) {
         val lecture =
-            lectureRepository.findByExternalId(lectureExternalId)
+            lectureRepository.findByIdOrNull(lectureId)
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         vacancyNotificationRepository.deleteByUserIdAndLectureId(userId, lecture.id!!)
     }
+
+    fun existsVacancyNotification(
+        userId: Long,
+        lectureExternalId: String,
+    ): Boolean = existsVacancyNotification(userId, resolveLectureIdByExternalId(lectureExternalId))
+
+    @Transactional
+    fun addVacancyNotification(
+        userId: Long,
+        lectureExternalId: String,
+    ) {
+        addVacancyNotification(userId, resolveLectureIdByExternalId(lectureExternalId))
+    }
+
+    @Transactional
+    fun deleteVacancyNotification(
+        userId: Long,
+        lectureExternalId: String,
+    ) {
+        deleteVacancyNotification(userId, resolveLectureIdByExternalId(lectureExternalId))
+    }
+
+    private fun resolveLectureIdByExternalId(lectureExternalId: String): Long =
+        lectureRepository.findByExternalId(lectureExternalId)?.id ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 }

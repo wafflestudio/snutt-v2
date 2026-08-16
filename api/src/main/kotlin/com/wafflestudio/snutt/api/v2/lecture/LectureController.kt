@@ -47,7 +47,7 @@ data class SearchTimeRequest(
 )
 
 data class LectureResponse(
-    val id: String,
+    val id: Long,
     val year: Int,
     val semester: Semester,
     val courseNumber: String,
@@ -84,7 +84,7 @@ private fun Lecture.toResponse(
     language: Language,
     evaluationSummary: LectureEvSummaryResponse? = null,
 ) = LectureResponse(
-    id = externalId,
+    id = id!!,
     year = year,
     semester = semester,
     courseNumber = courseNumber,

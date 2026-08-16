@@ -53,14 +53,14 @@ data class FindIdRequest(
 )
 
 data class TokenResponse(
-    val userId: String,
+    val userId: Long,
     val accessToken: String,
     val refreshToken: String,
 )
 
-private fun TokenPair.toResponse(userExternalId: String) =
+private fun TokenPair.toResponse(userId: Long) =
     TokenResponse(
-        userId = userExternalId,
+        userId = userId,
         accessToken = accessToken,
         refreshToken = refreshToken,
     )
@@ -77,7 +77,7 @@ class AuthController(
         @RequestBody request: RegisterLocalRequest,
     ): TokenResponse {
         val user = authService.registerLocal(request.localId, request.password, request.email)
-        return authService.issueTokens(user).toResponse(user.externalId)
+        return authService.issueTokens(user).toResponse(user.id!!)
     }
 
     @Public
@@ -86,7 +86,7 @@ class AuthController(
         @RequestBody request: LoginLocalRequest,
     ): TokenResponse {
         val user = authService.loginLocal(request.localId, request.password)
-        return authService.issueTokens(user).toResponse(user.externalId)
+        return authService.issueTokens(user).toResponse(user.id!!)
     }
 
     @Public
@@ -99,7 +99,7 @@ class AuthController(
             AuthProvider.from(provider)?.takeIf { it != AuthProvider.LOCAL }
                 ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val user = authService.loginSocial(authProvider, request.token)
-        return authService.issueTokens(user).toResponse(user.externalId)
+        return authService.issueTokens(user).toResponse(user.id!!)
     }
 
     @Public
@@ -108,7 +108,7 @@ class AuthController(
         @RequestBody request: RefreshRequest,
     ): TokenResponse {
         val (user, tokens) = authService.refresh(request.refreshToken)
-        return tokens.toResponse(user.externalId)
+        return tokens.toResponse(user.id!!)
     }
 
     @PostMapping("/logout")

@@ -76,7 +76,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
     private lateinit var token: String
     private var userId: Long = 0
-    private lateinit var lectureIds: List<String>
+    private lateinit var lectureIds: List<Long>
     private lateinit var classTypeIds: List<Long>
     private lateinit var questionIds: List<Long>
 
@@ -127,7 +127,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
                     ),
                 ),
             )
-        lectureIds = lectures.map { it.externalId }
+        lectureIds = lectures.mapNotNull { it.id }
 
         val classTypes =
             listOf("수업듣기", "공부하기").map { name ->
@@ -222,7 +222,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         val questionnaire =
             post(
                 "/v2/diary/questionnaire",
-                """{"lectureId":"${lectureIds[0]}","dailyClassTypes":["수업듣기","공부하기"]}""",
+                """{"lectureId":${lectureIds[0]},"dailyClassTypes":["수업듣기","공부하기"]}""",
             )
         assertEquals(200, questionnaire.statusCode.value())
         val node = body(questionnaire)
@@ -245,7 +245,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         val submit =
             post(
                 "/v2/diary",
-                """{"lectureId":"${lectureIds[0]}","dailyClassTypes":["수업듣기"],"questionAnswers":[{"questionId":${questionIds[0]},"answerIndex":0}],"comment":"좋은 하루였다"}""",
+                """{"lectureId":${lectureIds[0]},"dailyClassTypes":["수업듣기"],"questionAnswers":[{"questionId":${questionIds[0]},"answerIndex":0}],"comment":"좋은 하루였다"}""",
             )
         assertEquals(200, submit.statusCode.value())
 
@@ -265,7 +265,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
         val tooLong =
             post(
                 "/v2/diary",
-                """{"lectureId":"${lectureIds[0]}","dailyClassTypes":[],"questionAnswers":[],"comment":"${"가".repeat(1001)}"}""",
+                """{"lectureId":${lectureIds[0]},"dailyClassTypes":[],"questionAnswers":[],"comment":"${"가".repeat(1001)}"}""",
             )
         assertEquals(400, tooLong.statusCode.value())
 

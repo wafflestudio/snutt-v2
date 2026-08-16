@@ -13,7 +13,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -31,7 +30,7 @@ data class BookmarkResponse(
 )
 
 data class BookmarkLectureResponse(
-    val id: String,
+    val id: Long,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -56,7 +55,7 @@ data class BookmarkClassPlaceAndTimeResponse(
 )
 
 data class BookmarkLectureModifyRequest(
-    @field:NotBlank val lectureId: String,
+    val lectureId: Long,
 )
 
 private fun BookmarkDisplay.toResponse(
@@ -72,7 +71,7 @@ private fun Lecture.toResponse(
     classTimes: List<ClassPlaceAndTime>,
     language: Language,
 ) = BookmarkLectureResponse(
-    id = externalId,
+    id = id!!,
     academicYear = language.select(academicYear, academicYearEn),
     category = language.select(category, categoryEn),
     categoryPre2025 = categoryPre2025,
@@ -114,7 +113,7 @@ class BookmarkController(
     @GetMapping("/lectures/{lectureId}/state")
     fun existsBookmarkLecture(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ): Boolean = bookmarkService.existsBookmarkLecture(user.id!!, lectureId)
 
     @PostMapping("/lecture")

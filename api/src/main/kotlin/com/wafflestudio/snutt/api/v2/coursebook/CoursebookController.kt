@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class CoursebookResponse(
-    val id: String,
+    val id: Long,
     val year: Int,
     val semester: Semester,
     val updatedAt: Long,
@@ -27,7 +27,7 @@ data class CoursebookOfficialResponse(
 
 private fun Coursebook.toResponse() =
     CoursebookResponse(
-        id = externalId,
+        id = id!!,
         year = year,
         semester = semester,
         updatedAt = checkNotNull(updatedAt).toEpochMilli(),

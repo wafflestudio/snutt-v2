@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminder
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRepository
@@ -34,7 +35,8 @@ enum class TimetableLectureReminderOption(
 }
 
 data class TimetableLectureReminderDisplay(
-    val timetableLectureId: String,
+    val timetableLectureId: Long,
+    val timetableLectureExternalId: String,
     val courseTitle: String,
     val option: TimetableLectureReminderOption,
 )
@@ -47,26 +49,42 @@ class TimetableLectureReminderService(
 ) {
     fun getReminder(
         userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
+        timetableId: Long,
+        timetableLectureId: Long,
     ): TimetableLectureReminderDisplay {
-        val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableExternalId, timetableLectureExternalId)
+        val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableId, timetableLectureId)
         val reminder = timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
         return TimetableLectureReminderDisplay(
-            timetableLectureId = timetableLecture.externalId,
+            timetableLectureId = timetableLecture.id!!,
+            timetableLectureExternalId = timetableLecture.externalId,
             courseTitle = display.courseTitle,
             option =
                 reminder?.let { TimetableLectureReminderOption.fromOffsetMinutes(it.offsetMinutes) } ?: TimetableLectureReminderOption.NONE,
         )
     }
 
+    fun getReminder(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+    ): TimetableLectureReminderDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
+        return getReminder(userId, timetable.id!!, timetableLecture.id!!)
+    }
+
+    fun getReminders(
+        userId: Long,
+        timetableId: Long,
+    ): List<TimetableLectureReminderDisplay> = getReminders(timetableService.getTimetable(userId, timetableId))
+
     fun getReminders(
         userId: Long,
         timetableExternalId: String,
-    ): List<TimetableLectureReminderDisplay> {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+    ): List<TimetableLectureReminderDisplay> = getReminders(timetableService.getTimetable(userId, timetableExternalId))
+
+    private fun getReminders(timetable: Timetable): List<TimetableLectureReminderDisplay> {
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        val idByExternalId = lectures.associateBy { it.externalId }
         val reminders =
             timetableLectureReminderRepository
                 .findByTimetableLectureIdIn(lectures.mapNotNull { it.id })
@@ -75,9 +93,10 @@ class TimetableLectureReminderService(
         return displays.map { display ->
             TimetableLectureReminderDisplay(
                 timetableLectureId = display.id,
+                timetableLectureExternalId = display.externalId,
                 courseTitle = display.courseTitle,
                 option =
-                    reminders[idByExternalId[display.id]?.id]?.let {
+                    reminders[display.id]?.let {
                         TimetableLectureReminderOption.fromOffsetMinutes(it.offsetMinutes)
                     } ?: TimetableLectureReminderOption.NONE,
             )
@@ -87,16 +106,21 @@ class TimetableLectureReminderService(
     @Transactional
     fun modifyReminder(
         userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
+        timetableId: Long,
+        timetableLectureId: Long,
         option: TimetableLectureReminderOption,
     ): TimetableLectureReminderDisplay {
-        val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableExternalId, timetableLectureExternalId)
+        val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableId, timetableLectureId)
         if (display.classPlaceAndTimes.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
 
         if (option == TimetableLectureReminderOption.NONE) {
             timetableLectureReminderRepository.deleteByTimetableLectureId(timetableLecture.id!!)
-            return TimetableLectureReminderDisplay(timetableLecture.externalId, display.courseTitle, TimetableLectureReminderOption.NONE)
+            return TimetableLectureReminderDisplay(
+                timetableLecture.id!!,
+                timetableLecture.externalId,
+                display.courseTitle,
+                TimetableLectureReminderOption.NONE,
+            )
         }
 
         val offsetMinutes = checkNotNull(option.offsetMinutes)
@@ -111,7 +135,19 @@ class TimetableLectureReminderService(
         reminder.offsetMinutes = offsetMinutes
         reminder.scheduleList = schedules
         reminder.recomputeNextFire()
-        return TimetableLectureReminderDisplay(timetableLecture.externalId, display.courseTitle, option)
+        return TimetableLectureReminderDisplay(timetableLecture.id!!, timetableLecture.externalId, display.courseTitle, option)
+    }
+
+    @Transactional
+    fun modifyReminder(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+        option: TimetableLectureReminderOption,
+    ): TimetableLectureReminderDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
+        return modifyReminder(userId, timetable.id!!, timetableLecture.id!!, option)
     }
 
     @Transactional
@@ -136,18 +172,30 @@ class TimetableLectureReminderService(
 
     private fun getTimetableLectureWithDisplay(
         userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
+        timetableId: Long,
+        timetableLectureId: Long,
     ): Pair<TimetableLecture, TimetableLectureDisplay> {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture =
-            timetableLectureRepository.findByTimetableIdAndExternalId(timetable.id!!, timetableLectureExternalId)
-                ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         val display =
             timetableService
                 .displaysOf(listOf(timetable))[timetable.id!!]
                 .orEmpty()
-                .first { it.id == timetableLectureExternalId }
+                .first { it.id == timetableLecture.id }
         return timetableLecture to display
     }
+
+    private fun getTimetableLecture(
+        timetable: Timetable,
+        timetableLectureId: Long,
+    ): TimetableLecture =
+        timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
+            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+
+    private fun getTimetableLectureByExternalId(
+        timetable: Timetable,
+        timetableLectureExternalId: String,
+    ): TimetableLecture =
+        timetableLectureRepository.findByTimetableIdAndExternalId(timetable.id!!, timetableLectureExternalId)
+            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
 }

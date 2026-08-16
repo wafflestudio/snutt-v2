@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceTyp
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
@@ -81,10 +82,10 @@ class FriendService(
 
     @Transactional
     fun acceptFriend(
-        friendExternalId: String,
+        friendId: Long,
         toUserId: Long,
     ) {
-        val friend = get(friendExternalId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         friend.isAccepted = true
         val toUser = userRepository.findByIdAndActiveTrue(toUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
@@ -96,12 +97,38 @@ class FriendService(
     }
 
     @Transactional
+    fun acceptFriend(
+        friendExternalId: String,
+        toUserId: Long,
+    ) {
+        acceptFriend(resolveFriendIdByExternalId(friendExternalId), toUserId)
+    }
+
+    @Transactional
+    fun declineFriend(
+        friendId: Long,
+        toUserId: Long,
+    ) {
+        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        friendRepository.delete(friend)
+    }
+
+    @Transactional
     fun declineFriend(
         friendExternalId: String,
         toUserId: Long,
     ) {
-        val friend = get(friendExternalId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        declineFriend(resolveFriendIdByExternalId(friendExternalId), toUserId)
+    }
+
+    @Transactional
+    fun breakFriend(
+        friendId: Long,
+        userId: Long,
+    ) {
+        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         friendRepository.delete(friend)
     }
 
@@ -110,9 +137,20 @@ class FriendService(
         friendExternalId: String,
         userId: Long,
     ) {
-        val friend = get(friendExternalId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        breakFriend(resolveFriendIdByExternalId(friendExternalId), userId)
+    }
+
+    @Transactional
+    fun updateFriendDisplayName(
+        userId: Long,
+        friendId: Long,
+        displayName: String,
+    ) {
+        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        friendRepository.delete(friend)
+        val valid = displayName.length <= DISPLAY_NAME_MAX_LENGTH && displayName.matches(friendDisplayNameRegex)
+        if (!valid) throw SnuttException(ErrorType.INVALID_DISPLAY_NAME)
+        friend.updatePartnerDisplayName(userId, displayName)
     }
 
     @Transactional
@@ -121,14 +159,15 @@ class FriendService(
         friendExternalId: String,
         displayName: String,
     ) {
-        val friend = get(friendExternalId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        val valid = displayName.length <= DISPLAY_NAME_MAX_LENGTH && displayName.matches(friendDisplayNameRegex)
-        if (!valid) throw SnuttException(ErrorType.INVALID_DISPLAY_NAME)
-        friend.updatePartnerDisplayName(userId, displayName)
+        updateFriendDisplayName(userId, resolveFriendIdByExternalId(friendExternalId), displayName)
     }
 
+    fun get(friendId: Long): Friend? = friendRepository.findByIdOrNull(friendId)
+
     fun get(friendExternalId: String): Friend? = friendRepository.findByExternalId(friendExternalId)
+
+    private fun resolveFriendIdByExternalId(friendExternalId: String): Long =
+        friendRepository.findByExternalId(friendExternalId)?.id ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
 
     fun generateFriendRequestLink(userId: Long): String {
         val bytes = ByteArray(8)

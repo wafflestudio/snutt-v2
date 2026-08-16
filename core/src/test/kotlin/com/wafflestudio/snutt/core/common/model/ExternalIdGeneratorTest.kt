@@ -6,10 +6,10 @@ import org.junit.jupiter.api.Test
 
 class ExternalIdGeneratorTest {
     @Test
-    fun `24자리 소문자 hex를 생성한다`() {
+    fun `32자리 대문자 base32를 생성한다`() {
         val id = ExternalIdGenerator.generate()
-        assertEquals(24, id.length)
-        assertTrue(id.matches(Regex("^[0-9a-f]{24}$")))
+        assertEquals(32, id.length)
+        assertTrue(id.matches(Regex("^[0-9A-Z]{32}$")))
     }
 
     @Test

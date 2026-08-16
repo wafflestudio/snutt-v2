@@ -58,7 +58,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     var port = 0
 
     private lateinit var accessToken: String
-    private lateinit var lectureIds: List<String>
+    private lateinit var lectureIds: List<Long>
 
     @BeforeAll
     fun seedDatabase() {
@@ -142,7 +142,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
                 }
             }
         lectureClassTimeRepository.saveAll(classTimes)
-        lectureIds = lectures.map { it.externalId }
+        lectureIds = lectures.mapNotNull { it.id }
 
         val register =
             post("/v2/auth/register", """{"localId":"timetableuser","password":"password1","email":"tt@snu.ac.kr"}""")
@@ -248,28 +248,28 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `강의 추가 중복 겹침과 덮어쓰기`() {
         val timetableId = createTimetable("나의 시간표")
-        val addLecture = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
+        val addLecture = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""")
         assertEquals(200, addLecture.statusCode.value())
         val lectures = body(addLecture)["lectures"]
         assertEquals(1, lectures.size())
         assertEquals("고급한국어", lectures[0]["courseTitle"].asString())
 
-        val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
+        val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""")
         assertEquals(403, duplicate.statusCode.value())
         assertEquals(0x3004, body(duplicate)["errcode"].asInt())
 
-        val overlap = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[1]}"}""")
+        val overlap = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]}}""")
         assertEquals(403, overlap.statusCode.value())
         assertEquals(0x300C, body(overlap)["errcode"].asInt())
         assertTrue(body(overlap)["displayMessage"].asString().contains("강의와 시간이 겹칩니다"))
 
-        val forced = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[1]}","isForced":true}""")
+        val forced = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]},"isForced":true}""")
         assertEquals(200, forced.statusCode.value())
         val afterForced = body(forced)["lectures"]
         assertEquals(1, afterForced.size())
         assertEquals("경영학을 위한 수학", afterForced[0]["courseTitle"].asString())
 
-        val addAnother = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[2]}"}""")
+        val addAnother = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[2]}}""")
         assertEquals(200, addAnother.statusCode.value())
         assertEquals(2, body(addAnother)["lectures"].size())
     }
@@ -288,7 +288,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals("직접만든강의", customLecture["courseTitle"].asString())
         assertFalse(customLecture.hasNonNull("lectureId"))
 
-        post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
+        post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""")
         val detail = get("/v2/timetables/$timetableId")
         val referenceLecture =
             body(detail)["lectures"].first { it.hasNonNull("lectureId") }
@@ -314,7 +314,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `리마인더 등록과 조회`() {
         val timetableId = createTimetable("나의 시간표")
-        val add = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
+        val add = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""")
         val timetableLectureId = body(add)["lectures"][0]["id"].asString()
 
         val set = put("/v2/timetables/$timetableId/lectures/$timetableLectureId/reminder", """{"option":"TEN_MINUTES_BEFORE"}""")
@@ -362,30 +362,29 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"name":"내테마","colors":[{"backgroundColor":"#FFFFFF","foregroundColor":"#000000"},{"backgroundColor":"#000000","foregroundColor":"#FFFFFF"}]}""",
             )
         assertEquals(200, theme.statusCode.value())
-        val themeId = body(theme)["id"].asString()
+        val themeId = body(theme)["id"].asLong()
 
         val timetableId = createTimetable("나의 시간표")
         val apply =
             put(
                 "/v2/timetables/$timetableId/theme",
-                """{"themeId":"$themeId"}""",
+                """{"themeId":$themeId}""",
             )
         assertEquals(200, apply.statusCode.value())
-        assertEquals(themeId, body(apply)["themeId"].asString())
+        assertEquals(themeId, body(apply)["themeId"].asLong())
 
         val basic =
             put(
                 "/v2/timetables/$timetableId/theme",
-                """{"theme":1}""",
+                """{"themeId":2}""",
             )
         assertEquals(200, basic.statusCode.value())
-        assertFalse(body(basic).hasNonNull("themeId"))
-        assertEquals(1, body(basic)["theme"].asInt())
+        assertEquals(2L, body(basic)["themeId"].asLong())
     }
 
     @Test
     fun `북마크 추가 조회 삭제`() {
-        val add = post("/v2/bookmarks/lecture", """{"lectureId":"${lectureIds[0]}"}""")
+        val add = post("/v2/bookmarks/lecture", """{"lectureId":${lectureIds[0]}}""")
         assertEquals(200, add.statusCode.value())
 
         val getBookmarks = get("/v2/bookmarks?year=2026&semester=3")
@@ -394,7 +393,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         val state = get("/v2/bookmarks/lectures/${lectureIds[0]}/state")
         assertEquals(true, body(state).asBoolean())
 
-        val remove = deleteWithBody("/v2/bookmarks/lecture", """{"lectureId":"${lectureIds[0]}"}""")
+        val remove = deleteWithBody("/v2/bookmarks/lecture", """{"lectureId":${lectureIds[0]}}""")
         assertEquals(200, remove.statusCode.value())
         val afterRemove = get("/v2/bookmarks?year=2026&semester=3")
         assertEquals(0, body(afterRemove)["lectures"].size())

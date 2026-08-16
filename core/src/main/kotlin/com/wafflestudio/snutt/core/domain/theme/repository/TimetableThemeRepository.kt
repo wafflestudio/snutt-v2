@@ -21,6 +21,15 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
 
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): TimetableTheme?
 
+    fun findByBuiltinType(builtinType: Int): TimetableTheme?
+
+    fun findByIdAndUserId(
+        id: Long,
+        userId: Long,
+    ): TimetableTheme?
+
+    fun findByUserIdIsNull(): List<TimetableTheme>
+
     fun existsByOriginThemeIdAndUserId(
         originThemeId: Long,
         userId: Long,

@@ -27,7 +27,7 @@ data class LegacyTimetableDto(
     val semester: Semester,
     val lectures: List<LegacyTimetableLectureDto>,
     val title: String,
-    val theme: BasicThemeType,
+    val theme: Int,
     val themeId: String?,
     val isPrimary: Boolean,
     val updatedAt: Instant,
@@ -45,10 +45,10 @@ fun LegacyTimetableDto(
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.let(evLectureIds::get), language) },
+        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureExternalId?.let(evLectureIds::get), language) },
         title = timetable.title,
-        theme = timetable.theme,
-        themeId = display.themeExternalId,
+        theme = if (display.themeIsBuiltin) display.themeBuiltinType else BasicThemeType.SNUTT.value,
+        themeId = if (display.themeIsBuiltin) null else display.themeExternalId,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
@@ -81,7 +81,7 @@ fun LegacyTimetableLectureDto(
     language: Language = Language.KO,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
-        id = display.id,
+        id = display.externalId,
         academicYear = language.select(display.academicYear, display.academicYearEn),
         category = language.select(display.category, display.categoryEn),
         classPlaceAndTimes = display.classPlaceAndTimes.map { LegacyClassPlaceAndTimeDto(it) },
@@ -97,7 +97,7 @@ fun LegacyTimetableLectureDto(
         courseTitle = language.select(display.courseTitle, display.courseTitleEn),
         color = display.color?.let { LegacyColorSetDto(bg = it.backgroundColor, fg = it.foregroundColor) },
         colorIndex = display.colorIndex,
-        lectureId = display.lectureId,
+        lectureId = display.lectureExternalId,
         snuttEvLecture = evLectureId?.let { LegacyEvLectureIdDto(it) },
         categoryPre2025 = display.categoryPre2025,
     )

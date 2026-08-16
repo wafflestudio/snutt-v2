@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 data class TimetableLectureAddRequestBody(
-    @field:NotBlank val lectureId: String,
+    val lectureId: Long,
     val isForced: Boolean = false,
 )
 
@@ -74,7 +74,7 @@ class TimetableLectureController(
     @PostMapping("")
     fun addLecture(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestBody body: TimetableLectureAddRequestBody,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
@@ -88,7 +88,7 @@ class TimetableLectureController(
     @PostMapping("/custom")
     fun addCustomLecture(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestBody body: CustomTimetableLectureAddRequestBody,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
@@ -111,8 +111,8 @@ class TimetableLectureController(
     @PatchMapping("/{timetableLectureId}")
     fun modifyLecture(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestBody body: TimetableLectureModifyRequestBody,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
@@ -136,8 +136,8 @@ class TimetableLectureController(
     @PostMapping("/{timetableLectureId}/reset")
     fun resetLecture(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestBody(required = false) body: ResetLectureRequestBody?,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
@@ -148,8 +148,8 @@ class TimetableLectureController(
     @DeleteMapping("/{timetableLectureId}")
     fun deleteLecture(
         @CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableLectureService

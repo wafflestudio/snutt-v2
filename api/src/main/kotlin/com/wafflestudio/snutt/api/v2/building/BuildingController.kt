@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class BuildingResponse(
-    val id: String,
+    val id: Long,
     val buildingNumber: String,
     val buildingNameKor: String,
     val buildingNameEng: String,
@@ -22,7 +22,7 @@ data class BuildingResponse(
 
 private fun LectureBuilding.toResponse() =
     BuildingResponse(
-        id = externalId,
+        id = id!!,
         buildingNumber = buildingNumber,
         buildingNameKor = buildingNameKor,
         buildingNameEng = buildingNameEng,

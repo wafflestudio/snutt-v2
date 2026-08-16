@@ -7,6 +7,11 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface TimetableRepository : JpaRepository<Timetable, Long> {
+    fun findByIdAndUserId(
+        id: Long,
+        userId: Long,
+    ): Timetable?
+
     fun findByExternalId(externalId: String): Timetable?
 
     fun findByUserIdAndExternalId(
