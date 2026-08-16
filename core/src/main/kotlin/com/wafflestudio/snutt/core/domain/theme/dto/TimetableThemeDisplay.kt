@@ -6,7 +6,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
 data class TimetableThemeDisplay(
     val id: String?,
     val name: String,
-    val colorList: List<ColorSet>?,
+    val colors: List<ColorSet>?,
     val isCustom: Boolean,
     val status: ThemeStatus,
     val isDefault: Boolean,

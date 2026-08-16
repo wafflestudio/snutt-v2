@@ -84,7 +84,7 @@ fun LegacyTimetableLectureDto(
         id = display.id,
         academicYear = language.select(display.academicYear, display.academicYearEn),
         category = language.select(display.category, display.categoryEn),
-        classPlaceAndTimes = display.classPlaceAndTime.map { LegacyClassPlaceAndTimeDto(it) },
+        classPlaceAndTimes = display.classPlaceAndTimes.map { LegacyClassPlaceAndTimeDto(it) },
         classification = language.select(display.classification, display.classificationEn),
         credit = display.credit,
         department = language.select(display.department, display.departmentEn),
@@ -124,12 +124,12 @@ data class LegacyClassPlaceAndTimeDto(
     val endMinute: Int,
 )
 
-fun LegacyClassPlaceAndTimeDto(classPlaceAndTime: ClassPlaceAndTime): LegacyClassPlaceAndTimeDto =
+fun LegacyClassPlaceAndTimeDto(time: ClassPlaceAndTime): LegacyClassPlaceAndTimeDto =
     LegacyClassPlaceAndTimeDto(
-        day = classPlaceAndTime.day.value,
-        place = classPlaceAndTime.place,
-        startMinute = classPlaceAndTime.startMinute,
-        endMinute = classPlaceAndTime.endMinute,
+        day = time.day.value,
+        place = time.place,
+        startMinute = time.startMinute,
+        endMinute = time.endMinute,
     )
 
 data class LegacyClassPlaceAndTimeFullDto(
@@ -147,16 +147,16 @@ data class LegacyClassPlaceAndTimeFullDto(
     val startPeriod: Double,
 )
 
-fun LegacyClassPlaceAndTimeFullDto(classPlaceAndTime: ClassPlaceAndTime): LegacyClassPlaceAndTimeFullDto =
+fun LegacyClassPlaceAndTimeFullDto(time: ClassPlaceAndTime): LegacyClassPlaceAndTimeFullDto =
     LegacyClassPlaceAndTimeFullDto(
-        day = classPlaceAndTime.day.value,
-        place = classPlaceAndTime.place,
-        startMinute = classPlaceAndTime.startMinute,
-        endMinute = classPlaceAndTime.endMinute,
-        startTime = minuteToString(classPlaceAndTime.startMinute),
-        endTime = minuteToString(classPlaceAndTime.endMinute),
-        startPeriod = classPlaceAndTime.startPeriod,
-        periodLength = classPlaceAndTime.endPeriod - classPlaceAndTime.startPeriod,
+        day = time.day.value,
+        place = time.place,
+        startMinute = time.startMinute,
+        endMinute = time.endMinute,
+        startTime = minuteToString(time.startMinute),
+        endTime = minuteToString(time.endMinute),
+        startPeriod = time.startPeriod,
+        periodLength = time.endPeriod - time.startPeriod,
     )
 
 private fun minuteToString(minute: Int) = "${String.format("%02d", minute / 60)}:${String.format("%02d", minute % 60)}"

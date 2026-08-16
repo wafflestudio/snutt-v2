@@ -40,7 +40,7 @@ data class SnuMapSearchItem(
 
 @Component
 class SnuMapClient(
-    @param:Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") baseUrl: String,
+    @Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") baseUrl: String,
 ) {
     private val restClient = RestClient.builder().baseUrl(baseUrl).build()
 

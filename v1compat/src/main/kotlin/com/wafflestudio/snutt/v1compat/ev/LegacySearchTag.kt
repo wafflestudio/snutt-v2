@@ -41,24 +41,24 @@ interface LegacySearchTagRepository : JpaRepository<LegacySearchTag, Long> {
 class LegacySearchTagService(
     private val repository: LegacySearchTagRepository,
 ) {
-    fun searchTagGroups(): List<Map<String, Any?>> =
+    fun searchTagGroups(): List<LegacyEvTagGroupDto> =
         repository
             .findAllByOrderByGroupOrderingAscOrderingAsc()
             .groupBy { Triple(it.groupName, it.groupOrdering, it.groupColor) }
             .map { (group, tags) ->
                 val (name, ordering, color) = group
-                linkedMapOf(
-                    "id" to ordering,
-                    "name" to name,
-                    "ordering" to ordering,
-                    "color" to color,
-                    "tags" to
+                LegacyEvTagGroupDto(
+                    id = ordering,
+                    name = name,
+                    ordering = ordering,
+                    color = color,
+                    tags =
                         tags.map {
-                            linkedMapOf<String, Any?>(
-                                "id" to it.id,
-                                "name" to it.name,
-                                "description" to null,
-                                "ordering" to it.ordering,
+                            LegacyEvTagDto(
+                                id = it.id,
+                                name = it.name,
+                                description = null,
+                                ordering = it.ordering,
                             )
                         },
                 )

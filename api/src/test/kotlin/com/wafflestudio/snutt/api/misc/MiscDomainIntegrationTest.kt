@@ -18,6 +18,7 @@ import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferen
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -30,6 +31,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -135,7 +138,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"localId":"$localId","password":"password1","email":"$email"}""",
             )
         assertEquals(200, response.statusCode.value())
-        return asMap(response)["accessToken"] as String
+        return body(response)["accessToken"].asString()
     }
 
     private fun client(): RestClient =
@@ -148,84 +151,78 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    @Suppress("UNCHECKED_CAST")
     private fun post(
         uri: String,
         body: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().post().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(Any::class.java)
+        return spec.body(body).retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun get(
         uri: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().get().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun patch(
         uri: String,
         body: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().patch().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(Any::class.java)
+        return spec.body(body).retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun delete(
         uri: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().delete().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private val jsonMapper = JsonMapper.builder().build()
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asList(response: ResponseEntity<Any>): List<Map<String, Any?>> = response.body as List<Map<String, Any?>>
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `친구 요청 수락과 표시 이름`() {
         val request = post("/v2/friends", """{"nickname":"${getNickname("miscuserB")}"}""", userAToken)
         assertEquals(200, request.statusCode.value())
 
-        val requested = asList(get("/v2/friends?state=REQUESTED", userBToken))
-        assertEquals(1, requested.size)
-        val friendId = requested[0]["id"] as String
+        val requested = body(get("/v2/friends?state=REQUESTED", userBToken))
+        assertEquals(1, requested.size())
+        val friendId = requested[0]["id"].asString()
 
         val duplicate = post("/v2/friends", """{"nickname":"${getNickname("miscuserB")}"}""", userAToken)
         assertEquals(409, duplicate.statusCode.value())
 
         assertEquals(200, post("/v2/friends/$friendId/accept", """{}""", userBToken).statusCode.value())
 
-        val active = asList(get("/v2/friends?state=ACTIVE", userAToken))
-        assertEquals(1, active.size)
-        assertEquals(null, active[0]["displayName"])
+        val active = body(get("/v2/friends?state=ACTIVE", userAToken))
+        assertEquals(1, active.size())
+        assertFalse(active[0].hasNonNull("displayName"))
 
         assertEquals(200, patch("/v2/friends/$friendId/display-name", """{"displayName":"단짝"}""", userAToken).statusCode.value())
-        val after = asList(get("/v2/friends?state=ACTIVE", userAToken))
-        assertEquals("단짝", after[0]["displayName"])
+        val after = body(get("/v2/friends?state=ACTIVE", userAToken))
+        assertEquals("단짝", after[0]["displayName"].asString())
 
         assertEquals(200, delete("/v2/friends/$friendId", userAToken).statusCode.value())
-        assertEquals(0, asList(get("/v2/friends?state=ACTIVE", userAToken)).size)
+        assertEquals(0, body(get("/v2/friends?state=ACTIVE", userAToken)).size())
     }
 
     @Test
     fun `친구 초대 링크로 친구가 된다`() {
-        val link = asMap(get("/v2/friends/generate-link", userAToken))
-        val requestToken = link["requestToken"] as String
+        val link = body(get("/v2/friends/generate-link", userAToken))
+        val requestToken = link["requestToken"].asString()
 
         val accept = post("/v2/friends/accept-link/$requestToken", """{}""", userBToken)
         assertEquals(200, accept.statusCode.value())
@@ -243,16 +240,16 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, add.statusCode.value())
 
         val state = get("/v2/vacancy-notifications/lectures/$lectureId/state", userAToken)
-        assertEquals(true, state.body)
+        assertEquals(true, body(state).asBoolean())
 
-        val lectures = asMap(get("/v2/vacancy-notifications/lectures", userAToken))
-        val lectureList = lectures["lectures"] as List<*>
-        assertEquals(1, lectureList.size)
-        assertEquals("건강과 삶", (lectureList[0] as Map<*, *>)["courseTitle"])
+        val lectures = body(get("/v2/vacancy-notifications/lectures", userAToken))
+        val lectureList = lectures["lectures"]
+        assertEquals(1, lectureList.size())
+        assertEquals("건강과 삶", lectureList[0]["courseTitle"].asString())
 
         val remove = delete("/v2/vacancy-notifications/lectures/$lectureId", userAToken)
         assertEquals(200, remove.statusCode.value())
-        assertEquals(0, (asMap(get("/v2/vacancy-notifications/lectures", userAToken))["lectures"] as List<*>).size)
+        assertEquals(0, body(get("/v2/vacancy-notifications/lectures", userAToken))["lectures"].size())
     }
 
     @Test
@@ -265,16 +262,16 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, broadcast.statusCode.value())
 
-        val notifications = asList(get("/v2/notifications", userAToken))
-        assertEquals(1, notifications.size)
-        assertEquals("전체공지", notifications[0]["title"])
+        val notifications = body(get("/v2/notifications", userAToken))
+        assertEquals(1, notifications.size())
+        assertEquals("전체공지", notifications[0]["title"].asString())
 
-        val count = asMap(get("/v2/notifications/count", userAToken))
-        assertEquals(1, (count["count"] as Int).toLong())
+        val count = body(get("/v2/notifications/count", userAToken))
+        assertEquals(1, count["count"].asInt())
 
-        asList(get("/v2/notifications?explicit=1", userAToken))
-        val after = asMap(get("/v2/notifications/count", userAToken))
-        assertEquals(0, (after["count"] as Int).toLong())
+        body(get("/v2/notifications?explicit=1", userAToken))
+        val after = body(get("/v2/notifications/count", userAToken))
+        assertEquals(0, after["count"].asInt())
     }
 
     @Test
@@ -287,9 +284,9 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, popup.statusCode.value())
 
-        val popups = asList(get("/v2/popups"))
-        assertEquals(1, popups.size)
-        assertEquals("https://cdn.example.com/welcome.png", popups[0]["imageUri"])
+        val popups = body(get("/v2/popups"))
+        assertEquals(1, popups.size())
+        assertEquals("https://cdn.example.com/welcome.png", popups[0]["imageUri"].asString())
 
         val config =
             post(
@@ -307,10 +304,10 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                 .header("x-client-key", "test-ios-key")
                 .header("x-app-version", "3.5.0")
                 .retrieve()
-                .toEntity(Any::class.java)
+                .toEntity(String::class.java)
         assertEquals(200, adapted.statusCode.value())
-        val configs = adapted.body as Map<*, *>
-        assertTrue(configs.containsKey("notice"))
+        val configs = body(adapted)
+        assertTrue(configs.has("notice"))
 
         val outOfRange =
             client()
@@ -320,8 +317,10 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                 .header("x-client-key", "test-ios-key")
                 .header("x-app-version", "5.0.0")
                 .retrieve()
-                .toEntity(Any::class.java)
-        assertEquals(emptyMap<Any, Any>(), outOfRange.body)
+                .toEntity(String::class.java)
+        val outOfRangeNode = body(outOfRange)
+        assertTrue(outOfRangeNode.isObject)
+        assertEquals(0, outOfRangeNode.size())
     }
 
     @Test
@@ -333,10 +332,10 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                 userAToken,
             )
         assertEquals(200, saved.statusCode.value())
-        val preferences = (asMap(saved)["pushPreferences"] as List<*>)
-        assertEquals(1, preferences.size)
-        assertEquals("LECTURE_UPDATE", (preferences[0] as Map<*, *>)["type"])
-        assertEquals(false, (preferences[0] as Map<*, *>)["isEnabled"])
+        val preferences = body(saved)["pushPreferences"]
+        assertEquals(1, preferences.size())
+        assertEquals("LECTURE_UPDATE", preferences[0]["type"].asString())
+        assertEquals(false, preferences[0]["isEnabled"].asBoolean())
     }
 
     @Test

@@ -266,7 +266,7 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                         courses.getOrPut(key) {
                             Course(
                                 courseNumber = seed.courseNumber,
-                                instructor = seed.instructor!!,
+                                instructor = seed.instructor,
                                 title = seed.courseTitle,
                                 department = seed.department,
                                 credit = seed.credit,

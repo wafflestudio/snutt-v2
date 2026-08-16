@@ -26,19 +26,18 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-mysql")
-    implementation("com.querydsl:querydsl-jpa:5.1.0:jakarta")
+    implementation("io.github.openfeign.querydsl:querydsl-jpa:7.5")
     implementation("com.google.firebase:firebase-admin:9.10.0")
     // 팝업 이미지 업로드용 사전 인증 요청(PAR) 발급. 요청 서명이 필요해 SDK를 쓴다
     implementation("com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.94.1")
     implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3:3.94.1")
-    kapt("com.querydsl:querydsl-apt:5.1.0:jakarta")
+    kapt("io.github.openfeign.querydsl:querydsl-apt:7.5:jakarta")
     // Hibernate 7.4 JSON 컬럼 매핑(Jackson 3 FormatMapper)과 @JsonValue/@JsonCreator 사용
     implementation("tools.jackson.core:jackson-databind")
 
     runtimeOnly("com.mysql:mysql-connector-j")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.5"))
     // Testcontainers 2.x 아티팩트 명 (mysql/junit-jupiter → testcontainers-*)
     testImplementation("org.testcontainers:testcontainers-mysql")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")

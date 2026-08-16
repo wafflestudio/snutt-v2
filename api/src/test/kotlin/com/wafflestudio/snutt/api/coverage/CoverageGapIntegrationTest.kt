@@ -23,7 +23,6 @@ import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeReposit
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -35,6 +34,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -117,7 +118,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     ): String {
         val response = post("/v2/auth/register", """{"localId":"$localId","password":"password1","email":"$email"}""")
         assertEquals(200, response.statusCode.value())
-        return asMap(response)["accessToken"] as String
+        return body(response)["accessToken"].asString()
     }
 
     private fun client(): RestClient =
@@ -135,37 +136,35 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         body: String? = null,
         token: String? = null,
         headers: Map<String, String> = emptyMap(),
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().post().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
         headers.forEach { (k, v) -> spec.header(k, v) }
         body?.let { spec.body(it) }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
     private fun get(
         uri: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().get().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
     private fun delete(
         uri: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().delete().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private val jsonMapper = JsonMapper.builder().build()
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asList(response: ResponseEntity<Any>): List<Map<String, Any?>> = response.body as List<Map<String, Any?>>
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `기기 등록과 해제가 FCM 토픽 구독까지 반영한다`() {
@@ -214,7 +213,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                 .header("x-access-token", legacyToken)
                 .header("x-device-id", "legacy-device")
                 .retrieve()
-                .toEntity(Any::class.java)
+                .toEntity(String::class.java)
         assertEquals(200, response.statusCode.value())
         assertTrue(recordingPushClient.globalTopicSubscriptions.contains("legacy-fcm-token"))
     }
@@ -223,11 +222,11 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `학기 상태는 현재와 다음 학기를 알려준다`() {
         val response = get("/v2/semesters/status")
         assertEquals(200, response.statusCode.value())
-        val body = asMap(response)
-        assertNotNull(body["next"])
-        val next = body["next"] as Map<String, Any?>
-        assertNotNull(next["year"])
-        assertNotNull(next["semester"])
+        val node = body(response)
+        assertTrue(node.hasNonNull("next"))
+        val next = node["next"]
+        assertTrue(next.hasNonNull("year"))
+        assertTrue(next.hasNonNull("semester"))
     }
 
     @Test
@@ -239,7 +238,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                 TimetableTheme(
                     userId = userB.id!!,
                     name = "친구테마",
-                    colorList = listOf(ColorSet(backgroundColor = "#111111", foregroundColor = "#222222")),
+                    colors = listOf(ColorSet(backgroundColor = "#111111", foregroundColor = "#222222")),
                 ),
             )
         publishedThemeRepository.save(
@@ -252,9 +251,9 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val response = get("/v2/themes/friends?page=0", userAToken)
         assertEquals(200, response.statusCode.value())
-        val themes = asList(response)
-        assertEquals(1, themes.size)
-        assertEquals("친구가공유한테마", themes[0]["publishName"])
+        val themes = body(response)
+        assertEquals(1, themes.size())
+        assertEquals("친구가공유한테마", themes[0]["publishName"].asString())
     }
 
     @Autowired
@@ -279,24 +278,24 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         val created =
             post(
                 "/v2/themes",
-                """{"name":"기본테마후보","colorList":[{"backgroundColor":"#000000","foregroundColor":"#ffffff"}]}""",
+                """{"name":"기본테마후보","colors":[{"backgroundColor":"#000000","foregroundColor":"#ffffff"}]}""",
                 userBToken,
             )
         assertEquals(200, created.statusCode.value())
-        val themeId = asMap(created)["id"] as String
+        val themeId = body(created)["id"].asString()
 
         val setDefault = post("/v2/themes/$themeId/default", token = userBToken)
         assertEquals(200, setDefault.statusCode.value())
-        assertEquals(true, asMap(setDefault)["isDefault"])
+        assertEquals(true, body(setDefault)["isDefault"].asBoolean())
 
-        val themes = asList(get("/v2/themes", userBToken))
-        val marked = themes.filter { it["isDefault"] == true }
+        val themes = body(get("/v2/themes", userBToken))
+        val marked = themes.filter { it["isDefault"].asBoolean() }
         assertEquals(1, marked.size)
-        assertEquals(themeId, marked[0]["id"])
+        assertEquals(themeId, marked[0]["id"].asString())
 
         val unset = delete("/v2/themes/$themeId/default", userBToken)
         assertEquals(200, unset.statusCode.value())
-        assertEquals("SNUTT", asMap(unset)["name"])
+        assertEquals("SNUTT", body(unset)["name"].asString())
     }
 
     @Test
@@ -305,22 +304,22 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         val aliased = get("/v2/friends/${friend.externalId}/registered-course-books", userAToken)
         assertEquals(200, aliased.statusCode.value())
         val canonical = get("/v2/friends/${friend.externalId}/coursebooks", userAToken)
-        assertEquals(canonical.body, aliased.body)
+        assertEquals(body(canonical), body(aliased))
     }
 
     @Test
     fun `최근 수강 강의를 강의평 작성 대상으로 돌려준다`() {
         val table = post("/v2/timetables", """{"year":2026,"semester":1,"title":"수강내역"}""", userAToken)
         assertEquals(200, table.statusCode.value())
-        val tableId = asList(table).first { it["title"] == "수강내역" }["id"] as String
+        val tableId = body(table).first { it["title"].asString() == "수강내역" }["id"].asString()
         val added = post("/v2/timetables/$tableId/lectures", """{"lectureId":"$lectureId"}""", userAToken)
         assertEquals(200, added.statusCode.value())
 
         val response = get("/v2/users/me/lectures/latest", userAToken)
         assertEquals(200, response.statusCode.value())
-        val lectures = asList(response)
-        assertEquals(1, lectures.size)
-        assertEquals("생활과학신입생세미나", lectures[0]["title"])
-        assertEquals(2026, lectures[0]["takenYear"])
+        val lectures = body(response)
+        assertEquals(1, lectures.size())
+        assertEquals("생활과학신입생세미나", lectures[0]["title"].asString())
+        assertEquals(2026, lectures[0]["takenYear"].asInt())
     }
 }

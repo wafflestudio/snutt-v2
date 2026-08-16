@@ -70,6 +70,22 @@ data class LegacySocialTokenRequest(
     val token: String,
 )
 
+data class LegacySocialProvidersResponse(
+    val local: Boolean,
+    val facebook: Boolean,
+    val google: Boolean,
+    val kakao: Boolean,
+    val apple: Boolean,
+)
+
+data class LegacyEmailVerificationResponse(
+    val isEmailVerified: Boolean,
+)
+
+data class LegacyTokenResponse(
+    val token: String,
+)
+
 @RestController
 @RequestMapping("/v1/users")
 class V1CompatUsersController(
@@ -93,13 +109,13 @@ class V1CompatUsersController(
     @GetMapping("/me/social_providers", "/me/auth-providers")
     fun socialProviders(
         @V1CurrentUser user: User,
-    ): Map<String, Any?> =
-        mapOf(
-            "local" to (user.localId != null),
-            "facebook" to (user.facebookSub != null),
-            "google" to (user.googleSub != null),
-            "kakao" to (user.kakaoSub != null),
-            "apple" to (user.appleSub != null),
+    ): LegacySocialProvidersResponse =
+        LegacySocialProvidersResponse(
+            local = user.localId != null,
+            facebook = user.facebookSub != null,
+            google = user.googleSub != null,
+            kakao = user.kakaoSub != null,
+            apple = user.appleSub != null,
         )
 }
 
@@ -134,41 +150,41 @@ class V1CompatUserController(
     @GetMapping("/email/verification")
     fun getEmailVerification(
         @V1CurrentUser user: User,
-    ): Map<String, Any?> = mapOf("isEmailVerified" to user.isEmailVerified)
+    ): LegacyEmailVerificationResponse = LegacyEmailVerificationResponse(isEmailVerified = user.isEmailVerified)
 
     @DeleteMapping("/email/verification")
     fun resetEmailVerification(
         @V1CurrentUser user: User,
-    ): Map<String, Any?> {
+    ): LegacyEmailVerificationResponse {
         emailVerificationService.resetEmailVerification(user)
-        return mapOf("isEmailVerified" to false)
+        return LegacyEmailVerificationResponse(isEmailVerified = false)
     }
 
     @PostMapping("/email/verification/code")
     fun confirmEmailVerification(
         @V1CurrentUser user: User,
         @RequestBody body: VerificationCodeRequest,
-    ): Map<String, Any?> {
+    ): LegacyEmailVerificationResponse {
         emailVerificationService.verifyEmail(user, body.code)
-        return mapOf("isEmailVerified" to true)
+        return LegacyEmailVerificationResponse(isEmailVerified = true)
     }
 
     @PostMapping("/password")
     fun attachLocal(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyAttachLocalRequest,
-    ): Map<String, Any?> {
+    ): LegacyTokenResponse {
         authService.attachLocal(user, body.id, body.password)
-        return mapOf("token" to legacyTokenService.issue(user))
+        return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
     @PutMapping("/password")
     fun changePassword(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyChangePasswordRequest,
-    ): Map<String, Any?> {
+    ): LegacyTokenResponse {
         authService.changePassword(user, body.currentPassword, body.newPassword)
-        return mapOf("token" to legacyTokenService.issue(user))
+        return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
     @PostMapping("/{provider:facebook|google|kakao|apple}")
@@ -176,18 +192,18 @@ class V1CompatUserController(
         @V1CurrentUser user: User,
         @PathVariable provider: String,
         @RequestBody body: LegacySocialTokenRequest,
-    ): Map<String, Any?> {
+    ): LegacyTokenResponse {
         authService.attachSocial(user, socialProvider(provider), body.token)
-        return mapOf("token" to legacyTokenService.issue(user))
+        return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
     @DeleteMapping("/{provider:facebook|google|kakao|apple}")
     fun detachSocial(
         @V1CurrentUser user: User,
         @PathVariable provider: String,
-    ): Map<String, Any?> {
+    ): LegacyTokenResponse {
         authService.detachSocial(user, socialProvider(provider))
-        return mapOf("token" to legacyTokenService.issue(user))
+        return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
     private fun socialProvider(value: String): AuthProvider =
@@ -218,7 +234,7 @@ internal fun User.toLegacyUserInfoDto() =
     )
 
 data class SendVerificationEmailRequest(
-    @JsonAlias("user_email")
+    @param:JsonAlias("user_email")
     val email: String,
 )
 

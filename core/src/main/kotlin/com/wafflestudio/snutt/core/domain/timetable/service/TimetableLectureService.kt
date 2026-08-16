@@ -26,7 +26,7 @@ data class CustomTimetableLectureAddRequest(
     val courseTitle: String,
     val instructor: String? = null,
     val credit: Int? = null,
-    val classPlaceAndTime: List<ClassPlaceAndTime> = emptyList(),
+    val classPlaceAndTimes: List<ClassPlaceAndTime> = emptyList(),
     val remark: String? = null,
     val color: ColorSet? = null,
     val colorIndex: Int? = null,
@@ -37,7 +37,7 @@ data class TimetableLectureModifyRequest(
     val courseTitle: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
-    val classPlaceAndTime: List<ClassPlaceAndTime>? = null,
+    val classPlaceAndTimes: List<ClassPlaceAndTime>? = null,
     val remark: String? = null,
     val color: ColorSet? = null,
     val colorIndex: Int? = null,
@@ -96,9 +96,9 @@ class TimetableLectureService(
         request: CustomTimetableLectureAddRequest,
     ): TimetableDisplay {
         val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        if (ClassTimeUtils.timesOverlap(request.classPlaceAndTime)) throw SnuttException(ErrorType.INVALID_TIME)
+        if (ClassTimeUtils.timesOverlap(request.classPlaceAndTimes)) throw SnuttException(ErrorType.INVALID_TIME)
 
-        resolveTimeConflict(timetable, request.classPlaceAndTime, request.isForced, null)
+        resolveTimeConflict(timetable, request.classPlaceAndTimes, request.isForced, null)
 
         val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
         val (colorIndex, color) =
@@ -117,7 +117,7 @@ class TimetableLectureService(
                 instructor = request.instructor,
                 credit = request.credit,
                 remark = request.remark,
-                classPlaceAndTime = request.classPlaceAndTime,
+                classPlaceAndTimes = request.classPlaceAndTimes,
             ),
         )
         return displayAfterLectureChange(userId, timetable)
@@ -135,8 +135,8 @@ class TimetableLectureService(
         val existingDisplays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
 
         val newTimes =
-            request.classPlaceAndTime
-                ?: existingDisplays.first { it.id == timetableLectureExternalId }.classPlaceAndTime
+            request.classPlaceAndTimes
+                ?: existingDisplays.first { it.id == timetableLectureExternalId }.classPlaceAndTimes
         if (ClassTimeUtils.timesOverlap(newTimes)) throw SnuttException(ErrorType.INVALID_TIME)
         resolveTimeConflict(timetable, newTimes, request.isForced, timetableLectureExternalId)
 
@@ -147,7 +147,7 @@ class TimetableLectureService(
         request.instructor?.let { timetableLecture.instructor = it }
         request.credit?.let { timetableLecture.credit = it }
         request.remark?.let { timetableLecture.remark = it }
-        request.classPlaceAndTime?.let { timetableLecture.classPlaceAndTime = it }
+        request.classPlaceAndTimes?.let { timetableLecture.classPlaceAndTimes = it }
         request.academicYear?.let { timetableLecture.academicYear = it }
         request.category?.let { timetableLecture.category = it }
         request.classification?.let { timetableLecture.classification = it }
@@ -214,7 +214,7 @@ class TimetableLectureService(
         val displays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
         val overlapping =
             displays.filter { display ->
-                display.id != selfExternalId && ClassTimeUtils.timesOverlap(newTimes, display.classPlaceAndTime)
+                display.id != selfExternalId && ClassTimeUtils.timesOverlap(newTimes, display.classPlaceAndTimes)
             }
         if (overlapping.isEmpty()) return
         if (!isForced) {

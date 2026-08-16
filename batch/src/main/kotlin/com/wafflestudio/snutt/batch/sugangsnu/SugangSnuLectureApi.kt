@@ -33,7 +33,7 @@ data class SugangSnuCoursebookCondition(
 
 @Component
 class SugangSnuLectureApi(
-    @param:Value("\${snutt.sugang.base-url:https://sugang.snu.ac.kr}") baseUrl: String,
+    @Value("\${snutt.sugang.base-url:https://sugang.snu.ac.kr}") baseUrl: String,
 ) {
     private val restClient: RestClient =
         RestClient

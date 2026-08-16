@@ -48,7 +48,7 @@ class OciUploadUriIssuer(
     private val storageUriResolver: StorageUriResolver,
     @param:Value("\${snutt.storage.endpoint:https://objectstorage.ap-chuncheon-1.oraclecloud.com}")
     private val endpoint: String,
-    @param:Value("\${snutt.storage.region:ap-chuncheon-1}") region: String,
+    @Value("\${snutt.storage.region:ap-chuncheon-1}") region: String,
 ) : UploadUriIssuer {
     private val client: ObjectStorageClient =
         ObjectStorageClient.builder().region(Region.fromRegionId(region)).build(authProvider)

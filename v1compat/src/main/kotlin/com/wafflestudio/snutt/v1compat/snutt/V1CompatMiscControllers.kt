@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -19,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -29,6 +31,20 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
+
+data class LegacyTagListResponse(
+    val classification: List<String>,
+    val department: List<String>,
+    @param:JsonProperty("academic_year")
+    val academicYear: List<String>,
+    val credit: List<String>,
+    val instructor: List<String>,
+    val category: List<String>,
+    val sortCriteria: List<String>,
+    @param:JsonProperty("updated_at")
+    val updatedAt: Long?,
+    val categoryPre2025: List<String>,
+)
 
 @RestController
 @RequestMapping("/v1/tags")
@@ -41,35 +57,48 @@ class V1CompatTagController(
         @PathVariable year: Int,
         @PathVariable semester: Int,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): Map<String, Any?> {
+    ): LegacyTagListResponse {
         val parsedSemester = Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val vocabulary = lectureVocabularyService.getVocabulary(year, parsedSemester, clientInfo.language)
-        return linkedMapOf(
-            "classification" to vocabulary.classification,
-            "department" to vocabulary.department,
-            "academic_year" to vocabulary.academicYear,
-            "credit" to vocabulary.credit.map { "${it}학점" },
-            "instructor" to vocabulary.instructor,
-            "category" to vocabulary.category,
-            "sortCriteria" to LectureSort.entries.filter { it != LectureSort.DEFAULT }.map { it.fullName },
-            "updated_at" to vocabulary.updatedAt?.toEpochMilli(),
-            "categoryPre2025" to vocabulary.categoryPre2025,
+        return LegacyTagListResponse(
+            classification = vocabulary.classification,
+            department = vocabulary.department,
+            academicYear = vocabulary.academicYear,
+            credit = vocabulary.credit.map { "${it}학점" },
+            instructor = vocabulary.instructor,
+            category = vocabulary.category,
+            sortCriteria = LectureSort.entries.filter { it != LectureSort.DEFAULT }.map { it.fullName },
+            updatedAt = vocabulary.updatedAt?.toEpochMilli(),
+            categoryPre2025 = vocabulary.categoryPre2025,
         )
     }
 }
+
+data class LegacyCoursebookDto(
+    val year: Int,
+    val semester: Int,
+    @param:JsonProperty("updated_at")
+    val updatedAt: Instant,
+)
+
+data class LegacyCoursebookOfficialResponse(
+    val noProxyUrl: String,
+    val proxyUrl: String?,
+    val url: String,
+)
 
 @RestController
 @V1Public
 @RequestMapping("/v1/course_books")
 class V1CompatCoursebookController(
     private val coursebookService: CoursebookService,
-    @Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
+    @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
 ) {
     @GetMapping("")
-    fun getCoursebooks(): List<Map<String, Any?>> = coursebookService.getCoursebooks().map { it.toLegacy() }
+    fun getCoursebooks(): List<LegacyCoursebookDto> = coursebookService.getCoursebooks().map { it.toLegacy() }
 
     @GetMapping("/recent")
-    fun getLatestCoursebook(): Map<String, Any?> = coursebookService.getLatestCoursebook().toLegacy()
+    fun getLatestCoursebook(): LegacyCoursebookDto = coursebookService.getLatestCoursebook().toLegacy()
 
     @GetMapping("/official")
     fun getCoursebookOfficial(
@@ -77,25 +106,41 @@ class V1CompatCoursebookController(
         @RequestParam semester: Int,
         @RequestParam("course_number") courseNumber: String,
         @RequestParam("lecture_number") lectureNumber: String,
-    ): Map<String, Any?> {
+    ): LegacyCoursebookOfficialResponse {
         val semesterValue =
             Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val syllabusPath = SugangSnuUrlUtils.parseSyllabusPath(year, semesterValue, courseNumber, lectureNumber)
         val proxyUrl = syllabusProxyBaseUrl.takeIf { it.isNotBlank() }?.plus(syllabusPath)
-        return linkedMapOf(
-            "noProxyUrl" to SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,
-            "proxyUrl" to proxyUrl,
-            "url" to (proxyUrl ?: SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath),
+        return LegacyCoursebookOfficialResponse(
+            noProxyUrl = SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,
+            proxyUrl = proxyUrl,
+            url = proxyUrl ?: (SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath),
         )
     }
 
     private fun Coursebook.toLegacy() =
-        linkedMapOf(
-            "year" to year,
-            "semester" to semester.value,
-            "updated_at" to checkNotNull(updatedAt),
+        LegacyCoursebookDto(
+            year = year,
+            semester = semester.value,
+            updatedAt = checkNotNull(updatedAt),
         )
 }
+
+data class LegacyLectureBuildingDto(
+    val id: String,
+    val buildingNumber: String,
+    val buildingNameKor: String,
+    val buildingNameEng: String,
+    val campus: String,
+    @param:JsonProperty("locationInDMS")
+    val locationInDms: LegacyGeoCoordinateDto?,
+    val locationInDecimal: LegacyGeoCoordinateDto?,
+)
+
+data class LegacyGeoCoordinateDto(
+    val latitude: Double,
+    val longitude: Double,
+)
 
 @RestController
 @V1Public
@@ -106,24 +151,24 @@ class V1CompatBuildingController(
     @GetMapping("")
     fun searchBuildings(
         @RequestParam places: String,
-    ): Map<String, Any?> {
+    ): LegacyPageResponse<LegacyLectureBuildingDto> {
         val placeQuery = places.split(",").flatMap { PlaceInfo.getValuesOf(it) }.distinct()
         val content = lectureBuildingService.getLectureBuildings(placeQuery).map { it.toLegacy() }
-        return mapOf("content" to content, "totalCount" to content.size)
+        return LegacyPageResponse(content = content, totalCount = content.size)
     }
 
     private fun LectureBuilding.toLegacy() =
-        linkedMapOf(
-            "id" to externalId,
-            "buildingNumber" to buildingNumber,
-            "buildingNameKor" to buildingNameKor,
-            "buildingNameEng" to buildingNameEng,
-            "campus" to campus.name,
-            "locationInDMS" to locationInDms?.toLegacy(),
-            "locationInDecimal" to locationInDecimal?.toLegacy(),
+        LegacyLectureBuildingDto(
+            id = externalId,
+            buildingNumber = buildingNumber,
+            buildingNameKor = buildingNameKor,
+            buildingNameEng = buildingNameEng,
+            campus = campus.name,
+            locationInDms = locationInDms?.toLegacy(),
+            locationInDecimal = locationInDecimal?.toLegacy(),
         )
 
-    private fun GeoCoordinate.toLegacy() = linkedMapOf("latitude" to latitude, "longitude" to longitude)
+    private fun GeoCoordinate.toLegacy() = LegacyGeoCoordinateDto(latitude = latitude, longitude = longitude)
 }
 
 @RestController
@@ -151,6 +196,16 @@ class V1CompatDeviceController(
     }
 }
 
+data class LegacySemesterStatusResponse(
+    val current: LegacyYearAndSemesterDto?,
+    val next: LegacyYearAndSemesterDto,
+)
+
+data class LegacyYearAndSemesterDto(
+    val year: Int,
+    val semester: Semester,
+)
+
 @RestController
 @V1Public
 @RequestMapping("/v1/semesters")
@@ -158,16 +213,16 @@ class V1CompatSemesterController(
     private val semesterService: SemesterService,
 ) {
     @GetMapping("/status")
-    fun getSemesterStatus(): Map<String, Any?> {
+    fun getSemesterStatus(): LegacySemesterStatusResponse {
         val now = Instant.now()
-        return linkedMapOf(
-            "current" to
+        return LegacySemesterStatusResponse(
+            current =
                 semesterService.getCurrentYearAndSemester(now)?.let {
-                    linkedMapOf("year" to it.year, "semester" to it.semester)
+                    LegacyYearAndSemesterDto(year = it.year, semester = it.semester)
                 },
-            "next" to
+            next =
                 semesterService.getNextYearAndSemester(now).let {
-                    linkedMapOf("year" to it.year, "semester" to it.semester)
+                    LegacyYearAndSemesterDto(year = it.year, semester = it.semester)
                 },
         )
     }

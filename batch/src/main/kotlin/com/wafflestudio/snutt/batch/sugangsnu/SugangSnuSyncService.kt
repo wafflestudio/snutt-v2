@@ -299,14 +299,14 @@ class SugangSnuSyncService(
         newTimes: List<ClassPlaceAndTime>,
     ): Boolean {
         val entries = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        if (entries.any { it.lectureId == lecture.id && it.classPlaceAndTime != null }) return false
+        if (entries.any { it.lectureId == lecture.id && it.classPlaceAndTimes != null }) return false
         val otherEntries = entries.filter { it.lectureId != lecture.id }
         val otherLectureTimes =
             lectureClassTimeRepository
                 .findAllByLectureIdInOrderById(otherEntries.mapNotNull { it.lectureId })
                 .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
         return otherEntries.any { entry ->
-            val times = entry.classPlaceAndTime ?: entry.lectureId?.let { otherLectureTimes[it] }.orEmpty()
+            val times = entry.classPlaceAndTimes ?: entry.lectureId?.let { otherLectureTimes[it] }.orEmpty()
             ClassTimeUtils.timesOverlap(times, newTimes)
         }
     }

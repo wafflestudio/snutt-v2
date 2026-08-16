@@ -26,6 +26,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -144,7 +146,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val register =
             post("/v2/auth/register", """{"localId":"timetableuser","password":"password1","email":"tt@snu.ac.kr"}""")
-        accessToken = asMap(register)["accessToken"] as String
+        accessToken = body(register)["accessToken"].asString()
     }
 
     @BeforeEach
@@ -162,91 +164,85 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    @Suppress("UNCHECKED_CAST")
     private fun post(
         uri: String,
         body: String,
-    ): ResponseEntity<Any> =
+    ): ResponseEntity<String> =
         client()
             .post()
             .uri(uri)
             .headers { if (::accessToken.isInitialized) it.setBearerAuth(accessToken) }
             .body(body)
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    @Suppress("UNCHECKED_CAST")
-    private fun get(uri: String): ResponseEntity<Any> =
+    private fun get(uri: String): ResponseEntity<String> =
         client()
             .get()
             .uri(uri)
             .headers { it.setBearerAuth(accessToken) }
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    @Suppress("UNCHECKED_CAST")
     private fun put(
         uri: String,
         body: String,
-    ): ResponseEntity<Any> =
+    ): ResponseEntity<String> =
         client()
             .put()
             .uri(uri)
             .headers { it.setBearerAuth(accessToken) }
             .body(body)
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    @Suppress("UNCHECKED_CAST")
     private fun patch(
         uri: String,
         body: String,
-    ): ResponseEntity<Any> =
+    ): ResponseEntity<String> =
         client()
             .patch()
             .uri(uri)
             .headers { it.setBearerAuth(accessToken) }
             .body(body)
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    @Suppress("UNCHECKED_CAST")
-    private fun delete(uri: String): ResponseEntity<Any> =
+    private fun delete(uri: String): ResponseEntity<String> =
         client()
             .delete()
             .uri(uri)
             .headers { it.setBearerAuth(accessToken) }
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    @Suppress("UNCHECKED_CAST")
     private fun deleteWithBody(
         uri: String,
         body: String,
-    ): ResponseEntity<Any> =
+    ): ResponseEntity<String> =
         client()
             .method(HttpMethod.DELETE)
             .uri(uri)
             .headers { it.setBearerAuth(accessToken) }
             .body(body)
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    private fun asList(response: ResponseEntity<Any>): List<Map<String, Any?>> = response.body as List<Map<String, Any?>>
+    private val jsonMapper = JsonMapper.builder().build()
 
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `시간표 생성과 조회`() {
         val add = post("/v2/timetables", """{"year":2026,"semester":3,"title":"나의 시간표"}""")
         assertEquals(200, add.statusCode.value())
-        assertEquals(1, asList(add).size)
-        val timetableId = asList(add)[0]["id"] as String
+        assertEquals(1, body(add).size())
+        val timetableId = body(add)[0]["id"].asString()
 
         val detail = get("/v2/timetables/$timetableId")
         assertEquals(200, detail.statusCode.value())
-        assertEquals("나의 시간표", asMap(detail)["title"])
-        assertEquals(emptyList<Any>(), asMap(detail)["lectures"])
+        assertEquals("나의 시간표", body(detail)["title"].asString())
+        assertEquals(0, body(detail)["lectures"].size())
     }
 
     @Test
@@ -254,28 +250,28 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         val timetableId = createTimetable("나의 시간표")
         val addLecture = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
         assertEquals(200, addLecture.statusCode.value())
-        val lectures = asMap(addLecture)["lectures"] as List<*>
-        assertEquals(1, lectures.size)
-        assertEquals("고급한국어", (lectures[0] as Map<*, *>)["courseTitle"])
+        val lectures = body(addLecture)["lectures"]
+        assertEquals(1, lectures.size())
+        assertEquals("고급한국어", lectures[0]["courseTitle"].asString())
 
         val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
         assertEquals(403, duplicate.statusCode.value())
-        assertEquals(0x3004, asMap(duplicate)["errcode"])
+        assertEquals(0x3004, body(duplicate)["errcode"].asInt())
 
         val overlap = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[1]}"}""")
         assertEquals(403, overlap.statusCode.value())
-        assertEquals(0x300C, asMap(overlap)["errcode"])
-        assertTrue((asMap(overlap)["displayMessage"] as String).contains("강의와 시간이 겹칩니다"))
+        assertEquals(0x300C, body(overlap)["errcode"].asInt())
+        assertTrue(body(overlap)["displayMessage"].asString().contains("강의와 시간이 겹칩니다"))
 
         val forced = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[1]}","isForced":true}""")
         assertEquals(200, forced.statusCode.value())
-        val afterForced = asMap(forced)["lectures"] as List<*>
-        assertEquals(1, afterForced.size)
-        assertEquals("경영학을 위한 수학", (afterForced[0] as Map<*, *>)["courseTitle"])
+        val afterForced = body(forced)["lectures"]
+        assertEquals(1, afterForced.size())
+        assertEquals("경영학을 위한 수학", afterForced[0]["courseTitle"].asString())
 
         val addAnother = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[2]}"}""")
         assertEquals(200, addAnother.statusCode.value())
-        assertEquals(2, (asMap(addAnother)["lectures"] as List<*>).size)
+        assertEquals(2, body(addAnother)["lectures"].size())
     }
 
     @Test
@@ -285,18 +281,18 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         val custom =
             post(
                 "/v2/timetables/$timetableId/lectures/custom",
-                """{"courseTitle":"직접만든강의","instructor":"나","credit":2,"classPlaceAndTime":[{"day":4,"place":"","startMinute":570,"endMinute":660}]}""",
+                """{"courseTitle":"직접만든강의","instructor":"나","credit":2,"classPlaceAndTimes":[{"day":4,"place":"","startMinute":570,"endMinute":660}]}""",
             )
         assertEquals(200, custom.statusCode.value())
-        val customLecture = (asMap(custom)["lectures"] as List<*>)[0] as Map<*, *>
-        assertEquals("직접만든강의", customLecture["courseTitle"])
-        assertEquals(null, customLecture["lectureId"])
+        val customLecture = body(custom)["lectures"][0]
+        assertEquals("직접만든강의", customLecture["courseTitle"].asString())
+        assertFalse(customLecture.hasNonNull("lectureId"))
 
         post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
         val detail = get("/v2/timetables/$timetableId")
         val referenceLecture =
-            (asMap(detail)["lectures"] as List<*>).first { (it as Map<*, *>)["lectureId"] != null } as Map<*, *>
-        val referenceLectureId = referenceLecture["id"] as String
+            body(detail)["lectures"].first { it.hasNonNull("lectureId") }
+        val referenceLectureId = referenceLecture["id"].asString()
 
         val modified =
             patch(
@@ -305,35 +301,35 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, modified.statusCode.value())
         val modifiedLecture =
-            (asMap(modified)["lectures"] as List<*>).first { (it as Map<*, *>)["id"] == referenceLectureId } as Map<*, *>
-        assertEquals("바뀐제목", modifiedLecture["courseTitle"])
+            body(modified)["lectures"].first { it["id"].asString() == referenceLectureId }
+        assertEquals("바뀐제목", modifiedLecture["courseTitle"].asString())
 
         val reset = post("/v2/timetables/$timetableId/lectures/$referenceLectureId/reset", """{}""")
         assertEquals(200, reset.statusCode.value())
         val resetLecture =
-            (asMap(reset)["lectures"] as List<*>).first { (it as Map<*, *>)["id"] == referenceLectureId } as Map<*, *>
-        assertEquals("고급한국어", resetLecture["courseTitle"])
+            body(reset)["lectures"].first { it["id"].asString() == referenceLectureId }
+        assertEquals("고급한국어", resetLecture["courseTitle"].asString())
     }
 
     @Test
     fun `리마인더 등록과 조회`() {
         val timetableId = createTimetable("나의 시간표")
         val add = post("/v2/timetables/$timetableId/lectures", """{"lectureId":"${lectureIds[0]}"}""")
-        val timetableLectureId = ((asMap(add)["lectures"] as List<*>)[0] as Map<*, *>)["id"] as String
+        val timetableLectureId = body(add)["lectures"][0]["id"].asString()
 
         val set = put("/v2/timetables/$timetableId/lectures/$timetableLectureId/reminder", """{"option":"TEN_MINUTES_BEFORE"}""")
         assertEquals(200, set.statusCode.value())
-        assertEquals("TEN_MINUTES_BEFORE", asMap(set)["option"])
+        assertEquals("TEN_MINUTES_BEFORE", body(set)["option"].asString())
 
         val getReminders = get("/v2/timetables/$timetableId/lectures/reminders")
-        val reminders = getReminders.body as List<*>
-        assertEquals(1, reminders.size)
-        assertEquals("TEN_MINUTES_BEFORE", (reminders[0] as Map<*, *>)["option"])
+        val reminders = body(getReminders)
+        assertEquals(1, reminders.size())
+        assertEquals("TEN_MINUTES_BEFORE", reminders[0]["option"].asString())
 
         val clear = put("/v2/timetables/$timetableId/lectures/$timetableLectureId/reminder", """{"option":"NONE"}""")
-        assertEquals("NONE", asMap(clear)["option"])
+        assertEquals("NONE", body(clear)["option"].asString())
         val afterClear = get("/v2/timetables/$timetableId/lectures/reminders")
-        assertEquals("NONE", ((afterClear.body as List<*>)[0] as Map<*, *>)["option"])
+        assertEquals("NONE", body(afterClear)[0]["option"].asString())
     }
 
     @Test
@@ -347,15 +343,15 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         val copy = post("/v2/timetables/$first/copy", """{}""")
         assertEquals(200, copy.statusCode.value())
         val copied =
-            asList(copy).first { it["title"] == "나의 시간표 (1)" }
-        assertFalse(copied["isPrimary"] as Boolean)
-        val copiedId = copied["id"] as String
+            body(copy).first { it["title"].asString() == "나의 시간표 (1)" }
+        assertFalse(copied["isPrimary"].asBoolean())
+        val copiedId = copied["id"].asString()
 
         assertEquals(200, delete("/v2/timetables/$copiedId").statusCode.value())
         assertEquals(200, delete("/v2/timetables/$second").statusCode.value())
         val deleteLast = delete("/v2/timetables/$first")
         assertEquals(400, deleteLast.statusCode.value())
-        assertEquals(40010, asMap(deleteLast)["errcode"])
+        assertEquals(40010, body(deleteLast)["errcode"].asInt())
     }
 
     @Test
@@ -363,10 +359,10 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         val theme =
             post(
                 "/v2/themes",
-                """{"name":"내테마","colorList":[{"backgroundColor":"#FFFFFF","foregroundColor":"#000000"},{"backgroundColor":"#000000","foregroundColor":"#FFFFFF"}]}""",
+                """{"name":"내테마","colors":[{"backgroundColor":"#FFFFFF","foregroundColor":"#000000"},{"backgroundColor":"#000000","foregroundColor":"#FFFFFF"}]}""",
             )
         assertEquals(200, theme.statusCode.value())
-        val themeId = asMap(theme)["id"] as String
+        val themeId = body(theme)["id"].asString()
 
         val timetableId = createTimetable("나의 시간표")
         val apply =
@@ -375,7 +371,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"themeId":"$themeId"}""",
             )
         assertEquals(200, apply.statusCode.value())
-        assertEquals(themeId, asMap(apply)["themeId"])
+        assertEquals(themeId, body(apply)["themeId"].asString())
 
         val basic =
             put(
@@ -383,8 +379,8 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"theme":1}""",
             )
         assertEquals(200, basic.statusCode.value())
-        assertEquals(null, asMap(basic)["themeId"])
-        assertEquals(1, asMap(basic)["theme"])
+        assertFalse(body(basic).hasNonNull("themeId"))
+        assertEquals(1, body(basic)["theme"].asInt())
     }
 
     @Test
@@ -393,19 +389,19 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, add.statusCode.value())
 
         val getBookmarks = get("/v2/bookmarks?year=2026&semester=3")
-        assertEquals(1, (asMap(getBookmarks)["lectures"] as List<*>).size)
+        assertEquals(1, body(getBookmarks)["lectures"].size())
 
         val state = get("/v2/bookmarks/lectures/${lectureIds[0]}/state")
-        assertEquals(true, state.body)
+        assertEquals(true, body(state).asBoolean())
 
         val remove = deleteWithBody("/v2/bookmarks/lecture", """{"lectureId":"${lectureIds[0]}"}""")
         assertEquals(200, remove.statusCode.value())
         val afterRemove = get("/v2/bookmarks?year=2026&semester=3")
-        assertEquals(0, (asMap(afterRemove)["lectures"] as List<*>).size)
+        assertEquals(0, body(afterRemove)["lectures"].size())
     }
 
     private fun createTimetable(title: String): String {
         val add = post("/v2/timetables", """{"year":2026,"semester":3,"title":"$title"}""")
-        return asList(add)[0]["id"] as String
+        return body(add)[0]["id"].asString()
     }
 }

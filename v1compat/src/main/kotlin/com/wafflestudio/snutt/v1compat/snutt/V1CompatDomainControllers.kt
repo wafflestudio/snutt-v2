@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -25,6 +26,7 @@ import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyTimetableDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTimeString
@@ -41,8 +43,6 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
-
-private fun <T> listResponse(content: List<T>) = linkedMapOf("content" to content, "totalCount" to content.size)
 
 data class LegacyFriendRequest(
     val nickname: String,
@@ -61,20 +61,42 @@ data class LegacyFeedbackRequest(
     val message: String,
 )
 
+data class LegacyFriendDto(
+    val id: String,
+    val userId: String,
+    val displayName: String?,
+    val nickname: LegacyFriendNicknameDto,
+    val createdAt: String,
+)
+
+data class LegacyFriendNicknameDto(
+    val nickname: String,
+    val tag: Int?,
+)
+
+data class LegacyFriendLinkResponse(
+    val requestToken: String,
+)
+
+data class LegacyFriendCoursebookDto(
+    val year: Int,
+    val semester: Int,
+)
+
 private fun legacyFriend(
     friend: Friend,
     partner: User,
     myUserId: Long,
-) = linkedMapOf(
-    "id" to friend.externalId,
-    "userId" to partner.externalId,
-    "displayName" to friend.getPartnerDisplayName(myUserId),
-    "nickname" to
-        linkedMapOf(
-            "nickname" to partner.nicknameWithoutTag,
-            "tag" to partner.nicknameTag,
+) = LegacyFriendDto(
+    id = friend.externalId,
+    userId = partner.externalId,
+    displayName = friend.getPartnerDisplayName(myUserId),
+    nickname =
+        LegacyFriendNicknameDto(
+            nickname = partner.nicknameWithoutTag,
+            tag = partner.nicknameTag,
         ),
-    "createdAt" to checkNotNull(friend.createdAt).toEpochMilli().toLegacyLocalDateTimeString(),
+    createdAt = checkNotNull(friend.createdAt).toEpochMilli().toLegacyLocalDateTimeString(),
 )
 
 @RestController
@@ -88,15 +110,15 @@ class V1CompatFriendController(
     fun getFriends(
         @V1CurrentUser user: User,
         @RequestParam state: String,
-    ): Map<String, Any?> {
+    ): LegacyPageResponse<LegacyFriendDto> {
         val friendState =
             FriendState.entries.firstOrNull { it.name == state.uppercase() }
                 ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return listResponse(
+        val content =
             friendService.getMyFriends(user.id!!, friendState).map { (friend, partner) ->
                 legacyFriend(friend, partner, user.id!!)
-            },
-        )
+            }
+        return LegacyPageResponse(content = content, totalCount = content.size)
     }
 
     @PostMapping("")
@@ -143,13 +165,13 @@ class V1CompatFriendController(
     @GetMapping("/generate-link")
     fun generateFriendLink(
         @V1CurrentUser user: User,
-    ): Map<String, Any?> = mapOf("requestToken" to friendService.generateFriendRequestLink(user.id!!))
+    ): LegacyFriendLinkResponse = LegacyFriendLinkResponse(requestToken = friendService.generateFriendRequestLink(user.id!!))
 
     @PostMapping("/accept-link/{requestToken}")
     fun acceptFriendByLink(
         @V1CurrentUser user: User,
         @PathVariable requestToken: String,
-    ): Map<String, Any?> {
+    ): LegacyFriendDto {
         val (friend, partner) = friendService.acceptFriendByLink(user.id!!, requestToken)
         return legacyFriend(friend, partner, user.id!!)
     }
@@ -177,11 +199,11 @@ class V1CompatFriendController(
     fun getCoursebooks(
         @V1CurrentUser user: User,
         @PathVariable friendId: String,
-    ): List<Map<String, Any?>> {
+    ): List<LegacyFriendCoursebookDto> {
         val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
         return timetableService
             .getCoursebooksWithPrimaryTable(partnerId)
-            .map { linkedMapOf("year" to it.first, "semester" to it.second.value) }
+            .map { LegacyFriendCoursebookDto(year = it.first, semester = it.second.value) }
     }
 
     private fun acceptedFriend(
@@ -193,6 +215,22 @@ class V1CompatFriendController(
         return friend
     }
 }
+
+data class LegacyNotificationDto(
+    val id: String,
+    @param:JsonProperty("user_id")
+    val userId: String?,
+    val title: String,
+    val message: String,
+    val type: Int,
+    val deeplink: String?,
+    @param:JsonProperty("created_at")
+    val createdAt: String,
+)
+
+data class LegacyNotificationCountResponse(
+    val count: Long,
+)
 
 @RestController
 @RequestMapping("/v1/notification")
@@ -206,18 +244,18 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "0") offset: Long,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
-    ): List<Map<String, Any?>> {
+    ): List<LegacyNotificationDto> {
         val notifications = notificationService.getNotifications(user, offset, limit, explicit > 0)
         val externalIdByUserId = userService.getExternalIds(notifications.mapNotNull { it.userId })
         return notifications.map {
-            linkedMapOf(
-                "id" to it.externalId,
-                "user_id" to externalIdByUserId[it.userId],
-                "title" to it.title,
-                "message" to it.message,
-                "type" to it.type.value,
-                "deeplink" to it.deeplink,
-                "created_at" to checkNotNull(it.createdAt).toEpochMilli().toLegacyZonedDateTimeString(),
+            LegacyNotificationDto(
+                id = it.externalId,
+                userId = externalIdByUserId[it.userId],
+                title = it.title,
+                message = it.message,
+                type = it.type.value,
+                deeplink = it.deeplink,
+                createdAt = checkNotNull(it.createdAt).toEpochMilli().toLegacyZonedDateTimeString(),
             )
         }
     }
@@ -225,8 +263,18 @@ class V1CompatNotificationController(
     @GetMapping("/count")
     fun getUnreadCount(
         @V1CurrentUser user: User,
-    ): Map<String, Any?> = mapOf("count" to notificationService.getUnreadCount(user))
+    ): LegacyNotificationCountResponse = LegacyNotificationCountResponse(count = notificationService.getUnreadCount(user))
 }
+
+data class LegacyBookmarksResponse(
+    val year: Int,
+    val semester: Int,
+    val lectures: List<LegacyBookmarkLectureDto>,
+)
+
+data class LegacyExistsResponse(
+    val exists: Boolean,
+)
 
 @RestController
 @RequestMapping("/v1/bookmarks")
@@ -241,14 +289,14 @@ class V1CompatBookmarkController(
         @RequestParam year: Int,
         @RequestParam semester: Int,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): Map<String, Any?> {
+    ): LegacyBookmarksResponse {
         val display = bookmarkService.getBookmark(user.id!!, year, Semester.fromValue(semester))
         val summaries = evaluationService.findSummariesByLectureIds(display.lectures.mapNotNull { it.id })
         val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
-        return linkedMapOf(
-            "year" to year,
-            "semester" to semester,
-            "lectures" to
+        return LegacyBookmarksResponse(
+            year = year,
+            semester = semester,
+            lectures =
                 display.lectures.map { lecture ->
                     LegacyBookmarkLectureDto(
                         lecture,
@@ -264,7 +312,7 @@ class V1CompatBookmarkController(
     fun existsBookmarkLecture(
         @V1CurrentUser user: User,
         @PathVariable lectureId: String,
-    ): Map<String, Any?> = mapOf("exists" to bookmarkService.existsBookmarkLecture(user.id!!, lectureId))
+    ): LegacyExistsResponse = LegacyExistsResponse(exists = bookmarkService.existsBookmarkLecture(user.id!!, lectureId))
 
     @PostMapping("/lecture")
     fun addLecture(
@@ -283,6 +331,10 @@ class V1CompatBookmarkController(
     }
 }
 
+data class LegacyVacancyLecturesResponse(
+    val lectures: List<LegacyLectureDto>,
+)
+
 @RestController
 @RequestMapping("/v1/vacancy-notifications")
 class V1CompatVacancyNotificationController(
@@ -294,13 +346,13 @@ class V1CompatVacancyNotificationController(
     fun getLectures(
         @V1CurrentUser user: User,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): Map<String, Any?> {
+    ): LegacyVacancyLecturesResponse {
         val displays = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
         val lectureIds = displays.mapNotNull { it.lecture.id }
         val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
         val classTimesMap = lectureService.classTimesByLectureId(lectureIds)
-        return mapOf(
-            "lectures" to
+        return LegacyVacancyLecturesResponse(
+            lectures =
                 displays.map { (lecture, status) ->
                     LegacyLectureDto(
                         lecture,
@@ -317,7 +369,7 @@ class V1CompatVacancyNotificationController(
     fun exists(
         @V1CurrentUser user: User,
         @PathVariable lectureId: String,
-    ): Map<String, Any?> = mapOf("exists" to vacancyNotificationService.existsVacancyNotification(user.id!!, lectureId))
+    ): LegacyExistsResponse = LegacyExistsResponse(exists = vacancyNotificationService.existsVacancyNotification(user.id!!, lectureId))
 
     @PostMapping("/lectures/{lectureId}")
     fun add(
@@ -336,6 +388,18 @@ class V1CompatVacancyNotificationController(
     }
 }
 
+data class LegacyPopupDto(
+    val id: String,
+    val key: String,
+    val imageUri: String,
+    @param:JsonProperty("image_url")
+    val imageUrl: String,
+    val linkUrl: String?,
+    val hiddenDays: Int?,
+    @param:JsonProperty("hidden_days")
+    val hiddenDaysSnake: Int?,
+)
+
 @RestController
 @RequestMapping("/v1/popups")
 class V1CompatPopupController(
@@ -345,17 +409,17 @@ class V1CompatPopupController(
     @GetMapping("")
     fun getPopups(
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): List<Map<String, Any?>> =
+    ): List<LegacyPopupDto> =
         popupService.getPopups().map {
             val imageUri = storageUriResolver.resolve(it.imageOriginUri)
-            linkedMapOf(
-                "id" to it.externalId,
-                "key" to it.popupKey,
-                "imageUri" to imageUri,
-                "image_url" to imageUri,
-                "linkUrl" to it.linkUrl,
-                "hiddenDays" to it.hiddenDays,
-                "hidden_days" to it.hiddenDays,
+            LegacyPopupDto(
+                id = it.externalId,
+                key = it.popupKey,
+                imageUri = imageUri,
+                imageUrl = imageUri,
+                linkUrl = it.linkUrl,
+                hiddenDays = it.hiddenDays,
+                hiddenDaysSnake = it.hiddenDays,
             )
         }
 }

@@ -32,6 +32,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -156,7 +158,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"localId":"diaryuser","password":"password1","email":"diary@snu.ac.kr"}""",
                 withAuth = false,
             )
-        token = asMap(register)["accessToken"] as String
+        token = body(register)["accessToken"].asString()
         userId = userRepository.findByLocalIdAndActiveTrue("diaryuser")!!.id!!
         val timetable =
             timetableRepository.findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, 2026, Semester.AUTUMN)!!
@@ -185,39 +187,35 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    @Suppress("UNCHECKED_CAST")
     private fun post(
         uri: String,
         body: String,
         withAuth: Boolean = true,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().post().uri(uri)
         if (withAuth) spec.headers { it.setBearerAuth(token) }
-        return spec.body(body).retrieve().toEntity(Any::class.java)
+        return spec.body(body).retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun get(uri: String): ResponseEntity<Any> =
+    private fun get(uri: String): ResponseEntity<String> =
         client()
             .get()
             .uri(uri)
             .headers { it.setBearerAuth(token) }
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    @Suppress("UNCHECKED_CAST")
-    private fun delete(uri: String): ResponseEntity<Any> =
+    private fun delete(uri: String): ResponseEntity<String> =
         client()
             .delete()
             .uri(uri)
             .headers { it.setBearerAuth(token) }
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private val jsonMapper = JsonMapper.builder().build()
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asList(response: ResponseEntity<Any>): List<Map<String, Any?>> = response.body as List<Map<String, Any?>>
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `질문지와 대상 강의가 생성된다`() {
@@ -227,19 +225,19 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"lectureId":"${lectureIds[0]}","dailyClassTypes":["수업듣기","공부하기"]}""",
             )
         assertEquals(200, questionnaire.statusCode.value())
-        val body = asMap(questionnaire)
-        assertEquals("공학연구의 실습 1", body["courseTitle"])
-        assertEquals(3, (body["questions"] as List<*>).size)
-        val nextLecture = body["nextLecture"] as Map<*, *>
-        assertEquals("고급한국어", nextLecture["courseTitle"])
+        val node = body(questionnaire)
+        assertEquals("공학연구의 실습 1", node["courseTitle"].asString())
+        assertEquals(3, node["questions"].size())
+        val nextLecture = node["nextLecture"]
+        assertEquals("고급한국어", nextLecture["courseTitle"].asString())
     }
 
     @Test
     fun `대상 강의 추천은 대표 시간표 기준이다`() {
         val target = get("/v2/diary/target?year=2026&semester=3")
         assertEquals(200, target.statusCode.value())
-        val body = asMap(target)
-        assertTrue(body["courseTitle"].toString() in listOf("공학연구의 실습 1", "고급한국어"))
+        val node = body(target)
+        assertTrue(node["courseTitle"].asString() in listOf("공학연구의 실습 1", "고급한국어"))
     }
 
     @Test
@@ -253,16 +251,16 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val my = get("/v2/diary/my")
         assertEquals(200, my.statusCode.value())
-        val groups = asList(my)
-        assertEquals(1, groups.size)
-        assertEquals(2026, groups[0]["year"])
-        val submissions = groups[0]["submissions"] as List<*>
-        assertEquals(1, submissions.size)
-        val summary = submissions[0] as Map<*, *>
-        assertEquals("공학연구의 실습 1", summary["courseTitle"])
-        val replies = summary["shortQuestionReplies"] as List<*>
-        assertEquals(1, replies.size)
-        assertEquals("좋아요", (replies[0] as Map<*, *>)["shortAnswer"])
+        val groups = body(my)
+        assertEquals(1, groups.size())
+        assertEquals(2026, groups[0]["year"].asInt())
+        val submissions = groups[0]["submissions"]
+        assertEquals(1, submissions.size())
+        val summary = submissions[0]
+        assertEquals("공학연구의 실습 1", summary["courseTitle"].asString())
+        val replies = summary["shortQuestionReplies"]
+        assertEquals(1, replies.size())
+        assertEquals("좋아요", replies[0]["shortAnswer"].asString())
 
         val tooLong =
             post(
@@ -271,15 +269,15 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(400, tooLong.statusCode.value())
 
-        val submissionId = summary["id"] as String
+        val submissionId = summary["id"].asString()
         assertEquals(200, delete("/v2/diary/$submissionId").statusCode.value())
-        assertEquals(0, asList(get("/v2/diary/my")).size)
+        assertEquals(0, body(get("/v2/diary/my")).size())
     }
 
     @Test
     fun `오늘 한 일 유형 목록`() {
-        val types = asList(get("/v2/diary/daily-class-types"))
-        assertEquals(2, types.size)
-        assertEquals(setOf("수업듣기", "공부하기"), types.map { it["name"] }.toSet())
+        val types = body(get("/v2/diary/daily-class-types"))
+        assertEquals(2, types.size())
+        assertEquals(setOf("수업듣기", "공부하기"), types.values().map { it["name"].asString() }.toSet())
     }
 }

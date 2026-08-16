@@ -113,6 +113,6 @@ class ThemeStep(
 
     companion object {
         private val THEME_COLUMNS =
-            listOf("id", "external_id", "user_id", "name", "color_list", "created_at", "updated_at")
+            listOf("id", "external_id", "user_id", "name", "colors", "created_at", "updated_at")
     }
 }

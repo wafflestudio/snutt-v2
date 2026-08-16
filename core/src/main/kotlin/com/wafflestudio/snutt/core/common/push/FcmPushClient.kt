@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service
 @Service
 @Profile("!test")
 class FcmPushClient(
-    @param:Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
+    @Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
 ) : PushClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -56,6 +56,8 @@ class FcmPushClient(
         }.onFailure { log.error("글로벌 토픽 구독 해제 실패", it) }
     }
 
+    // setFid 전환은 클라이언트가 FID를 등록해야 가능하다. 저장된 값은 registration token이므로 setToken을 유지한다
+    @Suppress("DEPRECATION")
     private fun TargetedPushMessage.toFcmMessage(): Message {
         val builder =
             Message

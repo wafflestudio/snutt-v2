@@ -93,7 +93,7 @@ class TimetableThemeService(
     ): TimetableThemeDisplay {
         validateColorCount(colors)
         return timetableThemeRepository
-            .save(TimetableTheme(userId = userId, name = name, colorList = colors))
+            .save(TimetableTheme(userId = userId, name = name, colors = colors))
             .toDisplay(published = null)
     }
 
@@ -109,15 +109,15 @@ class TimetableThemeService(
         colors?.let { newColors ->
             validateColorCount(newColors)
 
-            val colorMap = theme.colorList.mapIndexed { i, color -> color to newColors.getOrNull(i) }.toMap()
+            val colorMap = theme.colors.mapIndexed { i, color -> color to newColors.getOrNull(i) }.toMap()
             timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
                 val lectures = timetableLecturesOf(timetable.id!!)
-                lectures.filter { it.color in theme.colorList }.forEach { lecture ->
+                lectures.filter { it.color in theme.colors }.forEach { lecture ->
                     colorMap[lecture.color]?.let { lecture.color = it }
                 }
                 timetableLectureRepository.saveAll(lectures)
             }
-            theme.colorList = newColors
+            theme.colors = newColors
         }
         return theme.toDisplay(published = publishedThemeRepository.findByThemeId(theme.id!!))
     }
@@ -155,7 +155,7 @@ class TimetableThemeService(
                 TimetableTheme(
                     userId = downloadedUserId,
                     name = name,
-                    colorList = theme.colorList,
+                    colors = theme.colors,
                     originThemeId = theme.id,
                     originAuthorId = theme.userId,
                 ),
@@ -210,7 +210,7 @@ class TimetableThemeService(
                 TimetableTheme(
                     userId = userId,
                     name = "$baseName (${lastCopiedNumber + 1})",
-                    colorList = theme.colorList,
+                    colors = theme.colors,
                 ),
             ).toDisplay(published = null)
     }
@@ -285,7 +285,7 @@ class TimetableThemeService(
                 .random() to null
         } else {
             val theme = timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
-            val colorToCount = theme.colorList.associateWith { color -> usedColors.count { it == color } }
+            val colorToCount = theme.colors.associateWith { color -> usedColors.count { it == color } }
             val minCount = colorToCount.minOf { it.value }
             0 to
                 colorToCount.entries
@@ -303,7 +303,7 @@ class TimetableThemeService(
         timetableThemeRepository.findByExternalIdAndUserId(themeExternalId, userId)?.id
             ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
-    fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findByIdOrNull(themeId)?.colorList
+    fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findByIdOrNull(themeId)?.colors
 
     fun themeColorCount(themeId: Long): Int? = themeColors(themeId)?.size
 
@@ -335,7 +335,7 @@ class TimetableThemeService(
     ) = TimetableThemeDisplay(
         id = externalId,
         name = name,
-        colorList = colorList,
+        colors = colors,
         isCustom = true,
         status =
             when {
@@ -354,7 +354,7 @@ class TimetableThemeService(
         TimetableThemeDisplay(
             id = null,
             name = displayName,
-            colorList = null,
+            colors = null,
             isCustom = false,
             status = ThemeStatus.BASIC,
             isDefault = isDefault,
