@@ -34,8 +34,8 @@ data class EvaluationWriteRequestBody(
 )
 
 data class TakenLectureResponse(
-    val id: String,
-    val lectureId: String,
+    val id: Long,
+    val lectureId: Long,
     val title: String,
     val instructor: String,
     val courseNumber: String,
@@ -50,8 +50,8 @@ data class TakenLectureResponse(
 
 internal fun LectureTakenByUser.toResponse() =
     TakenLectureResponse(
-        id = requireNotNull(course.id).toString(),
-        lectureId = lectureExternalId,
+        id = requireNotNull(course.id),
+        lectureId = lectureId,
         title = course.title,
         instructor = course.instructor,
         courseNumber = course.courseNumber,
@@ -98,12 +98,12 @@ data class EvaluationResponse(
 )
 
 data class EvaluationUserResponse(
-    val id: String,
+    val id: Long,
     val nickname: String,
 )
 
 data class LectureEvaluationSummaryResponse(
-    val id: String,
+    val id: Long,
     val title: String,
     val instructor: String?,
     val department: String?,
@@ -138,7 +138,7 @@ class EvaluationController(
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<EvaluationResponse> =
         evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage(userService)
@@ -146,7 +146,7 @@ class EvaluationController(
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
         @RequestBody body: EvaluationWriteRequestBody,
     ): EvaluationResponse =
         evaluationService
@@ -166,18 +166,18 @@ class EvaluationController(
     @GetMapping("/v2/lectures/{lectureId}/evaluations/me")
     fun getMyEvaluationsOfLecture(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses(userService)
 
     @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
         @CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ): LectureEvaluationSummaryResponse {
         val display = evaluationService.getEvaluationSummaryOfLecture(lectureId)
         val lecture = display.lecture
         return LectureEvaluationSummaryResponse(
-            id = lecture.externalId,
+            id = lecture.id!!,
             title = lecture.courseTitle,
             instructor = lecture.instructor,
             department = lecture.department,

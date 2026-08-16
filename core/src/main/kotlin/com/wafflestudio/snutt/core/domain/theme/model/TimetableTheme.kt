@@ -18,7 +18,9 @@ enum class ThemeStatus {
 @Entity
 @Table(name = "theme")
 class TimetableTheme(
-    var userId: Long,
+    val userId: Long?,
+    @Column(name = "builtin_type")
+    val builtinType: Int? = null,
     var name: String,
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
@@ -27,7 +29,9 @@ class TimetableTheme(
     var originThemeId: Long? = null,
     @Column(name = "origin_author_id")
     var originAuthorId: Long? = null,
-) : ExternalIdEntity()
+) : ExternalIdEntity() {
+    val isBuiltin: Boolean get() = builtinType != null
+}
 
 @Entity
 @Table(name = "published_theme")

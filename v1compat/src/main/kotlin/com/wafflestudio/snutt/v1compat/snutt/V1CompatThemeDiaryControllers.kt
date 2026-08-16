@@ -68,9 +68,9 @@ private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
     origin: LegacyThemeOriginDto?,
 ) = LegacyThemeDto(
-    id = id,
+    id = externalId,
     userId = userExternalId,
-    theme = (if (isCustom) BasicThemeType.SNUTT else BasicThemeType.from(name) ?: BasicThemeType.SNUTT).value,
+    theme = builtinType ?: BasicThemeType.SNUTT.value,
     name = name,
     colors = colors,
     isDefault = isDefault,
@@ -119,7 +119,7 @@ class V1CompatThemeController(
         val downloaded = displays.filter { it.status == ThemeStatus.DOWNLOADED }
         if (downloaded.isEmpty()) return emptyMap()
         return timetableThemeService
-            .getOrigins(downloaded.mapNotNull { it.id })
+            .getOrigins(downloaded.mapNotNull { it.externalId })
             .mapValues { (_, origin) ->
                 LegacyThemeOriginDto(
                     originId = origin.originThemeExternalId,
@@ -134,7 +134,7 @@ class V1CompatThemeController(
     ): List<LegacyThemeDto> {
         val themes = timetableThemeService.getThemes(user.id!!)
         val origins = originMap(themes)
-        return themes.map { it.toLegacy(user.externalId, origins[it.id]) }
+        return themes.map { it.toLegacy(user.externalId, origins[it.externalId]) }
     }
 
     @GetMapping("/best")
@@ -159,7 +159,7 @@ class V1CompatThemeController(
     fun getTheme(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
-    ): LegacyThemeDto = single(user, timetableThemeService.getTheme(user.id!!, themeId, null))
+    ): LegacyThemeDto = single(user, timetableThemeService.getTheme(user.id!!, themeId))
 
     @PostMapping("")
     fun addTheme(
@@ -231,31 +231,31 @@ class V1CompatThemeController(
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
         BasicThemeType.fromValue(basicThemeTypeValue)
-        return timetableThemeService.setBasicThemeDefault(user.id!!).toLegacy(user.externalId, null)
+        return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.externalId, null)
     }
 
     @DeleteMapping("/basic/{basicThemeTypeValue}/default")
     fun unsetBasicDefault(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
-    ): LegacyThemeDto =
-        timetableThemeService
-            .unsetBasicThemeDefault(user.id!!, BasicThemeType.fromValue(basicThemeTypeValue))
-            .toLegacy(user.externalId, null)
+    ): LegacyThemeDto {
+        BasicThemeType.fromValue(basicThemeTypeValue)
+        return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.externalId, null)
+    }
 
     private fun wrap(
         user: User,
         themes: List<TimetableThemeDisplay>,
     ): LegacyPageResponse<LegacyThemeDto> {
         val origins = originMap(themes)
-        val content = themes.map { it.toLegacy(user.externalId, origins[it.id]) }
+        val content = themes.map { it.toLegacy(user.externalId, origins[it.externalId]) }
         return LegacyPageResponse(content = content, totalCount = content.size)
     }
 
     private fun single(
         user: User,
         theme: TimetableThemeDisplay,
-    ): LegacyThemeDto = theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
+    ): LegacyThemeDto = theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.externalId])
 }
 
 data class LegacyDiaryQuestionnaireRequest(
@@ -327,7 +327,10 @@ class V1CompatDiaryController(
         val display =
             diaryService.generateQuestionnaire(
                 user.id!!,
-                DiaryQuestionnaireRequest(lectureId = body.lectureId, dailyClassTypes = body.dailyClassTypes),
+                DiaryQuestionnaireRequest(
+                    lectureId = lectureService.getByExternalId(body.lectureId).id!!,
+                    dailyClassTypes = body.dailyClassTypes,
+                ),
             )
         return LegacyDiaryQuestionnaireResponse(
             courseTitle = clientInfo.language.select(display.courseTitle, display.courseTitleEn),
@@ -338,7 +341,7 @@ class V1CompatDiaryController(
             nextLecture =
                 display.nextLecture?.let {
                     LegacyDiaryTargetLectureDto(
-                        lectureId = it.lectureId,
+                        lectureId = it.lectureExternalId,
                         courseTitle = clientInfo.language.select(it.courseTitle, it.courseTitleEn),
                     )
                 },
@@ -356,7 +359,7 @@ class V1CompatDiaryController(
             diaryService.getDiaryTargetLecture(user.id!!, year, Semester.fromValue(semester), emptyList())
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         return LegacyDiaryTargetLectureDto(
-            lectureId = target.lectureId,
+            lectureId = target.lectureExternalId,
             courseTitle = clientInfo.language.select(target.courseTitle, target.courseTitleEn),
         )
     }
@@ -411,7 +414,7 @@ class V1CompatDiaryController(
         diaryService.submitDiary(
             user.id!!,
             DiarySubmissionRequest(
-                lectureId = body.lectureId,
+                lectureId = lectureService.getByExternalId(body.lectureId).id!!,
                 dailyClassTypes = body.dailyClassTypes,
                 questionAnswers = body.questionAnswers,
                 comment = body.comment,
@@ -472,7 +475,7 @@ class V1CompatReminderController(
     ): List<LegacyReminderDto> =
         timetableLectureReminderService
             .getReminders(user.id!!, timetableId)
-            .map { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
+            .map { legacyReminder(it.timetableLectureExternalId, it.courseTitle, it.option) }
 
     @GetMapping("/{timetableLectureId}/reminder")
     fun getReminder(
@@ -482,7 +485,7 @@ class V1CompatReminderController(
     ): LegacyReminderDto =
         timetableLectureReminderService
             .getReminder(user.id!!, timetableId, timetableLectureId)
-            .let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
+            .let { legacyReminder(it.timetableLectureExternalId, it.courseTitle, it.option) }
 
     @PutMapping("/{timetableLectureId}/reminder")
     fun modifyReminder(
@@ -493,7 +496,7 @@ class V1CompatReminderController(
     ): LegacyReminderDto =
         timetableLectureReminderService
             .modifyReminder(user.id!!, timetableId, timetableLectureId, body.option)
-            .let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
+            .let { legacyReminder(it.timetableLectureExternalId, it.courseTitle, it.option) }
 
     private fun legacyReminder(
         timetableLectureId: String,

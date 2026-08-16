@@ -86,7 +86,7 @@ class ReminderScheduler(
         val courseTitle =
             timetableService
                 .displaysOf(listOf(timetable))[timetable.id]
-                ?.firstOrNull { it.id == timetableLecture.externalId }
+                ?.firstOrNull { it.id == timetableLecture.id }
                 ?.courseTitle ?: return
         val body =
             when {
@@ -150,7 +150,7 @@ class DiaryScheduler(
                             title = "이번주 강의일기를 작성해보세요.",
                             body = "최근 수강한 <${lecture.courseTitle}> 강의에 대한 강의일기를 작성해보세요.📔",
                             urlScheme =
-                                "snutt://diary?lectureId=${lecture.externalId}" +
+                                "snutt://diary?lectureId=${lecture.id}" +
                                     "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8)}",
                         )
                 }.toMap()

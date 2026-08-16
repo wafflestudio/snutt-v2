@@ -50,7 +50,9 @@ class TimetableStep(
                     val year = doc.int("year") ?: 0
                     val semester = doc.int("semester") ?: 1
                     val updatedAt = doc.instant("updated_at").orNow().toSqlTimestamp()
-                    val themeId = doc.oid("themeId")?.let(context.themeIds::get)
+                    val themeId =
+                        doc.oid("themeId")?.let(context.themeIds::get)
+                            ?: ((doc.int("theme") ?: 0) + 1L)
 
                     timetables.add(
                         id,
@@ -59,7 +61,6 @@ class TimetableStep(
                         year,
                         semester,
                         uniqueTitle(userId, year, semester, doc.str("title").orEmpty(), takenTitles),
-                        doc.int("theme") ?: 0,
                         themeId,
                         doc.bool("is_primary"),
                         updatedAt,
@@ -146,7 +147,6 @@ class TimetableStep(
                 "year",
                 "semester",
                 "title",
-                "theme",
                 "theme_id",
                 "is_primary",
                 "created_at",

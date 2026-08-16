@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectureAddRequest
@@ -68,6 +69,7 @@ data class LegacyTimetableModifyThemeRequest(
 class V1CompatTimetableController(
     private val timetableService: TimetableService,
     private val timetableLectureService: TimetableLectureService,
+    private val timetableThemeService: TimetableThemeService,
     private val lectureService: LectureService,
     private val evaluationService: EvaluationService,
 ) {
@@ -78,7 +80,7 @@ class V1CompatTimetableController(
         val userId = user.id!!
         return timetableService.toBriefs(timetableService.getTimetables(userId)).map { brief ->
             LegacyTimetableBriefDto(
-                id = brief.id,
+                id = brief.externalId,
                 year = brief.year,
                 semester = brief.semester,
                 title = brief.title,
@@ -169,8 +171,13 @@ class V1CompatTimetableController(
         @RequestBody body: LegacyTimetableModifyThemeRequest,
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val theme = body.theme?.let { BasicThemeType.fromValue(it) }
-        val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, theme, body.themeId)
+        val themeExternalId =
+            body.themeId
+                ?: timetableThemeService
+                    .findThemeById(
+                        timetableThemeService.builtinThemeId(BasicThemeType.fromValue(body.theme!!)),
+                    ).externalId
+        val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeExternalId)
         return LegacyTimetableDto(
             timetable = display.timetable,
             userId = user.externalId,
@@ -207,7 +214,7 @@ class V1CompatTimetableController(
         val display =
             timetableLectureService.addCustomLecture(
                 user.id!!,
-                timetableId,
+                timetable.id!!,
                 CustomTimetableLectureAddRequest(
                     courseTitle = body.courseTitle,
                     instructor = body.instructor,
@@ -235,8 +242,12 @@ class V1CompatTimetableController(
         val display =
             timetableLectureService.addLecture(
                 user.id!!,
-                timetableId,
-                TimetableLectureAddRequest(lectureId = lectureId, isForced = isForced ?: body?.isForced ?: false),
+                timetable.id!!,
+                TimetableLectureAddRequest(
+                    lectureId = lectureService.getByExternalId(lectureId).id!!,
+                    isForced =
+                        isForced ?: body?.isForced ?: false,
+                ),
             )
         return toLegacy(user, timetable, display, clientInfo.language)
     }
@@ -317,7 +328,7 @@ class V1CompatTimetableController(
         display: TimetableDisplay,
         language: Language = Language.KO,
     ): LegacyTimetableDto {
-        val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
+        val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureExternalId })
         return LegacyTimetableDto(
             timetable = timetable,
             userId = user.externalId,

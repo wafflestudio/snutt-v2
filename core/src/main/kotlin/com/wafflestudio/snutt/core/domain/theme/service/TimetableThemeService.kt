@@ -35,6 +35,7 @@ class TimetableThemeService(
 ) {
     companion object {
         private const val MAX_COLOR_COUNT = 9
+        private const val SNUTT_BUILTIN_THEME_ID = 1L
         private val copyNumberRegex = """\s\(\d+\)$""".toRegex()
     }
 
@@ -56,16 +57,25 @@ class TimetableThemeService(
     }
 
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
-        val defaultThemeName = getDefaultTheme(userId).name
-        val basicThemes = BasicThemeType.entries.map { it.toBasicDisplay(isDefault = it.displayName == defaultThemeName) }
-        return basicThemes + getLibraryThemeDisplays(userId)
+        val defaultThemeId = getDefaultThemeId(userId)
+        return timetableThemeRepository.findByUserIdIsNull().sortedBy { it.builtinType }.map {
+            it.toDisplay(
+                published = null,
+                isDefault =
+                    it.id == defaultThemeId,
+            )
+        } +
+            getLibraryThemeDisplays(userId, defaultThemeId)
     }
 
-    private fun getLibraryThemeDisplays(userId: Long): List<TimetableThemeDisplay> {
-        val defaultThemeId = getDefaultTheme(userId).id
+    private fun getLibraryThemeDisplays(
+        userId: Long,
+        defaultThemeId: Long,
+    ): List<TimetableThemeDisplay> {
         val themes = timetableThemeRepository.findByUserIdOrderByUpdatedAtDesc(userId)
-        val publishedByThemeId = publishedThemeRepository.findByThemeIdIn(themes.mapNotNull { it.id }).associateBy { it.themeId }
-        return themes.map { it.toDisplay(published = publishedByThemeId[it.id], isDefault = it.externalId == defaultThemeId) }
+        val publishedByThemeId =
+            publishedThemeRepository.findByThemeIdIn(themes.mapNotNull { it.id }).associateBy { it.themeId }
+        return themes.map { it.toDisplay(published = publishedByThemeId[it.id], isDefault = it.id == defaultThemeId) }
     }
 
     fun getBestThemes(page: Int): List<TimetableThemeDisplay> =
@@ -100,11 +110,28 @@ class TimetableThemeService(
     @Transactional
     fun modifyTheme(
         userId: Long,
-        themeExternalId: String,
+        themeId: Long,
         name: String?,
         colors: List<ColorSet>?,
     ): TimetableThemeDisplay {
-        val theme = getOwnedTheme(userId, themeExternalId)
+        val theme = getOwnedTheme(userId, themeId)
+        return modifyTheme(userId, theme, name, colors)
+    }
+
+    @Transactional
+    fun modifyTheme(
+        userId: Long,
+        themeExternalId: String,
+        name: String?,
+        colors: List<ColorSet>?,
+    ): TimetableThemeDisplay = modifyTheme(userId, getOwnedTheme(userId, themeExternalId).id!!, name, colors)
+
+    private fun modifyTheme(
+        userId: Long,
+        theme: TimetableTheme,
+        name: String?,
+        colors: List<ColorSet>?,
+    ): TimetableThemeDisplay {
         name?.let { theme.name = it }
         colors?.let { newColors ->
             validateColorCount(newColors)
@@ -125,11 +152,29 @@ class TimetableThemeService(
     @Transactional
     fun publishTheme(
         userId: Long,
+        themeId: Long,
+        publishName: String,
+        authorAnonymous: Boolean,
+    ) {
+        val theme = getOwnedTheme(userId, themeId)
+        publishTheme(theme, publishName, authorAnonymous)
+    }
+
+    @Transactional
+    fun publishTheme(
+        userId: Long,
         themeExternalId: String,
         publishName: String,
         authorAnonymous: Boolean,
     ) {
-        val theme = getOwnedTheme(userId, themeExternalId)
+        publishTheme(getOwnedTheme(userId, themeExternalId), publishName, authorAnonymous)
+    }
+
+    private fun publishTheme(
+        theme: TimetableTheme,
+        publishName: String,
+        authorAnonymous: Boolean,
+    ) {
         val published =
             publishedThemeRepository.findByThemeId(theme.id!!)
                 ?: PublishedTheme(themeId = theme.id!!, publishName = publishName, authorAnonymous = authorAnonymous)
@@ -142,10 +187,23 @@ class TimetableThemeService(
     @Transactional
     fun downloadTheme(
         downloadedUserId: Long,
+        themeId: Long,
+        name: String,
+    ): TimetableThemeDisplay = downloadTheme(downloadedUserId, findThemeById(themeId), name)
+
+    @Transactional
+    fun downloadTheme(
+        downloadedUserId: Long,
         themeExternalId: String,
         name: String,
+    ): TimetableThemeDisplay = downloadTheme(downloadedUserId, findTheme(themeExternalId), name)
+
+    private fun downloadTheme(
+        downloadedUserId: Long,
+        theme: TimetableTheme,
+        name: String,
     ): TimetableThemeDisplay {
-        val theme = timetableThemeRepository.findByExternalId(themeExternalId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        if (theme.isBuiltin) throw SnuttException(ErrorType.THEME_NOT_FOUND)
         val published = publishedThemeRepository.findByThemeId(theme.id!!) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
         if (timetableThemeRepository.existsByOriginThemeIdAndUserId(theme.id!!, downloadedUserId)) {
             throw SnuttException(ErrorType.ALREADY_DOWNLOADED_THEME)
@@ -167,14 +225,27 @@ class TimetableThemeService(
     @Transactional
     fun deleteTheme(
         userId: Long,
+        themeId: Long,
+    ) {
+        deleteTheme(userId, getOwnedTheme(userId, themeId))
+    }
+
+    @Transactional
+    fun deleteTheme(
+        userId: Long,
         themeExternalId: String,
     ) {
-        val theme = getOwnedTheme(userId, themeExternalId)
+        deleteTheme(userId, getOwnedTheme(userId, themeExternalId))
+    }
+
+    private fun deleteTheme(
+        userId: Long,
+        theme: TimetableTheme,
+    ) {
         if (publishedThemeRepository.existsByThemeId(theme.id!!)) throw SnuttException(ErrorType.PUBLISHED_THEME_DELETE_ERROR)
 
         timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
-            timetable.theme = BasicThemeType.SNUTT
-            timetable.themeId = null
+            timetable.themeId = SNUTT_BUILTIN_THEME_ID
         }
         timetableThemeRepository.delete(theme)
     }
@@ -182,9 +253,20 @@ class TimetableThemeService(
     @Transactional
     fun deletePublishedTheme(
         userId: Long,
+        themeId: Long,
+    ) {
+        deletePublishedTheme(getOwnedTheme(userId, themeId))
+    }
+
+    @Transactional
+    fun deletePublishedTheme(
+        userId: Long,
         themeExternalId: String,
     ) {
-        val theme = getOwnedTheme(userId, themeExternalId)
+        deletePublishedTheme(getOwnedTheme(userId, themeExternalId))
+    }
+
+    private fun deletePublishedTheme(theme: TimetableTheme) {
         val published = publishedThemeRepository.findByThemeId(theme.id!!) ?: throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
         publishedThemeRepository.delete(published)
     }
@@ -192,9 +274,20 @@ class TimetableThemeService(
     @Transactional
     fun copyTheme(
         userId: Long,
+        themeId: Long,
+    ): TimetableThemeDisplay = copyTheme(userId, findThemeById(themeId))
+
+    @Transactional
+    fun copyTheme(
+        userId: Long,
         themeExternalId: String,
+    ): TimetableThemeDisplay = copyTheme(userId, findTheme(themeExternalId))
+
+    private fun copyTheme(
+        userId: Long,
+        theme: TimetableTheme,
     ): TimetableThemeDisplay {
-        val theme = getOwnedTheme(userId, themeExternalId)
+        if (!theme.isBuiltin && theme.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
         val baseName = theme.name.replace(copyNumberRegex, "")
         val lastCopiedNumber =
             timetableThemeRepository
@@ -218,65 +311,79 @@ class TimetableThemeService(
     @Transactional
     fun setDefault(
         userId: Long,
-        themeExternalId: String,
+        themeId: Long,
     ): TimetableThemeDisplay {
-        val theme =
-            timetableThemeRepository.findByExternalIdAndUserId(themeExternalId, userId)
-                ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        val theme = findThemeById(themeId)
+        if (theme.isBuiltin) throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        if (theme.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        return setDefaultInternal(theme)
+    }
+
+    @Transactional
+    fun setDefault(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay = setDefault(userId, findTheme(themeExternalId).id!!)
+
+    private fun setDefaultInternal(theme: TimetableTheme): TimetableThemeDisplay {
         timetableThemeRepository.touchUpdatedAt(requireNotNull(theme.id))
         return theme.toDisplay(published = publishedThemeRepository.findByThemeId(theme.id!!), isDefault = true)
     }
 
-    fun setBasicThemeDefault(userId: Long): TimetableThemeDisplay = getDefaultTheme(userId)
+    fun unsetDefault(
+        userId: Long,
+        themeId: Long,
+    ): TimetableThemeDisplay {
+        val current = getDefaultTheme(userId)
+        if (current.isBuiltin || current.id != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        return builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
+    }
 
-    @Transactional
     fun unsetDefault(
         userId: Long,
         themeExternalId: String,
     ): TimetableThemeDisplay {
         val current = getDefaultTheme(userId)
-        if (!current.isCustom || current.id != themeExternalId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
-        return BasicThemeType.SNUTT.toBasicDisplay(isDefault = true)
-    }
-
-    @Transactional
-    fun unsetBasicThemeDefault(
-        userId: Long,
-        basicThemeType: BasicThemeType,
-    ): TimetableThemeDisplay {
-        val current = getDefaultTheme(userId)
-        if (current.isCustom || current.name != basicThemeType.displayName) {
-            throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
-        }
-        return BasicThemeType.SNUTT.toBasicDisplay(isDefault = true)
+        if (current.isBuiltin || current.externalId != themeExternalId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        return builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
     }
 
     fun getDefaultTheme(userId: Long): TimetableThemeDisplay {
         val theme = timetableThemeRepository.findFirstByUserIdOrderByUpdatedAtDesc(userId)
-        return theme?.toDisplay(published = theme.id?.let { publishedThemeRepository.findByThemeId(it) }, isDefault = true)
-            ?: BasicThemeType.SNUTT.toBasicDisplay(isDefault = true)
+        return theme?.toDisplay(
+            published = theme.id?.let { publishedThemeRepository.findByThemeId(it) },
+            isDefault = true,
+        ) ?: builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
     }
+
+    fun getDefaultThemeId(userId: Long): Long =
+        timetableThemeRepository.findFirstByUserIdOrderByUpdatedAtDesc(userId)?.id ?: SNUTT_BUILTIN_THEME_ID
 
     fun getTheme(
         userId: Long,
-        themeExternalId: String?,
-        basicThemeType: BasicThemeType?,
+        themeId: Long,
+    ): TimetableThemeDisplay = getTheme(userId, findThemeById(themeId))
+
+    fun getTheme(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay = getTheme(userId, findTheme(themeExternalId))
+
+    private fun getTheme(
+        userId: Long,
+        theme: TimetableTheme,
     ): TimetableThemeDisplay {
-        require((themeExternalId == null) xor (basicThemeType == null))
-        return themeExternalId?.let {
-            val theme =
-                timetableThemeRepository.findByExternalIdAndUserId(it, userId)
-                    ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
-            theme.toDisplay(published = theme.id?.let { id -> publishedThemeRepository.findByThemeId(id) })
-        } ?: checkNotNull(basicThemeType).toBasicDisplay(isDefault = false)
+        if (!theme.isBuiltin && theme.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        return theme.toDisplay(published = theme.id?.let { publishedThemeRepository.findByThemeId(it) })
     }
 
     fun getNewColorIndexAndColor(
-        themeId: Long?,
+        themeId: Long,
         usedColors: List<ColorSet?>,
         usedColorIndexes: List<Int>,
-    ): Pair<Int, ColorSet?> =
-        if (themeId == null) {
+    ): Pair<Int, ColorSet?> {
+        val theme = timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        return if (theme.isBuiltin) {
             val indexToCount = (1..BasicThemeType.COLOR_COUNT).associateWith { index -> usedColorIndexes.count { it == index } }
             val minCount = indexToCount.minOf { it.value }
             indexToCount.entries
@@ -284,7 +391,6 @@ class TimetableThemeService(
                 .map { it.key }
                 .random() to null
         } else {
-            val theme = timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
             val colorToCount = theme.colors.associateWith { color -> usedColors.count { it == color } }
             val minCount = colorToCount.minOf { it.value }
             0 to
@@ -293,21 +399,31 @@ class TimetableThemeService(
                     .map { it.key }
                     .random()
         }
+    }
 
-    fun findThemeId(themeExternalId: String): Long? = timetableThemeRepository.findByExternalId(themeExternalId)?.id
-
-    fun findThemeIdOwnedBy(
-        userId: Long,
-        themeExternalId: String,
-    ): Long? =
-        timetableThemeRepository.findByExternalIdAndUserId(themeExternalId, userId)?.id
-            ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+    fun findThemeId(themeExternalId: String): Long = findTheme(themeExternalId).id!!
 
     fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findByIdOrNull(themeId)?.colors
 
     fun themeColorCount(themeId: Long): Int? = themeColors(themeId)?.size
 
     fun findThemeExternalId(themeId: Long): String? = timetableThemeRepository.findByIdOrNull(themeId)?.externalId
+
+    fun builtinThemeId(basicThemeType: BasicThemeType): Long = builtinTheme(basicThemeType.value + 1L).id!!
+
+    fun findThemeById(themeId: Long): TimetableTheme =
+        timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+
+    private fun builtinTheme(id: Long): TimetableTheme =
+        timetableThemeRepository.findByIdOrNull(id) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+
+    fun findTheme(themeExternalId: String): TimetableTheme =
+        timetableThemeRepository.findByExternalId(themeExternalId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+
+    private fun getOwnedTheme(
+        userId: Long,
+        themeId: Long,
+    ): TimetableTheme = timetableThemeRepository.findByIdAndUserId(themeId, userId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
     private fun getOwnedTheme(
         userId: Long,
@@ -321,7 +437,7 @@ class TimetableThemeService(
     private fun List<PublishedTheme>.toMarketDisplays(): List<TimetableThemeDisplay> {
         if (isEmpty()) return emptyList()
         val themes = timetableThemeRepository.findAllById(mapNotNull { it.themeId }).associateBy { it.id!! }
-        val nicknameMap = userRepository.findAllById(themes.values.map { it.userId }).associate { it.id!! to it.nicknameWithoutTag }
+        val nicknameMap = userRepository.findAllById(themes.values.mapNotNull { it.userId }).associate { it.id!! to it.nicknameWithoutTag }
         return mapNotNull { published ->
             val theme = themes[published.themeId] ?: return@mapNotNull null
             theme.toDisplay(published = published, authorNickname = nicknameMap[theme.userId])
@@ -333,12 +449,16 @@ class TimetableThemeService(
         isDefault: Boolean = false,
         authorNickname: String? = null,
     ) = TimetableThemeDisplay(
-        id = externalId,
+        id = id!!,
+        externalId = externalId,
         name = name,
         colors = colors,
-        isCustom = true,
+        isCustom = !isBuiltin,
+        isBuiltin = isBuiltin,
+        builtinType = builtinType,
         status =
             when {
+                isBuiltin -> ThemeStatus.BASIC
                 originThemeId != null -> ThemeStatus.DOWNLOADED
                 published != null -> ThemeStatus.PUBLISHED
                 else -> ThemeStatus.PRIVATE
@@ -349,20 +469,6 @@ class TimetableThemeService(
         downloadCount = published?.downloadCount ?: 0,
         authorNickname = authorNickname,
     )
-
-    private fun BasicThemeType.toBasicDisplay(isDefault: Boolean) =
-        TimetableThemeDisplay(
-            id = null,
-            name = displayName,
-            colors = null,
-            isCustom = false,
-            status = ThemeStatus.BASIC,
-            isDefault = isDefault,
-            publishName = null,
-            authorAnonymous = null,
-            downloadCount = 0,
-            authorNickname = null,
-        )
 
     private fun validateColorCount(colors: List<ColorSet>) {
         if (colors.size !in 1..MAX_COLOR_COUNT) throw SnuttException(ErrorType.INVALID_THEME_COLOR_COUNT)

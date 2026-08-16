@@ -82,7 +82,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     private lateinit var userAToken: String
     private lateinit var userBToken: String
     private lateinit var adminToken: String
-    private lateinit var lectureId: String
+    private var lectureId: Long = 0L
 
     @BeforeAll
     fun seedDatabase() {
@@ -107,7 +107,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                     quota = 30,
                 ),
                 listOf(ClassPlaceAndTime(DayOfWeek.THURSDAY, "71-1-214", 540, 590)),
-            ).externalId
+            ).id!!
 
         userAToken = register("miscuserA", "misca@snu.ac.kr")
         userBToken = register("miscuserB", "miscb@snu.ac.kr")

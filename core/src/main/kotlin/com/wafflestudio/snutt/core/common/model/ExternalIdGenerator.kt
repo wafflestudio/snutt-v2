@@ -1,26 +1,19 @@
 package com.wafflestudio.snutt.core.common.model
 
 import java.security.SecureRandom
-import java.time.Instant
-import java.util.concurrent.atomic.AtomicInteger
 
-// bson 명세: https://www.mongodb.com/docs/manual/reference/bson-types/#objectid
 object ExternalIdGenerator {
-    private val processRandom = ByteArray(5).also { SecureRandom().nextBytes(it) }
-    private val counter = AtomicInteger(SecureRandom().nextInt())
+    private const val ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    private val random = SecureRandom()
 
     fun generate(): String {
-        val bytes = ByteArray(12)
-        val epoch = Instant.now().epochSecond.toInt()
-        bytes[0] = (epoch shr 24).toByte()
-        bytes[1] = (epoch shr 16).toByte()
-        bytes[2] = (epoch shr 8).toByte()
-        bytes[3] = epoch.toByte()
-        processRandom.copyInto(bytes, 4)
-        val count = counter.incrementAndGet()
-        bytes[9] = (count shr 16).toByte()
-        bytes[10] = (count shr 8).toByte()
-        bytes[11] = count.toByte()
-        return bytes.joinToString("") { "%02x".format(it) }
+        val bytes = ByteArray(16)
+        random.nextBytes(bytes)
+        return buildString {
+            for (byte in bytes) {
+                append(ALPHABET[(byte.toInt() shr 4) and 0xF])
+                append(ALPHABET[byte.toInt() and 0xF])
+            }
+        }
     }
 }

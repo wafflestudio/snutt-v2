@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 data class PopupResponse(
-    val id: String,
+    val id: Long,
     val popupKey: String,
     val imageUri: String,
     val linkUrl: String?,
@@ -20,7 +20,7 @@ data class PopupResponse(
 
 private fun Popup.toResponse(storageUriResolver: StorageUriResolver) =
     PopupResponse(
-        id = externalId,
+        id = id!!,
         popupKey = popupKey,
         imageUri = storageUriResolver.resolve(imageOriginUri),
         linkUrl = linkUrl,

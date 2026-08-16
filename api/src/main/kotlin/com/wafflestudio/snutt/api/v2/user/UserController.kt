@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 data class UserResponse(
-    val id: String,
+    val id: Long,
     val nickname: String,
     val nicknameTag: Int?,
     val email: String?,
@@ -34,7 +34,7 @@ data class UpdateUserRequest(
 
 private fun User.toResponse() =
     UserResponse(
-        id = externalId,
+        id = id!!,
         nickname = nicknameWithoutTag,
         nicknameTag = nicknameTag,
         email = email,

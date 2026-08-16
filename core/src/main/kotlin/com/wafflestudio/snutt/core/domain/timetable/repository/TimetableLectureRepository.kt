@@ -6,6 +6,11 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface TimetableLectureRepository : JpaRepository<TimetableLecture, Long> {
     fun findByTimetableId(timetableId: Long): List<TimetableLecture>
 
+    fun findByIdAndTimetableId(
+        id: Long,
+        timetableId: Long,
+    ): TimetableLecture?
+
     fun findByTimetableIdIn(timetableIds: Collection<Long>): List<TimetableLecture>
 
     fun findByTimetableIdAndExternalId(

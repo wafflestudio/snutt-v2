@@ -17,7 +17,6 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.user.model.User
-import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -29,12 +28,12 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class DiaryQuestionnaireRequestDto(
-    @field:NotBlank val lectureId: String,
+    val lectureId: Long,
     val dailyClassTypes: List<String>,
 )
 
 data class DiarySubmissionRequestDto(
-    @field:NotBlank val lectureId: String,
+    val lectureId: Long,
     val dailyClassTypes: List<String>,
     val questionAnswers: List<QuestionAnswer>,
     val comment: String,
@@ -55,7 +54,7 @@ data class DiaryQuestionResponse(
 )
 
 data class DiaryTargetLectureResponse(
-    val id: String,
+    val id: Long,
     val courseTitle: String,
     val instructor: String?,
     val credit: Int?,
@@ -63,12 +62,12 @@ data class DiaryTargetLectureResponse(
 )
 
 data class DiaryDailyClassTypeResponse(
-    val id: String,
+    val id: Long,
     val name: String,
 )
 
 data class DiarySubmissionSummaryResponse(
-    val id: String,
+    val id: Long,
     val year: Int,
     val semester: Semester,
     val courseTitle: String,
@@ -114,7 +113,7 @@ private fun TimetableLectureDisplay.toResponse(language: Language) =
         classPlaceAndTimes = classPlaceAndTimes,
     )
 
-private fun DiaryDailyClassType.toResponse() = DiaryDailyClassTypeResponse(id = externalId, name = name)
+private fun DiaryDailyClassType.toResponse() = DiaryDailyClassTypeResponse(id = id!!, name = name)
 
 @RestController
 @RequestMapping("/v2/diary")
@@ -198,7 +197,7 @@ class DiaryController(
     @DeleteMapping("/{submissionId}")
     fun removeDiarySubmission(
         @CurrentUser user: User,
-        @PathVariable submissionId: String,
+        @PathVariable submissionId: Long,
     ) {
         diaryService.removeSubmission(submissionId, user.id!!)
     }
@@ -206,7 +205,7 @@ class DiaryController(
 
 private fun DiarySubmission.toSummary(replies: List<DiaryShortQuestionReplyResponse>): DiarySubmissionSummaryResponse =
     DiarySubmissionSummaryResponse(
-        id = externalId,
+        id = id!!,
         year = year,
         semester = semester,
         courseTitle = courseTitle,

@@ -70,7 +70,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
 
     private lateinit var userAToken: String
     private lateinit var userBToken: String
-    private lateinit var lectureId: String
+    private var lectureId: Long = 0L
 
     @BeforeAll
     fun seed() {
@@ -106,7 +106,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                     quota = 150,
                 ).also { it.courseId = course.id },
                 listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "222-701", 1020, 1070)),
-            ).externalId
+            ).id!!
 
         userAToken = register("coverusera", "coverusera@snu.ac.kr")
         userBToken = register("coveruserb", "coveruserb@snu.ac.kr")
@@ -282,7 +282,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                 userBToken,
             )
         assertEquals(200, created.statusCode.value())
-        val themeId = body(created)["id"].asString()
+        val themeId = body(created)["id"].asLong()
 
         val setDefault = post("/v2/themes/$themeId/default", token = userBToken)
         assertEquals(200, setDefault.statusCode.value())
@@ -291,7 +291,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         val themes = body(get("/v2/themes", userBToken))
         val marked = themes.filter { it["isDefault"].asBoolean() }
         assertEquals(1, marked.size)
-        assertEquals(themeId, marked[0]["id"].asString())
+        assertEquals(themeId, marked[0]["id"].asLong())
 
         val unset = delete("/v2/themes/$themeId/default", userBToken)
         assertEquals(200, unset.statusCode.value())
@@ -301,9 +301,9 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `친구 코스북은 구 경로 별칭으로도 조회된다`() {
         val friend = acceptedFriend()
-        val aliased = get("/v2/friends/${friend.externalId}/registered-course-books", userAToken)
+        val aliased = get("/v2/friends/${friend.id}/registered-course-books", userAToken)
         assertEquals(200, aliased.statusCode.value())
-        val canonical = get("/v2/friends/${friend.externalId}/coursebooks", userAToken)
+        val canonical = get("/v2/friends/${friend.id}/coursebooks", userAToken)
         assertEquals(body(canonical), body(aliased))
     }
 
@@ -311,8 +311,8 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `최근 수강 강의를 강의평 작성 대상으로 돌려준다`() {
         val table = post("/v2/timetables", """{"year":2026,"semester":1,"title":"수강내역"}""", userAToken)
         assertEquals(200, table.statusCode.value())
-        val tableId = body(table).first { it["title"].asString() == "수강내역" }["id"].asString()
-        val added = post("/v2/timetables/$tableId/lectures", """{"lectureId":"$lectureId"}""", userAToken)
+        val tableId = body(table).first { it["title"].asString() == "수강내역" }["id"].asLong()
+        val added = post("/v2/timetables/$tableId/lectures", """{"lectureId":$lectureId}""", userAToken)
         assertEquals(200, added.statusCode.value())
 
         val response = get("/v2/users/me/lectures/latest", userAToken)

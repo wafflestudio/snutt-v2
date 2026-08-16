@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.v2.theme
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
@@ -19,10 +18,11 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class ThemeResponse(
-    val id: String?,
+    val id: Long,
     val name: String,
     val colors: List<ColorSet>?,
     val isCustom: Boolean,
+    val isBuiltin: Boolean,
     val status: ThemeStatus,
     val isDefault: Boolean,
     val publishName: String?,
@@ -56,6 +56,7 @@ private fun TimetableThemeDisplay.toResponse() =
         name = name,
         colors = colors,
         isCustom = isCustom,
+        isBuiltin = isBuiltin,
         status = status,
         isDefault = isDefault,
         publishName = publishName,
@@ -88,32 +89,14 @@ class ThemeController(
     @PostMapping("/{themeId}/default")
     fun setDefault(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
     ): ThemeResponse = timetableThemeService.setDefault(user.id!!, themeId).toResponse()
 
     @DeleteMapping("/{themeId}/default")
     fun unsetDefault(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
     ): ThemeResponse = timetableThemeService.unsetDefault(user.id!!, themeId).toResponse()
-
-    @PostMapping("/basic/{basicThemeTypeValue}/default")
-    fun setBasicThemeDefault(
-        @CurrentUser user: User,
-        @PathVariable basicThemeTypeValue: Int,
-    ): ThemeResponse {
-        BasicThemeType.fromValue(basicThemeTypeValue)
-        return timetableThemeService.setBasicThemeDefault(user.id!!).toResponse()
-    }
-
-    @DeleteMapping("/basic/{basicThemeTypeValue}/default")
-    fun unsetBasicThemeDefault(
-        @CurrentUser user: User,
-        @PathVariable basicThemeTypeValue: Int,
-    ): ThemeResponse =
-        timetableThemeService
-            .unsetBasicThemeDefault(user.id!!, BasicThemeType.fromValue(basicThemeTypeValue))
-            .toResponse()
 
     @GetMapping("/search")
     fun searchThemes(
@@ -123,8 +106,8 @@ class ThemeController(
     @GetMapping("/{themeId}")
     fun getTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
-    ): ThemeResponse = timetableThemeService.getTheme(user.id!!, themeId, null).toResponse()
+        @PathVariable themeId: Long,
+    ): ThemeResponse = timetableThemeService.getTheme(user.id!!, themeId).toResponse()
 
     @PostMapping("")
     fun addTheme(
@@ -135,14 +118,14 @@ class ThemeController(
     @PatchMapping("/{themeId}")
     fun modifyTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
         @RequestBody body: ThemeModifyRequest,
     ): ThemeResponse = timetableThemeService.modifyTheme(user.id!!, themeId, body.name, body.colors).toResponse()
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
     ) {
         timetableThemeService.deleteTheme(user.id!!, themeId)
     }
@@ -150,7 +133,7 @@ class ThemeController(
     @PostMapping("/{themeId}/publish")
     fun publishTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
         @RequestBody body: ThemePublishRequest,
     ) {
         timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.authorAnonymous)
@@ -159,14 +142,14 @@ class ThemeController(
     @PostMapping("/{themeId}/download")
     fun downloadTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
         @RequestBody body: ThemeDownloadRequest,
     ): ThemeResponse = timetableThemeService.downloadTheme(user.id!!, themeId, body.name).toResponse()
 
     @DeleteMapping("/{themeId}/published")
     fun deletePublishedTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
     ) {
         timetableThemeService.deletePublishedTheme(user.id!!, themeId)
     }
@@ -174,6 +157,6 @@ class ThemeController(
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
         @CurrentUser user: User,
-        @PathVariable themeId: String,
+        @PathVariable themeId: Long,
     ): ThemeResponse = timetableThemeService.copyTheme(user.id!!, themeId).toResponse()
 }

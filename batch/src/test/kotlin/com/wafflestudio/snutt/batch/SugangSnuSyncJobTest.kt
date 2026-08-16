@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureApi
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuXlsxParser
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -225,7 +224,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     year = 2026,
                     semester = Semester.AUTUMN,
                     title = "나의 시간표",
-                    theme = BasicThemeType.FALL,
+                    themeId = 2L,
                 ),
             )
         timetableLectureRepository.save(

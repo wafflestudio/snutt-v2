@@ -39,7 +39,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class InsertNotificationRequest(
-    val userId: String? = null,
+    val userId: Long? = null,
     @field:NotBlank val title: String,
     @field:NotBlank
     @param:JsonAlias("body")
@@ -67,7 +67,7 @@ data class AdminPopupWriteRequest(
 )
 
 data class AdminUserSearchResponse(
-    val id: String,
+    val id: Long,
     val email: String?,
     val isEmailVerified: Boolean,
     val nickname: String,
@@ -120,7 +120,7 @@ class AdminController(
     fun insertNotification(
         @RequestBody body: InsertNotificationRequest,
     ) {
-        val userId = body.userId?.let { resolveUserExternalId(it) }
+        val userId = body.userId
         when {
             !body.sendPush ->
                 notificationService.sendNotification(
@@ -165,14 +165,14 @@ class AdminController(
     @PatchMapping("/configs/{name}/{configId}")
     fun patchConfig(
         @PathVariable name: String,
-        @PathVariable configId: String,
+        @PathVariable configId: Long,
         @RequestBody body: AdminConfigWriteRequest,
     ): ClientConfig = configService.patchConfig(name, configId, body.toWriteRequest())
 
     @DeleteMapping("/configs/{name}/{configId}")
     fun deleteConfig(
         @PathVariable name: String,
-        @PathVariable configId: String,
+        @PathVariable configId: Long,
     ) {
         configService.deleteConfig(name, configId)
     }
@@ -192,7 +192,7 @@ class AdminController(
 
     @DeleteMapping("/popups/{popupId}")
     fun deletePopup(
-        @PathVariable popupId: String,
+        @PathVariable popupId: Long,
     ) {
         popupService.deletePopup(popupId)
     }
@@ -229,7 +229,7 @@ class AdminController(
     ): List<AdminUserSearchResponse> =
         userService.searchByEmail(email).map {
             AdminUserSearchResponse(
-                id = it.externalId,
+                id = it.id!!,
                 email = it.email,
                 nickname = it.nickname,
                 localId = it.localId,
@@ -273,7 +273,7 @@ class AdminController(
 
     @DeleteMapping("/diary/questions/{questionId}")
     fun removeDiaryQuestion(
-        @PathVariable questionId: String,
+        @PathVariable questionId: Long,
     ) {
         diaryService.removeQuestion(questionId)
     }
@@ -286,8 +286,6 @@ class AdminController(
             minAndroidVersion = minAndroidVersion,
             maxAndroidVersion = maxAndroidVersion,
         )
-
-    private fun resolveUserExternalId(externalId: String): Long? = userService.getByExternalId(externalId).id
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

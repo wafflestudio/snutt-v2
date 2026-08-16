@@ -15,18 +15,19 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 data class DiaryQuestionnaireRequest(
-    val lectureId: String,
+    val lectureId: Long,
     val dailyClassTypes: List<String>,
 )
 
 data class DiarySubmissionRequest(
-    val lectureId: String,
+    val lectureId: Long,
     val dailyClassTypes: List<String>,
     val questionAnswers: List<QuestionAnswer>,
     val comment: String,
@@ -66,7 +67,7 @@ class DiaryService(
                 .shuffled()
                 .take(QUESTION_COUNT)
         val lecture =
-            lectureRepository.findByExternalId(request.lectureId)
+            lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val nextLecture = getDiaryTargetLecture(userId, lecture.year, lecture.semester, listOf(lecture.id!!))
         return DiaryQuestionnaireDisplay(
@@ -97,7 +98,7 @@ class DiaryService(
         val picked = candidates.random()
         return timetableService
             .displaysOf(listOf(timetable))[timetable.id]
-            ?.first { it.id == picked.externalId }
+            ?.first { it.id == picked.id }
     }
 
     fun getActiveDailyClassTypes(): List<DiaryDailyClassType> = diaryDailyClassTypeRepository.findAllByActiveTrueOrderByNameAsc()
@@ -113,7 +114,7 @@ class DiaryService(
     ) {
         if (request.comment.length > COMMENT_MAX_LENGTH) throw SnuttException(ErrorType.DIARY_COMMENT_TOO_LONG)
         val lecture =
-            lectureRepository.findByExternalId(request.lectureId)
+            lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         val questionIds = request.questionAnswers.map { it.questionId }.distinct()
         if (diaryQuestionRepository.countByIdIn(questionIds) != questionIds.size.toLong()) {
@@ -159,14 +160,25 @@ class DiaryService(
 
     @Transactional
     fun removeSubmission(
+        submissionId: Long,
+        userId: Long,
+    ) {
+        val submission =
+            diarySubmissionRepository.findByIdOrNull(submissionId)
+                ?: throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
+        if (submission.userId != userId) throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
+        diarySubmissionRepository.delete(submission)
+    }
+
+    @Transactional
+    fun removeSubmission(
         submissionExternalId: String,
         userId: Long,
     ) {
         val submission =
             diarySubmissionRepository.findByExternalId(submissionExternalId)
                 ?: throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
-        if (submission.userId != userId) throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
-        diarySubmissionRepository.delete(submission)
+        removeSubmission(submission.id!!, userId)
     }
 
     @Transactional
@@ -204,6 +216,11 @@ class DiaryService(
                 active = active,
             ),
         )
+    }
+
+    @Transactional
+    fun removeQuestion(questionId: Long) {
+        diaryQuestionRepository.findByIdOrNull(questionId)?.let { it.active = false }
     }
 
     @Transactional

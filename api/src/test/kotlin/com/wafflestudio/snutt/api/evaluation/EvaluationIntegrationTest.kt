@@ -66,8 +66,8 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     private lateinit var verifiedToken: String
     private lateinit var unverifiedToken: String
     private lateinit var secondVerifiedToken: String
-    private lateinit var lectureId: String
-    private lateinit var cursorLectureId: String
+    private var lectureId: Long = 0L
+    private var cursorLectureId: Long = 0L
 
     @BeforeAll
     fun seedDatabase() {
@@ -104,7 +104,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "302-107", 930, 1005),
                 ),
             )
-        lectureId = lecture.externalId
+        lectureId = lecture.id!!
         val cursorCourse =
             courseRepository.save(
                 Course(
@@ -132,7 +132,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                         quota = 25,
                         courseId = cursorCourse.id,
                     ),
-                ).externalId
+                ).id!!
 
         verifiedToken = register("evaluser1", "eval1@snu.ac.kr")
         unverifiedToken = register("evaluser2", "eval2@snu.ac.kr")

@@ -7,7 +7,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
@@ -40,6 +39,11 @@ class TimetableService(
 
     fun getTimetable(
         userId: Long,
+        timetableId: Long,
+    ): Timetable = timetableRepository.findByIdAndUserId(timetableId, userId) ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
+
+    fun getTimetable(
+        userId: Long,
         timetableExternalId: String,
     ): Timetable =
         timetableRepository.findByUserIdAndExternalId(userId, timetableExternalId)
@@ -47,15 +51,24 @@ class TimetableService(
 
     fun getTimetableDisplay(
         userId: Long,
+        timetableId: Long,
+    ): TimetableDisplay = displayOf(getTimetable(userId, timetableId))
+
+    fun getTimetableDisplay(
+        userId: Long,
         timetableExternalId: String,
     ): TimetableDisplay = displayOf(getTimetable(userId, timetableExternalId))
 
-    fun displayOf(timetable: Timetable): TimetableDisplay =
-        TimetableDisplay(
+    fun displayOf(timetable: Timetable): TimetableDisplay {
+        val theme = timetableThemeService.findThemeById(timetable.themeId)
+        return TimetableDisplay(
             timetable = timetable,
             lectures = displaysOf(listOf(timetable))[timetable.id!!].orEmpty(),
-            themeExternalId = timetable.themeId?.let(timetableThemeService::findThemeExternalId),
+            themeExternalId = theme.externalId,
+            themeIsBuiltin = theme.isBuiltin,
+            themeBuiltinType = theme.builtinType ?: 0,
         )
+    }
 
     fun toBriefs(timetables: List<Timetable>): List<TimetableBriefDto> {
         val displays = displaysOf(timetables)
@@ -86,15 +99,13 @@ class TimetableService(
         title: String,
     ): Timetable {
         validateTimetableTitle(userId, year, semester, title)
-        val defaultTheme = timetableThemeService.getDefaultTheme(userId)
         return timetableRepository.save(
             Timetable(
                 userId = userId,
                 year = year,
                 semester = semester,
                 title = title,
-                theme = defaultTheme.toTimetableTheme(),
-                themeId = defaultTheme.id?.let(timetableThemeService::findThemeId),
+                themeId = timetableThemeService.getDefaultThemeId(userId),
                 isPrimary = timetableRepository.findByUserIdAndYearAndSemester(userId, year, semester).isEmpty(),
             ),
         )
@@ -103,13 +114,29 @@ class TimetableService(
     @Transactional
     fun modifyTimetableTitle(
         userId: Long,
-        timetableExternalId: String,
+        timetableId: Long,
         title: String,
     ): Timetable {
-        val timetable = getTimetable(userId, timetableExternalId)
+        val timetable = getTimetable(userId, timetableId)
         validateTimetableTitle(userId, timetable.year, timetable.semester, title)
         timetable.title = title
         return timetable
+    }
+
+    @Transactional
+    fun modifyTimetableTitle(
+        userId: Long,
+        timetableExternalId: String,
+        title: String,
+    ): Timetable = modifyTimetableTitle(userId, getTimetable(userId, timetableExternalId).id!!, title)
+
+    @Transactional
+    fun deleteTimetable(
+        userId: Long,
+        timetableId: Long,
+    ) {
+        if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.TABLE_DELETE_ERROR)
+        timetableRepository.delete(getTimetable(userId, timetableId))
     }
 
     @Transactional
@@ -117,17 +144,16 @@ class TimetableService(
         userId: Long,
         timetableExternalId: String,
     ) {
-        if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.TABLE_DELETE_ERROR)
-        timetableRepository.delete(getTimetable(userId, timetableExternalId))
+        deleteTimetable(userId, getTimetable(userId, timetableExternalId).id!!)
     }
 
     @Transactional
     fun copyTimetable(
         userId: Long,
-        timetableExternalId: String,
+        timetableId: Long,
         title: String? = null,
     ): Timetable {
-        val timetable = getTimetable(userId, timetableExternalId)
+        val timetable = getTimetable(userId, timetableId)
         val baseTitle = (title ?: timetable.title).replace(COPY_NUMBER_REGEX, "")
         val copyNumber = Regex("^${Regex.escape(baseTitle)} \\((\\d+)\\)$")
         val lastCopiedNumber =
@@ -147,7 +173,6 @@ class TimetableService(
                     year = timetable.year,
                     semester = timetable.semester,
                     title = "$baseTitle (${lastCopiedNumber + 1})",
-                    theme = timetable.theme,
                     themeId = timetable.themeId,
                     isPrimary = false,
                 ),
@@ -160,39 +185,56 @@ class TimetableService(
     }
 
     @Transactional
-    fun modifyTimetableTheme(
+    fun copyTimetable(
         userId: Long,
         timetableExternalId: String,
-        theme: BasicThemeType?,
-        themeExternalId: String?,
-    ): TimetableDisplay {
-        require((themeExternalId == null) xor (theme == null))
-        val timetable = getTimetable(userId, timetableExternalId)
-        val customThemeId = themeExternalId?.let { timetableThemeService.findThemeIdOwnedBy(userId, it) }
-        timetable.theme = if (customThemeId != null) BasicThemeType.SNUTT else theme!!
-        timetable.themeId = customThemeId
+        title: String? = null,
+    ): Timetable = copyTimetable(userId, getTimetable(userId, timetableExternalId).id!!, title)
 
+    @Transactional
+    fun modifyTimetableTheme(
+        userId: Long,
+        timetableId: Long,
+        themeId: Long,
+    ): TimetableDisplay {
+        val timetable = getTimetable(userId, timetableId)
+        timetable.themeId = timetableThemeService.findThemeById(themeId).id!!
+
+        val theme = timetableThemeService.findThemeById(timetable.themeId)
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        val colors = customThemeId?.let { timetableThemeService.themeColors(it) }
-        val colorCount = colors?.size ?: BasicThemeType.COLOR_COUNT
-        lectures.forEachIndexed { index, timetableLecture ->
-            if (colors != null) {
-                timetableLecture.color = colors[index % colorCount]
-                timetableLecture.colorIndex = 0
-            } else {
+        if (theme.isBuiltin) {
+            lectures.forEachIndexed { index, timetableLecture ->
                 timetableLecture.color = null
-                timetableLecture.colorIndex = (index % colorCount) + 1
+                timetableLecture.colorIndex = (index % BasicThemeType.COLOR_COUNT) + 1
+            }
+        } else {
+            val colors = theme.colors
+            lectures.forEachIndexed { index, timetableLecture ->
+                timetableLecture.color = colors[index % colors.size]
+                timetableLecture.colorIndex = 0
             }
         }
         return displayOf(timetable)
     }
 
     @Transactional
-    fun setPrimary(
+    fun modifyTimetableTheme(
         userId: Long,
         timetableExternalId: String,
+        themeExternalId: String,
+    ): TimetableDisplay =
+        modifyTimetableTheme(
+            userId,
+            getTimetable(userId, timetableExternalId).id!!,
+            timetableThemeService.findThemeId(themeExternalId),
+        )
+
+    @Transactional
+    fun setPrimary(
+        userId: Long,
+        timetableId: Long,
     ) {
-        val newPrimary = getTimetable(userId, timetableExternalId)
+        val newPrimary = getTimetable(userId, timetableId)
         if (newPrimary.isPrimary) return
         timetableRepository
             .findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, newPrimary.year, newPrimary.semester)
@@ -201,13 +243,29 @@ class TimetableService(
     }
 
     @Transactional
+    fun setPrimary(
+        userId: Long,
+        timetableExternalId: String,
+    ) {
+        setPrimary(userId, getTimetable(userId, timetableExternalId).id!!)
+    }
+
+    @Transactional
+    fun unsetPrimary(
+        userId: Long,
+        timetableId: Long,
+    ) {
+        val timetable = getTimetable(userId, timetableId)
+        if (!timetable.isPrimary) return
+        timetable.isPrimary = false
+    }
+
+    @Transactional
     fun unsetPrimary(
         userId: Long,
         timetableExternalId: String,
     ) {
-        val timetable = getTimetable(userId, timetableExternalId)
-        if (!timetable.isPrimary) return
-        timetable.isPrimary = false
+        unsetPrimary(userId, getTimetable(userId, timetableExternalId).id!!)
     }
 
     fun getUserPrimaryTable(
@@ -228,15 +286,14 @@ class TimetableService(
     @Transactional
     fun createDefaultTable(userId: Long): Timetable {
         val coursebook = coursebookService.getLatestCoursebook()
-        val defaultTheme = timetableThemeService.getDefaultTheme(userId)
+        val defaultThemeId = timetableThemeService.getDefaultThemeId(userId)
         return timetableRepository.save(
             Timetable(
                 userId = userId,
                 year = coursebook.year,
                 semester = coursebook.semester,
                 title = "나의 시간표",
-                theme = defaultTheme.toTimetableTheme(),
-                themeId = defaultTheme.id?.let(timetableThemeService::findThemeId),
+                themeId = defaultThemeId,
             ),
         )
     }
@@ -253,9 +310,6 @@ class TimetableService(
             throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
         }
     }
-
-    private fun TimetableThemeDisplay.toTimetableTheme(): BasicThemeType =
-        if (isCustom) BasicThemeType.SNUTT else BasicThemeType.from(name)!!
 
     companion object {
         private val COPY_NUMBER_REGEX = """\s\(\d+\)$""".toRegex()

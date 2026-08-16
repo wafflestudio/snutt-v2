@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 data class TimetableLectureAddRequest(
-    val lectureId: String,
+    val lectureId: Long,
     val isForced: Boolean = false,
 )
 
@@ -61,12 +61,12 @@ class TimetableLectureService(
     @Transactional
     fun addLecture(
         userId: Long,
-        timetableExternalId: String,
+        timetableId: Long,
         request: TimetableLectureAddRequest,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetable = timetableService.getTimetable(userId, timetableId)
         val lecture =
-            lectureRepository.findByExternalId(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+            lectureRepository.findByIdOrNull(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         if (timetable.year != lecture.year || timetable.semester != lecture.semester) {
             throw SnuttException(ErrorType.WRONG_SEMESTER)
         }
@@ -92,10 +92,10 @@ class TimetableLectureService(
     @Transactional
     fun addCustomLecture(
         userId: Long,
-        timetableExternalId: String,
+        timetableId: Long,
         request: CustomTimetableLectureAddRequest,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetable = timetableService.getTimetable(userId, timetableId)
         if (ClassTimeUtils.timesOverlap(request.classPlaceAndTimes)) throw SnuttException(ErrorType.INVALID_TIME)
 
         resolveTimeConflict(timetable, request.classPlaceAndTimes, request.isForced, null)
@@ -126,19 +126,19 @@ class TimetableLectureService(
     @Transactional
     fun modifyLecture(
         userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
+        timetableId: Long,
+        timetableLectureId: Long,
         request: TimetableLectureModifyRequest,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
+        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         val existingDisplays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
 
         val newTimes =
             request.classPlaceAndTimes
-                ?: existingDisplays.first { it.id == timetableLectureExternalId }.classPlaceAndTimes
+                ?: existingDisplays.first { it.id == timetableLecture.id }.classPlaceAndTimes
         if (ClassTimeUtils.timesOverlap(newTimes)) throw SnuttException(ErrorType.INVALID_TIME)
-        resolveTimeConflict(timetable, newTimes, request.isForced, timetableLectureExternalId)
+        resolveTimeConflict(timetable, newTimes, request.isForced, timetableLecture.id)
 
         request.color?.let { timetableLecture.color = it }
         request.colorIndex?.let { timetableLecture.colorIndex = it }
@@ -160,18 +160,18 @@ class TimetableLectureService(
     @Transactional
     fun resetLecture(
         userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
+        timetableId: Long,
+        timetableLectureId: Long,
         isForced: Boolean,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
+        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         if (timetableLecture.lectureId == null) throw SnuttException(ErrorType.CANNOT_RESET_CUSTOM_LECTURE)
         val lecture =
             lectureRepository.findByIdOrNull(timetableLecture.lectureId!!) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
-        resolveTimeConflict(timetable, classTimes, isForced, timetableLectureExternalId)
+        resolveTimeConflict(timetable, classTimes, isForced, timetableLecture.id)
 
         timetableLecture.clearOverrides()
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, classTimes)
@@ -181,13 +181,48 @@ class TimetableLectureService(
     @Transactional
     fun deleteLecture(
         userId: Long,
+        timetableId: Long,
+        timetableLectureId: Long,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
+        timetableLectureRepository.delete(timetableLecture)
+        return displayAfterLectureChange(userId, timetable)
+    }
+
+    @Transactional
+    fun modifyLecture(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+        request: TimetableLectureModifyRequest,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
+        return modifyLecture(userId, timetable.id!!, timetableLecture.id!!, request)
+    }
+
+    @Transactional
+    fun resetLecture(
+        userId: Long,
+        timetableExternalId: String,
+        timetableLectureExternalId: String,
+        isForced: Boolean,
+    ): TimetableDisplay {
+        val timetable = timetableService.getTimetable(userId, timetableExternalId)
+        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
+        return resetLecture(userId, timetable.id!!, timetableLecture.id!!, isForced)
+    }
+
+    @Transactional
+    fun deleteLecture(
+        userId: Long,
         timetableExternalId: String,
         timetableLectureExternalId: String,
     ): TimetableDisplay {
         val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLecture(timetable, timetableLectureExternalId)
-        timetableLectureRepository.delete(timetableLecture)
-        return displayAfterLectureChange(userId, timetable)
+        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
+        return deleteLecture(userId, timetable.id!!, timetableLecture.id!!)
     }
 
     private fun displayAfterLectureChange(
@@ -195,10 +230,17 @@ class TimetableLectureService(
         timetable: Timetable,
     ): TimetableDisplay {
         timetableRepository.touchUpdatedAt(timetable.id!!)
-        return timetableService.getTimetableDisplay(userId, timetable.externalId)
+        return timetableService.getTimetableDisplay(userId, timetable.id!!)
     }
 
     fun getTimetableLecture(
+        timetable: Timetable,
+        timetableLectureId: Long,
+    ): TimetableLecture =
+        timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
+            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+
+    private fun getTimetableLectureByExternalId(
         timetable: Timetable,
         timetableLectureExternalId: String,
     ): TimetableLecture =
@@ -209,12 +251,12 @@ class TimetableLectureService(
         timetable: Timetable,
         newTimes: List<ClassPlaceAndTime>,
         isForced: Boolean,
-        selfExternalId: String?,
+        selfId: Long?,
     ) {
         val displays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
         val overlapping =
             displays.filter { display ->
-                display.id != selfExternalId && ClassTimeUtils.timesOverlap(newTimes, display.classPlaceAndTimes)
+                display.id != selfId && ClassTimeUtils.timesOverlap(newTimes, display.classPlaceAndTimes)
             }
         if (overlapping.isEmpty()) return
         if (!isForced) {
@@ -223,7 +265,7 @@ class TimetableLectureService(
         }
         val overlappingIds = overlapping.map { it.id }
         timetableLectureRepository.deleteAll(
-            timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.externalId in overlappingIds },
+            timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.id in overlappingIds },
         )
     }
 

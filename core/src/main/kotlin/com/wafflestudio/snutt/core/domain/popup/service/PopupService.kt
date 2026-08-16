@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -30,6 +31,11 @@ class PopupService(
                 hiddenDays = request.hiddenDays,
             )
         return conflictAs(ErrorType.DUPLICATE_POPUP_KEY) { popupRepository.save(popup) }
+    }
+
+    @Transactional
+    fun deletePopup(popupId: Long) {
+        popupRepository.delete(popupRepository.findByIdOrNull(popupId) ?: return)
     }
 
     @Transactional
