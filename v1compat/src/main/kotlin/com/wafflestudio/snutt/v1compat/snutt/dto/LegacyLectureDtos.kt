@@ -41,7 +41,7 @@ fun LegacyLectureDto(
     lecture: Lecture,
     classTimes: List<ClassPlaceAndTime>,
     language: Language,
-    evSummary: LegacyEvSummary? = null,
+    evaluationSummary: LegacyEvSummary? = null,
     status: LectureRegistrationStatus? = null,
 ): LegacyLectureDto =
     LegacyLectureDto(
@@ -63,7 +63,7 @@ fun LegacyLectureDto(
         courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
         registrationCount = status?.registrationCount ?: 0,
         wasFull = status?.wasFull ?: false,
-        snuttEvLecture = evSummary,
+        snuttEvLecture = evaluationSummary,
         categoryPre2025 = lecture.categoryPre2025,
     )
 
@@ -98,7 +98,7 @@ fun LegacyBookmarkLectureDto(
     lecture: Lecture,
     classTimes: List<ClassPlaceAndTime>,
     language: Language,
-    evSummary: LegacyEvSummary? = null,
+    evaluationSummary: LegacyEvSummary? = null,
 ): LegacyBookmarkLectureDto =
     LegacyBookmarkLectureDto(
         id = lecture.externalId,
@@ -115,6 +115,6 @@ fun LegacyBookmarkLectureDto(
         remark = language.select(lecture.remark, lecture.remarkEn),
         courseNumber = lecture.courseNumber,
         courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
-        snuttEvLecture = evSummary,
+        snuttEvLecture = evaluationSummary,
         categoryPre2025 = lecture.categoryPre2025,
     )

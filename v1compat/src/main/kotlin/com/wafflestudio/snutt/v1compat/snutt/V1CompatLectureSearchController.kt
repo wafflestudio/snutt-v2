@@ -34,9 +34,9 @@ data class LegacySearchQuery(
     val title: String? = null,
     val classification: List<String>? = null,
     val credit: List<Int>? = null,
-    @JsonProperty("course_number")
+    @param:JsonProperty("course_number")
     val courseNumber: List<String>? = null,
-    @JsonProperty("academic_year")
+    @param:JsonProperty("academic_year")
     val academicYear: List<String>? = null,
     val department: List<String>? = null,
     val category: List<String>? = null,
@@ -56,28 +56,28 @@ data class LegacySearchTime(
 )
 
 data class LegacyLectureDto(
-    @JsonProperty("_id")
+    @param:JsonProperty("_id")
     val id: String,
-    @JsonProperty("academic_year")
+    @param:JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
-    @JsonProperty("class_time_json")
+    @param:JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassPlaceAndTimeFullDto>,
     val classification: String?,
     val credit: Int,
     val department: String?,
     val instructor: String?,
-    @JsonProperty("lecture_number")
+    @param:JsonProperty("lecture_number")
     val lectureNumber: String,
     val quota: Int,
-    @JsonProperty("freshman_quota")
+    @param:JsonProperty("freshman_quota")
     val freshmanQuota: Int?,
     val remark: String?,
     val semester: Semester,
     val year: Int,
-    @JsonProperty("course_number")
+    @param:JsonProperty("course_number")
     val courseNumber: String,
-    @JsonProperty("course_title")
+    @param:JsonProperty("course_title")
     val courseTitle: String,
     val registrationCount: Int,
     val wasFull: Boolean,
@@ -88,7 +88,7 @@ data class LegacyLectureDto(
 private fun Lecture.toLegacy(
     classTimes: List<ClassPlaceAndTime>,
     language: Language,
-    evSummary: LegacyEvSummary?,
+    evaluationSummary: LegacyEvSummary?,
     status: LectureRegistrationStatus?,
 ) = LegacyLectureDto(
     id = externalId,
@@ -109,7 +109,7 @@ private fun Lecture.toLegacy(
     courseTitle = language.select(courseTitle, courseTitleEn),
     registrationCount = status?.registrationCount ?: 0,
     wasFull = status?.wasFull ?: false,
-    snuttEvLecture = evSummary,
+    snuttEvLecture = evaluationSummary,
     categoryPre2025 = categoryPre2025,
 )
 

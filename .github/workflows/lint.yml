@@ -2,9 +2,9 @@ name: Lint CI
 
 on:
   push:
-    branches: [ develop, main ]
+    branches: [ develop, prod ]
   pull_request:
-    branches: [ develop, main ]
+    branches: [ develop, prod ]
 
 jobs:
   build:

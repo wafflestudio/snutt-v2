@@ -21,7 +21,7 @@ data class CoursebookResponse(
 )
 
 data class CoursebookOfficialResponse(
-    val noProxyUrl: String,
+    val url: String,
     val proxyUrl: String?,
 )
 
@@ -37,7 +37,7 @@ private fun Coursebook.toResponse() =
 @RequestMapping("/v2/coursebooks")
 class CoursebookController(
     private val coursebookService: CoursebookService,
-    @Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
+    @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
 ) {
     @Public
     @GetMapping("")
@@ -60,7 +60,7 @@ class CoursebookController(
         val syllabusPath =
             SugangSnuUrlUtils.parseSyllabusPath(year, semesterValue, courseNumber, lectureNumber)
         return CoursebookOfficialResponse(
-            noProxyUrl = SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,
+            url = SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,
             proxyUrl = syllabusProxyBaseUrl.takeIf { it.isNotBlank() }?.plus(syllabusPath),
         )
     }

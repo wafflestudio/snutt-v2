@@ -81,7 +81,7 @@ data class TimetableLectureResponse(
     val instructor: String?,
     val credit: Int?,
     val remark: String?,
-    val classPlaceAndTime: List<ClassPlaceAndTimeResponse>,
+    val classPlaceAndTimes: List<ClassPlaceAndTimeResponse>,
     val color: ColorSet?,
     val colorIndex: Int,
 )
@@ -134,7 +134,7 @@ internal fun TimetableLectureDisplay.toResponse(language: Language = Language.KO
         instructor = language.select(instructor, instructorEn),
         credit = credit,
         remark = language.select(remark, remarkEn),
-        classPlaceAndTime = classPlaceAndTime.map { it.toResponse() },
+        classPlaceAndTimes = classPlaceAndTimes.map { it.toResponse() },
         color = color,
         colorIndex = colorIndex,
     )

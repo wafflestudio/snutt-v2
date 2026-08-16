@@ -24,8 +24,8 @@ data class AccessTokenPayload(
 
 @Service
 class AccessTokenService(
-    @param:Value("\${snutt.auth.jwt.private-key}") privateKeyBase64: String,
-    @param:Value("\${snutt.auth.jwt.public-key}") publicKeyBase64: String,
+    @Value("\${snutt.auth.jwt.private-key}") privateKeyBase64: String,
+    @Value("\${snutt.auth.jwt.public-key}") publicKeyBase64: String,
     @param:Value("\${snutt.auth.jwt.access-token-ttl:PT2H}") private val accessTokenTtl: Duration,
 ) {
     private val privateKey: PrivateKey =

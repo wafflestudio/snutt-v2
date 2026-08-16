@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController
 data class ThemeResponse(
     val id: String?,
     val name: String,
-    val colorList: List<ColorSet>?,
+    val colors: List<ColorSet>?,
     val isCustom: Boolean,
     val status: ThemeStatus,
     val isDefault: Boolean,
@@ -33,12 +33,12 @@ data class ThemeResponse(
 
 data class ThemeAddRequest(
     @field:NotBlank val name: String,
-    val colorList: List<ColorSet>,
+    val colors: List<ColorSet>,
 )
 
 data class ThemeModifyRequest(
     val name: String? = null,
-    val colorList: List<ColorSet>? = null,
+    val colors: List<ColorSet>? = null,
 )
 
 data class ThemePublishRequest(
@@ -54,7 +54,7 @@ private fun TimetableThemeDisplay.toResponse() =
     ThemeResponse(
         id = id,
         name = name,
-        colorList = colorList,
+        colors = colors,
         isCustom = isCustom,
         status = status,
         isDefault = isDefault,
@@ -130,14 +130,14 @@ class ThemeController(
     fun addTheme(
         @CurrentUser user: User,
         @RequestBody body: ThemeAddRequest,
-    ): ThemeResponse = timetableThemeService.addTheme(user.id!!, body.name, body.colorList).toResponse()
+    ): ThemeResponse = timetableThemeService.addTheme(user.id!!, body.name, body.colors).toResponse()
 
     @PatchMapping("/{themeId}")
     fun modifyTheme(
         @CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: ThemeModifyRequest,
-    ): ThemeResponse = timetableThemeService.modifyTheme(user.id!!, themeId, body.name, body.colorList).toResponse()
+    ): ThemeResponse = timetableThemeService.modifyTheme(user.id!!, themeId, body.name, body.colors).toResponse()
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(

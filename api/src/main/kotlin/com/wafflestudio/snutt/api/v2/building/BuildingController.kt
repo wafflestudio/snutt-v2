@@ -17,8 +17,7 @@ data class BuildingResponse(
     val buildingNameKor: String,
     val buildingNameEng: String,
     val campus: Campus,
-    val locationInDms: GeoCoordinate?,
-    val locationInDecimal: GeoCoordinate?,
+    val location: GeoCoordinate?,
 )
 
 private fun LectureBuilding.toResponse() =
@@ -28,8 +27,7 @@ private fun LectureBuilding.toResponse() =
         buildingNameKor = buildingNameKor,
         buildingNameEng = buildingNameEng,
         campus = campus,
-        locationInDms = locationInDms,
-        locationInDecimal = locationInDecimal,
+        location = locationInDecimal,
     )
 
 @RestController

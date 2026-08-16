@@ -161,26 +161,26 @@ class MigrationIntegrationTest {
     fun `시간표 강의는 달라진 값만 남기고 같은 값은 강의를 따른다`() {
         val referenced =
             jdbc.queryForMap(
-                "SELECT course_title, instructor, class_place_and_time, lecture_id FROM timetable_lecture WHERE lecture_id IS NOT NULL",
+                "SELECT course_title, instructor, class_place_and_times, lecture_id FROM timetable_lecture WHERE lecture_id IS NOT NULL",
             )
         assertEquals("내가 바꾼 이름", referenced["course_title"])
         assertNull(referenced["instructor"])
-        assertNull(referenced["class_place_and_time"])
+        assertNull(referenced["class_place_and_times"])
 
         val custom =
-            jdbc.queryForMap("SELECT course_title, class_place_and_time FROM timetable_lecture WHERE lecture_id IS NULL")
+            jdbc.queryForMap("SELECT course_title, class_place_and_times FROM timetable_lecture WHERE lecture_id IS NULL")
         assertEquals("직접 만든 강의", custom["course_title"])
-        assertNotNull(custom["class_place_and_time"])
+        assertNotNull(custom["class_place_and_times"])
     }
 
     @Test
     fun `테마는 색상과 공개 정보와 원본 참조를 유지한다`() {
         val copy =
             jdbc.queryForMap(
-                "SELECT color_list, origin_theme_id FROM theme WHERE external_id = ?",
+                "SELECT colors, origin_theme_id FROM theme WHERE external_id = ?",
                 themeCopy.toHexString(),
             )
-        assertTrue((copy["color_list"] as String).contains("backgroundColor"))
+        assertTrue((copy["colors"] as String).contains("backgroundColor"))
         assertEquals(context.themeIds[themeOrigin.toHexString()], copy["origin_theme_id"])
         assertEquals(
             "공개된 테마",

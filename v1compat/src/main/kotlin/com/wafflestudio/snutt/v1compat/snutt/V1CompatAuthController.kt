@@ -13,6 +13,7 @@ import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLoginResponse
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -25,48 +26,48 @@ data class LegacyLocalRegisterRequest(
 )
 
 data class LegacyLocalLoginRequest(
-    @JsonAlias("user_id")
+    @param:JsonAlias("user_id")
     val id: String,
     val password: String,
 )
 
 data class LegacySocialLoginRequest(
-    @JsonAlias("fb_token", "apple_token")
+    @param:JsonAlias("fb_token", "apple_token")
     val token: String,
 )
 
 data class LegacyFacebookLoginRequest(
-    @JsonProperty("fb_id")
+    @param:JsonProperty("fb_id")
     val fbId: String? = null,
-    @JsonProperty("fb_token")
+    @param:JsonProperty("fb_token")
     val fbToken: String,
 )
 
 data class LegacyLogoutRequest(
-    @JsonProperty("registration_id")
+    @param:JsonProperty("registration_id")
     val registrationId: String? = null,
 )
 
 data class LegacySendEmailRequest(
-    @JsonAlias("user_email")
+    @param:JsonAlias("user_email")
     val email: String,
 )
 
 data class LegacyVerifyResetCodeRequest(
-    @JsonProperty("user_id")
+    @param:JsonProperty("user_id")
     val localId: String? = null,
     val code: String,
 )
 
 data class LegacyResetPasswordRequest(
-    @JsonProperty("user_id")
+    @param:JsonProperty("user_id")
     val userId: String,
     val password: String,
     val code: String,
 )
 
 data class LegacyMaskedEmailRequest(
-    @JsonProperty("user_id")
+    @param:JsonProperty("user_id")
     val userId: String,
 )
 
@@ -78,6 +79,10 @@ data class LegacyTokenExchangeResponse(
     val userId: String,
     val accessToken: String,
     val refreshToken: String,
+)
+
+data class LegacyMaskedEmailResponse(
+    val email: String,
 )
 
 @RestController
@@ -142,57 +147,57 @@ class V1CompatAuthController(
     @PostMapping("/id/find")
     fun findId(
         @RequestBody body: LegacySendEmailRequest,
-    ): Map<String, Any?> {
+    ): LegacyOkResponse {
         passwordResetService.sendLocalIdToEmail(body.email)
-        return mapOf("message" to "ok")
+        return LegacyOkResponse()
     }
 
     @V1Public
     @PostMapping("/password/reset/email/send")
     fun sendResetPasswordCode(
         @RequestBody body: LegacySendEmailRequest,
-    ): Map<String, Any?> {
+    ): LegacyOkResponse {
         passwordResetService.requestReset(body.email)
-        return mapOf("message" to "ok")
+        return LegacyOkResponse()
     }
 
     @V1Public
     @PostMapping("/password/reset/email/check")
     fun getMaskedEmail(
         @RequestBody body: LegacyMaskedEmailRequest,
-    ): Map<String, Any?> = mapOf("email" to passwordResetService.getMaskedEmailByLocalId(body.userId))
+    ): LegacyMaskedEmailResponse = LegacyMaskedEmailResponse(email = passwordResetService.getMaskedEmailByLocalId(body.userId))
 
     @V1Public
     @PostMapping("/password/reset/verification/code")
     fun verifyResetPasswordCode(
         @RequestBody body: LegacyVerifyResetCodeRequest,
-    ): Map<String, Any?> {
+    ): LegacyOkResponse {
         passwordResetService.verifyResetCodeByLocalId(
             body.localId ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
             body.code,
         )
-        return mapOf("message" to "ok")
+        return LegacyOkResponse()
     }
 
     @V1Public
     @PostMapping("/password/reset")
     fun resetPassword(
         @RequestBody body: LegacyResetPasswordRequest,
-    ): Map<String, Any?> {
+    ): LegacyOkResponse {
         passwordResetService.confirmResetByLocalId(body.userId, body.code, body.password)
-        return mapOf("message" to "ok")
+        return LegacyOkResponse()
     }
 
     @PostMapping("/logout")
     fun logout(
         @V1CurrentUser user: User,
         @RequestBody(required = false) body: LegacyLogoutRequest?,
-    ): Map<String, Any?> {
+    ): LegacyOkResponse {
         val registrationId = body?.registrationId
         if (!registrationId.isNullOrBlank()) {
             deviceService.removeRegistrationId(user, registrationId)
         }
-        return mapOf("message" to "ok")
+        return LegacyOkResponse()
     }
 
     private fun socialLogin(

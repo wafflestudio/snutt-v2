@@ -35,7 +35,7 @@ import org.springframework.batch.core.BatchStatus
 import org.springframework.batch.core.configuration.JobRegistry
 import org.springframework.batch.core.job.parameters.JobParameters
 import org.springframework.batch.core.job.parameters.JobParametersBuilder
-import org.springframework.batch.core.launch.JobLauncher
+import org.springframework.batch.core.launch.JobOperator
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -61,7 +61,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Autowired
-    lateinit var jobLauncher: JobLauncher
+    lateinit var jobOperator: JobOperator
 
     @Autowired
     lateinit var jobRegistry: JobRegistry
@@ -157,7 +157,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)))
 
-        val status = jobLauncher.run(jobRegistry.getJob("vacancyNotificationJob"), runIdParameters()).status
+        val status = jobOperator.start(jobRegistry.getJob("vacancyNotificationJob")!!, runIdParameters()).status
         assertEquals(BatchStatus.COMPLETED, status)
 
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
@@ -207,7 +207,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)))
 
-        jobLauncher.run(jobRegistry.getJob("vacancyNotificationJob"), runIdParameters())
+        jobOperator.start(jobRegistry.getJob("vacancyNotificationJob")!!, runIdParameters())
 
         assertTrue(recordingPushClient.sentMessages.isEmpty())
         assertEquals(1, notificationRepository.findAll().size)

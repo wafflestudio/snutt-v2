@@ -45,7 +45,7 @@ data class BookmarkLectureResponse(
     val instructor: String?,
     val credit: Int,
     val remark: String?,
-    val classPlaceAndTime: List<BookmarkClassPlaceAndTimeResponse>,
+    val classPlaceAndTimes: List<BookmarkClassPlaceAndTimeResponse>,
 )
 
 data class BookmarkClassPlaceAndTimeResponse(
@@ -86,7 +86,7 @@ private fun Lecture.toResponse(
     instructor = language.select(instructor, instructorEn),
     credit = credit,
     remark = language.select(remark, remarkEn),
-    classPlaceAndTime = classTimes.map { it.toResponse() },
+    classPlaceAndTimes = classTimes.map { it.toResponse() },
 )
 
 private fun ClassPlaceAndTime.toResponse() =

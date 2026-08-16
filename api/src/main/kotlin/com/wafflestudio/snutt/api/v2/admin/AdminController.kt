@@ -42,11 +42,11 @@ data class InsertNotificationRequest(
     val userId: String? = null,
     @field:NotBlank val title: String,
     @field:NotBlank
-    @JsonAlias("body")
+    @param:JsonAlias("body")
     val message: String,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
-    val insertFcm: Boolean = false,
+    val sendPush: Boolean = false,
 )
 
 data class AdminConfigWriteRequest(
@@ -59,7 +59,7 @@ data class AdminConfigWriteRequest(
 
 data class AdminPopupWriteRequest(
     @field:NotBlank
-    @JsonAlias("key")
+    @param:JsonAlias("key")
     val popupKey: String,
     @field:NotBlank val imageOriginUri: String,
     val linkUrl: String? = null,
@@ -122,7 +122,7 @@ class AdminController(
     ) {
         val userId = body.userId?.let { resolveUserExternalId(it) }
         when {
-            !body.insertFcm ->
+            !body.sendPush ->
                 notificationService.sendNotification(
                     Notification(
                         userId = userId,

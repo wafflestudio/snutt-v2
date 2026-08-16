@@ -92,7 +92,7 @@ class TimetableLectureReminderService(
         option: TimetableLectureReminderOption,
     ): TimetableLectureReminderDisplay {
         val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableExternalId, timetableLectureExternalId)
-        if (display.classPlaceAndTime.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
+        if (display.classPlaceAndTimes.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
 
         if (option == TimetableLectureReminderOption.NONE) {
             timetableLectureReminderRepository.deleteByTimetableLectureId(timetableLecture.id!!)
@@ -100,7 +100,7 @@ class TimetableLectureReminderService(
         }
 
         val offsetMinutes = checkNotNull(option.offsetMinutes)
-        val schedules = display.classPlaceAndTime.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }
+        val schedules = display.classPlaceAndTimes.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }
         val reminder =
             timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
                 ?: TimetableLectureReminder(

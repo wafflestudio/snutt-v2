@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
@@ -23,6 +24,8 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTime
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -35,26 +38,51 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDateTime
+
+data class LegacyThemeDto(
+    val id: String?,
+    val userId: String,
+    val theme: Int,
+    val name: String,
+    val colors: List<ColorSet>?,
+    val isDefault: Boolean,
+    val isCustom: Boolean,
+    val origin: LegacyThemeOriginDto?,
+    val status: ThemeStatus,
+    val publishInfo: LegacyThemePublishInfoDto?,
+)
+
+data class LegacyThemeOriginDto(
+    val originId: String,
+    val authorId: String?,
+)
+
+data class LegacyThemePublishInfoDto(
+    val publishName: String,
+    val authorName: String?,
+    val downloads: Long,
+)
 
 private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
-    origin: Map<String, Any?>?,
-) = linkedMapOf(
-    "id" to id,
-    "userId" to userExternalId,
-    "theme" to (if (isCustom) BasicThemeType.SNUTT else BasicThemeType.from(name) ?: BasicThemeType.SNUTT).value,
-    "name" to name,
-    "colors" to colorList,
-    "isDefault" to isDefault,
-    "isCustom" to isCustom,
-    "origin" to origin,
-    "status" to status,
-    "publishInfo" to
+    origin: LegacyThemeOriginDto?,
+) = LegacyThemeDto(
+    id = id,
+    userId = userExternalId,
+    theme = (if (isCustom) BasicThemeType.SNUTT else BasicThemeType.from(name) ?: BasicThemeType.SNUTT).value,
+    name = name,
+    colors = colors,
+    isDefault = isDefault,
+    isCustom = isCustom,
+    origin = origin,
+    status = status,
+    publishInfo =
         publishName?.let {
-            linkedMapOf(
-                "publishName" to it,
-                "authorName" to authorNickname,
-                "downloads" to downloadCount,
+            LegacyThemePublishInfoDto(
+                publishName = it,
+                authorName = authorNickname,
+                downloads = downloadCount,
             )
         },
 )
@@ -70,12 +98,12 @@ data class LegacyThemePublishRequest(
 
 data class LegacyThemeAddRequest(
     val name: String,
-    val colorList: List<ColorSet>,
+    val colors: List<ColorSet>,
 )
 
 data class LegacyThemeModifyRequest(
     val name: String? = null,
-    val colorList: List<ColorSet>? = null,
+    val colors: List<ColorSet>? = null,
 )
 
 data class LegacyThemeDownloadRequest(
@@ -87,15 +115,15 @@ data class LegacyThemeDownloadRequest(
 class V1CompatThemeController(
     private val timetableThemeService: TimetableThemeService,
 ) {
-    private fun originMap(displays: List<TimetableThemeDisplay>): Map<String, Map<String, Any?>> {
+    private fun originMap(displays: List<TimetableThemeDisplay>): Map<String, LegacyThemeOriginDto> {
         val downloaded = displays.filter { it.status == ThemeStatus.DOWNLOADED }
         if (downloaded.isEmpty()) return emptyMap()
         return timetableThemeService
             .getOrigins(downloaded.mapNotNull { it.id })
             .mapValues { (_, origin) ->
-                linkedMapOf(
-                    "originId" to origin.originThemeExternalId,
-                    "authorId" to origin.authorExternalId,
+                LegacyThemeOriginDto(
+                    originId = origin.originThemeExternalId,
+                    authorId = origin.authorExternalId,
                 )
             }
     }
@@ -103,7 +131,7 @@ class V1CompatThemeController(
     @GetMapping("")
     fun getThemes(
         @V1CurrentUser user: User,
-    ): List<Map<String, Any?>> {
+    ): List<LegacyThemeDto> {
         val themes = timetableThemeService.getThemes(user.id!!)
         val origins = originMap(themes)
         return themes.map { it.toLegacy(user.externalId, origins[it.id]) }
@@ -113,38 +141,38 @@ class V1CompatThemeController(
     fun getBestThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): Map<String, Any?> = wrap(user, timetableThemeService.getBestThemes(page))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getBestThemes(page))
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): Map<String, Any?> = wrap(user, timetableThemeService.getFriendsThemes(user.id!!, page))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getFriendsThemes(user.id!!, page))
 
     @PostMapping("/search")
     fun searchThemes(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyThemeSearchRequest,
-    ): Map<String, Any?> = wrap(user, timetableThemeService.searchThemes(body.keyword))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.searchThemes(body.keyword))
 
     @GetMapping("/{themeId}")
     fun getTheme(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
-    ): Map<String, Any?> = single(user, timetableThemeService.getTheme(user.id!!, themeId, null))
+    ): LegacyThemeDto = single(user, timetableThemeService.getTheme(user.id!!, themeId, null))
 
     @PostMapping("")
     fun addTheme(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyThemeAddRequest,
-    ): Map<String, Any?> = timetableThemeService.addTheme(user.id!!, body.name, body.colorList).toLegacy(user.externalId, null)
+    ): LegacyThemeDto = timetableThemeService.addTheme(user.id!!, body.name, body.colors).toLegacy(user.externalId, null)
 
     @PatchMapping("/{themeId}")
     fun modifyTheme(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: LegacyThemeModifyRequest,
-    ): Map<String, Any?> = single(user, timetableThemeService.modifyTheme(user.id!!, themeId, body.name, body.colorList))
+    ): LegacyThemeDto = single(user, timetableThemeService.modifyTheme(user.id!!, themeId, body.name, body.colors))
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(
@@ -159,9 +187,9 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: LegacyThemePublishRequest,
-    ): Map<String, Any?> {
+    ): LegacyOkResponse {
         timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.isAnonymous)
-        return mapOf("message" to "ok")
+        return LegacyOkResponse()
     }
 
     @DeleteMapping("/{themeId}/publish")
@@ -177,31 +205,31 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
         @RequestBody body: LegacyThemeDownloadRequest,
-    ): Map<String, Any?> = single(user, timetableThemeService.downloadTheme(user.id!!, themeId, body.name))
+    ): LegacyThemeDto = single(user, timetableThemeService.downloadTheme(user.id!!, themeId, body.name))
 
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
-    ): Map<String, Any?> = timetableThemeService.copyTheme(user.id!!, themeId).toLegacy(user.externalId, null)
+    ): LegacyThemeDto = timetableThemeService.copyTheme(user.id!!, themeId).toLegacy(user.externalId, null)
 
     @PostMapping("/{themeId}/default")
     fun setDefault(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
-    ): Map<String, Any?> = single(user, timetableThemeService.setDefault(user.id!!, themeId))
+    ): LegacyThemeDto = single(user, timetableThemeService.setDefault(user.id!!, themeId))
 
     @DeleteMapping("/{themeId}/default")
     fun unsetDefault(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
-    ): Map<String, Any?> = timetableThemeService.unsetDefault(user.id!!, themeId).toLegacy(user.externalId, null)
+    ): LegacyThemeDto = timetableThemeService.unsetDefault(user.id!!, themeId).toLegacy(user.externalId, null)
 
     @PostMapping("/basic/{basicThemeTypeValue}/default")
     fun setBasicDefault(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
-    ): Map<String, Any?> {
+    ): LegacyThemeDto {
         BasicThemeType.fromValue(basicThemeTypeValue)
         return timetableThemeService.setBasicThemeDefault(user.id!!).toLegacy(user.externalId, null)
     }
@@ -210,7 +238,7 @@ class V1CompatThemeController(
     fun unsetBasicDefault(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
-    ): Map<String, Any?> =
+    ): LegacyThemeDto =
         timetableThemeService
             .unsetBasicThemeDefault(user.id!!, BasicThemeType.fromValue(basicThemeTypeValue))
             .toLegacy(user.externalId, null)
@@ -218,16 +246,16 @@ class V1CompatThemeController(
     private fun wrap(
         user: User,
         themes: List<TimetableThemeDisplay>,
-    ): Map<String, Any?> {
+    ): LegacyPageResponse<LegacyThemeDto> {
         val origins = originMap(themes)
         val content = themes.map { it.toLegacy(user.externalId, origins[it.id]) }
-        return mapOf("content" to content, "totalCount" to content.size)
+        return LegacyPageResponse(content = content, totalCount = content.size)
     }
 
     private fun single(
         user: User,
         theme: TimetableThemeDisplay,
-    ): Map<String, Any?> = theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
+    ): LegacyThemeDto = theme.toLegacy(user.externalId, originMap(listOf(theme))[theme.id])
 }
 
 data class LegacyDiaryQuestionnaireRequest(
@@ -242,6 +270,48 @@ data class LegacyDiarySubmissionRequest(
     val comment: String,
 )
 
+data class LegacyDiaryQuestionnaireResponse(
+    val courseTitle: String,
+    val questions: List<LegacyDiaryQuestionDto>,
+    val nextLecture: LegacyDiaryTargetLectureDto?,
+)
+
+data class LegacyDiaryQuestionDto(
+    val id: Long?,
+    val question: String,
+    val answers: List<String>,
+)
+
+data class LegacyDiaryTargetLectureDto(
+    val lectureId: String?,
+    val courseTitle: String,
+)
+
+data class LegacyDiaryDailyClassTypeDto(
+    val id: String,
+    val name: String,
+)
+
+data class LegacyDiarySemesterSubmissionsDto(
+    val year: Int,
+    val semester: Int,
+    val submissions: List<LegacyDiarySubmissionDto>,
+)
+
+data class LegacyDiarySubmissionDto(
+    val id: String,
+    val lectureId: String?,
+    val date: LocalDateTime,
+    val courseTitle: String,
+    val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
+    val comment: String,
+)
+
+data class LegacyDiaryShortQuestionReplyDto(
+    val question: String,
+    val answer: String,
+)
+
 @RestController
 @RequestMapping("/v1/diary")
 class V1CompatDiaryController(
@@ -253,23 +323,23 @@ class V1CompatDiaryController(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyDiaryQuestionnaireRequest,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): Map<String, Any?> {
+    ): LegacyDiaryQuestionnaireResponse {
         val display =
             diaryService.generateQuestionnaire(
                 user.id!!,
                 DiaryQuestionnaireRequest(lectureId = body.lectureId, dailyClassTypes = body.dailyClassTypes),
             )
-        return linkedMapOf(
-            "courseTitle" to clientInfo.language.select(display.courseTitle, display.courseTitleEn),
-            "questions" to
+        return LegacyDiaryQuestionnaireResponse(
+            courseTitle = clientInfo.language.select(display.courseTitle, display.courseTitleEn),
+            questions =
                 display.questions.map {
-                    linkedMapOf("id" to it.id, "question" to it.question, "answers" to it.answerList)
+                    LegacyDiaryQuestionDto(id = it.id, question = it.question, answers = it.answerList)
                 },
-            "nextLecture" to
+            nextLecture =
                 display.nextLecture?.let {
-                    linkedMapOf(
-                        "lectureId" to it.lectureId,
-                        "courseTitle" to clientInfo.language.select(it.courseTitle, it.courseTitleEn),
+                    LegacyDiaryTargetLectureDto(
+                        lectureId = it.lectureId,
+                        courseTitle = clientInfo.language.select(it.courseTitle, it.courseTitleEn),
                     )
                 },
         )
@@ -281,28 +351,28 @@ class V1CompatDiaryController(
         @RequestParam year: Int,
         @RequestParam semester: Int,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): Map<String, Any?> {
+    ): LegacyDiaryTargetLectureDto {
         val target =
             diaryService.getDiaryTargetLecture(user.id!!, year, Semester.fromValue(semester), emptyList())
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
-        return linkedMapOf(
-            "lectureId" to target.lectureId,
-            "courseTitle" to clientInfo.language.select(target.courseTitle, target.courseTitleEn),
+        return LegacyDiaryTargetLectureDto(
+            lectureId = target.lectureId,
+            courseTitle = clientInfo.language.select(target.courseTitle, target.courseTitleEn),
         )
     }
 
     @GetMapping("/dailyClassTypes")
     fun getDailyClassTypes(
         @V1CurrentUser user: User,
-    ): List<Map<String, Any?>> =
+    ): List<LegacyDiaryDailyClassTypeDto> =
         diaryService
             .getAllDailyClassTypes()
-            .map { linkedMapOf("id" to it.externalId, "name" to it.name) }
+            .map { LegacyDiaryDailyClassTypeDto(id = it.externalId, name = it.name) }
 
     @GetMapping("/my")
     fun getMySubmissions(
         @V1CurrentUser user: User,
-    ): List<Map<String, Any?>> {
+    ): List<LegacyDiarySemesterSubmissionsDto> {
         val submissions = diaryService.getMySubmissions(user.id!!)
         val replies = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
         val lectureExternalIds =
@@ -312,21 +382,21 @@ class V1CompatDiaryController(
         return submissions
             .groupBy { it.year to it.semester }
             .map { (yearSemester, group) ->
-                linkedMapOf(
-                    "year" to yearSemester.first,
-                    "semester" to yearSemester.second.value,
-                    "submissions" to
+                LegacyDiarySemesterSubmissionsDto(
+                    year = yearSemester.first,
+                    semester = yearSemester.second.value,
+                    submissions =
                         group.map { submission ->
-                            linkedMapOf(
-                                "id" to submission.externalId,
-                                "lectureId" to submission.lectureId?.let(lectureExternalIds::get),
-                                "date" to checkNotNull(submission.createdAt).toLegacyLocalDateTime(),
-                                "courseTitle" to submission.courseTitle,
-                                "shortQuestionReplies" to
+                            LegacyDiarySubmissionDto(
+                                id = submission.externalId,
+                                lectureId = submission.lectureId?.let(lectureExternalIds::get),
+                                date = checkNotNull(submission.createdAt).toLegacyLocalDateTime(),
+                                courseTitle = submission.courseTitle,
+                                shortQuestionReplies =
                                     (replies[submission.id] ?: emptyList()).map {
-                                        linkedMapOf("question" to it.shortQuestion, "answer" to it.shortAnswer)
+                                        LegacyDiaryShortQuestionReplyDto(question = it.shortQuestion, answer = it.shortAnswer)
                                     },
-                                "comment" to submission.comment,
+                                comment = submission.comment,
                             )
                         },
                 )
@@ -358,6 +428,11 @@ class V1CompatDiaryController(
     }
 }
 
+data class LegacyTagUpdateTimeResponse(
+    @param:JsonProperty("updated_at")
+    val updatedAt: Long?,
+)
+
 @RestController
 @RequestMapping("/v1/tags")
 class V1CompatTagUpdateTimeController(
@@ -368,14 +443,20 @@ class V1CompatTagUpdateTimeController(
         @PathVariable year: Int,
         @PathVariable semester: Int,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): Map<String, Any?> {
+    ): LegacyTagUpdateTimeResponse {
         val vocabulary =
             lectureVocabularyService.getVocabulary(year, Semester.fromValue(semester), clientInfo.language)
-        return mapOf("updated_at" to vocabulary.updatedAt?.toEpochMilli())
+        return LegacyTagUpdateTimeResponse(updatedAt = vocabulary.updatedAt?.toEpochMilli())
     }
 }
 
 data class LegacyReminderModifyRequest(
+    val option: TimetableLectureReminderOption,
+)
+
+data class LegacyReminderDto(
+    val timetableLectureId: String,
+    val courseTitle: String,
     val option: TimetableLectureReminderOption,
 )
 
@@ -388,7 +469,7 @@ class V1CompatReminderController(
     fun getReminders(
         @V1CurrentUser user: User,
         @PathVariable timetableId: String,
-    ): List<Map<String, Any?>> =
+    ): List<LegacyReminderDto> =
         timetableLectureReminderService
             .getReminders(user.id!!, timetableId)
             .map { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
@@ -398,7 +479,7 @@ class V1CompatReminderController(
         @V1CurrentUser user: User,
         @PathVariable timetableId: String,
         @PathVariable timetableLectureId: String,
-    ): Map<String, Any?> =
+    ): LegacyReminderDto =
         timetableLectureReminderService
             .getReminder(user.id!!, timetableId, timetableLectureId)
             .let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
@@ -409,7 +490,7 @@ class V1CompatReminderController(
         @PathVariable timetableId: String,
         @PathVariable timetableLectureId: String,
         @RequestBody body: LegacyReminderModifyRequest,
-    ): Map<String, Any?> =
+    ): LegacyReminderDto =
         timetableLectureReminderService
             .modifyReminder(user.id!!, timetableId, timetableLectureId, body.option)
             .let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
@@ -418,12 +499,18 @@ class V1CompatReminderController(
         timetableLectureId: String,
         courseTitle: String,
         option: TimetableLectureReminderOption,
-    ) = linkedMapOf<String, Any?>(
-        "timetableLectureId" to timetableLectureId,
-        "courseTitle" to courseTitle,
-        "option" to option,
+    ) = LegacyReminderDto(
+        timetableLectureId = timetableLectureId,
+        courseTitle = courseTitle,
+        option = option,
     )
 }
+
+data class LegacyLectureEvSummaryResponse(
+    val evLectureId: Long?,
+    val avgRating: Double?,
+    val evaluationCount: Long,
+)
 
 @RestController
 @RequestMapping("/v1/ev")
@@ -434,13 +521,13 @@ class V1CompatEvSummaryController(
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: String,
-    ): Map<String, Any?> {
+    ): LegacyLectureEvSummaryResponse {
         val lecture = evaluationService.getEvaluationSummaryOfLecture(lectureId).lecture
         val summary = lecture.id?.let { evaluationService.findSummariesByLectureIds(listOf(it))[it] }
-        return linkedMapOf(
-            "evLectureId" to lecture.courseId,
-            "avgRating" to summary?.avgRating,
-            "evaluationCount" to (summary?.evalCount ?: 0L),
+        return LegacyLectureEvSummaryResponse(
+            evLectureId = lecture.courseId,
+            avgRating = summary?.avgRating,
+            evaluationCount = summary?.evalCount ?: 0L,
         )
     }
 }

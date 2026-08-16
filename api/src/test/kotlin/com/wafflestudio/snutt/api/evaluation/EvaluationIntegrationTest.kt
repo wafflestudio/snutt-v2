@@ -27,6 +27,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -150,7 +152,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 """{"localId":"$localId","password":"password1","email":"$email"}""",
             )
         assertEquals(200, response.statusCode.value())
-        return asMap(response)["accessToken"] as String
+        return body(response)["accessToken"].asString()
     }
 
     private fun setEmailVerified(localId: String) {
@@ -182,49 +184,47 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    @Suppress("UNCHECKED_CAST")
     private fun post(
         uri: String,
         body: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().post().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(Any::class.java)
+        return spec.body(body).retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun get(
         uri: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().get().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun patch(
         uri: String,
         body: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().patch().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(Any::class.java)
+        return spec.body(body).retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun delete(
         uri: String,
         token: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().delete().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private val jsonMapper = JsonMapper.builder().build()
+
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     private fun evalBody(
         content: String = "좋은 강의입니다",
@@ -235,14 +235,14 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `이메일 미인증 사용자는 강의평을 쓸 수 없다`() {
         val response = post("/v2/lectures/$lectureId/evaluations", evalBody(), unverifiedToken)
         assertEquals(403, response.statusCode.value())
-        assertEquals(0x3011, asMap(response)["errcode"])
+        assertEquals(0x3011, body(response)["errcode"].asInt())
     }
 
     @Test
     fun `강의평 생성과 course 집계 갱신`() {
         val response = post("/v2/lectures/$lectureId/evaluations", evalBody(rating = 4.5), verifiedToken)
         assertEquals(200, response.statusCode.value())
-        assertEquals(4.5, asMap(response)["rating"])
+        assertEquals(4.5, body(response)["rating"].asDouble())
 
         val course = courseRepository.findAll().first { it.courseNumber == "M1522.004700" }
         assertEquals(1, course.evalCount)
@@ -254,14 +254,14 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
         val duplicate = post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
         assertEquals(409, duplicate.statusCode.value())
-        assertEquals(40910, asMap(duplicate)["errcode"])
+        assertEquals(40910, body(duplicate)["errcode"].asInt())
     }
 
     @Test
     fun `공감 추가와 취소`() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
         val list = get("/v2/lectures/$lectureId/evaluations", secondVerifiedToken)
-        val evaluationId = ((asMap(list)["content"] as List<*>)[0] as Map<*, *>)["id"] as Int
+        val evaluationId = body(list)["content"][0]["id"].asInt()
 
         val like = post("/v2/evaluations/$evaluationId/like", """{}""", secondVerifiedToken)
         assertEquals(200, like.statusCode.value())
@@ -269,13 +269,13 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(409, duplicateLike.statusCode.value())
 
         val detail = get("/v2/evaluations/$evaluationId", secondVerifiedToken)
-        assertEquals(1, (asMap(detail)["likeCount"] as Int).toLong())
-        assertEquals(true, asMap(detail)["isLiked"])
+        assertEquals(1, body(detail)["likeCount"].asInt())
+        assertEquals(true, body(detail)["isLiked"].asBoolean())
 
         val cancel = delete("/v2/evaluations/$evaluationId/like", secondVerifiedToken)
         assertEquals(200, cancel.statusCode.value())
         val afterCancel = get("/v2/evaluations/$evaluationId", secondVerifiedToken)
-        assertEquals(0, (asMap(afterCancel)["likeCount"] as Int).toLong())
+        assertEquals(0, body(afterCancel)["likeCount"].asInt())
     }
 
     @Test
@@ -284,8 +284,8 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(rating = 5.0), secondVerifiedToken)
 
         val list = get("/v2/lectures/$lectureId/evaluations", verifiedToken)
-        val otherEvaluation = (asMap(list)["content"] as List<*>)[0] as Map<*, *>
-        val otherId = otherEvaluation["id"] as Int
+        val otherEvaluation = body(list)["content"][0]
+        val otherId = otherEvaluation["id"].asInt()
         post("/v2/evaluations/$otherId/like", """{}""", verifiedToken)
 
         val update =
@@ -299,18 +299,18 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         val course = courseRepository.findAll().first { it.courseNumber == "M1522.004700" }
         assertEquals(2, course.evalCount)
         assertEquals(2.0, course.avgRating)
-        assertEquals(0, (asMap(get("/v2/evaluations/$otherId", verifiedToken))["likeCount"] as Int).toLong())
+        assertEquals(0, body(get("/v2/evaluations/$otherId", verifiedToken))["likeCount"].asInt())
     }
 
     @Test
     fun `신고는 내 강의평이 아니어야 하고 중복 신고는 거부된다`() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
         val list = get("/v2/lectures/$lectureId/evaluations", secondVerifiedToken)
-        val evaluationId = ((asMap(list)["content"] as List<*>)[0] as Map<*, *>)["id"] as Int
+        val evaluationId = body(list)["content"][0]["id"].asInt()
 
         val selfReport = post("/v2/evaluations/$evaluationId/report", """{"content":"신고"}""", verifiedToken)
         assertEquals(409, selfReport.statusCode.value())
-        assertEquals(40914, asMap(selfReport)["errcode"])
+        assertEquals(40914, body(selfReport)["errcode"].asInt())
 
         val report = post("/v2/evaluations/$evaluationId/report", """{"content":"신고"}""", secondVerifiedToken)
         assertEquals(200, report.statusCode.value())
@@ -321,7 +321,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `삭제는 숨김 처리하고 집계에서 빠진다`() {
         val create = post("/v2/lectures/$lectureId/evaluations", evalBody(rating = 2.0), verifiedToken)
-        val evaluationId = asMap(create)["id"] as Int
+        val evaluationId = body(create)["id"].asInt()
 
         val delete = delete("/v2/evaluations/$evaluationId", verifiedToken)
         assertEquals(200, delete.statusCode.value())
@@ -359,15 +359,15 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         }
 
         val page1 = get("/v2/lectures/$cursorLectureId/evaluations", verifiedToken)
-        val page1Map = asMap(page1)
-        assertEquals(20, (page1Map["content"] as List<*>).size)
-        assertEquals(false, page1Map["last"])
-        val cursor = page1Map["cursor"] as String
+        val page1Node = body(page1)
+        assertEquals(20, page1Node["content"].size())
+        assertEquals(false, page1Node["last"].asBoolean())
+        val cursor = page1Node["cursor"].asString()
 
         val page2 = get("/v2/lectures/$cursorLectureId/evaluations?cursor=$cursor", verifiedToken)
-        val page2Map = asMap(page2)
-        assertEquals(2, (page2Map["content"] as List<*>).size)
-        assertEquals(true, page2Map["last"])
+        val page2Node = body(page2)
+        assertEquals(2, page2Node["content"].size())
+        assertEquals(true, page2Node["last"].asBoolean())
     }
 
     @Test

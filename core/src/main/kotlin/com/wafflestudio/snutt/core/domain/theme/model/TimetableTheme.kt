@@ -22,7 +22,7 @@ class TimetableTheme(
     var name: String,
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false)
-    var colorList: List<ColorSet>,
+    var colors: List<ColorSet>,
     @Column(name = "origin_theme_id")
     var originThemeId: Long? = null,
     @Column(name = "origin_author_id")

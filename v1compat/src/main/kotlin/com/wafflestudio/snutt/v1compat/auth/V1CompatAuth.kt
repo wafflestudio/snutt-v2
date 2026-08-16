@@ -59,7 +59,7 @@ class V1UserAuthInterceptor(
 
 @Component
 class V1ApiKeyInterceptor(
-    @param:Value("\${snutt.auth.platform-keys}") platformKeysConfig: String,
+    @Value("\${snutt.auth.platform-keys}") platformKeysConfig: String,
 ) : HandlerInterceptor {
     private val platformKeys: Map<String, String> =
         platformKeysConfig

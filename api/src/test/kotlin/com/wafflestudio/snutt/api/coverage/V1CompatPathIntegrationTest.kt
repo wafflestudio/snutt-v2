@@ -14,7 +14,6 @@ import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -26,6 +25,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -98,9 +99,9 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
                 .uri("/v1/auth/register_local")
                 .body("""{"id":"v1pathuser","password":"password1","email":"v1path@snu.ac.kr"}""")
                 .retrieve()
-                .toEntity(Any::class.java)
+                .toEntity(String::class.java)
         assertEquals(200, register.statusCode.value())
-        legacyToken = asMap(register)["token"] as String
+        legacyToken = body(register)["token"].asString()
     }
 
     private fun client(): RestClient =
@@ -113,84 +114,82 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    private fun getV1(uri: String): ResponseEntity<Any> =
+    private fun getV1(uri: String): ResponseEntity<String> =
         client()
             .get()
             .uri(uri)
             .header("x-access-token", legacyToken)
             .retrieve()
-            .toEntity(Any::class.java)
+            .toEntity(String::class.java)
 
     private fun postV1(
         uri: String,
         body: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().post().uri(uri).header("x-access-token", legacyToken)
         body?.let { spec.body(it) }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private val jsonMapper = JsonMapper.builder().build()
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asList(response: ResponseEntity<Any>): List<Map<String, Any?>> = response.body as List<Map<String, Any?>>
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `계정 경로는 단수형 v1 user 이다`() {
         val info = getV1("/v1/user/info")
         assertEquals(200, info.statusCode.value())
-        assertEquals("v1pathuser", asMap(info)["local_id"])
+        assertEquals("v1pathuser", body(info)["local_id"].asString())
 
         val verification = getV1("/v1/user/email/verification")
         assertEquals(200, verification.statusCode.value())
-        assertEquals(false, asMap(verification)["isEmailVerified"])
+        assertEquals(false, body(verification)["isEmailVerified"].asBoolean())
     }
 
     @Test
     fun `내 정보는 복수형 v1 users me 이다`() {
         val me = getV1("/v1/users/me")
         assertEquals(200, me.statusCode.value())
-        assertEquals("v1pathuser", asMap(me)["localId"])
+        assertEquals("v1pathuser", body(me)["localId"].asString())
 
         val providers = getV1("/v1/users/me/social_providers")
         assertEquals(200, providers.statusCode.value())
-        assertEquals(true, asMap(providers)["local"])
-        assertEquals(false, asMap(providers)["facebook"])
+        assertEquals(true, body(providers)["local"].asBoolean())
+        assertEquals(false, body(providers)["facebook"].asBoolean())
     }
 
     @Test
     fun `친구 목록은 content와 totalCount로 감싼다`() {
         val response = getV1("/v1/friends?state=ACTIVE")
         assertEquals(200, response.statusCode.value())
-        val body = asMap(response)
-        assertNotNull(body["content"])
-        assertEquals(0, body["totalCount"])
+        val node = body(response)
+        assertTrue(node.hasNonNull("content"))
+        assertEquals(0, node["totalCount"].asInt())
     }
 
     @Test
     fun `테마 목록은 colors 필드를 쓴다`() {
         val response = getV1("/v1/themes")
         assertEquals(200, response.statusCode.value())
-        val themes = asList(response)
-        assertTrue(themes.isNotEmpty())
-        assertTrue(themes[0].containsKey("theme"))
-        assertTrue(themes[0].containsKey("isDefault"))
-        assertTrue(themes[0].containsKey("isCustom"))
+        val themes = body(response)
+        assertTrue(themes.size() > 0)
+        assertTrue(themes[0].has("theme"))
+        assertTrue(themes[0].has("isDefault"))
+        assertTrue(themes[0].has("isCustom"))
     }
 
     @Test
     fun `테마 검색은 POST 본문으로 받는다`() {
         val response = postV1("/v1/themes/search", """{"keyword":"없는테마"}""")
         assertEquals(200, response.statusCode.value())
-        assertNotNull(asMap(response)["content"])
+        assertTrue(body(response).hasNonNull("content"))
     }
 
     @Test
     fun `태그 갱신 시각 경로가 살아있다`() {
         val response = getV1("/v1/tags/2026/3/update_time")
         assertEquals(200, response.statusCode.value())
-        assertNotNull(asMap(response)["updated_at"])
+        assertTrue(body(response).hasNonNull("updated_at"))
     }
 
     @Test
@@ -199,22 +198,22 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, list.statusCode.value())
         val count = getV1("/v1/notification/count")
         assertEquals(200, count.statusCode.value())
-        assertNotNull(asMap(count)["count"])
+        assertTrue(body(count).hasNonNull("count"))
     }
 
     @Test
     fun `팝업은 공개 오브젝트 URL과 구 필드명을 함께 준다`() {
         val response = getV1("/v1/popups")
         assertEquals(200, response.statusCode.value())
-        val popups = asList(response)
-        assertEquals(1, popups.size)
-        assertEquals("notice", popups[0]["key"])
+        val popups = body(response)
+        assertEquals(1, popups.size())
+        assertEquals("notice", popups[0]["key"].asString())
         assertEquals(
             "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/testnamespace/b/snutt-asset/o/popup-images/a.jpg",
-            popups[0]["imageUri"],
+            popups[0]["imageUri"].asString(),
         )
         assertEquals(popups[0]["imageUri"], popups[0]["image_url"])
-        assertEquals(7, popups[0]["hidden_days"])
+        assertEquals(7, popups[0]["hidden_days"].asInt())
     }
 
     @Test
@@ -229,12 +228,12 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
                 .uri("/v1/admin/images/popup/upload-uris?count=2")
                 .header("x-access-token", legacyToken)
                 .retrieve()
-                .toEntity(Any::class.java)
+                .toEntity(String::class.java)
         assertEquals(200, response.statusCode.value())
-        val uris = asList(response)
-        assertEquals(2, uris.size)
-        assertTrue((uris[0]["fileOriginUri"] as String).startsWith("s3://snutt-asset/popup-images/"))
-        assertTrue((uris[0]["fileUri"] as String).startsWith("https://objectstorage."))
+        val uris = body(response)
+        assertEquals(2, uris.size())
+        assertTrue(uris[0]["fileOriginUri"].asString().startsWith("s3://snutt-asset/popup-images/"))
+        assertTrue(uris[0]["fileUri"].asString().startsWith("https://objectstorage."))
     }
 
     @Test
@@ -244,7 +243,7 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
                 .get()
                 .uri("/v1/semesters/status")
                 .retrieve()
-                .toEntity(Any::class.java)
+                .toEntity(String::class.java)
         assertEquals(200, status.statusCode.value())
     }
 
@@ -260,6 +259,6 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, mine.statusCode.value())
         val search = getV1("/v1/ev-service/v1/lectures?query=&page=0")
         assertEquals(200, search.statusCode.value())
-        assertNotNull(asMap(search)["content"])
+        assertTrue(body(search).hasNonNull("content"))
     }
 }

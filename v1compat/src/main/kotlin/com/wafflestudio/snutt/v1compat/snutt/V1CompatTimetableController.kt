@@ -36,15 +36,15 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class LegacyTimetableBriefDto(
-    @JsonProperty("_id")
+    @param:JsonProperty("_id")
     val id: String,
     val year: Int,
     val semester: Semester,
     val title: String,
     val isPrimary: Boolean,
-    @JsonProperty("updated_at")
+    @param:JsonProperty("updated_at")
     val updatedAt: Long,
-    @JsonProperty("total_credit")
+    @param:JsonProperty("total_credit")
     val totalCredit: Int,
 )
 
@@ -212,7 +212,7 @@ class V1CompatTimetableController(
                     courseTitle = body.courseTitle,
                     instructor = body.instructor,
                     credit = body.credit,
-                    classPlaceAndTime = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() }.orEmpty(),
+                    classPlaceAndTimes = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() }.orEmpty(),
                     remark = body.remark,
                     color = body.color?.toColorSet(),
                     colorIndex = body.colorIndex,
@@ -280,7 +280,7 @@ class V1CompatTimetableController(
                     courseTitle = body.courseTitle,
                     instructor = body.instructor,
                     credit = body.credit,
-                    classPlaceAndTime = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() },
+                    classPlaceAndTimes = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() },
                     remark = body.remark,
                     color = body.color?.toColorSet(),
                     colorIndex = body.colorIndex,
@@ -341,7 +341,7 @@ class V1CompatTimetableController(
 }
 
 data class LegacyForcedRequest(
-    @JsonProperty("is_forced")
+    @param:JsonProperty("is_forced")
     val isForced: Boolean? = null,
 )
 
@@ -355,9 +355,9 @@ fun LegacyColorRequest.toColorSet() = ColorSet(backgroundColor = bg, foregroundC
 data class LegacyClassTimeRequest(
     val day: Int,
     val place: String? = null,
-    @JsonProperty("start_minute")
+    @param:JsonProperty("start_minute")
     val startMinute: Int,
-    @JsonProperty("end_minute")
+    @param:JsonProperty("end_minute")
     val endMinute: Int,
 )
 
@@ -370,31 +370,31 @@ fun LegacyClassTimeRequest.toClassPlaceAndTime() =
     )
 
 data class LegacyCustomLectureRequest(
-    @JsonProperty("course_title")
+    @param:JsonProperty("course_title")
     val courseTitle: String,
     val instructor: String? = null,
     val credit: Int? = null,
-    @JsonProperty("class_time_json")
+    @param:JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassTimeRequest>? = null,
     val remark: String? = null,
     val color: LegacyColorRequest? = null,
-    @JsonProperty("color_index")
+    @param:JsonProperty("color_index")
     val colorIndex: Int? = null,
-    @JsonProperty("is_forced")
+    @param:JsonProperty("is_forced")
     val isForced: Boolean? = null,
 )
 
 data class LegacyModifyLectureRequest(
-    @JsonProperty("course_title")
+    @param:JsonProperty("course_title")
     val courseTitle: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
-    @JsonProperty("class_time_json")
+    @param:JsonProperty("class_time_json")
     val classPlaceAndTimes: List<LegacyClassTimeRequest>? = null,
     val remark: String? = null,
     val color: LegacyColorRequest? = null,
-    @JsonProperty("color_index")
+    @param:JsonProperty("color_index")
     val colorIndex: Int? = null,
-    @JsonProperty("is_forced")
+    @param:JsonProperty("is_forced")
     val isForced: Boolean? = null,
 )

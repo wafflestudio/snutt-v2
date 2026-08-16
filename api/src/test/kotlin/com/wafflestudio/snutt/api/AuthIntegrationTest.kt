@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -34,6 +36,10 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     @LocalServerPort
     var port = 0
 
+    private val jsonMapper = JsonMapper.builder().build()
+
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
+
     private fun client(): RestClient =
         RestClient
             .builder()
@@ -44,30 +50,29 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    @Suppress("UNCHECKED_CAST")
     private fun post(
         uri: String,
         body: String,
         bearer: String? = null,
-    ): ResponseEntity<Map<*, *>> =
+    ): ResponseEntity<String> =
         client()
             .post()
             .uri(uri)
             .headers { if (bearer != null) it.setBearerAuth(bearer) }
             .body(body)
             .retrieve()
-            .toEntity(Map::class.java)
+            .toEntity(String::class.java)
 
     private fun get(
         uri: String,
         bearer: String? = null,
-    ): ResponseEntity<Map<*, *>> =
+    ): ResponseEntity<String> =
         client()
             .get()
             .uri(uri)
             .headers { if (bearer != null) it.setBearerAuth(bearer) }
             .retrieve()
-            .toEntity(Map::class.java)
+            .toEntity(String::class.java)
 
     @Test
     @Order(1)
@@ -81,9 +86,9 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
                 .get()
                 .uri("/v2/users/me")
                 .retrieve()
-                .toEntity(Map::class.java)
+                .toEntity(String::class.java)
         assertEquals(403, response.statusCode.value())
-        assertEquals(0x2000L.toInt(), response.body!!["errcode"])
+        assertEquals(0x2000L.toInt(), body(response)["errcode"].asInt())
     }
 
     @Test
@@ -92,9 +97,10 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
         val response =
             post("/v2/auth/register", """{"localId":"testuser1","password":"password1","email":"test@snu.ac.kr"}""")
         assertEquals(200, response.statusCode.value())
-        accessToken = response.body!!["accessToken"] as String
-        refreshToken = response.body!!["refreshToken"] as String
-        userId = response.body!!["userId"] as String
+        val node = body(response)
+        accessToken = node["accessToken"].asString()
+        refreshToken = node["refreshToken"].asString()
+        userId = node["userId"].asString()
         assertTrue(userId.matches(Regex("^[0-9a-f]{24}$")))
         assertTrue(accessToken.isNotBlank())
     }
@@ -104,9 +110,10 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `발급된 액세스 토큰으로 내 정보를 조회한다`() {
         val response = get("/v2/users/me", bearer = accessToken)
         assertEquals(200, response.statusCode.value())
-        assertEquals(userId, response.body!!["id"])
-        assertEquals("test@snu.ac.kr", response.body!!["email"])
-        assertEquals(listOf("local"), response.body!!["authProviders"])
+        val node = body(response)
+        assertEquals(userId, node["id"].asString())
+        assertEquals("test@snu.ac.kr", node["email"].asString())
+        assertEquals(listOf("local"), node["authProviders"].values().map { it.asString() })
     }
 
     @Test
@@ -114,7 +121,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `중복 localId 회원가입은 거부된다`() {
         val response = post("/v2/auth/register", """{"localId":"testuser1","password":"password1"}""")
         assertEquals(403, response.statusCode.value())
-        assertEquals(0x3002L.toInt(), response.body!!["errcode"])
+        assertEquals(0x3002L.toInt(), body(response)["errcode"].asInt())
     }
 
     @Test
@@ -123,7 +130,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
         val oldRefreshToken = refreshToken
         val rotated = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
         assertEquals(200, rotated.statusCode.value())
-        val newRefreshToken = rotated.body!!["refreshToken"] as String
+        val newRefreshToken = body(rotated)["refreshToken"].asString()
         assertNotEquals(oldRefreshToken, newRefreshToken)
 
         val reuse = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
@@ -138,7 +145,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `로그인이 다시 동작하고 me 조회가 성공한다`() {
         val login = post("/v2/auth/login", """{"localId":"testuser1","password":"password1"}""")
         assertEquals(200, login.statusCode.value())
-        accessToken = login.body!!["accessToken"] as String
+        accessToken = body(login)["accessToken"].asString()
 
         val me = get("/v2/users/me", bearer = accessToken)
         assertEquals(200, me.statusCode.value())

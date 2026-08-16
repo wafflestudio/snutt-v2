@@ -2,12 +2,12 @@ name: Deploy
 
 on:
   push:
-    branches: [ develop, main ]
+    branches: [ develop, prod ]
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: ${{ matrix.module }} (${{ github.ref_name == 'main' && 'prod' || 'dev' }})
+    name: ${{ matrix.module }} (${{ github.ref_name == 'prod' && 'prod' || 'dev' }})
     runs-on: ubuntu-24.04-arm
 
     strategy:
@@ -21,7 +21,7 @@ jobs:
     env:
       OCIR_REGISTRY: yny.ocir.io
       OCIR_NAMESPACE: ax1dvc8vmenm
-      OCIR_REPOSITORY: snutt-${{ github.ref_name == 'main' && 'prod' || 'dev' }}/snutt-${{ matrix.module }}
+      OCIR_REPOSITORY: snutt-${{ github.ref_name == 'prod' && 'prod' || 'dev' }}/snutt-${{ matrix.module }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

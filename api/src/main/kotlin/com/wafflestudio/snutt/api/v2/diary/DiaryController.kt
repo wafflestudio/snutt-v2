@@ -59,7 +59,7 @@ data class DiaryTargetLectureResponse(
     val courseTitle: String,
     val instructor: String?,
     val credit: Int?,
-    val classPlaceAndTime: List<ClassPlaceAndTime>,
+    val classPlaceAndTimes: List<ClassPlaceAndTime>,
 )
 
 data class DiaryDailyClassTypeResponse(
@@ -111,7 +111,7 @@ private fun TimetableLectureDisplay.toResponse(language: Language) =
         courseTitle = language.select(courseTitle, courseTitleEn),
         instructor = language.select(instructor, instructorEn),
         credit = credit,
-        classPlaceAndTime = classPlaceAndTime,
+        classPlaceAndTimes = classPlaceAndTimes,
     )
 
 private fun DiaryDailyClassType.toResponse() = DiaryDailyClassTypeResponse(id = externalId, name = name)

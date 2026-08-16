@@ -24,8 +24,8 @@ class TimetableLecture(
     @Column(columnDefinition = "TEXT")
     var remark: String? = null,
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "class_place_and_time")
-    var classPlaceAndTime: List<ClassPlaceAndTime>? = null,
+    @Column(name = "class_place_and_times")
+    var classPlaceAndTimes: List<ClassPlaceAndTime>? = null,
     @Column(name = "academic_year")
     var academicYear: String? = null,
     var category: String? = null,
@@ -43,7 +43,7 @@ class TimetableLecture(
             instructor = instructor,
             credit = credit,
             remark = remark,
-            classPlaceAndTime = classPlaceAndTime,
+            classPlaceAndTimes = classPlaceAndTimes,
             academicYear = academicYear,
             category = category,
             classification = classification,
@@ -55,7 +55,7 @@ class TimetableLecture(
         instructor = null
         credit = null
         remark = null
-        classPlaceAndTime = null
+        classPlaceAndTimes = null
         academicYear = null
         category = null
         classification = null

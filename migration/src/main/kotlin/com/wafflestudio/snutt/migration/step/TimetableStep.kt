@@ -164,7 +164,7 @@ class TimetableStep(
                 "instructor",
                 "credit",
                 "remark",
-                "class_place_and_time",
+                "class_place_and_times",
                 "academic_year",
                 "category",
                 "classification",

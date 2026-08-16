@@ -12,6 +12,25 @@ import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+data class LegacyTakenLecturesResponse(
+    val content: List<LegacyTakenLectureDto>,
+)
+
+data class LegacyTakenLectureDto(
+    val id: Long?,
+    val semesterLectureId: String,
+    val title: String,
+    val instructor: String,
+    val department: String?,
+    val courseNumber: String,
+    val credit: Int?,
+    val academicYear: String?,
+    val category: String?,
+    val classification: String?,
+    val takenYear: Int,
+    val takenSemester: Int,
+)
+
 @RestController
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatTakenLectureController(
@@ -24,29 +43,74 @@ class V1CompatTakenLectureController(
     fun getMyLatestLectures(
         @V1CurrentUser user: User,
         @RequestParam(required = false) filter: String?,
-    ): Map<String, Any?> =
-        mapOf(
-            "content" to
+    ): LegacyTakenLecturesResponse =
+        LegacyTakenLecturesResponse(
+            content =
                 takenLectureService
                     .getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
                     .map {
-                        mapOf(
-                            "id" to it.course.id,
-                            "semesterLectureId" to it.lectureExternalId,
-                            "title" to it.course.title,
-                            "instructor" to it.course.instructor,
-                            "department" to it.course.department,
-                            "courseNumber" to it.course.courseNumber,
-                            "credit" to it.course.credit,
-                            "academicYear" to it.course.academicYear,
-                            "category" to it.course.category,
-                            "classification" to it.course.classification,
-                            "takenYear" to it.takenYear,
-                            "takenSemester" to it.takenSemester.value,
+                        LegacyTakenLectureDto(
+                            id = it.course.id,
+                            semesterLectureId = it.lectureExternalId,
+                            title = it.course.title,
+                            instructor = it.course.instructor,
+                            department = it.course.department,
+                            courseNumber = it.course.courseNumber,
+                            credit = it.course.credit,
+                            academicYear = it.course.academicYear,
+                            category = it.course.category,
+                            classification = it.course.classification,
+                            takenYear = it.takenYear,
+                            takenSemester = it.takenSemester.value,
                         )
                     },
         )
 }
+
+data class LegacySearchTagGroupsResponse(
+    val tagGroups: List<LegacyEvTagGroupDto>,
+)
+
+data class LegacyCourseSearchResponse(
+    val content: List<LegacyCourseDto>,
+    val totalCount: Long,
+)
+
+data class LegacyCourseDto(
+    val id: Long?,
+    val title: String,
+    val instructor: String,
+    val department: String?,
+    val courseNumber: String,
+    val credit: Int?,
+    val academicYear: String?,
+    val category: String?,
+    val classification: String?,
+    val evaluationCount: Long,
+    val avgRating: Double?,
+)
+
+data class LegacyCourseWithSemestersResponse(
+    val id: Long?,
+    val title: String,
+    val instructor: String,
+    val department: String?,
+    val courseNumber: String,
+    val credit: Int?,
+    val academicYear: String?,
+    val category: String?,
+    val classification: String?,
+    val evaluationCount: Long,
+    val avgRating: Double?,
+    val semesterLectures: List<LegacySemesterLectureDto>,
+)
+
+data class LegacySemesterLectureDto(
+    val id: String,
+    val year: Int,
+    val semester: Int,
+    val myEvaluationExists: Boolean,
+)
 
 @RestController
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
@@ -55,18 +119,18 @@ class V1CompatCourseSearchController(
     private val legacySearchTagService: LegacySearchTagService,
 ) {
     @GetMapping("/tags/search")
-    fun getSearchTags(): Map<String, Any?> = mapOf("tagGroups" to legacySearchTagService.searchTagGroups())
+    fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
 
     @GetMapping("/lectures")
     fun searchLectures(
         @RequestParam(required = false, defaultValue = "") query: String,
         @RequestParam(required = false, defaultValue = "0") page: Int,
         @RequestParam(required = false) tags: List<Long>?,
-    ): Map<String, Any?> {
+    ): LegacyCourseSearchResponse {
         val criteria = legacySearchTagService.toCriteria(query, page, tags.orEmpty())
-        return linkedMapOf(
-            "content" to courseSearchService.search(criteria).map { it.toLegacyCourse() },
-            "totalCount" to courseSearchService.count(criteria),
+        return LegacyCourseSearchResponse(
+            content = courseSearchService.search(criteria).map { it.toLegacyCourse() },
+            totalCount = courseSearchService.count(criteria),
         )
     }
 
@@ -74,34 +138,45 @@ class V1CompatCourseSearchController(
     fun getSemesterLectures(
         @V1CurrentUser user: User,
         @PathVariable courseId: Long,
-    ): Map<String, Any?> {
+    ): LegacyCourseWithSemestersResponse {
         val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
-        return result.course.toLegacyCourse() +
-            linkedMapOf(
-                "semesterLectures" to
-                    result.semesters.map {
-                        linkedMapOf(
-                            "id" to it.lectureExternalId,
-                            "year" to it.year,
-                            "semester" to it.semester.value,
-                            "myEvaluationExists" to it.myEvaluationExists,
-                        )
-                    },
-            )
+        val course = result.course
+        return LegacyCourseWithSemestersResponse(
+            id = course.id,
+            title = course.title,
+            instructor = course.instructor,
+            department = course.department,
+            courseNumber = course.courseNumber,
+            credit = course.credit,
+            academicYear = course.academicYear,
+            category = course.category,
+            classification = course.classification,
+            evaluationCount = course.evalCount,
+            avgRating = course.avgRating,
+            semesterLectures =
+                result.semesters.map {
+                    LegacySemesterLectureDto(
+                        id = it.lectureExternalId,
+                        year = it.year,
+                        semester = it.semester.value,
+                        myEvaluationExists = it.myEvaluationExists,
+                    )
+                },
+        )
     }
 }
 
-private fun Course.toLegacyCourse(): Map<String, Any?> =
-    linkedMapOf(
-        "id" to id,
-        "title" to title,
-        "instructor" to instructor,
-        "department" to department,
-        "courseNumber" to courseNumber,
-        "credit" to credit,
-        "academicYear" to academicYear,
-        "category" to category,
-        "classification" to classification,
-        "evaluationCount" to evalCount,
-        "avgRating" to avgRating,
+private fun Course.toLegacyCourse(): LegacyCourseDto =
+    LegacyCourseDto(
+        id = id,
+        title = title,
+        instructor = instructor,
+        department = department,
+        courseNumber = courseNumber,
+        credit = credit,
+        academicYear = academicYear,
+        category = category,
+        classification = classification,
+        evaluationCount = evalCount,
+        avgRating = avgRating,
     )

@@ -26,6 +26,8 @@ import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -105,9 +107,9 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 """{"id":"v1user","password":"password1","email":"v1@snu.ac.kr"}""",
             )
         assertEquals(200, register.statusCode.value(), "body=${register.body}")
-        legacyToken = asMap(register)["token"] as String
-        userId = asMap(register)["user_id"] as String
-        assertEquals("ok", asMap(register)["message"])
+        legacyToken = body(register)["token"].asString()
+        userId = body(register)["user_id"].asString()
+        assertEquals("ok", body(register)["message"].asString())
     }
 
     @BeforeEach
@@ -124,40 +126,36 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    @Suppress("UNCHECKED_CAST")
     private fun post(
         uri: String,
         body: String,
         legacyToken: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().post().uri(uri)
         legacyToken?.let { spec.headers { h -> h.set("x-access-token", it) } }
-        return spec.body(body).retrieve().toEntity(Any::class.java)
+        return spec.body(body).retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun get(
         uri: String,
         legacyToken: String? = null,
-    ): ResponseEntity<Any> {
+    ): ResponseEntity<String> {
         val spec = client().get().uri(uri)
         legacyToken?.let { spec.headers { h -> h.set("x-access-token", it) } }
-        return spec.retrieve().toEntity(Any::class.java)
+        return spec.retrieve().toEntity(String::class.java)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asMap(response: ResponseEntity<Any>): Map<String, Any?> = response.body as Map<String, Any?>
+    private val jsonMapper = JsonMapper.builder().build()
 
-    @Suppress("UNCHECKED_CAST")
-    private fun asList(response: ResponseEntity<Any>): List<Map<String, Any?>> = response.body as List<Map<String, Any?>>
+    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `v1 로그인은 credentialHash 토큰을 발급한다`() {
         assertTrue(legacyToken.isNotBlank())
         val me = get("/v1/users/me", legacyToken)
         assertEquals(200, me.statusCode.value())
-        assertEquals(userId, asMap(me)["id"])
-        assertEquals("v1@snu.ac.kr", asMap(me)["email"])
+        assertEquals(userId, body(me)["id"].asString())
+        assertEquals("v1@snu.ac.kr", body(me)["email"].asString())
 
         val v2Login =
             RestClient
@@ -172,8 +170,8 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 .uri("/v2/auth/login")
                 .body("""{"localId":"v1user","password":"password1"}""")
                 .retrieve()
-                .toEntity(Any::class.java)
-        val v2Token = asMap(v2Login)["accessToken"] as String
+                .toEntity(String::class.java)
+        val v2Token = body(v2Login)["accessToken"].asString()
         val rejected = get("/v1/users/me", v2Token)
         assertEquals(403, rejected.statusCode.value())
     }
@@ -187,10 +185,10 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         assertTrue(add.headers.containsHeader("Sunset"))
         assertTrue(add.headers.getFirst("Link")!!.contains("successor-version"))
 
-        val briefs = asList(add)
-        assertEquals(1, briefs.size)
-        assertEquals("나의 시간표", briefs[0]["title"])
-        assertEquals("2026", briefs[0]["year"].toString())
+        val briefs = body(add)
+        assertEquals(1, briefs.size())
+        assertEquals("나의 시간표", briefs[0]["title"].asString())
+        assertEquals("2026", briefs[0]["year"].asString())
 
         assertEquals(404, post("/tables", """{"year":2026,"semester":3,"title":"루트"}""", legacyToken).statusCode.value())
     }
@@ -198,24 +196,24 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `v1 시간표 상세는 레거시 형태를 유지한다`() {
         val add = post("/v1/tables", """{"year":2026,"semester":3,"title":"레거시시간표"}""", legacyToken)
-        val timetableId = asList(add)[0]["_id"] as String
+        val timetableId = body(add)[0]["_id"].asString()
 
         val addLecture = post("/v1/tables/$timetableId/lecture/$lectureId", """{}""", legacyToken)
         assertEquals(200, addLecture.statusCode.value())
 
         val detail = get("/v1/tables/$timetableId", legacyToken)
         assertEquals(200, detail.statusCode.value())
-        val body = asMap(detail)
-        assertEquals(timetableId, body["id"])
-        assertEquals(userId, body["userId"])
-        val lectures = body["lectures"] as List<*>
-        assertEquals(1, lectures.size)
-        val lecture = lectures[0] as Map<*, *>
-        assertEquals("고급한국어", lecture["courseTitle"])
-        assertEquals(lectureId, lecture["lectureId"])
-        val classTimes = lecture["classPlaceAndTimes"] as List<*>
-        assertEquals(0, (classTimes[0] as Map<*, *>)["day"])
-        assertEquals(570, (classTimes[0] as Map<*, *>)["startMinute"])
+        val node = body(detail)
+        assertEquals(timetableId, node["id"].asString())
+        assertEquals(userId, node["userId"].asString())
+        val lectures = node["lectures"]
+        assertEquals(1, lectures.size())
+        val lecture = lectures[0]
+        assertEquals("고급한국어", lecture["courseTitle"].asString())
+        assertEquals(lectureId, lecture["lectureId"].asString())
+        val classTimes = lecture["classPlaceAndTimes"]
+        assertEquals(0, classTimes[0]["day"].asInt())
+        assertEquals(570, classTimes[0]["startMinute"].asInt())
     }
 
     @Test
@@ -226,16 +224,16 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 """{"year":2026,"semester":3,"title":"한국어"}""",
             )
         assertEquals(200, search.statusCode.value())
-        val lectures = asList(search)
-        assertTrue(lectures.isNotEmpty())
+        val lectures = body(search)
+        assertTrue(lectures.size() > 0)
         val lecture = lectures[0]
-        assertEquals("고급한국어", lecture["course_title"])
-        assertTrue(lecture.containsKey("_id"))
-        assertTrue(lecture.containsKey("class_time_json"))
-        val classTimes = lecture["class_time_json"] as List<*>
-        assertEquals("09:30", (classTimes[0] as Map<*, *>)["start_time"])
+        assertEquals("고급한국어", lecture["course_title"].asString())
+        assertTrue(lecture.has("_id"))
+        assertTrue(lecture.has("class_time_json"))
+        val classTimes = lecture["class_time_json"]
+        assertEquals("09:30", classTimes[0]["start_time"].asString())
         // len은 교시 격자 길이: 09:30(1.5교시)~10:45(30분 올림→3교시) → 1.5
-        assertEquals(1.5, (classTimes[0] as Map<*, *>)["len"])
+        assertEquals(1.5, classTimes[0]["len"].asDouble())
     }
 
     @Test
@@ -247,6 +245,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 legacyToken,
             )
         assertEquals(403, notVerified.statusCode.value())
-        assertTrue(asMap(notVerified).containsKey("errcode"))
+        assertTrue(body(notVerified).has("errcode"))
     }
 }

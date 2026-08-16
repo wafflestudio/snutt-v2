@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.RestController
 data class LegacyInsertNotificationRequest(
     val userId: String? = null,
     val title: String,
-    @JsonAlias("body")
+    @param:JsonAlias("body")
     val message: String,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
@@ -52,7 +52,7 @@ data class LegacyAdminConfigWriteRequest(
 )
 
 data class LegacyAdminPopupWriteRequest(
-    @JsonAlias("key")
+    @param:JsonAlias("key")
     val popupKey: String,
     val imageOriginUri: String,
     val linkUrl: String? = null,

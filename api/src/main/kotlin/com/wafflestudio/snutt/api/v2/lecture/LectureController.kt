@@ -63,8 +63,8 @@ data class LectureResponse(
     val quota: Int,
     val freshmanQuota: Int?,
     val remark: String?,
-    val classPlaceAndTime: List<ClassPlaceAndTimeResponse>,
-    val evSummary: LectureEvSummaryResponse?,
+    val classPlaceAndTimes: List<ClassPlaceAndTimeResponse>,
+    val evaluationSummary: LectureEvSummaryResponse?,
 )
 
 data class LectureEvSummaryResponse(
@@ -82,7 +82,7 @@ data class ClassPlaceAndTimeResponse(
 private fun Lecture.toResponse(
     classTimes: List<ClassPlaceAndTime>,
     language: Language,
-    evSummary: LectureEvSummaryResponse? = null,
+    evaluationSummary: LectureEvSummaryResponse? = null,
 ) = LectureResponse(
     id = externalId,
     year = year,
@@ -100,8 +100,8 @@ private fun Lecture.toResponse(
     quota = quota,
     freshmanQuota = freshmanQuota,
     remark = language.select(remark, remarkEn),
-    classPlaceAndTime = classTimes.map { it.toResponse() },
-    evSummary = evSummary,
+    classPlaceAndTimes = classTimes.map { it.toResponse() },
+    evaluationSummary = evaluationSummary,
 )
 
 private fun ClassPlaceAndTime.toResponse() =
@@ -149,9 +149,9 @@ class LectureController(
         val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
         return lectures.map { lecture ->
             val classTimes = classTimesMap[lecture.id].orEmpty()
-            val evSummary =
+            val evaluationSummary =
                 summaries[lecture.id]?.let { LectureEvSummaryResponse(avgRating = it.avgRating, evalCount = it.evalCount) }
-            lecture.toResponse(classTimes, clientInfo.language, evSummary)
+            lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
         }
     }
 

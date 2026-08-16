@@ -3,49 +3,49 @@ package com.wafflestudio.snutt.batch.sugangsnu.data
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class SugangSnuLectureInfo(
-    @JsonProperty("ltTime")
+    @param:JsonProperty("ltTime")
     val ltTime: List<String> = emptyList(),
-    @JsonProperty("ltRoom")
+    @param:JsonProperty("ltRoom")
     val ltRoom: List<String> = emptyList(),
-    @JsonProperty("LISTTAB01")
+    @param:JsonProperty("LISTTAB01")
     val subInfo: SugangSnuLectureSubInfo = SugangSnuLectureSubInfo(),
 )
 
 data class SugangSnuLectureSubInfo(
-    @JsonProperty("sbjtNm")
+    @param:JsonProperty("sbjtNm")
     val courseName: String? = null,
-    @JsonProperty("sbjtSubhNm")
+    @param:JsonProperty("sbjtSubhNm")
     val courseSubName: String? = null,
-    @JsonProperty("profNm")
+    @param:JsonProperty("profNm")
     val professorName: String? = null,
-    @JsonProperty("sbjtFldNm")
+    @param:JsonProperty("sbjtFldNm")
     val category: String? = null,
-    @JsonProperty("departmentKorNm")
+    @param:JsonProperty("departmentKorNm")
     val departmentKorNm: String? = null,
-    @JsonProperty("majorKorNm")
+    @param:JsonProperty("majorKorNm")
     val majorKorNm: String? = null,
-    @JsonProperty("cptnCorsFgNm")
+    @param:JsonProperty("cptnCorsFgNm")
     val academicCourse: String? = null,
-    @JsonProperty("openShyr")
+    @param:JsonProperty("openShyr")
     val academicYear: String? = null,
-    @JsonProperty("tlsnAplyCapaCnt")
+    @param:JsonProperty("tlsnAplyCapaCnt")
     val quota: Int? = null,
-    @JsonProperty("openLtRemk")
+    @param:JsonProperty("openLtRemk")
     val remark: String? = null,
-    @JsonProperty("sbjtEngNm")
+    @param:JsonProperty("sbjtEngNm")
     val courseNameEng: String? = null,
-    @JsonProperty("sbjtSubhEngNm")
+    @param:JsonProperty("sbjtSubhEngNm")
     val courseSubNameEng: String? = null,
-    @JsonProperty("profEngNm")
+    @param:JsonProperty("profEngNm")
     val professorNameEng: String? = null,
-    @JsonProperty("sbjtFldEngNm")
+    @param:JsonProperty("sbjtFldEngNm")
     val categoryEng: String? = null,
-    @JsonProperty("openLtEngRemk")
+    @param:JsonProperty("openLtEngRemk")
     val remarkEng: String? = null,
-    @JsonProperty("cptnCorsFgEngNm")
+    @param:JsonProperty("cptnCorsFgEngNm")
     val academicCourseEng: String? = null,
-    @JsonProperty("departmentEngNm")
+    @param:JsonProperty("departmentEngNm")
     val departmentEngNm: String? = null,
-    @JsonProperty("majorEngNm")
+    @param:JsonProperty("majorEngNm")
     val majorEngNm: String? = null,
 )
