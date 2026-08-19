@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.device.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -24,4 +24,4 @@ class UserDevice(
     @Column(nullable = false)
     var fcmRegistrationId: String,
     var isDeleted: Boolean = false,
-) : ExternalIdEntity()
+) : BaseEntity()

@@ -201,10 +201,10 @@ class SugangSnuSyncService(
         updated.filter { it.notifiable }.forEach { update ->
             val lecture = update.lecture
             val labels = update.changedLabels.joinToString()
-            forEachContainingTimetable(lecture) { timetable, entryExternalId ->
+            forEachContainingTimetable(lecture) { timetable, entryId ->
                 val counts = timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }
                 if (update.classTimesChanged && overlapsOtherLecture(timetable, lecture, update.input.classTimes)) {
-                    timetableLectureRepository.deleteByTimetableIdAndExternalId(timetable.id!!, entryExternalId)
+                    timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entryId)
                     counts.deleted += 1
                     notifications +=
                         timetableNotification(
@@ -219,7 +219,7 @@ class SugangSnuSyncService(
                             timetable,
                             "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
                             NotificationType.LECTURE_UPDATE,
-                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.externalId}&lectureId=$entryExternalId",
+                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.id}&lectureId=$entryId",
                         )
                 }
             }
@@ -235,8 +235,8 @@ class SugangSnuSyncService(
         }
 
         deleted.forEach { lecture ->
-            forEachContainingTimetable(lecture) { timetable, entryExternalId ->
-                timetableLectureRepository.deleteByTimetableIdAndExternalId(timetable.id!!, entryExternalId)
+            forEachContainingTimetable(lecture) { timetable, entryId ->
+                timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entryId)
                 timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
                 notifications +=
                     timetableNotification(
@@ -274,12 +274,12 @@ class SugangSnuSyncService(
 
     private fun forEachContainingTimetable(
         lecture: Lecture,
-        action: (Timetable, String) -> Unit,
+        action: (Timetable, Long) -> Unit,
     ) {
         val entries = timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!))
         if (entries.isEmpty()) return
         val timetables = timetableRepository.findAllById(entries.map { it.timetableId }.distinct()).associateBy { it.id!! }
-        entries.forEach { entry -> timetables[entry.timetableId]?.let { action(it, entry.externalId) } }
+        entries.forEach { entry -> timetables[entry.timetableId]?.let { action(it, entry.id!!) } }
     }
 
     private fun forEachContainingBookmark(
@@ -334,7 +334,7 @@ class SugangSnuSyncService(
         title = "수강편람 업데이트",
         message = "${lecture.year}-${lecture.semester.fullName} 관심강좌 목록의 $message",
         type = type,
-        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.externalId}",
+        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.id}",
     )
 
     private fun changedFields(

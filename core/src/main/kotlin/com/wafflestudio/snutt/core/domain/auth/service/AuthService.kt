@@ -17,6 +17,7 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.service.UserNicknameService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -99,11 +100,11 @@ class AuthService(
     @Transactional(readOnly = true)
     fun authenticate(payload: AccessTokenPayload): User {
         val session =
-            userSessionRepository.findWithUserByExternalId(payload.sessionExternalId)
+            userSessionRepository.findWithUserById(payload.sessionId)
                 ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
         if (!session.isValid) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
         val user = session.user
-        if (!user.active || user.externalId != payload.userExternalId) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        if (!user.active || user.id != payload.userId) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
         return user
     }
 
@@ -140,8 +141,8 @@ class AuthService(
         val accessToken =
             accessTokenService.issue(
                 AccessTokenPayload(
-                    userExternalId = user.externalId,
-                    sessionExternalId = session.externalId,
+                    userId = user.id!!,
+                    sessionId = session.id!!,
                 ),
             )
         return TokenPair(accessToken = accessToken, refreshToken = refreshToken)
@@ -149,10 +150,10 @@ class AuthService(
 
     @Transactional
     fun logout(
-        sessionExternalId: String,
+        sessionId: Long,
         fcmRegistrationId: String?,
     ) {
-        val session = userSessionRepository.findByExternalId(sessionExternalId) ?: return
+        val session = userSessionRepository.findByIdOrNull(sessionId) ?: return
         session.revokedAt = Instant.now()
         if (fcmRegistrationId == null) return
         userDeviceRepository

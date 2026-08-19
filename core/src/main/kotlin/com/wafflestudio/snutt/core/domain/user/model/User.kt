@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.user.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -27,7 +27,7 @@ class User(
     var isAdmin: Boolean = false,
     var lastLoginAt: Instant = Instant.now(),
     var notificationCheckedAt: Instant = Instant.now(),
-) : ExternalIdEntity() {
+) : BaseEntity() {
     val nicknameWithoutTag: String
         get() = nickname.substringBeforeLast(NICKNAME_TAG_DELIMITER)
 

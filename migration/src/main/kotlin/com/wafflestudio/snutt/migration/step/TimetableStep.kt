@@ -56,7 +56,6 @@ class TimetableStep(
 
                     timetables.add(
                         id,
-                        doc.id(),
                         userId,
                         year,
                         semester,
@@ -68,7 +67,9 @@ class TimetableStep(
                     )
 
                     doc.docs("lecture_list").forEach { item ->
-                        lectures.add(*item.toRow(lectureIds.next(), id, updatedAt))
+                        val lectureId = lectureIds.next()
+                        context.timetableLectureIds[item.id()] = lectureId
+                        lectures.add(*item.toRow(lectureId, id, updatedAt))
                         lectureCount++
                     }
                 }
@@ -96,7 +97,6 @@ class TimetableStep(
         val classTimeChanged = snapshot == null || LectureStep.classTimeKey(places) != snapshot.classTimeKey
         return arrayOf(
             id,
-            id(),
             timetableId,
             lectureId,
             doc("color")?.let { Json.write(mapOf("backgroundColor" to it.str("bg"), "foregroundColor" to it.str("fg"))) },
@@ -142,7 +142,6 @@ class TimetableStep(
         private val TIMETABLE_COLUMNS =
             listOf(
                 "id",
-                "external_id",
                 "user_id",
                 "year",
                 "semester",
@@ -155,7 +154,6 @@ class TimetableStep(
         private val TIMETABLE_LECTURE_COLUMNS =
             listOf(
                 "id",
-                "external_id",
                 "timetable_id",
                 "lecture_id",
                 "color",

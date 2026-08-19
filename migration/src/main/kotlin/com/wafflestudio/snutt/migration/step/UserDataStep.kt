@@ -50,7 +50,7 @@ class UserDataStep(
         val ids = IdSequence()
         val lectureIds = IdSequence()
         var lectureCount = 0L
-        writer("bookmark", listOf("id", "external_id", "user_id", "year", "semester", "created_at", "updated_at")).use { out ->
+        writer("bookmark", listOf("id", "user_id", "year", "semester", "created_at", "updated_at")).use { out ->
             writer(
                 "bookmark_lecture",
                 listOf("id", "bookmark_id", "lecture_id", "created_at", "updated_at"),
@@ -60,7 +60,7 @@ class UserDataStep(
                     val userId = context.userIds[doc.oid("user_id")] ?: return@each
                     val id = ids.next()
                     val now = Instant.now().toSqlTimestamp()
-                    out.add(id, doc.id(), userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, now, now)
+                    out.add(id, userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, now, now)
                     doc
                         .docs("lectures")
                         .mapNotNull { context.lectureIds[it.id()] }
@@ -82,7 +82,7 @@ class UserDataStep(
         val seen = HashSet<String>()
         writer(
             "vacancy_notification",
-            listOf("id", "external_id", "user_id", "lecture_id", "created_at", "updated_at"),
+            listOf("id", "user_id", "lecture_id", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("vacancy_notifications") { doc ->
                 val userId = context.userIds[doc.oid("userId")] ?: return@each
@@ -92,7 +92,7 @@ class UserDataStep(
                     return@each
                 }
                 val now = Instant.now().toSqlTimestamp()
-                out.add(ids.next(), doc.id(), userId, lectureId, now, now)
+                out.add(ids.next(), userId, lectureId, now, now)
             }
         }
         alignAutoIncrement("vacancy_notification", ids.peek())
@@ -105,7 +105,6 @@ class UserDataStep(
             "user_device",
             listOf(
                 "id",
-                "external_id",
                 "user_id",
                 "os_type",
                 "os_version",
@@ -123,7 +122,6 @@ class UserDataStep(
                 val userId = context.userIds[doc.oid("userId")] ?: return@each
                 out.add(
                     ids.next(),
-                    doc.id(),
                     userId,
                     doc.str("osType"),
                     doc.str("osVersion"),
@@ -184,7 +182,6 @@ class UserDataStep(
             "friend",
             listOf(
                 "id",
-                "external_id",
                 "from_user_id",
                 "to_user_id",
                 "from_display_name",
@@ -197,7 +194,6 @@ class UserDataStep(
             winners.values.forEach { doc ->
                 out.add(
                     ids.next(),
-                    doc.id(),
                     context.userIds.getValue(doc.oid("fromUserId")!!),
                     context.userIds.getValue(doc.oid("toUserId")!!),
                     doc.str("fromUserDisplayName"),
@@ -218,7 +214,6 @@ class UserDataStep(
             "diary_submission",
             listOf(
                 "id",
-                "external_id",
                 "user_id",
                 "year",
                 "semester",
@@ -241,7 +236,6 @@ class UserDataStep(
                     }
                 out.add(
                     ids.next(),
-                    doc.id(),
                     userId,
                     doc.int("year") ?: 0,
                     doc.int("semester") ?: 1,

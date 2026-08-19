@@ -18,8 +18,8 @@ import java.util.Base64
 import java.util.Date
 
 data class AccessTokenPayload(
-    val userExternalId: String,
-    val sessionExternalId: String,
+    val userId: Long,
+    val sessionId: Long,
 )
 
 @Service
@@ -47,8 +47,8 @@ class AccessTokenService(
         return Jwts
             .builder()
             .issuer(ISSUER)
-            .subject(payload.userExternalId)
-            .claim(SESSION_CLAIM, payload.sessionExternalId)
+            .subject(payload.userId.toString())
+            .claim(SESSION_CLAIM, payload.sessionId.toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now + accessTokenTtl))
             .signWith(privateKey, Jwts.SIG.ES256)
@@ -71,8 +71,8 @@ class AccessTokenService(
                 throw SnuttException(ErrorType.WRONG_USER_TOKEN)
             }
         return AccessTokenPayload(
-            userExternalId = claims.subject ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
-            sessionExternalId = claims[SESSION_CLAIM] as? String ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
+            userId = claims.subject?.toLongOrNull() ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
+            sessionId = (claims[SESSION_CLAIM] as? String)?.toLongOrNull() ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
         )
     }
 }

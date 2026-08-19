@@ -30,6 +30,7 @@ class MigrationContext {
     val themeIds = HashMap<String, Long>()
     val diaryClassTypeIds = HashMap<String, Long>()
     val diaryQuestionIds = HashMap<String, Long>()
+    val timetableLectureIds = HashMap<String, Long>(1_024_000)
 
     val courseIds = HashMap<String, Long>(64_000)
 
