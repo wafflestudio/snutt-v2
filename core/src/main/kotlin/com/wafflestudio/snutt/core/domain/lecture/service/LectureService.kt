@@ -1,11 +1,14 @@
 package com.wafflestudio.snutt.core.domain.lecture.service
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
@@ -23,4 +26,18 @@ class LectureService(
         lectureClassTimeRepository
             .findAllByLectureIdInOrderById(lectureIds)
             .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
+
+    fun getByExternalId(externalId: String): Lecture =
+        lectureRepository.findByIdOrNull(externalId.toLong()) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+
+    fun getByExternalIdOrNull(externalId: String): Lecture? = externalId.toLongOrNull()?.let { lectureRepository.findByIdOrNull(it) }
+
+    fun getIdsByExternalIds(externalIds: Collection<String>): Map<String, Long> =
+        externalIds
+            .mapNotNull { ext ->
+                ext.toLongOrNull()?.let {
+                    ext to
+                        it
+                }
+            }.toMap()
 }

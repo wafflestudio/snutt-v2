@@ -204,7 +204,7 @@ class V1CompatEvController(
                     gains = body.gains,
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
-                    moveToLectureExternalId = body.semesterLectureId,
+                    moveToLectureId = body.semesterLectureId?.toLongOrNull(),
                 ),
             )
         return display.toLegacyWithSemester(userExternalIds(listOfNotNull(display.evaluation.userId)))
@@ -228,7 +228,7 @@ class V1CompatEvController(
         return LegacyEvaluationReportResponse(
             id = report.id,
             lectureEvaluationId = report.evaluationId,
-            userId = listOf(report.userId.associateWith { it.toString() })[report.userId],
+            userId = report.userId.toString(),
             content = report.content,
             isHidden = report.isHidden,
         )

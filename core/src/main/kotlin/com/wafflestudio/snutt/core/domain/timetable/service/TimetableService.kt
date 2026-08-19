@@ -247,4 +247,59 @@ class TimetableService(
     companion object {
         private val COPY_NUMBER_REGEX = """\s\(\d+\)$""".toRegex()
     }
+
+    fun getTimetable(
+        userId: Long,
+        timetableExternalId: String,
+    ): Timetable = getTimetable(userId, timetableExternalId.toLong())
+
+    fun getTimetableDisplay(
+        userId: Long,
+        timetableExternalId: String,
+    ): TimetableDisplay = getTimetableDisplay(userId, timetableExternalId.toLong())
+
+    @Transactional
+    fun modifyTimetableTitle(
+        userId: Long,
+        timetableExternalId: String,
+        title: String,
+    ): Timetable = modifyTimetableTitle(userId, timetableExternalId.toLong(), title)
+
+    @Transactional
+    fun deleteTimetable(
+        userId: Long,
+        timetableExternalId: String,
+    ) {
+        deleteTimetable(userId, timetableExternalId.toLong())
+    }
+
+    @Transactional
+    fun copyTimetable(
+        userId: Long,
+        timetableExternalId: String,
+        title: String? = null,
+    ): Timetable = copyTimetable(userId, timetableExternalId.toLong(), title)
+
+    @Transactional
+    fun modifyTimetableTheme(
+        userId: Long,
+        timetableExternalId: String,
+        themeExternalId: String,
+    ): TimetableDisplay = modifyTimetableTheme(userId, timetableExternalId.toLong(), themeExternalId.toLong())
+
+    @Transactional
+    fun setPrimary(
+        userId: Long,
+        timetableExternalId: String,
+    ) {
+        setPrimary(userId, timetableExternalId.toLong())
+    }
+
+    @Transactional
+    fun unsetPrimary(
+        userId: Long,
+        timetableExternalId: String,
+    ) {
+        unsetPrimary(userId, timetableExternalId.toLong())
+    }
 }

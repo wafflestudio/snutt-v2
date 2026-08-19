@@ -45,7 +45,7 @@ data class LegacyFacebookLoginRequest(
 
 data class LegacyLogoutRequest(
     @param:JsonProperty("registration_id")
-    val registrationId: Long? = null,
+    val registrationId: String? = null,
 )
 
 data class LegacySendEmailRequest(
@@ -205,5 +205,5 @@ class V1CompatAuthController(
         token: String,
     ): LegacyLoginResponse = authService.loginSocial(provider, token).toLoginResponse()
 
-    private fun User.toLoginResponse() = LegacyLoginResponse(userId = externalId, token = legacyTokenService.issue(this))
+    private fun User.toLoginResponse() = LegacyLoginResponse(userId = id!!.toString(), token = legacyTokenService.issue(this))
 }
