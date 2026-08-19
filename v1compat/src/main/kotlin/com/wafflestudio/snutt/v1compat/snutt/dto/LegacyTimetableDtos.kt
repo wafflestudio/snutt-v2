@@ -21,34 +21,34 @@ data class LegacyLoginResponse(
 )
 
 data class LegacyTimetableDto(
-    val id: String?,
-    val userId: String,
+    val id: Long?,
+    val userId: Long,
     val year: Int,
     val semester: Semester,
     val lectures: List<LegacyTimetableLectureDto>,
     val title: String,
     val theme: Int,
-    val themeId: String?,
+    val themeId: Long?,
     val isPrimary: Boolean,
     val updatedAt: Instant,
 )
 
 fun LegacyTimetableDto(
     timetable: Timetable,
-    userId: String,
+    userId: Long,
     display: TimetableDisplay,
-    evLectureIds: Map<String, Long>,
+    evLectureIds: Map<Long, Long>,
     language: Language = Language.KO,
 ): LegacyTimetableDto =
     LegacyTimetableDto(
-        id = timetable.id!!.toString(),
+        id = timetable.id,
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.toString()?.let(evLectureIds::get), language) },
+        lectures = display.lectures.map { LegacyTimetableLectureDto(it, evLectureIds[it.lectureId], language) },
         title = timetable.title,
         theme = if (timetable.themeId in 1..6) (timetable.themeId - 1).toInt() else BasicThemeType.SNUTT.value,
-        themeId = if (timetable.themeId in 1..6) null else timetable.themeId.toString(),
+        themeId = if (timetable.themeId in 1..6) null else timetable.themeId,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
