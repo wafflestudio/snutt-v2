@@ -202,7 +202,7 @@ class CatalogStep(
                 val id = typeIds.next()
                 context.diaryClassTypeIds[doc.id()] = id
                 val now = Instant.now().toSqlTimestamp()
-                out.add(id, doc.id(), doc.str("name") ?: "", doc.bool("active"), now, now)
+                out.add(id, doc.str("name") ?: "", doc.bool("active"), now, now)
             }
         }
         alignAutoIncrement("diary_daily_class_type", typeIds.peek())
@@ -231,7 +231,6 @@ class CatalogStep(
                 val now = Instant.now().toSqlTimestamp()
                 out.add(
                     id,
-                    doc.id(),
                     doc.str("question") ?: "",
                     doc.str("shortQuestion") ?: "",
                     Json.writeRequired(doc.strings("answers")),

@@ -68,12 +68,11 @@ class ThemeStep(
 
     private fun reseedBuiltinThemes() {
         // --truncate로 지워진 내장 시드 행을 복구한다. V1__init.sql의 시드와 동일 값
-        BUILTIN_THEMES.forEach { (externalId, builtinType, name, colors) ->
+        BUILTIN_THEMES.forEach { (_, builtinType, name, colors) ->
             jdbc.update(
                 "INSERT IGNORE INTO theme (id, user_id, builtin_type, name, colors, created_at, updated_at) " +
-                    "VALUES (?, ?, NULL, ?, ?, ?, NOW(6), NOW(6))",
+                    "VALUES (?, NULL, ?, ?, ?, NOW(6), NOW(6))",
                 builtinType + 1L,
-                externalId,
                 builtinType,
                 name,
                 Json.writeRequired(colors.map { mapOf("backgroundColor" to it, "foregroundColor" to "#ffffff") }),

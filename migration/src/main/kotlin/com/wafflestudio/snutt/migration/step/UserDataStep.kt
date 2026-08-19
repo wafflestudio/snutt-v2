@@ -60,7 +60,7 @@ class UserDataStep(
                     val userId = context.userIds[doc.oid("user_id")] ?: return@each
                     val id = ids.next()
                     val now = Instant.now().toSqlTimestamp()
-                    out.add(id, doc.id(), userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, now, now)
+                    out.add(id, userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, now, now)
                     doc
                         .docs("lectures")
                         .mapNotNull { context.lectureIds[it.id()] }

@@ -107,8 +107,8 @@ class MigrationIntegrationTest {
     fun `credential 중첩 문서가 평면 컬럼으로 펴진다`() {
         val row =
             jdbc.queryForMap(
-                "SELECT local_id, local_pw, facebook_sub, facebook_name, is_admin, last_login_at FROM `user` WHERE external_id = ?",
-                userWithBoth.toHexString(),
+                "SELECT local_id, local_pw, facebook_sub, facebook_name, is_admin, last_login_at FROM `user` WHERE id = ?",
+                context.userIds[userWithBoth.toHexString()],
             )
         assertEquals("waffle", row["local_id"])
         assertEquals("encoded-pw", row["local_pw"])
@@ -122,15 +122,15 @@ class MigrationIntegrationTest {
     fun `같은 아이디를 쓰는 활성 계정은 최종 로그인이 최신인 쪽만 남는다`() {
         val owners =
             jdbc.queryForList(
-                "SELECT external_id FROM `user` WHERE local_id = 'dup' AND active = TRUE",
-                String::class.java,
+                "SELECT id FROM `user` WHERE local_id = 'dup' AND active = TRUE",
+                Long::class.java,
             )
-        assertEquals(listOf(userDupNew.toHexString()), owners)
+        assertEquals(listOf(context.userIds[userDupNew.toHexString()]), owners)
         assertNull(
             jdbc.queryForObject(
-                "SELECT local_pw FROM `user` WHERE external_id = ?",
+                "SELECT local_pw FROM `user` WHERE id = ?",
                 String::class.java,
-                userDupOld.toHexString(),
+                context.userIds[userDupOld.toHexString()],
             ),
         )
     }
@@ -144,9 +144,9 @@ class MigrationIntegrationTest {
         assertEquals(
             EV_LECTURE_ID,
             jdbc.queryForObject(
-                "SELECT course_id FROM lecture WHERE external_id = ?",
+                "SELECT course_id FROM lecture WHERE id = ?",
                 Long::class.java,
-                lectureId.toHexString(),
+                context.lectureIds[lectureId.toHexString()],
             ),
         )
     }
@@ -177,8 +177,8 @@ class MigrationIntegrationTest {
     fun `테마는 색상과 공개 정보와 원본 참조를 유지한다`() {
         val copy =
             jdbc.queryForMap(
-                "SELECT colors, origin_theme_id FROM theme WHERE external_id = ?",
-                themeCopy.toHexString(),
+                "SELECT colors, origin_theme_id FROM theme WHERE id = ?",
+                context.themeIds[themeCopy.toHexString()],
             )
         assertTrue((copy["colors"] as String).contains("backgroundColor"))
         assertEquals(context.themeIds[themeOrigin.toHexString()], copy["origin_theme_id"])

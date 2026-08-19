@@ -57,7 +57,6 @@ class LectureStep(
 
                         lectures.add(
                             id,
-                            externalId,
                             courseId,
                             doc.int("year"),
                             doc.int("semester"),

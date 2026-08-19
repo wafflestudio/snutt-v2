@@ -486,7 +486,7 @@ CREATE TABLE diary_question
     target_daily_class_type_id_list JSON         NOT NULL,
     active                          BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at                      DATETIME(6)  NOT NULL,
-    updated_at                      DATETIME(6)  NOT NULL,
+    updated_at                      DATETIME(6)  NOT NULL
 );
 
 CREATE TABLE diary_submission
