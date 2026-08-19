@@ -36,7 +36,6 @@ enum class TimetableLectureReminderOption(
 
 data class TimetableLectureReminderDisplay(
     val timetableLectureId: Long,
-    val timetableLectureExternalId: String,
     val courseTitle: String,
     val option: TimetableLectureReminderOption,
 )
@@ -56,32 +55,16 @@ class TimetableLectureReminderService(
         val reminder = timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
         return TimetableLectureReminderDisplay(
             timetableLectureId = timetableLecture.id!!,
-            timetableLectureExternalId = timetableLecture.externalId,
             courseTitle = display.courseTitle,
             option =
                 reminder?.let { TimetableLectureReminderOption.fromOffsetMinutes(it.offsetMinutes) } ?: TimetableLectureReminderOption.NONE,
         )
     }
 
-    fun getReminder(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-    ): TimetableLectureReminderDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
-        return getReminder(userId, timetable.id!!, timetableLecture.id!!)
-    }
-
     fun getReminders(
         userId: Long,
         timetableId: Long,
     ): List<TimetableLectureReminderDisplay> = getReminders(timetableService.getTimetable(userId, timetableId))
-
-    fun getReminders(
-        userId: Long,
-        timetableExternalId: String,
-    ): List<TimetableLectureReminderDisplay> = getReminders(timetableService.getTimetable(userId, timetableExternalId))
 
     private fun getReminders(timetable: Timetable): List<TimetableLectureReminderDisplay> {
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
@@ -93,7 +76,6 @@ class TimetableLectureReminderService(
         return displays.map { display ->
             TimetableLectureReminderDisplay(
                 timetableLectureId = display.id,
-                timetableLectureExternalId = display.externalId,
                 courseTitle = display.courseTitle,
                 option =
                     reminders[display.id]?.let {
@@ -117,7 +99,6 @@ class TimetableLectureReminderService(
             timetableLectureReminderRepository.deleteByTimetableLectureId(timetableLecture.id!!)
             return TimetableLectureReminderDisplay(
                 timetableLecture.id!!,
-                timetableLecture.externalId,
                 display.courseTitle,
                 TimetableLectureReminderOption.NONE,
             )
@@ -135,19 +116,7 @@ class TimetableLectureReminderService(
         reminder.offsetMinutes = offsetMinutes
         reminder.scheduleList = schedules
         reminder.recomputeNextFire()
-        return TimetableLectureReminderDisplay(timetableLecture.id!!, timetableLecture.externalId, display.courseTitle, option)
-    }
-
-    @Transactional
-    fun modifyReminder(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-        option: TimetableLectureReminderOption,
-    ): TimetableLectureReminderDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
-        return modifyReminder(userId, timetable.id!!, timetableLecture.id!!, option)
+        return TimetableLectureReminderDisplay(timetableLecture.id!!, display.courseTitle, option)
     }
 
     @Transactional
@@ -190,12 +159,5 @@ class TimetableLectureReminderService(
         timetableLectureId: Long,
     ): TimetableLecture =
         timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
-            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
-
-    private fun getTimetableLectureByExternalId(
-        timetable: Timetable,
-        timetableLectureExternalId: String,
-    ): TimetableLecture =
-        timetableLectureRepository.findByTimetableIdAndExternalId(timetable.id!!, timetableLectureExternalId)
             ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
 }

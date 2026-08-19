@@ -36,7 +36,6 @@ class ReminderStep(
             "timetable_lecture_reminder",
             listOf(
                 "id",
-                "external_id",
                 "timetable_lecture_id",
                 "offset_minutes",
                 "schedule_list",
@@ -49,12 +48,7 @@ class ReminderStep(
         ).use { out ->
             mongo.each("timetableLectureReminder") { doc ->
                 val externalId = doc.oid("timetableLectureId")
-                val timetableLectureId =
-                    externalId?.let {
-                        jdbc
-                            .query("SELECT id FROM timetable_lecture WHERE external_id = ?", { rs, _ -> rs.getLong(1) }, it)
-                            .firstOrNull()
-                    }
+                val timetableLectureId = externalId?.let(context.timetableLectureIds::get)
                 if (timetableLectureId == null) {
                     skipped++
                     return@each
@@ -67,7 +61,6 @@ class ReminderStep(
                 val now = Timestamp.from(Instant.now())
                 out.add(
                     ids.next(),
-                    doc.id(),
                     timetableLectureId,
                     doc.int("offsetMinutes") ?: 0,
                     Json.writeRequired(schedules),

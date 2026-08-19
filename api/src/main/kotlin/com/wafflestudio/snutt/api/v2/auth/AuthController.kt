@@ -113,7 +113,7 @@ class AuthController(
 
     @PostMapping("/logout")
     fun logout(
-        @CurrentSessionId sessionId: String,
+        @CurrentSessionId sessionId: Long,
         @RequestBody(required = false) request: LogoutRequest?,
     ) {
         authService.logout(sessionId, request?.fcmRegistrationId)

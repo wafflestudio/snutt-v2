@@ -49,7 +49,7 @@ class UserAuthInterceptor(
         if (isEmailVerifiedRequired && !user.isEmailVerified) throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
 
         request.setAttribute(USER_ATTRIBUTE, user)
-        request.setAttribute(SESSION_ATTRIBUTE, payload.sessionExternalId)
+        request.setAttribute(SESSION_ATTRIBUTE, payload.sessionId)
         return true
     }
 }

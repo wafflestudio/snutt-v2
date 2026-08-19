@@ -69,28 +69,4 @@ class VacancyNotificationService(
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         vacancyNotificationRepository.deleteByUserIdAndLectureId(userId, lecture.id!!)
     }
-
-    fun existsVacancyNotification(
-        userId: Long,
-        lectureExternalId: String,
-    ): Boolean = existsVacancyNotification(userId, resolveLectureIdByExternalId(lectureExternalId))
-
-    @Transactional
-    fun addVacancyNotification(
-        userId: Long,
-        lectureExternalId: String,
-    ) {
-        addVacancyNotification(userId, resolveLectureIdByExternalId(lectureExternalId))
-    }
-
-    @Transactional
-    fun deleteVacancyNotification(
-        userId: Long,
-        lectureExternalId: String,
-    ) {
-        deleteVacancyNotification(userId, resolveLectureIdByExternalId(lectureExternalId))
-    }
-
-    private fun resolveLectureIdByExternalId(lectureExternalId: String): Long =
-        lectureRepository.findByExternalId(lectureExternalId)?.id ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 }

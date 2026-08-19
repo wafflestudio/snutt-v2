@@ -12,13 +12,6 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
         userId: Long,
     ): Timetable?
 
-    fun findByExternalId(externalId: String): Timetable?
-
-    fun findByUserIdAndExternalId(
-        userId: Long,
-        externalId: String,
-    ): Timetable?
-
     fun findByUserId(userId: Long): List<Timetable>
 
     fun findByUserIdAndYearAndSemester(

@@ -171,17 +171,6 @@ class DiaryService(
     }
 
     @Transactional
-    fun removeSubmission(
-        submissionExternalId: String,
-        userId: Long,
-    ) {
-        val submission =
-            diarySubmissionRepository.findByExternalId(submissionExternalId)
-                ?: throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
-        removeSubmission(submission.id!!, userId)
-    }
-
-    @Transactional
     fun addOrEnableDailyClassType(name: String) {
         val existing = diaryDailyClassTypeRepository.findAll().firstOrNull { it.name == name }
         if (existing != null) {
@@ -221,10 +210,5 @@ class DiaryService(
     @Transactional
     fun removeQuestion(questionId: Long) {
         diaryQuestionRepository.findByIdOrNull(questionId)?.let { it.active = false }
-    }
-
-    @Transactional
-    fun removeQuestion(questionExternalId: String) {
-        diaryQuestionRepository.findByExternalId(questionExternalId)?.let { it.active = false }
     }
 }

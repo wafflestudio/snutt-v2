@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.clientconfig.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
@@ -16,7 +16,7 @@ class ClientConfig(
     var maxIosVersion: String? = null,
     var minAndroidVersion: String? = null,
     var maxAndroidVersion: String? = null,
-) : ExternalIdEntity() {
+) : BaseEntity() {
     fun isAdaptable(
         osType: String,
         appVersion: String,

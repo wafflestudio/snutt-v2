@@ -40,7 +40,7 @@ data class EvaluationUpdateRequest(
     val gains: Double? = null,
     val lifeBalance: Double? = null,
     val rating: Double? = null,
-    val moveToLectureExternalId: String? = null,
+    val moveToLectureId: Long? = null,
 )
 
 data class EvaluationReportRequest(
@@ -97,13 +97,6 @@ class EvaluationService(
         return evaluation.toDisplay(userId)
     }
 
-    @Transactional
-    fun createEvaluation(
-        userId: Long,
-        lectureExternalId: String,
-        request: EvaluationWriteRequest,
-    ): EvaluationDisplay = createEvaluation(userId, resolveLectureIdByExternalId(lectureExternalId), request)
-
     fun getEvaluationsOfLecture(
         userId: Long,
         lectureId: Long,
@@ -128,12 +121,6 @@ class EvaluationService(
         )
     }
 
-    fun getEvaluationsOfLecture(
-        userId: Long,
-        lectureExternalId: String,
-        cursor: String?,
-    ): CursorPage<EvaluationDisplay> = getEvaluationsOfLecture(userId, resolveLectureIdByExternalId(lectureExternalId), cursor)
-
     fun getMyEvaluationsOfLecture(
         userId: Long,
         lectureId: Long,
@@ -143,11 +130,6 @@ class EvaluationService(
             .findByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(courseId, year, semester, userId)
             .map { it.toDisplay(userId) }
     }
-
-    fun getMyEvaluationsOfLecture(
-        userId: Long,
-        lectureExternalId: String,
-    ): List<EvaluationDisplay> = getMyEvaluationsOfLecture(userId, resolveLectureIdByExternalId(lectureExternalId))
 
     fun getMyEvaluations(
         userId: Long,
@@ -201,7 +183,7 @@ class EvaluationService(
         request.gains?.let { evaluation.gains = it }
         request.lifeBalance?.let { evaluation.lifeBalance = it }
         request.rating?.let { evaluation.rating = it }
-        request.moveToLectureExternalId?.let { moveTo(evaluation, it) }
+        request.moveToLectureId?.let { moveTo(evaluation, it) }
 
         courseAggregateUpdater.update(evaluation.courseId)
         return evaluation.toDisplay(userId)
@@ -209,9 +191,9 @@ class EvaluationService(
 
     private fun moveTo(
         evaluation: Evaluation,
-        lectureExternalId: String,
+        lectureId: Long,
     ) {
-        val (courseId, year, semester) = resolveLectureAnchor(resolveLectureIdByExternalId(lectureExternalId))
+        val (courseId, year, semester) = resolveLectureAnchor(lectureId)
         if (courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
         if (year == evaluation.year && semester == evaluation.semester) return
         evaluation.year = year
@@ -298,9 +280,6 @@ class EvaluationService(
         )
     }
 
-    fun getEvaluationSummaryOfLecture(lectureExternalId: String): LectureEvaluationSummaryDisplay =
-        getEvaluationSummaryOfLecture(resolveLectureIdByExternalId(lectureExternalId))
-
     private data class LectureAnchor(
         val courseId: Long,
         val year: Int,
@@ -313,9 +292,6 @@ class EvaluationService(
         val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
         return LectureAnchor(courseId, lecture.year, lecture.semester)
     }
-
-    private fun resolveLectureIdByExternalId(lectureExternalId: String): Long =
-        lectureRepository.findByExternalId(lectureExternalId)?.id ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
     private fun validateRatings(vararg ratings: Double?) {
         if (ratings.filterNotNull().any { it < 1.0 || it > 5.0 }) {

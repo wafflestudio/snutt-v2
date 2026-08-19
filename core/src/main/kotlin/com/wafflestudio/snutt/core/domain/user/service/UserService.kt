@@ -19,13 +19,7 @@ class UserService(
     private val userNicknameService: UserNicknameService,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
-    fun getByExternalId(externalId: String): User =
-        userRepository.findByExternalIdAndActiveTrue(externalId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-
     fun get(userId: Long): User = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-
-    fun getExternalIds(userIds: Collection<Long>): Map<Long, String> =
-        userRepository.findAllById(userIds.distinct()).associate { it.id!! to it.externalId }
 
     fun getAllByIds(userIds: Collection<Long>): Map<Long, User> = userRepository.findAllById(userIds.distinct()).associateBy { it.id!! }
 

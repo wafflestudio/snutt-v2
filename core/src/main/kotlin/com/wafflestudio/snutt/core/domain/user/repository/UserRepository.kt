@@ -4,8 +4,6 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface UserRepository : JpaRepository<User, Long> {
-    fun findByExternalIdAndActiveTrue(externalId: String): User?
-
     fun findByLocalIdAndActiveTrue(localId: String): User?
 
     fun findByFacebookSubAndActiveTrue(facebookSub: String): User?

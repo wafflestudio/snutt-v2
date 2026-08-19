@@ -10,9 +10,7 @@ import java.time.Instant
 
 data class TimetableLectureDisplay(
     val id: Long,
-    val externalId: String,
     val lectureId: Long?,
-    val lectureExternalId: String?,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -45,9 +43,7 @@ fun TimetableLectureDisplay(
 ): TimetableLectureDisplay =
     TimetableLectureDisplay(
         id = checkNotNull(timetableLecture.id),
-        externalId = timetableLecture.externalId,
         lectureId = lecture?.id,
-        lectureExternalId = lecture?.externalId,
         academicYear = timetableLecture.academicYear ?: lecture?.academicYear,
         category = timetableLecture.category ?: lecture?.category,
         categoryPre2025 = timetableLecture.categoryPre2025 ?: lecture?.categoryPre2025,
@@ -76,14 +72,10 @@ fun TimetableLectureDisplay(
 data class TimetableDisplay(
     val timetable: Timetable,
     val lectures: List<TimetableLectureDisplay>,
-    val themeExternalId: String? = null,
-    val themeIsBuiltin: Boolean = true,
-    val themeBuiltinType: Int = 0,
 )
 
 data class TimetableBriefDto(
     val id: Long,
-    val externalId: String,
     val year: Int,
     val semester: Semester,
     val title: String,
@@ -97,7 +89,6 @@ fun TimetableBriefDto(
     totalCredit: Int,
 ) = TimetableBriefDto(
     id = checkNotNull(timetable.id),
-    externalId = timetable.externalId,
     year = timetable.year,
     semester = timetable.semester,
     title = timetable.title,

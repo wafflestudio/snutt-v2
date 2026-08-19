@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.popup.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
@@ -11,4 +11,4 @@ class Popup(
     var imageOriginUri: String,
     var linkUrl: String? = null,
     var hiddenDays: Int? = null,
-) : ExternalIdEntity()
+) : BaseEntity()

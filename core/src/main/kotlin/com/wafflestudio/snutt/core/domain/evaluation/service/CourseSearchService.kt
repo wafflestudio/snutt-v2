@@ -16,7 +16,6 @@ data class CourseSemester(
     val year: Int,
     val semester: Semester,
     val lectureId: Long,
-    val lectureExternalId: String,
     val myEvaluationExists: Boolean,
 )
 
@@ -64,7 +63,6 @@ class CourseSearchService(
                         year = it.year,
                         semester = it.semester,
                         lectureId = it.id!!,
-                        lectureExternalId = it.externalId,
                         myEvaluationExists = (it.year to it.semester) in evaluated,
                     )
                 },

@@ -13,15 +13,15 @@ interface TimetableLectureRepository : JpaRepository<TimetableLecture, Long> {
 
     fun findByTimetableIdIn(timetableIds: Collection<Long>): List<TimetableLecture>
 
-    fun findByTimetableIdAndExternalId(
-        timetableId: Long,
-        externalId: String,
-    ): TimetableLecture?
-
     fun findByLectureIdIn(lectureIds: Collection<Long>): List<TimetableLecture>
 
-    fun deleteByTimetableIdAndExternalId(
+    fun deleteByTimetableIdAndId(
         timetableId: Long,
-        externalId: String,
+        id: Long,
     )
+
+    fun findByTimetableIdAndId(
+        timetableId: Long,
+        id: Long,
+    ): TimetableLecture?
 }

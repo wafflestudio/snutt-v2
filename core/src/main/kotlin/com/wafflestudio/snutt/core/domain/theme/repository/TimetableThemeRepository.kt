@@ -8,15 +8,6 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
-    fun findByExternalIdAndUserId(
-        externalId: String,
-        userId: Long,
-    ): TimetableTheme?
-
-    fun findByExternalId(externalId: String): TimetableTheme?
-
-    fun findAllByExternalIdIn(externalIds: Collection<String>): List<TimetableTheme>
-
     fun findByUserIdOrderByUpdatedAtDesc(userId: Long): List<TimetableTheme>
 
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): TimetableTheme?

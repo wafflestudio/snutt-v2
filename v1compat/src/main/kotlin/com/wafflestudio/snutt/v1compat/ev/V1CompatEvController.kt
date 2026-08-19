@@ -88,7 +88,7 @@ class V1CompatEvController(
     @GetMapping("/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<LegacyEvaluationWithSemesterDto> {
         val page = evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor)
@@ -105,7 +105,7 @@ class V1CompatEvController(
     @PostMapping("/semester-lectures/{lectureId}/evaluations")
     fun createEvaluation(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
         @RequestBody body: LegacyEvaluationWriteRequest,
     ): LegacyEvaluationCreateResponse =
         evaluationService
@@ -125,7 +125,7 @@ class V1CompatEvController(
     @GetMapping("/lectures/{lectureId}/evaluations/users/me")
     fun getMyEvaluationsOfLecture(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ): LegacyMyLectureEvaluationsResponse {
         val evaluations = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId)
         val userExternalIds = userExternalIds(evaluations.mapNotNull { it.evaluation.userId })
@@ -135,7 +135,7 @@ class V1CompatEvController(
     @GetMapping("/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: String,
+        @PathVariable lectureId: Long,
     ): LegacyEvLectureSummaryResponse {
         val display = evaluationService.getEvaluationSummaryOfLecture(lectureId)
         val lecture = display.lecture
@@ -228,7 +228,7 @@ class V1CompatEvController(
         return LegacyEvaluationReportResponse(
             id = report.id,
             lectureEvaluationId = report.evaluationId,
-            userId = userService.getExternalIds(listOf(report.userId))[report.userId],
+            userId = listOf(report.userId.associateWith { it.toString() })[report.userId],
             content = report.content,
             isHidden = report.isHidden,
         )
@@ -274,7 +274,7 @@ class V1CompatEvController(
         )
     }
 
-    private fun userExternalIds(userIds: Collection<Long>): Map<Long, String> = userService.getExternalIds(userIds)
+    private fun userExternalIds(userIds: Collection<Long>): Map<Long, String> = userIds.associateWith { it.toString() }
 
     private fun courseMap(courseIds: Collection<Long>): Map<Long, Course> = evaluationService.getCourses(courseIds)
 }

@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.building.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -22,4 +22,4 @@ class LectureBuilding(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "location_in_decimal")
     var locationInDecimal: GeoCoordinate? = null,
-) : ExternalIdEntity()
+) : BaseEntity()

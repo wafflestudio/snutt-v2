@@ -1,7 +1,5 @@
 package com.wafflestudio.snutt.core.domain.lecture.service
 
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
@@ -18,20 +16,8 @@ class LectureService(
 ) {
     fun search(criteria: LectureSearchCriteria): List<Lecture> = lectureSearchRepository.search(criteria)
 
-    fun getByExternalIdOrNull(externalId: String): Lecture? = lectureRepository.findByExternalId(externalId)
-
-    fun getByExternalId(externalId: String): Lecture =
-        lectureRepository.findByExternalId(externalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
-
     fun getAllByIds(lectureIds: Collection<Long>): Map<Long, Lecture> =
         lectureRepository.findAllById(lectureIds.distinct()).associateBy { it.id!! }
-
-    fun getIdsByExternalIds(externalIds: Collection<String>): Map<String, Long> =
-        if (externalIds.isEmpty()) {
-            emptyMap()
-        } else {
-            lectureRepository.findAllByExternalIdIn(externalIds.distinct()).associate { it.externalId to it.id!! }
-        }
 
     fun classTimesByLectureId(lectureIds: Collection<Long>): Map<Long, List<ClassPlaceAndTime>> =
         lectureClassTimeRepository
