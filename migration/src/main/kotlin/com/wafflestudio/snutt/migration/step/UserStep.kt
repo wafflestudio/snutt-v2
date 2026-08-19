@@ -60,7 +60,6 @@ class UserStep(
                 val registeredAt = doc.instant("regDate").orNow()
                 out.add(
                     id,
-                    externalId,
                     email,
                     isEmailVerified,
                     uniqueNickname(doc.str("nickname"), takenNicknames),
