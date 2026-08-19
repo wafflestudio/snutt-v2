@@ -190,41 +190,6 @@ class TimetableLectureService(
         return displayAfterLectureChange(userId, timetable)
     }
 
-    @Transactional
-    fun modifyLecture(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-        request: TimetableLectureModifyRequest,
-    ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
-        return modifyLecture(userId, timetable.id!!, timetableLecture.id!!, request)
-    }
-
-    @Transactional
-    fun resetLecture(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-        isForced: Boolean,
-    ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
-        return resetLecture(userId, timetable.id!!, timetableLecture.id!!, isForced)
-    }
-
-    @Transactional
-    fun deleteLecture(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-    ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableExternalId)
-        val timetableLecture = getTimetableLectureByExternalId(timetable, timetableLectureExternalId)
-        return deleteLecture(userId, timetable.id!!, timetableLecture.id!!)
-    }
-
     private fun displayAfterLectureChange(
         userId: Long,
         timetable: Timetable,
@@ -238,13 +203,6 @@ class TimetableLectureService(
         timetableLectureId: Long,
     ): TimetableLecture =
         timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
-            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
-
-    private fun getTimetableLectureByExternalId(
-        timetable: Timetable,
-        timetableLectureExternalId: String,
-    ): TimetableLecture =
-        timetableLectureRepository.findByTimetableIdAndExternalId(timetable.id!!, timetableLectureExternalId)
             ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
 
     private fun resolveTimeConflict(

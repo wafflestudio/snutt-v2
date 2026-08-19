@@ -213,7 +213,7 @@ class V1CompatUserController(
 
 internal fun User.toLegacyUserDto() =
     LegacyUserDto(
-        id = externalId,
+        id = externalId.toString(),
         isAdmin = isAdmin,
         regDate = checkNotNull(createdAt).toLegacyLocalDateTime(),
         notificationCheckedAt = notificationCheckedAt.toLegacyLocalDateTime(),

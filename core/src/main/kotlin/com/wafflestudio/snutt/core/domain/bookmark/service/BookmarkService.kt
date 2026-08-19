@@ -67,27 +67,6 @@ class BookmarkService(
         deleteLecture(userId, lecture)
     }
 
-    fun existsBookmarkLecture(
-        userId: Long,
-        lectureExternalId: String,
-    ): Boolean = existsBookmarkLecture(userId, resolveLectureIdByExternalId(lectureExternalId))
-
-    @Transactional
-    fun addLecture(
-        userId: Long,
-        lectureExternalId: String,
-    ) {
-        addLecture(userId, resolveLectureByExternalId(lectureExternalId))
-    }
-
-    @Transactional
-    fun deleteLecture(
-        userId: Long,
-        lectureExternalId: String,
-    ) {
-        deleteLecture(userId, resolveLectureByExternalId(lectureExternalId))
-    }
-
     private fun addLecture(
         userId: Long,
         lecture: Lecture,
@@ -108,10 +87,4 @@ class BookmarkService(
         val bookmark = bookmarkRepository.findByUserIdAndYearAndSemester(userId, lecture.year, lecture.semester) ?: return
         bookmarkLectureRepository.deleteByBookmarkIdAndLectureId(bookmark.id!!, lecture.id!!)
     }
-
-    private fun resolveLectureIdByExternalId(lectureExternalId: String): Long =
-        lectureRepository.findByExternalId(lectureExternalId)?.id ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
-
-    private fun resolveLectureByExternalId(lectureExternalId: String): Lecture =
-        lectureRepository.findByExternalId(lectureExternalId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 }

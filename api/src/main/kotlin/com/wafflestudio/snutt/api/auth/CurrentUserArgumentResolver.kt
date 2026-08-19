@@ -27,7 +27,11 @@ class CurrentUserArgumentResolver : HandlerMethodArgumentResolver {
             return webRequest.getAttribute(UserAuthInterceptor.USER_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST)
                 as? User ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
         }
-        return webRequest.getAttribute(UserAuthInterceptor.SESSION_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST)
-            as? String ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
+        val sessionId = webRequest.getAttribute(UserAuthInterceptor.SESSION_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST)
+        return when {
+            sessionId is Long -> sessionId
+            sessionId is String -> sessionId.toLongOrNull() ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
+            else -> throw SnuttException(ErrorType.NO_USER_TOKEN)
+        }
     }
 }

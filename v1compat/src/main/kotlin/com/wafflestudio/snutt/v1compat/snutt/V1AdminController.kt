@@ -94,7 +94,7 @@ class V1AdminController(
 
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
-        @PathVariable source: String,
+        @PathVariable source: Long,
         @RequestParam(defaultValue = "1") count: Int,
     ): List<FileUploadUri> {
         val storageSource = StorageSource.from(source) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
@@ -106,7 +106,7 @@ class V1AdminController(
     fun insertNotification(
         @RequestBody body: LegacyInsertNotificationRequest,
     ) {
-        val userId = body.userId?.let { userService.getByExternalId(it).id }
+        val userId = body.userId?.let { userService.get(it.toLong()).id }
         notificationService.sendNotification(
             Notification(
                 userId = userId,
@@ -132,14 +132,14 @@ class V1AdminController(
     @PatchMapping("/configs/{name}/{configId}")
     fun patchConfig(
         @PathVariable name: String,
-        @PathVariable configId: String,
+        @PathVariable configId: Long,
         @RequestBody body: LegacyAdminConfigWriteRequest,
     ): ClientConfig = configService.patchConfig(name, configId, body.toWriteRequest())
 
     @DeleteMapping("/configs/{name}/{configId}")
     fun deleteConfig(
         @PathVariable name: String,
-        @PathVariable configId: String,
+        @PathVariable configId: Long,
     ) {
         configService.deleteConfig(name, configId)
     }
@@ -159,7 +159,7 @@ class V1AdminController(
 
     @DeleteMapping("/popups/{popupId}")
     fun deletePopup(
-        @PathVariable popupId: String,
+        @PathVariable popupId: Long,
     ) {
         popupService.deletePopup(popupId)
     }
@@ -196,7 +196,7 @@ class V1AdminController(
     ): List<LegacyAdminUserSearchResponse> =
         userService.searchByEmail(email).map {
             LegacyAdminUserSearchResponse(
-                id = it.externalId,
+                id = it.id!!.toString(),
                 email = it.email,
                 nickname = it.nickname,
                 localId = it.localId,
@@ -240,7 +240,7 @@ class V1AdminController(
 
     @DeleteMapping("/diary/questions/{questionId}")
     fun removeDiaryQuestion(
-        @PathVariable questionId: String,
+        @PathVariable questionId: Long,
     ) {
         diaryService.removeQuestion(questionId)
     }

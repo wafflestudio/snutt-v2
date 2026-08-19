@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.timetable.model
 
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
@@ -54,7 +54,7 @@ class TimetableLectureReminder(
     @JdbcTypeCode(SqlTypes.SMALLINT)
     var nextMinute: Int? = null,
     var recentNotifiedAt: Instant? = null,
-) : ExternalIdEntity() {
+) : BaseEntity() {
     fun recomputeNextFire(now: Instant = Instant.now()) {
         val nowSchedule = Schedule.fromInstant(now)
         val next =

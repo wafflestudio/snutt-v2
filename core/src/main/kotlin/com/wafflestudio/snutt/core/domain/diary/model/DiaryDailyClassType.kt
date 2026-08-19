@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.diary.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
@@ -9,4 +9,4 @@ import jakarta.persistence.Table
 class DiaryDailyClassType(
     var name: String,
     var active: Boolean = true,
-) : ExternalIdEntity()
+) : BaseEntity()

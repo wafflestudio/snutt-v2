@@ -52,10 +52,10 @@ class CatalogStep(
         val ids =
             com.wafflestudio.snutt.migration
                 .IdSequence()
-        writer("coursebook", listOf("id", "external_id", "year", "semester", "created_at", "updated_at")).use { out ->
+        writer("coursebook", listOf("id", "year", "semester", "created_at", "updated_at")).use { out ->
             mongo.each("coursebooks") { doc ->
                 val updatedAt = doc.instant("updated_at").orNow()
-                out.add(ids.next(), doc.id(), doc.int("year"), doc.int("semester"), updatedAt.toSqlTimestamp(), updatedAt.toSqlTimestamp())
+                out.add(ids.next(), doc.int("year"), doc.int("semester"), updatedAt.toSqlTimestamp(), updatedAt.toSqlTimestamp())
             }
         }
         alignAutoIncrement("coursebook", ids.peek())
@@ -69,7 +69,6 @@ class CatalogStep(
             "lecture_building",
             listOf(
                 "id",
-                "external_id",
                 "building_number",
                 "building_name_kor",
                 "building_name_eng",
@@ -84,7 +83,6 @@ class CatalogStep(
                 val now = Instant.now().toSqlTimestamp()
                 out.add(
                     ids.next(),
-                    doc.id(),
                     doc.str("buildingNumber") ?: "",
                     doc.str("buildingNameKor") ?: "",
                     doc.str("buildingNameEng") ?: "",
@@ -111,7 +109,7 @@ class CatalogStep(
                 .IdSequence()
         writer(
             "semester_registration_period",
-            listOf("id", "external_id", "year", "semester", "registration_period_list", "created_at", "updated_at"),
+            listOf("id", "year", "semester", "registration_period_list", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("semesterRegistrationPeriod") { doc ->
                 val now = Instant.now().toSqlTimestamp()
@@ -131,7 +129,7 @@ class CatalogStep(
                             )
                         }
                     }
-                out.add(ids.next(), doc.id(), doc.int("year"), doc.int("semester"), Json.writeRequired(periods), now, now)
+                out.add(ids.next(), doc.int("year"), doc.int("semester"), Json.writeRequired(periods), now, now)
             }
         }
         alignAutoIncrement("semester_registration_period", ids.peek())
@@ -145,7 +143,6 @@ class CatalogStep(
             "client_config",
             listOf(
                 "id",
-                "external_id",
                 "name",
                 "value",
                 "min_ios_version",
@@ -159,7 +156,6 @@ class CatalogStep(
             mongo.each("clientConfig") { doc ->
                 out.add(
                     ids.next(),
-                    doc.id(),
                     doc.str("name") ?: "",
                     doc.str("value") ?: "",
                     doc.str("minIosVersion"),
@@ -180,12 +176,11 @@ class CatalogStep(
                 .IdSequence()
         writer(
             "popup",
-            listOf("id", "external_id", "popup_key", "image_origin_uri", "link_url", "hidden_days", "created_at", "updated_at"),
+            listOf("id", "popup_key", "image_origin_uri", "link_url", "hidden_days", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("popup") { doc ->
                 out.add(
                     ids.next(),
-                    doc.id(),
                     doc.str("key") ?: "",
                     doc.str("imageOriginUri") ?: "",
                     doc.str("linkUrl"),
@@ -202,12 +197,12 @@ class CatalogStep(
         val typeIds =
             com.wafflestudio.snutt.migration
                 .IdSequence()
-        writer("diary_daily_class_type", listOf("id", "external_id", "name", "active", "created_at", "updated_at")).use { out ->
+        writer("diary_daily_class_type", listOf("id", "name", "active", "created_at", "updated_at")).use { out ->
             mongo.each("diaryDailyClassType") { doc ->
                 val id = typeIds.next()
                 context.diaryClassTypeIds[doc.id()] = id
                 val now = Instant.now().toSqlTimestamp()
-                out.add(id, doc.id(), doc.str("name") ?: "", doc.bool("active"), now, now)
+                out.add(id, doc.str("name") ?: "", doc.bool("active"), now, now)
             }
         }
         alignAutoIncrement("diary_daily_class_type", typeIds.peek())
@@ -219,7 +214,6 @@ class CatalogStep(
             "diary_question",
             listOf(
                 "id",
-                "external_id",
                 "question",
                 "short_question",
                 "answer_list",
@@ -237,7 +231,6 @@ class CatalogStep(
                 val now = Instant.now().toSqlTimestamp()
                 out.add(
                     id,
-                    doc.id(),
                     doc.str("question") ?: "",
                     doc.str("shortQuestion") ?: "",
                     Json.writeRequired(doc.strings("answers")),

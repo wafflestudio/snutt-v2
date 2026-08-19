@@ -61,7 +61,7 @@ data class LegacyTimetableModifyRequest(
 
 data class LegacyTimetableModifyThemeRequest(
     val theme: Int? = null,
-    val themeId: String? = null,
+    val themeId: Long? = null,
 )
 
 @RestController
@@ -80,7 +80,7 @@ class V1CompatTimetableController(
         val userId = user.id!!
         return timetableService.toBriefs(timetableService.getTimetables(userId)).map { brief ->
             LegacyTimetableBriefDto(
-                id = brief.externalId,
+                id = brief.id!!.toString(),
                 year = brief.year,
                 semester = brief.semester,
                 title = brief.title,
@@ -114,7 +114,7 @@ class V1CompatTimetableController(
     @PostMapping("")
     fun addTimetable(
         @V1CurrentUser user: User,
-        @RequestParam(required = false) source: String?,
+        @RequestParam(required = false) source: Long?,
         @RequestBody body: LegacyTimetableAddRequest,
     ): List<LegacyTimetableBriefDto> {
         val userId = user.id!!
@@ -129,7 +129,7 @@ class V1CompatTimetableController(
     @GetMapping("/{timetableId}")
     fun getTimetable(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId), clientInfo.language)
 
@@ -139,7 +139,7 @@ class V1CompatTimetableController(
     )
     fun modifyTimetable(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestBody body: LegacyTimetableModifyRequest,
     ): List<LegacyTimetableBriefDto> {
         timetableService.modifyTimetableTitle(user.id!!, timetableId, body.title)
@@ -149,7 +149,7 @@ class V1CompatTimetableController(
     @DeleteMapping("/{timetableId}")
     fun deleteTimetable(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ): List<LegacyTimetableBriefDto> {
         timetableService.deleteTimetable(user.id!!, timetableId)
         return getTimetableBriefs(user)
@@ -158,7 +158,7 @@ class V1CompatTimetableController(
     @PostMapping("/{timetableId}/copy")
     fun copyTimetable(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ): List<LegacyTimetableBriefDto> {
         timetableService.copyTimetable(user.id!!, timetableId)
         return getTimetableBriefs(user)
@@ -167,7 +167,7 @@ class V1CompatTimetableController(
     @PutMapping("/{timetableId}/theme")
     fun modifyTimetableTheme(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestBody body: LegacyTimetableModifyThemeRequest,
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
@@ -176,11 +176,12 @@ class V1CompatTimetableController(
                 ?: timetableThemeService
                     .findThemeById(
                         timetableThemeService.builtinThemeId(BasicThemeType.fromValue(body.theme!!)),
-                    ).externalId
+                    ).id!!
+                    .toString()
         val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeExternalId)
         return LegacyTimetableDto(
             timetable = display.timetable,
-            userId = user.externalId,
+            userId = user.id!!.toString(),
             display = display,
             evLectureIds = emptyMap(),
         )
@@ -189,7 +190,7 @@ class V1CompatTimetableController(
     @PostMapping("/{timetableId}/primary")
     fun setPrimary(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ) {
         timetableService.setPrimary(user.id!!, timetableId)
     }
@@ -197,7 +198,7 @@ class V1CompatTimetableController(
     @DeleteMapping("/{timetableId}/primary")
     fun unsetPrimary(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
     ) {
         timetableService.unsetPrimary(user.id!!, timetableId)
     }
@@ -205,7 +206,7 @@ class V1CompatTimetableController(
     @PostMapping("/{timetableId}/lecture")
     fun addCustomLecture(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
+        @PathVariable timetableId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyCustomLectureRequest,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
@@ -232,8 +233,8 @@ class V1CompatTimetableController(
     @PostMapping("/{timetableId}/lecture/{lectureId}")
     fun addLecture(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable lectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable lectureId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
@@ -244,7 +245,7 @@ class V1CompatTimetableController(
                 user.id!!,
                 timetable.id!!,
                 TimetableLectureAddRequest(
-                    lectureId = lectureService.getByExternalId(lectureId).id!!,
+                    lectureId = lectureRepository.findByIdOrNull(lectureId.toLong())!!.id!!,
                     isForced =
                         isForced ?: body?.isForced ?: false,
                 ),
@@ -255,8 +256,8 @@ class V1CompatTimetableController(
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}/reset")
     fun resetTimetableLecture(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
@@ -275,8 +276,8 @@ class V1CompatTimetableController(
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}")
     fun modifyTimetableLecture(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyModifyLectureRequest,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
@@ -304,8 +305,8 @@ class V1CompatTimetableController(
     @DeleteMapping("/{timetableId}/lecture/{timetableLectureId}")
     fun deleteTimetableLecture(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: String,
-        @PathVariable timetableLectureId: String,
+        @PathVariable timetableId: Long,
+        @PathVariable timetableLectureId: Long,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
@@ -318,7 +319,7 @@ class V1CompatTimetableController(
         timetable: Timetable,
         language: Language = Language.KO,
     ): LegacyTimetableDto {
-        val display = timetableService.getTimetableDisplay(user.id!!, timetable.externalId)
+        val display = timetableService.getTimetableDisplay(user.id!!, timetable.id!!.toString())
         return toLegacy(user, timetable, display, language)
     }
 
@@ -331,7 +332,7 @@ class V1CompatTimetableController(
         val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureExternalId })
         return LegacyTimetableDto(
             timetable = timetable,
-            userId = user.externalId,
+            userId = user.id!!.toString(),
             display = display,
             evLectureIds = evLectureIds,
             language = language,
@@ -340,7 +341,7 @@ class V1CompatTimetableController(
 
     private fun fetchEvLectureIds(lectureExternalIds: List<String>): Map<String, Long> {
         if (lectureExternalIds.isEmpty()) return emptyMap()
-        val numericIds = lectureService.getIdsByExternalIds(lectureExternalIds)
+        val numericIds = lectureExternalIds.associate { it to it.toLong() }.toMap()
         val summaries = evaluationService.findSummariesByLectureIds(numericIds.values)
         return numericIds
             .mapValues { (_, numericId) -> summaries[numericId]?.let { numericId } }

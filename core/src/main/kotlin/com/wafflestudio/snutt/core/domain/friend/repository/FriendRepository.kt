@@ -5,8 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
 interface FriendRepository : JpaRepository<Friend, Long> {
-    fun findByExternalId(externalId: String): Friend?
-
     @Query(
         "SELECT f FROM Friend f WHERE (f.fromUserId = :a AND f.toUserId = :b) OR " +
             "(f.fromUserId = :b AND f.toUserId = :a)",

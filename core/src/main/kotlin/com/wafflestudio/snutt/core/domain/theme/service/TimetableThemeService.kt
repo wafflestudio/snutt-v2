@@ -19,11 +19,6 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-data class ThemeOrigin(
-    val originThemeExternalId: String,
-    val authorExternalId: String?,
-)
-
 @Service
 class TimetableThemeService(
     private val timetableThemeRepository: TimetableThemeRepository,
@@ -37,23 +32,6 @@ class TimetableThemeService(
         private const val MAX_COLOR_COUNT = 9
         private const val SNUTT_BUILTIN_THEME_ID = 1L
         private val copyNumberRegex = """\s\(\d+\)$""".toRegex()
-    }
-
-    fun getOrigins(themeExternalIds: Collection<String>): Map<String, ThemeOrigin> {
-        if (themeExternalIds.isEmpty()) return emptyMap()
-        val themes = timetableThemeRepository.findAllByExternalIdIn(themeExternalIds)
-        val originThemes =
-            timetableThemeRepository.findAllById(themes.mapNotNull { it.originThemeId }).associateBy { it.id!! }
-        val authors = userRepository.findAllById(themes.mapNotNull { it.originAuthorId }).associateBy { it.id!! }
-        return themes
-            .mapNotNull { theme ->
-                val originExternalId = theme.originThemeId?.let(originThemes::get)?.externalId ?: return@mapNotNull null
-                theme.externalId to
-                    ThemeOrigin(
-                        originThemeExternalId = originExternalId,
-                        authorExternalId = theme.originAuthorId?.let(authors::get)?.externalId,
-                    )
-            }.toMap()
     }
 
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
@@ -118,14 +96,6 @@ class TimetableThemeService(
         return modifyTheme(userId, theme, name, colors)
     }
 
-    @Transactional
-    fun modifyTheme(
-        userId: Long,
-        themeExternalId: String,
-        name: String?,
-        colors: List<ColorSet>?,
-    ): TimetableThemeDisplay = modifyTheme(userId, getOwnedTheme(userId, themeExternalId).id!!, name, colors)
-
     private fun modifyTheme(
         userId: Long,
         theme: TimetableTheme,
@@ -160,16 +130,6 @@ class TimetableThemeService(
         publishTheme(theme, publishName, authorAnonymous)
     }
 
-    @Transactional
-    fun publishTheme(
-        userId: Long,
-        themeExternalId: String,
-        publishName: String,
-        authorAnonymous: Boolean,
-    ) {
-        publishTheme(getOwnedTheme(userId, themeExternalId), publishName, authorAnonymous)
-    }
-
     private fun publishTheme(
         theme: TimetableTheme,
         publishName: String,
@@ -190,13 +150,6 @@ class TimetableThemeService(
         themeId: Long,
         name: String,
     ): TimetableThemeDisplay = downloadTheme(downloadedUserId, findThemeById(themeId), name)
-
-    @Transactional
-    fun downloadTheme(
-        downloadedUserId: Long,
-        themeExternalId: String,
-        name: String,
-    ): TimetableThemeDisplay = downloadTheme(downloadedUserId, findTheme(themeExternalId), name)
 
     private fun downloadTheme(
         downloadedUserId: Long,
@@ -230,14 +183,6 @@ class TimetableThemeService(
         deleteTheme(userId, getOwnedTheme(userId, themeId))
     }
 
-    @Transactional
-    fun deleteTheme(
-        userId: Long,
-        themeExternalId: String,
-    ) {
-        deleteTheme(userId, getOwnedTheme(userId, themeExternalId))
-    }
-
     private fun deleteTheme(
         userId: Long,
         theme: TimetableTheme,
@@ -258,14 +203,6 @@ class TimetableThemeService(
         deletePublishedTheme(getOwnedTheme(userId, themeId))
     }
 
-    @Transactional
-    fun deletePublishedTheme(
-        userId: Long,
-        themeExternalId: String,
-    ) {
-        deletePublishedTheme(getOwnedTheme(userId, themeExternalId))
-    }
-
     private fun deletePublishedTheme(theme: TimetableTheme) {
         val published = publishedThemeRepository.findByThemeId(theme.id!!) ?: throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
         publishedThemeRepository.delete(published)
@@ -276,12 +213,6 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay = copyTheme(userId, findThemeById(themeId))
-
-    @Transactional
-    fun copyTheme(
-        userId: Long,
-        themeExternalId: String,
-    ): TimetableThemeDisplay = copyTheme(userId, findTheme(themeExternalId))
 
     private fun copyTheme(
         userId: Long,
@@ -319,12 +250,6 @@ class TimetableThemeService(
         return setDefaultInternal(theme)
     }
 
-    @Transactional
-    fun setDefault(
-        userId: Long,
-        themeExternalId: String,
-    ): TimetableThemeDisplay = setDefault(userId, findTheme(themeExternalId).id!!)
-
     private fun setDefaultInternal(theme: TimetableTheme): TimetableThemeDisplay {
         timetableThemeRepository.touchUpdatedAt(requireNotNull(theme.id))
         return theme.toDisplay(published = publishedThemeRepository.findByThemeId(theme.id!!), isDefault = true)
@@ -336,15 +261,6 @@ class TimetableThemeService(
     ): TimetableThemeDisplay {
         val current = getDefaultTheme(userId)
         if (current.isBuiltin || current.id != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
-        return builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
-    }
-
-    fun unsetDefault(
-        userId: Long,
-        themeExternalId: String,
-    ): TimetableThemeDisplay {
-        val current = getDefaultTheme(userId)
-        if (current.isBuiltin || current.externalId != themeExternalId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
         return builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
     }
 
@@ -363,11 +279,6 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay = getTheme(userId, findThemeById(themeId))
-
-    fun getTheme(
-        userId: Long,
-        themeExternalId: String,
-    ): TimetableThemeDisplay = getTheme(userId, findTheme(themeExternalId))
 
     private fun getTheme(
         userId: Long,
@@ -401,13 +312,9 @@ class TimetableThemeService(
         }
     }
 
-    fun findThemeId(themeExternalId: String): Long = findTheme(themeExternalId).id!!
-
     fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findByIdOrNull(themeId)?.colors
 
     fun themeColorCount(themeId: Long): Int? = themeColors(themeId)?.size
-
-    fun findThemeExternalId(themeId: Long): String? = timetableThemeRepository.findByIdOrNull(themeId)?.externalId
 
     fun builtinThemeId(basicThemeType: BasicThemeType): Long = builtinTheme(basicThemeType.value + 1L).id!!
 
@@ -417,20 +324,10 @@ class TimetableThemeService(
     private fun builtinTheme(id: Long): TimetableTheme =
         timetableThemeRepository.findByIdOrNull(id) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
-    fun findTheme(themeExternalId: String): TimetableTheme =
-        timetableThemeRepository.findByExternalId(themeExternalId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
-
     private fun getOwnedTheme(
         userId: Long,
         themeId: Long,
     ): TimetableTheme = timetableThemeRepository.findByIdAndUserId(themeId, userId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
-
-    private fun getOwnedTheme(
-        userId: Long,
-        themeExternalId: String,
-    ): TimetableTheme =
-        timetableThemeRepository.findByExternalIdAndUserId(themeExternalId, userId)
-            ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
     private fun timetableLecturesOf(timetableId: Long) = timetableLectureRepository.findByTimetableId(timetableId)
 
@@ -450,7 +347,6 @@ class TimetableThemeService(
         authorNickname: String? = null,
     ) = TimetableThemeDisplay(
         id = id!!,
-        externalId = externalId,
         name = name,
         colors = colors,
         isCustom = !isBuiltin,

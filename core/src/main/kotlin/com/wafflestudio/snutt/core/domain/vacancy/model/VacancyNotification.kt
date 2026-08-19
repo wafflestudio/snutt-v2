@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.vacancy.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
@@ -9,4 +9,4 @@ import jakarta.persistence.Table
 class VacancyNotification(
     var userId: Long,
     var lectureId: Long,
-) : ExternalIdEntity()
+) : BaseEntity()
