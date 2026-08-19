@@ -329,4 +329,25 @@ class EvaluationService(
         val nextCursor = if (hasMore) page.lastOrNull()?.let { CursorCodec.encode(cursorOf(it)) } else null
         return CursorPage.of(page.map(mapper), nextCursor, pageSize, totalCount)
     }
+
+    @Transactional
+    fun createEvaluation(
+        userId: Long,
+        lectureExternalId: String,
+        request: EvaluationWriteRequest,
+    ): EvaluationDisplay = createEvaluation(userId, lectureExternalId.toLong(), request)
+
+    fun getEvaluationsOfLecture(
+        userId: Long,
+        lectureExternalId: String,
+        cursor: String?,
+    ): CursorPage<EvaluationDisplay> = getEvaluationsOfLecture(userId, lectureExternalId.toLong(), cursor)
+
+    fun getMyEvaluationsOfLecture(
+        userId: Long,
+        lectureExternalId: String,
+    ): List<EvaluationDisplay> = getMyEvaluationsOfLecture(userId, lectureExternalId.toLong())
+
+    fun getEvaluationSummaryOfLecture(lectureExternalId: String): LectureEvaluationSummaryDisplay =
+        getEvaluationSummaryOfLecture(lectureExternalId.toLong())
 }

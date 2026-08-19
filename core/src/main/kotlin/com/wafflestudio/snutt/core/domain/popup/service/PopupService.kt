@@ -37,4 +37,9 @@ class PopupService(
     fun deletePopup(popupId: Long) {
         popupRepository.delete(popupRepository.findByIdOrNull(popupId) ?: return)
     }
+
+    @Transactional
+    fun deletePopup(popupExternalId: String) {
+        deletePopup(popupExternalId.toLong())
+    }
 }

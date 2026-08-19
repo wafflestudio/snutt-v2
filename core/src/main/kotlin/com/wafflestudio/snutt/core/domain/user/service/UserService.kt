@@ -47,4 +47,8 @@ class UserService(
         user.notificationCheckedAt = Instant.now()
         userRepository.save(user)
     }
+
+    fun getByExternalId(externalId: String): User = get(externalId.toLong())
+
+    fun getExternalIds(userIds: Collection<Long>): Map<Long, String> = userIds.associateWith { it.toString() }
 }

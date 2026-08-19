@@ -51,7 +51,7 @@ class V1CompatTakenLectureController(
                     .map {
                         LegacyTakenLectureDto(
                             id = it.course.id,
-                            semesterLectureId = it.lectureExternalId,
+                            semesterLectureId = it.lectureId.toString(),
                             title = it.course.title,
                             instructor = it.course.instructor,
                             department = it.course.department,
@@ -156,7 +156,7 @@ class V1CompatCourseSearchController(
             semesterLectures =
                 result.semesters.map {
                     LegacySemesterLectureDto(
-                        id = it.lectureExternalId,
+                        id = it.lectureId.toString(),
                         year = it.year,
                         semester = it.semester.value,
                         myEvaluationExists = it.myEvaluationExists,

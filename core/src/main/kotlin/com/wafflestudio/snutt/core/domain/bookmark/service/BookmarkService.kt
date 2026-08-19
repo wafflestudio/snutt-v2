@@ -87,4 +87,25 @@ class BookmarkService(
         val bookmark = bookmarkRepository.findByUserIdAndYearAndSemester(userId, lecture.year, lecture.semester) ?: return
         bookmarkLectureRepository.deleteByBookmarkIdAndLectureId(bookmark.id!!, lecture.id!!)
     }
+
+    fun existsBookmarkLecture(
+        userId: Long,
+        lectureExternalId: String,
+    ): Boolean = existsBookmarkLecture(userId, lectureExternalId.toLong())
+
+    @Transactional
+    fun addLecture(
+        userId: Long,
+        lectureExternalId: String,
+    ) {
+        addLecture(userId, lectureExternalId.toLong())
+    }
+
+    @Transactional
+    fun deleteLecture(
+        userId: Long,
+        lectureExternalId: String,
+    ) {
+        deleteLecture(userId, lectureExternalId.toLong())
+    }
 }

@@ -211,4 +211,17 @@ class DiaryService(
     fun removeQuestion(questionId: Long) {
         diaryQuestionRepository.findByIdOrNull(questionId)?.let { it.active = false }
     }
+
+    @Transactional
+    fun removeSubmission(
+        submissionExternalId: String,
+        userId: Long,
+    ) {
+        removeSubmission(submissionExternalId.toLong(), userId)
+    }
+
+    @Transactional
+    fun removeQuestion(questionExternalId: String) {
+        removeQuestion(questionExternalId.toLong())
+    }
 }

@@ -183,4 +183,39 @@ class FriendService(
             urlScheme = FRIEND_URL_SCHEME,
         )
     }
+
+    @Transactional
+    fun acceptFriend(
+        friendExternalId: String,
+        toUserId: Long,
+    ) {
+        acceptFriend(friendExternalId.toLong(), toUserId)
+    }
+
+    @Transactional
+    fun declineFriend(
+        friendExternalId: String,
+        toUserId: Long,
+    ) {
+        declineFriend(friendExternalId.toLong(), toUserId)
+    }
+
+    @Transactional
+    fun breakFriend(
+        friendExternalId: String,
+        userId: Long,
+    ) {
+        breakFriend(friendExternalId.toLong(), userId)
+    }
+
+    @Transactional
+    fun updateFriendDisplayName(
+        userId: Long,
+        friendExternalId: String,
+        displayName: String,
+    ) {
+        updateFriendDisplayName(userId, friendExternalId.toLong(), displayName)
+    }
+
+    fun get(friendExternalId: String): Friend? = get(friendExternalId.toLong())
 }

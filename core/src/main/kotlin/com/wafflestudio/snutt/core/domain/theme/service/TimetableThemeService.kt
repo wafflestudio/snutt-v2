@@ -369,4 +369,71 @@ class TimetableThemeService(
     private fun validateColorCount(colors: List<ColorSet>) {
         if (colors.size !in 1..MAX_COLOR_COUNT) throw SnuttException(ErrorType.INVALID_THEME_COLOR_COUNT)
     }
+
+    fun getTheme(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay = getTheme(userId, themeExternalId.toLong())
+
+    @Transactional
+    fun modifyTheme(
+        userId: Long,
+        themeExternalId: String,
+        name: String?,
+        colors: List<ColorSet>?,
+    ): TimetableThemeDisplay = modifyTheme(userId, themeExternalId.toLong(), name, colors)
+
+    @Transactional
+    fun publishTheme(
+        userId: Long,
+        themeExternalId: String,
+        publishName: String,
+        authorAnonymous: Boolean,
+    ) {
+        publishTheme(userId, themeExternalId.toLong(), publishName, authorAnonymous)
+    }
+
+    @Transactional
+    fun downloadTheme(
+        downloadedUserId: Long,
+        themeExternalId: String,
+        name: String,
+    ): TimetableThemeDisplay = downloadTheme(downloadedUserId, themeExternalId.toLong(), name)
+
+    @Transactional
+    fun deleteTheme(
+        userId: Long,
+        themeExternalId: String,
+    ) {
+        deleteTheme(userId, themeExternalId.toLong())
+    }
+
+    @Transactional
+    fun deletePublishedTheme(
+        userId: Long,
+        themeExternalId: String,
+    ) {
+        deletePublishedTheme(userId, themeExternalId.toLong())
+    }
+
+    @Transactional
+    fun copyTheme(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay = copyTheme(userId, themeExternalId.toLong())
+
+    @Transactional
+    fun setDefault(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay = setDefault(userId, themeExternalId.toLong())
+
+    fun unsetDefault(
+        userId: Long,
+        themeExternalId: String,
+    ): TimetableThemeDisplay = unsetDefault(userId, themeExternalId.toLong())
+
+    fun findTheme(themeExternalId: String): TimetableTheme = findThemeById(themeExternalId.toLong())
+
+    fun findThemeId(themeExternalId: String): Long = themeExternalId.toLong()
 }
