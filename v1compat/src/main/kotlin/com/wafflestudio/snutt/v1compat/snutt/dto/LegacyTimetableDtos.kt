@@ -41,14 +41,14 @@ fun LegacyTimetableDto(
     language: Language = Language.KO,
 ): LegacyTimetableDto =
     LegacyTimetableDto(
-        id = timetable.externalId,
+        id = timetable.id!!.toString(),
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureExternalId?.let(evLectureIds::get), language) },
+        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.toString()?.let(evLectureIds::get), language) },
         title = timetable.title,
-        theme = if (display.themeIsBuiltin) display.themeBuiltinType else BasicThemeType.SNUTT.value,
-        themeId = if (display.themeIsBuiltin) null else display.themeExternalId,
+        theme = if (timetable.themeId in 1..6) (timetable.themeId - 1).toInt() else BasicThemeType.SNUTT.value,
+        themeId = if (timetable.themeId in 1..6) null else timetable.themeId.toString(),
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
@@ -81,7 +81,7 @@ fun LegacyTimetableLectureDto(
     language: Language = Language.KO,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
-        id = display.externalId,
+        id = display.id.toString(),
         academicYear = language.select(display.academicYear, display.academicYearEn),
         category = language.select(display.category, display.categoryEn),
         classPlaceAndTimes = display.classPlaceAndTimes.map { LegacyClassPlaceAndTimeDto(it) },
@@ -97,7 +97,7 @@ fun LegacyTimetableLectureDto(
         courseTitle = language.select(display.courseTitle, display.courseTitleEn),
         color = display.color?.let { LegacyColorSetDto(bg = it.backgroundColor, fg = it.foregroundColor) },
         colorIndex = display.colorIndex,
-        lectureId = display.lectureExternalId,
+        lectureId = display.lectureId?.toString(),
         snuttEvLecture = evLectureId?.let { LegacyEvLectureIdDto(it) },
         categoryPre2025 = display.categoryPre2025,
     )

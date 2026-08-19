@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
-import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.oid
@@ -28,7 +27,7 @@ class NotificationStep(
         var skipped = 0L
         writer(
             "notification",
-            listOf("id", "external_id", "user_id", "title", "message", "type", "deeplink", "created_at", "updated_at"),
+            listOf("id", "user_id", "title", "message", "type", "deeplink", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("notifications") { doc ->
                 val ownerExternalId = doc.oid("user_id")
@@ -40,7 +39,6 @@ class NotificationStep(
                 val createdAt = doc.instant("created_at").orNow().toSqlTimestamp()
                 out.add(
                     ids.next(),
-                    doc.id(),
                     userId,
                     doc.str("title").orEmpty(),
                     doc.str("message") ?: doc.str("body").orEmpty(),

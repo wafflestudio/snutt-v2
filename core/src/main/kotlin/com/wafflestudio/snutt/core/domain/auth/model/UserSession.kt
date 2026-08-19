@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.auth.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.persistence.Column
@@ -25,7 +25,7 @@ class UserSession(
     var expiresAt: Instant,
     var revokedAt: Instant? = null,
     var lastUsedAt: Instant = Instant.now(),
-) : ExternalIdEntity() {
+) : BaseEntity() {
     val isValid: Boolean
         get() = revokedAt == null && expiresAt.isAfter(Instant.now())
 }

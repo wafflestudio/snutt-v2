@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.timetable.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import jakarta.persistence.Column
@@ -32,7 +32,7 @@ class TimetableLecture(
     var classification: String? = null,
     @Column(name = "category_pre2025")
     var categoryPre2025: String? = null,
-) : ExternalIdEntity() {
+) : BaseEntity() {
     fun copyFor(targetTimetableId: Long) =
         TimetableLecture(
             timetableId = targetTimetableId,

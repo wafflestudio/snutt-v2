@@ -42,33 +42,16 @@ class TimetableService(
         timetableId: Long,
     ): Timetable = timetableRepository.findByIdAndUserId(timetableId, userId) ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
 
-    fun getTimetable(
-        userId: Long,
-        timetableExternalId: String,
-    ): Timetable =
-        timetableRepository.findByUserIdAndExternalId(userId, timetableExternalId)
-            ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
-
     fun getTimetableDisplay(
         userId: Long,
         timetableId: Long,
     ): TimetableDisplay = displayOf(getTimetable(userId, timetableId))
 
-    fun getTimetableDisplay(
-        userId: Long,
-        timetableExternalId: String,
-    ): TimetableDisplay = displayOf(getTimetable(userId, timetableExternalId))
-
-    fun displayOf(timetable: Timetable): TimetableDisplay {
-        val theme = timetableThemeService.findThemeById(timetable.themeId)
-        return TimetableDisplay(
+    fun displayOf(timetable: Timetable): TimetableDisplay =
+        TimetableDisplay(
             timetable = timetable,
             lectures = displaysOf(listOf(timetable))[timetable.id!!].orEmpty(),
-            themeExternalId = theme.externalId,
-            themeIsBuiltin = theme.isBuiltin,
-            themeBuiltinType = theme.builtinType ?: 0,
         )
-    }
 
     fun toBriefs(timetables: List<Timetable>): List<TimetableBriefDto> {
         val displays = displaysOf(timetables)
@@ -124,27 +107,12 @@ class TimetableService(
     }
 
     @Transactional
-    fun modifyTimetableTitle(
-        userId: Long,
-        timetableExternalId: String,
-        title: String,
-    ): Timetable = modifyTimetableTitle(userId, getTimetable(userId, timetableExternalId).id!!, title)
-
-    @Transactional
     fun deleteTimetable(
         userId: Long,
         timetableId: Long,
     ) {
         if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.TABLE_DELETE_ERROR)
         timetableRepository.delete(getTimetable(userId, timetableId))
-    }
-
-    @Transactional
-    fun deleteTimetable(
-        userId: Long,
-        timetableExternalId: String,
-    ) {
-        deleteTimetable(userId, getTimetable(userId, timetableExternalId).id!!)
     }
 
     @Transactional
@@ -185,13 +153,6 @@ class TimetableService(
     }
 
     @Transactional
-    fun copyTimetable(
-        userId: Long,
-        timetableExternalId: String,
-        title: String? = null,
-    ): Timetable = copyTimetable(userId, getTimetable(userId, timetableExternalId).id!!, title)
-
-    @Transactional
     fun modifyTimetableTheme(
         userId: Long,
         timetableId: Long,
@@ -218,18 +179,6 @@ class TimetableService(
     }
 
     @Transactional
-    fun modifyTimetableTheme(
-        userId: Long,
-        timetableExternalId: String,
-        themeExternalId: String,
-    ): TimetableDisplay =
-        modifyTimetableTheme(
-            userId,
-            getTimetable(userId, timetableExternalId).id!!,
-            timetableThemeService.findThemeId(themeExternalId),
-        )
-
-    @Transactional
     fun setPrimary(
         userId: Long,
         timetableId: Long,
@@ -243,14 +192,6 @@ class TimetableService(
     }
 
     @Transactional
-    fun setPrimary(
-        userId: Long,
-        timetableExternalId: String,
-    ) {
-        setPrimary(userId, getTimetable(userId, timetableExternalId).id!!)
-    }
-
-    @Transactional
     fun unsetPrimary(
         userId: Long,
         timetableId: Long,
@@ -258,14 +199,6 @@ class TimetableService(
         val timetable = getTimetable(userId, timetableId)
         if (!timetable.isPrimary) return
         timetable.isPrimary = false
-    }
-
-    @Transactional
-    fun unsetPrimary(
-        userId: Long,
-        timetableExternalId: String,
-    ) {
-        unsetPrimary(userId, getTimetable(userId, timetableExternalId).id!!)
     }
 
     fun getUserPrimaryTable(

@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.diary.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
@@ -18,4 +18,4 @@ class DiaryQuestion(
     @JdbcTypeCode(SqlTypes.JSON)
     var targetDailyClassTypeIdList: List<Long>,
     var active: Boolean = true,
-) : ExternalIdEntity()
+) : BaseEntity()

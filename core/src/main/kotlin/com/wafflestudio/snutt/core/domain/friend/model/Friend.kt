@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.friend.model
 
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
@@ -12,7 +12,7 @@ class Friend(
     var fromDisplayName: String? = null,
     var toDisplayName: String? = null,
     var isAccepted: Boolean = false,
-) : ExternalIdEntity() {
+) : BaseEntity() {
     fun includes(userId: Long): Boolean = fromUserId == userId || toUserId == userId
 
     fun getPartnerUserId(userId: Long): Long {

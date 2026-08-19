@@ -149,7 +149,6 @@ class LectureStep(
         private val LECTURE_COLUMNS =
             listOf(
                 "id",
-                "external_id",
                 "course_id",
                 "year",
                 "semester",

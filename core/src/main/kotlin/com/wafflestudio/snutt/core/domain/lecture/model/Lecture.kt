@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.lecture.model
 
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -38,7 +38,7 @@ class Lecture(
     var remarkEn: String? = null,
     @Column(name = "course_id")
     var courseId: Long? = null,
-) : ExternalIdEntity() {
+) : BaseEntity() {
     fun copyMetadataFrom(other: Lecture) {
         academicYear = other.academicYear
         category = other.category

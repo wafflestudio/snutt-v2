@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.core.domain.theme.model
 
 import com.wafflestudio.snutt.core.common.model.BaseEntity
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -29,7 +28,7 @@ class TimetableTheme(
     var originThemeId: Long? = null,
     @Column(name = "origin_author_id")
     var originAuthorId: Long? = null,
-) : ExternalIdEntity() {
+) : BaseEntity() {
     val isBuiltin: Boolean get() = builtinType != null
 }
 

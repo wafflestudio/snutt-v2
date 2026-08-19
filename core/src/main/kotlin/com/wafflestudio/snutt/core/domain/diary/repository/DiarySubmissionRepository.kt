@@ -5,8 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 import java.time.Instant
 
 interface DiarySubmissionRepository : JpaRepository<DiarySubmission, Long> {
-    fun findByExternalId(externalId: String): DiarySubmission?
-
     fun findByUserIdOrderByCreatedAtDesc(userId: Long): List<DiarySubmission>
 
     fun findByUserIdAndCreatedAtAfter(

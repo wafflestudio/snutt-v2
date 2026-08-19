@@ -9,10 +9,8 @@ import java.time.Instant
 interface UserSessionRepository : JpaRepository<UserSession, Long> {
     fun findByRefreshTokenHash(refreshTokenHash: String): UserSession?
 
-    fun findByExternalId(externalId: String): UserSession?
-
-    @Query("SELECT s FROM UserSession s JOIN FETCH s.user WHERE s.externalId = :externalId")
-    fun findWithUserByExternalId(externalId: String): UserSession?
+    @Query("SELECT s FROM UserSession s JOIN FETCH s.user WHERE s.id = :sessionId")
+    fun findWithUserById(sessionId: Long): UserSession?
 
     @Query("SELECT s FROM UserSession s JOIN FETCH s.user WHERE s.refreshTokenHash = :refreshTokenHash")
     fun findWithUserByRefreshTokenHash(refreshTokenHash: String): UserSession?

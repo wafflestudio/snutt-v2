@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.domain.notification.model
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
-import com.wafflestudio.snutt.core.common.model.ExternalIdEntity
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -40,4 +40,4 @@ class Notification(
     @Enumerated(EnumType.STRING)
     var type: NotificationType = NotificationType.NORMAL,
     var deeplink: String? = null,
-) : ExternalIdEntity()
+) : BaseEntity()

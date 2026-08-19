@@ -4,8 +4,6 @@ import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface DiaryDailyClassTypeRepository : JpaRepository<DiaryDailyClassType, Long> {
-    fun findByExternalId(externalId: String): DiaryDailyClassType?
-
     fun findAllByActiveTrue(): List<DiaryDailyClassType>
 
     fun findAllByActiveTrueOrderByNameAsc(): List<DiaryDailyClassType>

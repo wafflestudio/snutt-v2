@@ -142,7 +142,6 @@ class UserStep(
         private val COLUMNS =
             listOf(
                 "id",
-                "external_id",
                 "email",
                 "is_email_verified",
                 "nickname",

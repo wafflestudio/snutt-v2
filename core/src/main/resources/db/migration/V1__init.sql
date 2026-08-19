@@ -1,7 +1,6 @@
 CREATE TABLE `user`
 (
     id                      BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id             VARCHAR(32)  NOT NULL,
     email                   VARCHAR(255) NULL,
     is_email_verified       BOOLEAN      NOT NULL DEFAULT FALSE,
     nickname                VARCHAR(64)  NOT NULL,
@@ -29,7 +28,6 @@ CREATE TABLE `user`
     active_apple_sub        VARCHAR(128) GENERATED ALWAYS AS (IF(active, apple_sub, NULL)) VIRTUAL,
     active_google_sub       VARCHAR(128) GENERATED ALWAYS AS (IF(active, google_sub, NULL)) VIRTUAL,
     active_kakao_sub        VARCHAR(128) GENERATED ALWAYS AS (IF(active, kakao_sub, NULL)) VIRTUAL,
-    CONSTRAINT uk_user_external_id UNIQUE (external_id),
     CONSTRAINT uk_user_active_nickname UNIQUE (active_nickname),
     CONSTRAINT uk_user_active_local_id UNIQUE (active_local_id),
     CONSTRAINT uk_user_active_email UNIQUE (active_email),
@@ -44,7 +42,6 @@ CREATE TABLE `user`
 CREATE TABLE user_device
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         VARCHAR(32)  NOT NULL,
     user_id             BIGINT       NOT NULL,
     os_type             VARCHAR(16)  NULL,
     os_version          VARCHAR(32)  NULL,
@@ -56,7 +53,6 @@ CREATE TABLE user_device
     is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at          DATETIME(6)  NOT NULL,
     updated_at          DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_user_device_external_id UNIQUE (external_id),
     CONSTRAINT fk_user_device_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     INDEX idx_user_device_user (user_id, is_deleted),
     INDEX idx_user_device_fcm_registration_id (fcm_registration_id)
@@ -65,7 +61,6 @@ CREATE TABLE user_device
 CREATE TABLE user_session
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id        VARCHAR(32) NOT NULL,
     user_id            BIGINT      NOT NULL,
     refresh_token_hash CHAR(64)    NOT NULL,
     user_device_id     BIGINT      NULL,
@@ -74,7 +69,6 @@ CREATE TABLE user_session
     last_used_at       DATETIME(6) NOT NULL,
     created_at         DATETIME(6) NOT NULL,
     updated_at         DATETIME(6) NOT NULL,
-    CONSTRAINT uk_user_session_external_id UNIQUE (external_id),
     CONSTRAINT uk_user_session_refresh_token_hash UNIQUE (refresh_token_hash),
     CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_user_session_user_device FOREIGN KEY (user_device_id) REFERENCES user_device (id) ON DELETE SET NULL,
@@ -96,7 +90,6 @@ CREATE TABLE push_preference
 CREATE TABLE notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id VARCHAR(32)  NOT NULL,
     user_id     BIGINT       NULL,
     title       VARCHAR(255) NOT NULL,
     message     TEXT         NOT NULL,
@@ -104,7 +97,6 @@ CREATE TABLE notification
     deeplink    VARCHAR(512) NULL,
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_notification_external_id UNIQUE (external_id),
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     INDEX idx_notification_user_created (user_id, created_at DESC),
     INDEX idx_notification_created (created_at DESC)
@@ -132,7 +124,6 @@ CREATE TABLE course
 CREATE TABLE lecture
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id        VARCHAR(32)  NOT NULL,
     course_id          BIGINT       NULL,
     year               INT          NOT NULL,
     semester           TINYINT      NOT NULL,
@@ -158,7 +149,6 @@ CREATE TABLE lecture
     remark             TEXT         NULL,
     created_at         DATETIME(6)  NOT NULL,
     updated_at         DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_lecture_external_id UNIQUE (external_id),
     CONSTRAINT uk_lecture_offering UNIQUE (year, semester, course_number, lecture_number),
     CONSTRAINT fk_lecture_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE SET NULL,
     INDEX idx_lecture_year_semester (year, semester),
@@ -197,12 +187,10 @@ CREATE TABLE lecture_class_time
 CREATE TABLE coursebook
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id VARCHAR(32) NOT NULL,
     year        INT         NOT NULL,
     semester    TINYINT     NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_coursebook_external_id UNIQUE (external_id),
     CONSTRAINT uk_coursebook_year_semester UNIQUE (year, semester)
 );
 
@@ -263,7 +251,6 @@ CREATE TABLE evaluation_report
 CREATE TABLE theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id      VARCHAR(32)  NOT NULL,
     user_id          BIGINT       NULL,
     builtin_type     INT          NULL,
     name             VARCHAR(128) NOT NULL,
@@ -272,7 +259,6 @@ CREATE TABLE theme
     origin_author_id BIGINT       NULL,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_theme_external_id UNIQUE (external_id),
     CONSTRAINT uk_theme_builtin_type UNIQUE (builtin_type),
     CONSTRAINT fk_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_theme_origin_theme FOREIGN KEY (origin_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
@@ -280,23 +266,23 @@ CREATE TABLE theme
     INDEX idx_theme_user_updated (user_id, updated_at DESC)
 );
 
-INSERT INTO theme (id, external_id, user_id, builtin_type, name, colors, created_at, updated_at) VALUES
-    (1, 'builtin-snutt', NULL, 0, 'SNUTT',
+INSERT INTO theme (id, user_id, builtin_type, name, colors, created_at, updated_at) VALUES
+    (1, NULL, 0, 'SNUTT',
      '[{"backgroundColor":"#E54459","foregroundColor":"#ffffff"},{"backgroundColor":"#F58D3D","foregroundColor":"#ffffff"},{"backgroundColor":"#FAC42D","foregroundColor":"#ffffff"},{"backgroundColor":"#A6D930","foregroundColor":"#ffffff"},{"backgroundColor":"#2BC267","foregroundColor":"#ffffff"},{"backgroundColor":"#1BD0C8","foregroundColor":"#ffffff"},{"backgroundColor":"#1D99E8","foregroundColor":"#ffffff"},{"backgroundColor":"#4F48C4","foregroundColor":"#ffffff"},{"backgroundColor":"#AF56B3","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (2, 'builtin-fall', NULL, 1, '가을',
+    (2, NULL, 1, '가을',
      '[{"backgroundColor":"#B82E31","foregroundColor":"#ffffff"},{"backgroundColor":"#DB701C","foregroundColor":"#ffffff"},{"backgroundColor":"#EAA32A","foregroundColor":"#ffffff"},{"backgroundColor":"#C6C013","foregroundColor":"#ffffff"},{"backgroundColor":"#3A856E","foregroundColor":"#ffffff"},{"backgroundColor":"#19B2AC","foregroundColor":"#ffffff"},{"backgroundColor":"#3994CE","foregroundColor":"#ffffff"},{"backgroundColor":"#3F3A9C","foregroundColor":"#ffffff"},{"backgroundColor":"#924396","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (3, 'builtin-modern', NULL, 2, '모던',
+    (3, NULL, 2, '모던',
      '[{"backgroundColor":"#F0652A","foregroundColor":"#ffffff"},{"backgroundColor":"#F5AD3E","foregroundColor":"#ffffff"},{"backgroundColor":"#998F36","foregroundColor":"#ffffff"},{"backgroundColor":"#89C291","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#13808F","foregroundColor":"#ffffff"},{"backgroundColor":"#366689","foregroundColor":"#ffffff"},{"backgroundColor":"#432920","foregroundColor":"#ffffff"},{"backgroundColor":"#D82F3D","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (4, 'builtin-blossom', NULL, 3, '벚꽃',
+    (4, NULL, 3, '벚꽃',
      '[{"backgroundColor":"#FD79A8","foregroundColor":"#ffffff"},{"backgroundColor":"#FEC9DD","foregroundColor":"#ffffff"},{"backgroundColor":"#FEB0CC","foregroundColor":"#ffffff"},{"backgroundColor":"#FE93BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E9B1D0","foregroundColor":"#ffffff"},{"backgroundColor":"#C67D97","foregroundColor":"#ffffff"},{"backgroundColor":"#BB8EA7","foregroundColor":"#ffffff"},{"backgroundColor":"#BDB4BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E16597","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (5, 'builtin-ice', NULL, 4, '얼음',
+    (5, NULL, 4, '얼음',
      '[{"backgroundColor":"#AABDCF","foregroundColor":"#ffffff"},{"backgroundColor":"#C0E9E8","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#015F95","foregroundColor":"#ffffff"},{"backgroundColor":"#A8D0DB","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#62A9D1","foregroundColor":"#ffffff"},{"backgroundColor":"#20363D","foregroundColor":"#ffffff"},{"backgroundColor":"#6D8A96","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (6, 'builtin-lawn', NULL, 5, '잔디',
+    (6, NULL, 5, '잔디',
      '[{"backgroundColor":"#4FBEAA","foregroundColor":"#ffffff"},{"backgroundColor":"#9FC1A4","foregroundColor":"#ffffff"},{"backgroundColor":"#5A8173","foregroundColor":"#ffffff"},{"backgroundColor":"#84AEB1","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#D0E0C4","foregroundColor":"#ffffff"},{"backgroundColor":"#59886D","foregroundColor":"#ffffff"},{"backgroundColor":"#476060","foregroundColor":"#ffffff"},{"backgroundColor":"#3D7068","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6));
 
@@ -317,7 +303,6 @@ CREATE TABLE published_theme
 CREATE TABLE timetable
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id VARCHAR(32)  NOT NULL,
     user_id     BIGINT       NOT NULL,
     year        INT          NOT NULL,
     semester    TINYINT      NOT NULL,
@@ -326,7 +311,6 @@ CREATE TABLE timetable
     is_primary  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_timetable_external_id UNIQUE (external_id),
     CONSTRAINT uk_timetable_title UNIQUE (user_id, year, semester, title),
     CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE RESTRICT,
@@ -336,7 +320,6 @@ CREATE TABLE timetable
 CREATE TABLE timetable_lecture
 (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id          VARCHAR(32)  NOT NULL,
     timetable_id         BIGINT       NOT NULL,
     lecture_id           BIGINT       NULL,
     color                JSON         NULL,
@@ -352,7 +335,6 @@ CREATE TABLE timetable_lecture
     category_pre2025     VARCHAR(64)  NULL,
     created_at           DATETIME(6)  NOT NULL,
     updated_at           DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_timetable_lecture_external_id UNIQUE (external_id),
     CONSTRAINT fk_timetable_lecture_timetable FOREIGN KEY (timetable_id) REFERENCES timetable (id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE RESTRICT,
     INDEX idx_timetable_lecture_timetable (timetable_id),
@@ -362,7 +344,6 @@ CREATE TABLE timetable_lecture
 CREATE TABLE timetable_lecture_reminder
 (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id          VARCHAR(32) NOT NULL,
     timetable_lecture_id BIGINT      NOT NULL,
     offset_minutes       INT         NOT NULL,
     schedule_list        JSON        NOT NULL,
@@ -371,7 +352,6 @@ CREATE TABLE timetable_lecture_reminder
     recent_notified_at   DATETIME(6) NULL,
     created_at           DATETIME(6) NOT NULL,
     updated_at           DATETIME(6) NOT NULL,
-    CONSTRAINT uk_timetable_lecture_reminder_external_id UNIQUE (external_id),
     CONSTRAINT uk_timetable_lecture_reminder UNIQUE (timetable_lecture_id),
     CONSTRAINT fk_reminder_timetable_lecture FOREIGN KEY (timetable_lecture_id)
         REFERENCES timetable_lecture (id) ON DELETE CASCADE,
@@ -381,13 +361,11 @@ CREATE TABLE timetable_lecture_reminder
 CREATE TABLE bookmark
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id VARCHAR(32) NOT NULL,
     user_id     BIGINT      NOT NULL,
     year        INT         NOT NULL,
     semester    TINYINT     NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_bookmark_external_id UNIQUE (external_id),
     CONSTRAINT uk_bookmark_user_semester UNIQUE (user_id, year, semester),
     CONSTRAINT fk_bookmark_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
 );
@@ -408,12 +386,10 @@ CREATE TABLE bookmark_lecture
 CREATE TABLE vacancy_notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id VARCHAR(32) NOT NULL,
     user_id     BIGINT      NOT NULL,
     lecture_id  BIGINT      NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_vacancy_notification_external_id UNIQUE (external_id),
     CONSTRAINT uk_vacancy_notification UNIQUE (user_id, lecture_id),
     CONSTRAINT fk_vacancy_notification_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_vacancy_notification_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE,
@@ -423,7 +399,6 @@ CREATE TABLE vacancy_notification
 CREATE TABLE friend
 (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id       VARCHAR(32) NOT NULL,
     from_user_id      BIGINT      NOT NULL,
     to_user_id        BIGINT      NOT NULL,
     from_display_name VARCHAR(64) NULL,
@@ -433,7 +408,6 @@ CREATE TABLE friend
     updated_at        DATETIME(6) NOT NULL,
     user_low          BIGINT GENERATED ALWAYS AS (LEAST(from_user_id, to_user_id)) VIRTUAL,
     user_high         BIGINT GENERATED ALWAYS AS (GREATEST(from_user_id, to_user_id)) VIRTUAL,
-    CONSTRAINT uk_friend_external_id UNIQUE (external_id),
     CONSTRAINT uk_friend_pair UNIQUE (user_low, user_high),
     CONSTRAINT fk_friend_from_user FOREIGN KEY (from_user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_friend_to_user FOREIGN KEY (to_user_id) REFERENCES `user` (id) ON DELETE CASCADE,
@@ -444,21 +418,18 @@ CREATE TABLE friend
 CREATE TABLE popup
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id      VARCHAR(32)  NOT NULL,
     popup_key        VARCHAR(64)  NOT NULL,
     image_origin_uri VARCHAR(512) NOT NULL,
     link_url         VARCHAR(512) NULL,
     hidden_days      INT          NULL,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_popup_external_id UNIQUE (external_id),
     CONSTRAINT uk_popup_key UNIQUE (popup_key)
 );
 
 CREATE TABLE client_config
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         VARCHAR(32) NOT NULL,
     name                VARCHAR(64) NOT NULL,
     value               TEXT        NOT NULL,
     min_ios_version     VARCHAR(32) NULL,
@@ -467,14 +438,12 @@ CREATE TABLE client_config
     max_android_version VARCHAR(32) NULL,
     created_at          DATETIME(6) NOT NULL,
     updated_at          DATETIME(6) NOT NULL,
-    CONSTRAINT uk_client_config_external_id UNIQUE (external_id),
     INDEX idx_client_config_name (name)
 );
 
 CREATE TABLE lecture_building
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id         VARCHAR(32)  NOT NULL,
     building_number     VARCHAR(16)  NOT NULL,
     building_name_kor   VARCHAR(64)  NOT NULL,
     building_name_eng   VARCHAR(128) NOT NULL DEFAULT '',
@@ -483,39 +452,33 @@ CREATE TABLE lecture_building
     location_in_decimal JSON         NULL,
     created_at          DATETIME(6)  NOT NULL,
     updated_at          DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_lecture_building_external_id UNIQUE (external_id),
     CONSTRAINT uk_lecture_building UNIQUE (building_number, campus)
 );
 
 CREATE TABLE semester_registration_period
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id              VARCHAR(32) NOT NULL,
     year                     INT         NOT NULL,
     semester                 TINYINT     NOT NULL,
     registration_period_list JSON        NOT NULL,
     created_at               DATETIME(6) NOT NULL,
     updated_at               DATETIME(6) NOT NULL,
-    CONSTRAINT uk_semester_registration_period_external_id UNIQUE (external_id),
     CONSTRAINT uk_semester_registration_period UNIQUE (year, semester)
 );
 
 CREATE TABLE diary_daily_class_type
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id VARCHAR(32) NOT NULL,
     name        VARCHAR(64) NOT NULL,
     active      BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_diary_daily_class_type_external_id UNIQUE (external_id),
     CONSTRAINT uk_diary_daily_class_type_name UNIQUE (name)
 );
 
 CREATE TABLE diary_question
 (
     id                              BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id                     VARCHAR(32)  NOT NULL,
     question                        VARCHAR(255) NOT NULL,
     short_question                  VARCHAR(255) NOT NULL,
     answer_list                     JSON         NOT NULL,
@@ -524,13 +487,11 @@ CREATE TABLE diary_question
     active                          BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at                      DATETIME(6)  NOT NULL,
     updated_at                      DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_diary_question_external_id UNIQUE (external_id)
 );
 
 CREATE TABLE diary_submission
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
-    external_id              VARCHAR(32)  NOT NULL,
     user_id                  BIGINT       NOT NULL,
     year                     INT          NOT NULL,
     semester                 TINYINT      NOT NULL,
@@ -541,7 +502,6 @@ CREATE TABLE diary_submission
     question_answer_list     JSON         NOT NULL,
     created_at               DATETIME(6)  NOT NULL,
     updated_at               DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_diary_submission_external_id UNIQUE (external_id),
     CONSTRAINT fk_diary_submission_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_diary_submission_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE SET NULL,
     INDEX idx_diary_submission_user (user_id, year, semester, created_at DESC)
