@@ -5,9 +5,11 @@ import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import org.springframework.transaction.annotation.Transactional
 
 interface CoursebookRepository : JpaRepository<Coursebook, Long> {
     @Modifying
+    @Transactional
     @Query("UPDATE Coursebook c SET c.updatedAt = CURRENT_TIMESTAMP WHERE c.id = :id")
     fun touchUpdatedAt(id: Long)
 

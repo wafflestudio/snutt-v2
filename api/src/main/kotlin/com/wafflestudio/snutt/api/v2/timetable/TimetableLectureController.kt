@@ -46,6 +46,10 @@ data class TimetableLectureModifyRequestBody(
     val remark: String? = null,
     val color: ColorSet? = null,
     val colorIndex: Int? = null,
+    val academicYear: String? = null,
+    val category: String? = null,
+    val classification: String? = null,
+    val categoryPre2025: String? = null,
     val isForced: Boolean = false,
 )
 
@@ -129,6 +133,10 @@ class TimetableLectureController(
                     remark = body.remark,
                     color = body.color,
                     colorIndex = body.colorIndex,
+                    academicYear = body.academicYear,
+                    category = body.category,
+                    classification = body.classification,
+                    categoryPre2025 = body.categoryPre2025,
                     isForced = body.isForced,
                 ),
             ).toResponse(clientInfo.language)

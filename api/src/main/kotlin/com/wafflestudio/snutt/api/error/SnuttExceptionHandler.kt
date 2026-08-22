@@ -63,7 +63,7 @@ class SnuttExceptionHandler {
                     ErrorResponse(
                         errcode = status * 100L,
                         title = "요청을 처리할 수 없습니다",
-                        message = e.body.detail ?: e.message.orEmpty(),
+                        message = "요청을 처리할 수 없습니다",
                         displayMessage = "요청을 처리할 수 없습니다",
                     ),
                 )

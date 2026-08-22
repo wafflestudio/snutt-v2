@@ -127,8 +127,8 @@ class V1ApiKeyInterceptor(
         val parser = legacyApiKeyParser ?: return false
         return try {
             val claims = parser.parseSignedClaims(apiKey).payload
-            val platform = claims["string"]?.toString()
-            val keyVersion = claims["key_version"]?.toString()
+            val platform = claims["string"]?.toString() ?: return false
+            val keyVersion = claims["key_version"]?.toString() ?: return false
             LEGACY_KEY_VERSIONS[platform] == keyVersion
         } catch (e: Exception) {
             false

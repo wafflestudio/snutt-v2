@@ -56,18 +56,22 @@ class TimetableThemeService(
         return themes.map { it.toDisplay(published = publishedByThemeId[it.id], isDefault = it.id == defaultThemeId) }
     }
 
-    fun getBestThemes(page: Int): List<TimetableThemeDisplay> =
+    fun getBestThemes(
+        page: Int,
+        size: Int = 20,
+    ): List<TimetableThemeDisplay> =
         publishedThemeRepository
-            .findAllByOrderByDownloadCountDesc(PageRequest.of(page, 20))
+            .findAllByOrderByDownloadCountDesc(PageRequest.of(page, size))
             .toMarketDisplays()
 
     fun getFriendsThemes(
         userId: Long,
         page: Int,
+        size: Int = 10,
     ): List<TimetableThemeDisplay> {
         val friendUserIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
         if (friendUserIds.isEmpty()) return emptyList()
-        return publishedThemeRepository.findFriendsPublished(friendUserIds, PageRequest.of(page, 10)).toMarketDisplays()
+        return publishedThemeRepository.findFriendsPublished(friendUserIds, PageRequest.of(page, size)).toMarketDisplays()
     }
 
     fun searchThemes(keyword: String): List<TimetableThemeDisplay> =
@@ -171,7 +175,8 @@ class TimetableThemeService(
                     originAuthorId = theme.userId,
                 ),
             )
-        published.downloadCount += 1
+        // 동시 다운로드에도 카운트가 유실되지 않도록 원자 증가로 처리한다(응답값은 증가 전 값일 수 있다)
+        publishedThemeRepository.incrementDownloadCount(published.id!!)
         return downloaded.toDisplay(published = null)
     }
 

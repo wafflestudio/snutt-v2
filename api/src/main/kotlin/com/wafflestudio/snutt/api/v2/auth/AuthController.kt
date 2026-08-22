@@ -132,7 +132,7 @@ class AuthController(
     fun confirmPasswordReset(
         @RequestBody body: ConfirmPasswordResetRequest,
     ) {
-        passwordResetService.confirmReset(body.email, body.code, body.newPassword)
+        passwordResetService.confirmResetQuietly(body.email, body.code, body.newPassword)
     }
 
     @Public
@@ -140,6 +140,6 @@ class AuthController(
     fun findId(
         @RequestBody body: FindIdRequest,
     ) {
-        passwordResetService.sendLocalIdToEmail(body.email)
+        passwordResetService.sendLocalIdToEmailQuietly(body.email)
     }
 }

@@ -43,6 +43,7 @@ class SugangSnuLectureEnricherTest {
                 instructor = "황선엽",
                 remark = null,
                 quota = 40,
+                freshmanQuota = 10,
                 registrationCount = 10,
                 classPlaceAndTimes = emptyList(),
             )

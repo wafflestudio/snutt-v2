@@ -175,7 +175,9 @@ class V1CompatTimetableController(
             body.themeId
                 ?: timetableThemeService
                     .findThemeById(
-                        timetableThemeService.builtinThemeId(BasicThemeType.fromValue(body.theme!!)),
+                        timetableThemeService.builtinThemeId(
+                            BasicThemeType.fromValue(body.theme!!) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+                        ),
                     ).id!!
         val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeId)
         return LegacyTimetableDto(

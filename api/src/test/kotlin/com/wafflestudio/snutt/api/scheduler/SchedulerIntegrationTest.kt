@@ -126,6 +126,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     semester = Semester.AUTUMN,
                     title = "나의 시간표",
                     themeId = 2L,
+                    isPrimary = true,
                 ),
             )
         val timetableLecture =

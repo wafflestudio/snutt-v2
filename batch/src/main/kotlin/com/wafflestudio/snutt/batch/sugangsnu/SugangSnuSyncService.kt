@@ -15,8 +15,6 @@ import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
-import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
-import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
@@ -69,6 +67,7 @@ class SugangSnuSyncService(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
+        skipKeys: Set<Pair<String, String>> = emptySet(),
     ): SugangSnuSyncResult {
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
         val oldMap = oldLectures.associateBy { it.courseNumber to it.lectureNumber }
@@ -97,7 +96,12 @@ class SugangSnuSyncService(
                     classTimesChanged = oldTimes != row.classPlaceAndTimes,
                 )
             }
-        val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
+        // 스킵 키(enrich 실패)는 폐강으로 오인하지 않도록 삭제 판정에서 제외한다
+        val deleted =
+            oldLectures.filter {
+                val key = it.courseNumber to it.lectureNumber
+                key !in newKeys && key !in skipKeys
+            }
 
         upsertLectures(created, updated)
         val lectureByKey =
@@ -126,8 +130,12 @@ class SugangSnuSyncService(
         }
         updated.forEach { update ->
             val old = update.lecture
+            val instructorChanged = old.instructor != update.input.lecture.instructor
             old.copyMetadataFrom(update.input.lecture)
-            old.courseId = old.courseId ?: resolveCourseId(old)
+            // 강사가 바뀌면 과목-교수 정체성이 바뀐 것이므로 기존 코스와의 연결을 끊고 새 코스로 연결한다(기존 평가는 기존 코스에 남는다)
+            if (instructorChanged || old.courseId == null) {
+                old.courseId = resolveCourseId(old)
+            }
             if (update.classTimesChanged) {
                 lectureClassTimeRepository.deleteByLectureId(old.id!!)
                 saveClassTimes(old, update.input.classTimes)
@@ -189,7 +197,7 @@ class SugangSnuSyncService(
     private fun syncUserLectures(
         updated: List<LectureUpdate>,
         deleted: List<Lecture>,
-    ) {
+    ): Map<Long, TimetableChangeCount> {
         val notifications = mutableListOf<Notification>()
         val timetableChangeCounts = mutableMapOf<Long, TimetableChangeCount>()
 
@@ -247,12 +255,7 @@ class SugangSnuSyncService(
         }
 
         notificationRepository.saveAll(notifications)
-        pushService.sendTargetedPushes(
-            timetableChangeCounts.mapValues { (_, counts) ->
-                TargetedPush(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
-            },
-            PushPreferenceType.LECTURE_UPDATE,
-        )
+        return timetableChangeCounts.toMap()
     }
 
     private class TimetableChangeCount(
@@ -385,6 +388,7 @@ class SugangSnuSyncService(
         classification = classification,
         credit = credit,
         quota = quota,
+        freshmanQuota = freshmanQuota,
         remark = remark,
         categoryPre2025 = categoryPre2025,
         courseTitleEn = courseTitleEn,

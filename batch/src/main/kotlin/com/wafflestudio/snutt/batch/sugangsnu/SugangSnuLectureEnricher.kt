@@ -69,11 +69,13 @@ class SugangSnuLectureEnricher(
             departmentEn = departmentEn,
             academicYearEn = academicYearEn,
             remarkEn = sub.remarkEng ?: row.remarkEn,
+            // API 변환 결과가 비었는데 xlsx에는 시간이 있으면 파싱 실패일 수 있으므로 기존 xlsx 값을 유지한다
             classPlaceAndTimes =
-                SugangSnuClassTimeUtils.convertTextToClassTimeObject(
-                    info.ltTime,
-                    info.ltRoom.map { it.replace("(무선랜제공)", "") },
-                ),
+                SugangSnuClassTimeUtils
+                    .convertTextToClassTimeObject(
+                        info.ltTime,
+                        info.ltRoom.map { it.replace("(무선랜제공)", "") },
+                    ).ifEmpty { row.classPlaceAndTimes },
             categoryPre2025 = categoryPre2025Map[row.courseNumber],
         )
     }

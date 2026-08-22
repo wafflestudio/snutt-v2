@@ -34,6 +34,7 @@ class V1CompatEvExceptionHandler {
                 ErrorType.DUPLICATE_EVALUATION_REPORT to 29003,
                 ErrorType.DUPLICATE_EVALUATION_LIKE to 29004,
                 ErrorType.EVALUATION_LIKE_NOT_FOUND to 29005,
+                ErrorType.EVALUATION_LECTURE_MISMATCH to 29006,
             )
     }
 }

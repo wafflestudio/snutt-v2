@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -33,7 +34,7 @@ class UserService(
         nickname: String,
     ): User {
         user.nickname = userNicknameService.appendNewTag(nickname)
-        return userRepository.save(user)
+        return conflictAs(ErrorType.DUPLICATE_NICKNAME) { userRepository.save(user) }
     }
 
     @Transactional

@@ -7,10 +7,24 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
 
 interface EvaluationRepository :
     JpaRepository<Evaluation, Long>,
     EvaluationCustomRepository {
+    @Modifying
+    @Query("UPDATE Evaluation e SET e.likeCount = e.likeCount + 1 WHERE e.id = :id")
+    fun incrementLikeCount(id: Long)
+
+    @Modifying
+    @Query("UPDATE Evaluation e SET e.likeCount = GREATEST(e.likeCount - 1, 0) WHERE e.id = :id")
+    fun decrementLikeCount(id: Long)
+
+    @Modifying
+    @Query("UPDATE Evaluation e SET e.likeCount = 0 WHERE e.id = :id")
+    fun resetLikeCount(id: Long)
+
     fun existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
         courseId: Long,
         year: Int,
@@ -18,7 +32,7 @@ interface EvaluationRepository :
         userId: Long,
     ): Boolean
 
-    fun findByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
+    fun findByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalseOrderByIdDesc(
         courseId: Long,
         year: Int,
         semester: Semester,

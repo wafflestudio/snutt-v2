@@ -83,6 +83,8 @@ class ReminderScheduler(
         val timetable =
             timetableRepository.findByIdOrNull(timetableLecture.timetableId) ?: return
         if (timetable.year != current.year || timetable.semester != current.semester) return
+        // 구 노티파이어와 동일하게 대표 시간표의 리마인더만 보낸다
+        if (!timetable.isPrimary) return
         val courseTitle =
             timetableService
                 .displaysOf(listOf(timetable))[timetable.id]
@@ -116,7 +118,7 @@ class DiaryScheduler(
     private val coursebookService: CoursebookService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
-    @param:Value("\${snutt.diary.push-sample-rate:1.0}") private val sampleRate: Double,
+    @param:Value("\${snutt.diary.push-sample-rate:0.1}") private val sampleRate: Double,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -132,10 +134,14 @@ class DiaryScheduler(
     }
 
     fun sendDiaryNotifications() {
-        val coursebook = coursebookService.getLatestCoursebook()
+        // 학기 중에는 현재 학기(다음 학기 수강편람이 올라와도), 방학 중에는 최신 수강편람 학기를 대상으로 한다
+        val target =
+            SemesterCalendar.current()
+                ?: coursebookService.getLatestCoursebook()?.let { SemesterCalendar.YearSemester(it.year, it.semester) }
+                ?: return
         val primaries =
             timetableRepository
-                .findByYearAndSemesterAndIsPrimaryTrue(coursebook.year, coursebook.semester)
+                .findByYearAndSemesterAndIsPrimaryTrue(target.year, target.semester)
                 .shuffled()
                 .let { it.take((it.size * sampleRate).toInt().coerceAtLeast(if (it.isEmpty()) 0 else 1)) }
         val messages =
