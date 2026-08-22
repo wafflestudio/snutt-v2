@@ -13,7 +13,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateReq
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -79,7 +78,6 @@ data class EvaluationReportRequestBody(
 
 data class EvaluationResponse(
     val id: Long,
-    val user: EvaluationUserResponse?,
     val content: String,
     val gradeSatisfaction: Double?,
     val teachingSkill: Double?,
@@ -95,11 +93,6 @@ data class EvaluationResponse(
     val semester: Semester,
     val isModifiable: Boolean,
     val isReportable: Boolean,
-)
-
-data class EvaluationUserResponse(
-    val id: Long,
-    val nickname: String,
 )
 
 data class LectureEvaluationSummaryResponse(
@@ -133,15 +126,13 @@ data class EvaluationTagResponse(
 @EmailVerifiedRequired
 class EvaluationController(
     private val evaluationService: EvaluationService,
-    private val userService: UserService,
 ) {
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
         @CurrentUser user: User,
         @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> =
-        evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage(userService)
+    ): CursorPage<EvaluationResponse> = evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage()
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
@@ -161,13 +152,13 @@ class EvaluationController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toEvaluationResponse(userService)
+            ).toEvaluationResponse()
 
     @GetMapping("/v2/lectures/{lectureId}/evaluations/me")
     fun getMyEvaluationsOfLecture(
         @CurrentUser user: User,
         @PathVariable lectureId: Long,
-    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses(userService)
+    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses()
 
     @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
@@ -203,7 +194,7 @@ class EvaluationController(
     fun getMyEvaluations(
         @CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage(userService)
+    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage()
 
     @GetMapping("/v2/evaluations/tags")
     fun getEvaluationTags(
@@ -218,14 +209,14 @@ class EvaluationController(
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<EvaluationResponse> {
         val tag = EvaluationTag.fromKey(tagKey) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return evaluationService.getEvaluationsByTag(user.id!!, tag, cursor).toEvaluationResponsePage(userService)
+        return evaluationService.getEvaluationsByTag(user.id!!, tag, cursor).toEvaluationResponsePage()
     }
 
     @GetMapping("/v2/evaluations/{evaluationId}")
     fun getEvaluation(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationService.getEvaluation(user.id!!, evaluationId).toEvaluationResponse(userService)
+    ): EvaluationResponse = evaluationService.getEvaluation(user.id!!, evaluationId).toEvaluationResponse()
 
     @PatchMapping("/v2/evaluations/{evaluationId}")
     fun updateEvaluation(
@@ -245,7 +236,7 @@ class EvaluationController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toEvaluationResponse(userService)
+            ).toEvaluationResponse()
 
     @DeleteMapping("/v2/evaluations/{evaluationId}")
     fun deleteEvaluation(
