@@ -51,8 +51,13 @@ class SugangSnuSyncJobConfig(
             .tasklet(
                 { _, _ ->
                     if (year != null || semester != null) {
+                        // 파라미터가 잘못돼도 조용히 다른 학기를 동기화하지 않도록 즉시 실패한다
+                        val semesterValue =
+                            semester?.let {
+                                Semester.getOfValue(it) ?: throw IllegalStateException("잘못된 semester 파라미터: $it")
+                            }
                         val coursebook = coursebookService.getLatestCoursebook()
-                        syncSemester(year ?: coursebook.year, semester?.let(Semester::getOfValue) ?: coursebook.semester)
+                        syncSemester(year ?: coursebook.year, semesterValue ?: coursebook.semester)
                     } else {
                         run()
                     }
