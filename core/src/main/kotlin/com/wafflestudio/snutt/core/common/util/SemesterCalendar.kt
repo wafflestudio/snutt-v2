@@ -21,6 +21,16 @@ object SemesterCalendar {
         return null
     }
 
+    /** 다음으로 시작할 학기 */
+    fun next(date: LocalDate): YearSemester {
+        for (year in date.year..date.year + 1) {
+            for ((semester, range) in ranges(year)) {
+                if (date < range.first) return YearSemester(year, semester)
+            }
+        }
+        return YearSemester(date.year + 1, Semester.SPRING)
+    }
+
     private fun ranges(year: Int): List<Pair<Semester, Pair<LocalDate, LocalDate>>> =
         listOf(
             Semester.SPRING to (LocalDate.of(year, 3, 2) to LocalDate.of(year, 6, 23)),

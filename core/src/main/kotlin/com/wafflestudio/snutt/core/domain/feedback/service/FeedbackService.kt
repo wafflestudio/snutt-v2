@@ -53,8 +53,7 @@ class FeedbackService(
                     // 구버전과 동일하게 OS별 분류를 위해 라벨을 붙인다
                     "labels" to listOf(osType.lowercase()),
                 ),
-            )
-            .retrieve()
+            ).retrieve()
             .toBodilessEntity()
     }
 }
