@@ -118,27 +118,9 @@ class SugangSnuSyncJobConfig(
                     )
                 }
 
-        // enrich 실패 강의는 기존 저장 정보를 유지하도록 이번 실행에서 제외한다(갱신·폐강 판정 모두 제외)
-        val enrichedRows = mutableListOf<SugangLectureRow>()
-        val failedKeys = mutableSetOf<Pair<String, String>>()
-        baseRows.forEach { row ->
-            val enriched =
-                runCatching { enrichWithRetry(year, semester, row) }
-                    .onFailure {
-                        log.error("강의 enrich 실패, 기존 정보를 유지한다: {}{} - {}", row.courseNumber, row.lectureNumber, it.message)
-                    }.getOrNull()
-            if (enriched == null) {
-                failedKeys += row.courseNumber to row.lectureNumber
-            } else {
-                enrichedRows += enriched
-            }
-        }
-        if (failedKeys.size >= ENRICH_FAILURE_ABORT_COUNT && failedKeys.size * 10 >= baseRows.size) {
-            throw IllegalStateException("enrich 실패율이 높다: ${failedKeys.size}/${baseRows.size}")
-        }
-
-        val result = sugangSnuSyncService.sync(year, semester, enrichedRows, failedKeys)
-        log.info("sugang sync 완료: {} (enrich 실패 {}: 기존 정보 유지)", result, failedKeys.size)
+        val rows = baseRows.map { enrichWithRetry(year, semester, it) }
+        val result = sugangSnuSyncService.sync(year, semester, rows)
+        log.info("sugang sync 완료: {}", result)
     }
 
     private fun enrichWithRetry(
@@ -165,6 +147,5 @@ class SugangSnuSyncJobConfig(
         const val JOB_NAME = "sugangSnuMigrationJob"
         private const val ENRICH_RETRY_COUNT = 2
         private const val ENRICH_RETRY_BACKOFF_MS = 500L
-        private const val ENRICH_FAILURE_ABORT_COUNT = 20
     }
 }

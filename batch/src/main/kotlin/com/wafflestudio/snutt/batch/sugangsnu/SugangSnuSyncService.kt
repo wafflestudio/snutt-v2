@@ -71,7 +71,6 @@ class SugangSnuSyncService(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
-        skipKeys: Set<Pair<String, String>> = emptySet(),
     ): SugangSnuSyncResult {
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
         val oldMap = oldLectures.associateBy { it.courseNumber to it.lectureNumber }
@@ -100,12 +99,7 @@ class SugangSnuSyncService(
                     classTimesChanged = oldTimes != row.classPlaceAndTimes,
                 )
             }
-        // 스킵 키(enrich 실패)는 폐강으로 오인하지 않도록 삭제 판정에서 제외한다
-        val deleted =
-            oldLectures.filter {
-                val key = it.courseNumber to it.lectureNumber
-                key !in newKeys && key !in skipKeys
-            }
+        val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
 
         // DB 변경은 하나의 짧은 트랜잭션으로 묶고, 푸시는 커밋된 뒤에 보낸다(롤백 시 유령 알림 방지)
         var timetableChangeCounts: Map<Long, TimetableChangeCount> = emptyMap()
