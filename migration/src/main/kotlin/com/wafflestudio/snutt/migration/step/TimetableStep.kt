@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.Json
@@ -20,6 +22,7 @@ import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.sql.Timestamp
+import java.time.Instant
 
 @Component
 class TimetableStep(
@@ -28,7 +31,7 @@ class TimetableStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "timetable"
-    override val tables = listOf("timetable_lecture", "timetable")
+    override val tables = listOf("timetable_lecture_reminder", "timetable_lecture", "timetable")
 
     override fun run() {
         val timetableIds = IdSequence()
@@ -78,6 +81,62 @@ class TimetableStep(
         alignAutoIncrement("timetable", timetableIds.peek())
         alignAutoIncrement("timetable_lecture", lectureIds.peek())
         log.info("시간표 이관: {}건 (제외 {}건), 시간표 강의 {}건", timetableIds.peek() - 1, skipped, lectureCount)
+        migrateReminders()
+    }
+
+    private fun migrateReminders() {
+        val ids = IdSequence()
+        var count = 0L
+        writer(
+            "timetable_lecture_reminder",
+            listOf(
+                "id",
+                "timetable_lecture_id",
+                "offset_minutes",
+                "schedule_list",
+                "next_day",
+                "next_minute",
+                "created_at",
+                "updated_at",
+            ),
+        ).use { out ->
+            mongo.each("timetableLectureReminder") { doc ->
+                val timetableLectureId =
+                    doc.oid("timetableLectureId")?.let(context.timetableLectureIds::get) ?: return@each
+                val schedules =
+                    doc.docs("schedules").mapNotNull { schedule ->
+                        val day =
+                            when (val raw = schedule.get("day")) {
+                                is String -> DayOfWeek.valueOf(raw)
+                                is Number -> DayOfWeek.getOfValue(raw.toInt())
+                                else -> null
+                            } ?: return@mapNotNull null
+                        val minute = schedule.int("minute") ?: return@mapNotNull null
+                        // recentNotifiedAt는 11분 내 중복 방지에만 쓰이므로 이관하지 않는다
+                        Schedule(day, minute)
+                    }
+                if (schedules.isEmpty()) return@each
+
+                // 다음 발화 스케줄: 지금 이후로 가장 빠른 것, 없으면 가장 빠른 것(앱의 recomputeNextFire와 동일)
+                val nowSchedule = Schedule.fromInstant(Instant.now())
+                val next = schedules.sorted().firstOrNull { it >= nowSchedule } ?: schedules.minOrNull()
+
+                val now = Instant.now().toSqlTimestamp()
+                out.add(
+                    ids.next(),
+                    timetableLectureId,
+                    doc.int("offsetMinutes") ?: 0,
+                    Json.writeRequired(schedules.map { mapOf("day" to it.day.value, "minute" to it.minute) }),
+                    next?.day?.value,
+                    next?.minute,
+                    now,
+                    now,
+                )
+                count++
+            }
+        }
+        alignAutoIncrement("timetable_lecture_reminder", ids.peek())
+        log.info("리마인더 이관: {}건", count)
     }
 
     private fun Document.toRow(

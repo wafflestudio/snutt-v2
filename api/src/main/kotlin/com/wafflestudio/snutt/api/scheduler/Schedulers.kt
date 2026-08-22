@@ -8,12 +8,9 @@ import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
-import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
-import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminder
-import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
-import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.repository.findByIdOrNull
@@ -21,26 +18,17 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
 import java.time.Duration
-import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.temporal.ChronoUnit
 
 @Component
 class ReminderScheduler(
-    private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
-    private val timetableLectureRepository: TimetableLectureRepository,
-    private val timetableRepository: TimetableRepository,
-    private val timetableService: TimetableService,
+    private val timetableLectureReminderService: TimetableLectureReminderService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
 ) {
-    companion object {
-        private const val TIME_WINDOW_MINUTES = 10L
-        private val KST = ZoneId.of("Asia/Seoul")
-    }
-
     private val log = LoggerFactory.getLogger(javaClass)
+    private val kst = ZoneId.of("Asia/Seoul")
 
     @Scheduled(cron = "0 * * * * *")
     fun fireDueReminders() {
@@ -50,63 +38,37 @@ class ReminderScheduler(
                 log.debug("현재 진행 중인 학기가 없어 리마인더를 보내지 않는다")
                 return@withLock
             }
-            fireDueReminders(ZonedDateTime.now(KST), current)
+            val now = ZonedDateTime.now(kst)
+            timetableLectureReminderService
+                .processDueReminders(now, current)
+                .forEach { push ->
+                    pushService.sendPushAndNotification(
+                        userIds = listOf(push.userId),
+                        title = "📚 강의 리마인더",
+                        body = push.body,
+                        type = NotificationType.NORMAL,
+                        preferenceType = PushPreferenceType.NORMAL,
+                        urlScheme = "snutt://timetable",
+                    )
+                }
         }
     }
 
+    /** 테스트용: 지정 시각 기준으로 발화 대상을 처리한다 */
     fun fireDueReminders(
         now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
     ) {
-        findDueReminders(now.toInstant()).forEach { reminder -> fire(reminder, now, current) }
-    }
-
-    private fun findDueReminders(now: Instant): List<TimetableLectureReminder> {
-        val end = Schedule.fromInstant(now)
-        val start = end.plusMinutes(-TIME_WINDOW_MINUTES.toInt())
-        val lastNotifiedBefore = now.minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
-        return if (start.day == end.day) {
-            timetableLectureReminderRepository.findDueRemindersInTimeRange(end.day.value, start.minute, end.minute, lastNotifiedBefore)
-        } else {
-            timetableLectureReminderRepository.findDueRemindersInTimeRange(start.day.value, start.minute, 1439, lastNotifiedBefore) +
-                timetableLectureReminderRepository.findDueRemindersInTimeRange(end.day.value, 0, end.minute, lastNotifiedBefore)
+        timetableLectureReminderService.processDueReminders(now, current).forEach { push ->
+            pushService.sendPushAndNotification(
+                userIds = listOf(push.userId),
+                title = "📚 강의 리마인더",
+                body = push.body,
+                type = NotificationType.NORMAL,
+                preferenceType = PushPreferenceType.NORMAL,
+                urlScheme = "snutt://timetable",
+            )
         }
-    }
-
-    private fun fire(
-        reminder: TimetableLectureReminder,
-        now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
-    ) {
-        val timetableLecture =
-            timetableLectureRepository.findByIdOrNull(reminder.timetableLectureId) ?: return
-        val timetable =
-            timetableRepository.findByIdOrNull(timetableLecture.timetableId) ?: return
-        if (timetable.year != current.year || timetable.semester != current.semester) return
-        // 구 노티파이어와 동일하게 대표 시간표의 리마인더만 보낸다
-        if (!timetable.isPrimary) return
-        val courseTitle =
-            timetableService
-                .displaysOf(listOf(timetable))[timetable.id]
-                ?.firstOrNull { it.id == timetableLecture.id }
-                ?.courseTitle ?: return
-        val body =
-            when {
-                reminder.offsetMinutes == 0 -> "$courseTitle 강의 시간이에요."
-                reminder.offsetMinutes > 0 -> "$courseTitle 강의 시작 ${reminder.offsetMinutes}분 후예요."
-                else -> "$courseTitle 강의 시작 ${-reminder.offsetMinutes}분 전이에요."
-            }
-        pushService.sendPushAndNotification(
-            userIds = listOf(timetable.userId),
-            title = "📚 강의 리마인더",
-            body = body,
-            type = NotificationType.NORMAL,
-            preferenceType = PushPreferenceType.NORMAL,
-            urlScheme = "snutt://timetable",
-        )
-        reminder.recentNotifiedAt = now.toInstant()
-        reminder.recomputeNextFire(now.toInstant().plusSeconds(60))
-        timetableLectureReminderRepository.save(reminder)
     }
 }
 
