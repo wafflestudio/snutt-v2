@@ -128,7 +128,6 @@ class SugangSnuSyncJobConfig(
                 enrichedRows += enriched
             }
         }
-        // 실패가 일정 비율을 넘으면 사이트 이상 신호로 보고 이번 동기화를 포기한다
         if (failedKeys.size >= ENRICH_FAILURE_ABORT_COUNT && failedKeys.size * 10 >= baseRows.size) {
             throw IllegalStateException("enrich 실패율이 높다: ${failedKeys.size}/${baseRows.size}")
         }

@@ -117,7 +117,6 @@ class TimetableStep(
                     }
                 if (schedules.isEmpty()) return@each
 
-                // 다음 발화 스케줄: 지금 이후로 가장 빠른 것, 없으면 가장 빠른 것(앱의 recomputeNextFire와 동일)
                 val nowSchedule = Schedule.fromInstant(Instant.now())
                 val next = schedules.sorted().firstOrNull { it >= nowSchedule } ?: schedules.minOrNull()
 
