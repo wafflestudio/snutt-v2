@@ -182,7 +182,6 @@ class V1CompatDeviceController(
         @PathVariable registrationId: String,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ) {
-        if (registrationId.isBlank()) throw SnuttException(ErrorType.INVALID_PARAMETER)
         deviceService.addRegistrationId(user, registrationId, clientInfo)
     }
 
@@ -191,7 +190,6 @@ class V1CompatDeviceController(
         @V1CurrentUser user: User,
         @PathVariable registrationId: String,
     ) {
-        if (registrationId.isBlank()) throw SnuttException(ErrorType.INVALID_PARAMETER)
         deviceService.removeRegistrationId(user, registrationId)
     }
 }

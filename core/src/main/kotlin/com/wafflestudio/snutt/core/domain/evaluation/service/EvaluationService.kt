@@ -175,7 +175,6 @@ class EvaluationService(
         if (isUpdatingAny(evaluation, request)) {
             evaluation.likeCount = 0
             evaluationLikeRepository.deleteByEvaluationId(evaluationId)
-            evaluationRepository.resetLikeCount(evaluationId)
         }
         request.content?.let {
             if (it.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
