@@ -102,19 +102,37 @@ class VacancyNotificationJobConfig(
                 log.info("수강신청이 시작되지 않아 중단한다")
                 return
             }
-            TransactionTemplate(transactionManager).executeWithoutResult {
-                processChunk(lectureMap, storedStatuses, statuses, window)
+            // DB 변경은 청크 트랜잭션으로 커밋하고, 푸시는 커밋된 뒤에 보낸다(롤백 시 유령 알림 방지)
+            val pendingPushes =
+                TransactionTemplate(transactionManager)
+                    .execute { processChunk(lectureMap, storedStatuses, statuses, window) }
+                    .orEmpty()
+            pendingPushes.forEach { push ->
+                pushService.sendPushAndNotification(
+                    userIds = push.userIds,
+                    title = push.title,
+                    body = push.body,
+                    type = NotificationType.LECTURE_VACANCY,
+                    preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
+                    urlScheme = "snutt://vacancy",
+                )
             }
             Thread.sleep(DELAY_PER_CHUNK_MS)
         }
     }
+
+    private data class PendingVacancyPush(
+        val userIds: List<Long>,
+        val title: String,
+        val body: String,
+    )
 
     private fun processChunk(
         lectureMap: Map<String, Lecture>,
         storedStatuses: Map<Long, LectureRegistrationStatus>,
         crawled: List<RegistrationStatus>,
         window: RegistrationWindow,
-    ) {
+    ): List<PendingVacancyPush> {
         val rows =
             crawled.mapNotNull { status ->
                 val lecture = lectureMap[status.courseNumber + "##" + status.lectureNumber] ?: return@mapNotNull null
@@ -141,18 +159,15 @@ class VacancyNotificationJobConfig(
         lectureRegistrationStatusRepository.saveAll(updated)
 
         val targetTimeString = window.nextOpenTimeString()
-        notiTargets.forEach { lecture ->
+        return notiTargets.map { lecture ->
             val userIds = vacancyNotificationRepository.findByLectureId(lecture.id!!).map { it.userId }
             log.info("빈자리 감지: {} ({}-{})", lecture.courseTitle, lecture.courseNumber, lecture.lectureNumber)
-            pushService.sendPushAndNotification(
+            PendingVacancyPush(
                 userIds = userIds,
                 title = "빈자리 알림",
                 body =
                     "\"${lecture.courseTitle} (${lecture.lectureNumber})\" 강의에 빈자리가 생겼습니다.\n" +
                         "${targetTimeString}에 수강신청 사이트를 확인해보세요!",
-                type = NotificationType.LECTURE_VACANCY,
-                preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
-                urlScheme = "snutt://vacancy",
             )
         }
     }
