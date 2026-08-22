@@ -64,7 +64,10 @@ class TimetableLectureService(
         timetableId: Long,
         request: TimetableLectureAddRequest,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        // 동시 추가가 중복·겹침 검증을 통과하는 경쟁을 막기 위해 시간표 행을 잠그고 시작한다
+        val timetable =
+            timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         if (timetable.year != lecture.year || timetable.semester != lecture.semester) {
@@ -95,7 +98,10 @@ class TimetableLectureService(
         timetableId: Long,
         request: CustomTimetableLectureAddRequest,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        // 동시 추가가 겹침 검증을 통과하는 경쟁을 막기 위해 시간표 행을 잠그고 시작한다
+        val timetable =
+            timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         if (ClassTimeUtils.timesOverlap(request.classPlaceAndTimes)) throw SnuttException(ErrorType.INVALID_TIME)
 
         resolveTimeConflict(timetable, request.classPlaceAndTimes, request.isForced, null)

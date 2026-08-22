@@ -1,12 +1,12 @@
 package com.wafflestudio.snutt.core.domain.auth.client
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 
 private data class KakaoOAuth2UserResponse(
     val id: Long,
@@ -24,7 +24,7 @@ private data class KakaoAccountDto(
 class KakaoClient : OAuth2Client {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val restClient = RestClient.create()
+    private val restClient = TimedRestClients.restClient()
 
     companion object {
         private const val USER_INFO_URI = "https://kapi.kakao.com/v2/user/me"

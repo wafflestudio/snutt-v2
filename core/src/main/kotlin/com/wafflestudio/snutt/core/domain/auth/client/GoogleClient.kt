@@ -1,11 +1,11 @@
 package com.wafflestudio.snutt.core.domain.auth.client
 
+import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 
 private data class GoogleOAuth2UserResponse(
     val id: String,
@@ -16,7 +16,7 @@ private data class GoogleOAuth2UserResponse(
 class GoogleClient : OAuth2Client {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val restClient = RestClient.create()
+    private val restClient = TimedRestClients.restClient()
 
     companion object {
         private const val USER_INFO_URI = "https://www.googleapis.com/oauth2/v1/userinfo"
