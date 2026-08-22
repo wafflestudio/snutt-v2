@@ -50,16 +50,17 @@ class SugangSnuSyncJobConfig(
         StepBuilder("sugangSnuMigrationStep", jobRepository)
             .tasklet(
                 { _, _ ->
-                    if (year != null || semester != null) {
-                        // 파라미터가 잘못돼도 조용히 다른 학기를 동기화하지 않도록 즉시 실패한다
-                        val semesterValue =
-                            semester?.let {
-                                Semester.getOfValue(it) ?: throw IllegalStateException("잘못된 semester 파라미터: $it")
-                            }
-                        val coursebook = coursebookService.getLatestCoursebook()
-                        syncSemester(year ?: coursebook.year, semesterValue ?: coursebook.semester)
+                    val semesterValue =
+                        semester?.let {
+                            Semester.getOfValue(it) ?: throw IllegalStateException("잘못된 semester 파라미터: $it")
+                        }
+                    if (year != null && semesterValue != null) {
+                        syncSemester(year, semesterValue)
                     } else {
-                        run()
+                        val latest =
+                            coursebookService.findLatestCoursebook()
+                                ?: throw IllegalStateException("coursebook이 비어 있다. 파라미터 없이 먼저 실행해 최초 편람을 생성한다")
+                        syncSemester(year ?: latest.year, semesterValue ?: latest.semester)
                     }
                     RepeatStatus.FINISHED
                 },
@@ -67,8 +68,17 @@ class SugangSnuSyncJobConfig(
             ).build()
 
     private fun run() {
-        val latest = coursebookService.getLatestCoursebook()
         val condition = sugangSnuLectureApi.getCoursebookCondition()
+        val latest = coursebookService.findLatestCoursebook()
+        if (latest == null) {
+            // 최초 실행: DB에 수강편람이 없으면 수강사이트 기준으로 첫 편람을 만들고 동기화한다
+            log.info("첫 수강편람 생성: {} {}", condition.latestYear, condition.latestSemester)
+            coursebookRepository.save(Coursebook(year = condition.latestYear, semester = condition.latestSemester))
+            extractRegistrationPeriod(condition.latestYear, condition.latestSemester)
+            syncSemester(condition.latestYear, condition.latestSemester)
+            // 사용자가 없으므로 신규 편람 푸시는 생략한다
+            return
+        }
         if (condition.latestYear == latest.year && condition.latestSemester == latest.semester) {
             extractRegistrationPeriod(latest.year, latest.semester)
             syncSemester(latest.year, latest.semester)
