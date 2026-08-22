@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.auth.client
 
+import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
@@ -7,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.auth.oidc.OidcVerificationOptions
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 
 private data class FacebookOAuth2UserResponse(
     val id: String,
@@ -22,7 +22,7 @@ class FacebookClient(
 ) : OAuth2Client {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val restClient = RestClient.create()
+    private val restClient = TimedRestClients.restClient()
 
     companion object {
         private const val USER_INFO_URI = "https://graph.facebook.com/me"

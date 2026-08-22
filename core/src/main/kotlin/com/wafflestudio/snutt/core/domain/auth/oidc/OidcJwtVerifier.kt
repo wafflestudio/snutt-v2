@@ -1,10 +1,10 @@
 package com.wafflestudio.snutt.core.domain.auth.oidc
 
+import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import org.springframework.web.client.RestClient
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.readValue
 import java.math.BigInteger
@@ -43,7 +43,7 @@ class OidcJwtVerifier(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val restClient = RestClient.create()
+    private val restClient = TimedRestClients.restClient()
 
     fun verifyAndDecodeToken(
         token: String,
@@ -72,14 +72,19 @@ class OidcJwtVerifier(
     private fun fetchJwk(
         jwtHeader: OidcJwtHeader,
         jwksUri: String,
-    ): OidcJwk? =
+    ): OidcJwk? = fetchJwkSet(jwksUri)?.keys?.find { matches(it, jwtHeader) }
+
+    private fun fetchJwkSet(jwksUri: String): OidcJwkSet? =
         restClient
             .get()
             .uri(jwksUri)
             .retrieve()
             .body(OidcJwkSet::class.java)
-            ?.keys
-            ?.find { it.kid == jwtHeader.kid && (it.alg == jwtHeader.alg || it.alg.isBlank()) }
+
+    private fun matches(
+        jwk: OidcJwk,
+        header: OidcJwtHeader,
+    ): Boolean = jwk.kid == header.kid && (jwk.alg == header.alg || jwk.alg.isBlank())
 
     private fun extractJwtHeader(token: String): OidcJwtHeader? {
         if (!looksLikeJwt(token)) return null
