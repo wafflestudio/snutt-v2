@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.mail.MailClient
 import com.wafflestudio.snutt.core.common.mail.MailType
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
@@ -48,7 +49,7 @@ class EmailVerificationService(
         val email = store.verify(user.id!!, code)
         user.email = email
         user.isEmailVerified = true
-        userRepository.save(user)
+        conflictAs(ErrorType.DUPLICATE_EMAIL) { userRepository.save(user) }
         store.clear(user.id!!)
     }
 

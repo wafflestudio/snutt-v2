@@ -20,6 +20,7 @@ data class SugangLectureRow(
     val instructor: String,
     val remark: String?,
     val quota: Int,
+    val freshmanQuota: Int?,
     val registrationCount: Int,
     val classPlaceAndTimes: List<ClassPlaceAndTime>,
     val categoryPre2025: String? = null,
@@ -121,13 +122,21 @@ class SugangSnuXlsxParser {
         val classTimeTexts = get("수업교시").split("/")
         val locationTexts = get("강의실(동-호)(#연건, *평창)").split("/")
         val instructor = get("주담당교수")
+        val quotaMatch = quotaRegex.find(get("정원"))
         val quota =
-            quotaRegex
-                .find(get("정원"))
+            quotaMatch
                 ?.groups
                 ?.get("quota")
                 ?.value
                 ?.toInt() ?: 0
+        // "35 (30)": 재학생 수강신청 기간에는 신입생 예비 정원을 제외한 정원이 유효 정원이다
+        val freshmanQuota =
+            quotaMatch
+                ?.groups
+                ?.get("quotaForCurrentStudent")
+                ?.value
+                ?.toInt()
+                ?.let { (quota - it).takeIf { diff -> diff > 0 } }
         val remark = get("비고").ifEmpty { null }
         val registrationCount = get("수강신청인원").toIntOrNull() ?: 0
 
@@ -143,6 +152,7 @@ class SugangSnuXlsxParser {
             instructor = instructor,
             remark = remark,
             quota = quota,
+            freshmanQuota = freshmanQuota,
             registrationCount = registrationCount,
             classPlaceAndTimes = convertClassTimes(classTimeTexts, locationTexts),
         )

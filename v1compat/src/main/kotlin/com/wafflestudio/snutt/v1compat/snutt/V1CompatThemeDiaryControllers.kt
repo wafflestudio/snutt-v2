@@ -64,6 +64,8 @@ data class LegacyThemePublishInfoDto(
     val downloads: Long,
 )
 
+private const val LEGACY_THEME_PAGE_SIZE = 10
+
 private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
     origin: LegacyThemeOriginDto?,
@@ -145,13 +147,13 @@ class V1CompatThemeController(
     fun getBestThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getBestThemes(page))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getBestThemes(page - 1, LEGACY_THEME_PAGE_SIZE))
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getFriendsThemes(user.id!!, page))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getFriendsThemes(user.id!!, page - 1, LEGACY_THEME_PAGE_SIZE))
 
     @PostMapping("/search")
     fun searchThemes(
@@ -234,7 +236,8 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        BasicThemeType.fromValue(basicThemeTypeValue)
+        // 구버전(3.5.0)과 동일하게 기본 테마를 직접 지정할 수 없으며 현재 기본값을 그대로 반환한다
+        BasicThemeType.fromValue(basicThemeTypeValue) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.id!!.toString(), null)
     }
 
@@ -243,8 +246,12 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        BasicThemeType.fromValue(basicThemeTypeValue)
-        return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.id!!.toString(), null)
+        val basicThemeType = BasicThemeType.fromValue(basicThemeTypeValue) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val current = timetableThemeService.getDefaultTheme(user.id!!)
+        if (!current.isCustom && current.builtinType != basicThemeType.value) {
+            throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        }
+        return current.toLegacy(user.id!!.toString(), null)
     }
 
     private fun wrap(
@@ -457,7 +464,7 @@ data class LegacyReminderModifyRequest(
 )
 
 data class LegacyReminderDto(
-    val timetableLectureId: Long,
+    val timetableLectureId: String,
     val courseTitle: String,
     val option: TimetableLectureReminderOption,
 )
@@ -502,7 +509,7 @@ class V1CompatReminderController(
         courseTitle: String,
         option: TimetableLectureReminderOption,
     ) = LegacyReminderDto(
-        timetableLectureId = timetableLectureId,
+        timetableLectureId = timetableLectureId.toString(),
         courseTitle = courseTitle,
         option = option,
     )

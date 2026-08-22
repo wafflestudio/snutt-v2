@@ -15,15 +15,14 @@ import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.Step
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.infrastructure.repeat.RepeatStatus
+import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.transaction.PlatformTransactionManager
 
 @Configuration
 class SugangSnuSyncJobConfig(
     private val jobRepository: JobRepository,
-    private val transactionManager: PlatformTransactionManager,
     private val sugangSnuLectureApi: SugangSnuLectureApi,
     private val sugangSnuXlsxParser: SugangSnuXlsxParser,
     private val sugangSnuLectureEnricher: SugangSnuLectureEnricher,
@@ -59,7 +58,7 @@ class SugangSnuSyncJobConfig(
                     }
                     RepeatStatus.FINISHED
                 },
-                transactionManager,
+                ResourcelessTransactionManager(),
             ).build()
 
     private fun run() {
@@ -99,7 +98,7 @@ class SugangSnuSyncJobConfig(
         val xlsx = sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko")
         val englishXlsx = sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en")
         val englishByKey = sugangSnuXlsxParser.parseEnglish(englishXlsx)
-        val rows =
+        val baseRows =
             sugangSnuXlsxParser
                 .parse(xlsx)
                 .map { row ->
@@ -112,9 +111,42 @@ class SugangSnuSyncJobConfig(
                         classificationEn = en?.classificationEn,
                         remarkEn = en?.remarkEn,
                     )
-                }.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
-        val result = sugangSnuSyncService.sync(year, semester, rows)
-        log.info("sugang sync 완료: {}", result)
+                }
+
+        // enrich 실패 강의는 기존 저장 정보를 유지하도록 이번 실행에서 제외한다(갱신·폐강 판정 모두 제외)
+        val enrichedRows = mutableListOf<SugangLectureRow>()
+        val failedKeys = mutableSetOf<Pair<String, String>>()
+        baseRows.forEach { row ->
+            val enriched =
+                runCatching { enrichWithRetry(year, semester, row) }
+                    .onFailure {
+                        log.error("강의 enrich 실패, 기존 정보를 유지한다: {}{} - {}", row.courseNumber, row.lectureNumber, it.message)
+                    }.getOrNull()
+            if (enriched == null) {
+                failedKeys += row.courseNumber to row.lectureNumber
+            } else {
+                enrichedRows += enriched
+            }
+        }
+        // 실패가 일정 비율을 넘으면 사이트 이상 신호로 보고 이번 동기화를 포기한다
+        if (failedKeys.size >= ENRICH_FAILURE_ABORT_COUNT && failedKeys.size * 10 >= baseRows.size) {
+            throw IllegalStateException("enrich 실패율이 높다: ${failedKeys.size}/${baseRows.size}")
+        }
+
+        val result = sugangSnuSyncService.sync(year, semester, enrichedRows, failedKeys)
+        log.info("sugang sync 완료: {} (enrich 실패 {}: 기존 정보 유지)", result, failedKeys.size)
+    }
+
+    private fun enrichWithRetry(
+        year: Int,
+        semester: Semester,
+        row: SugangLectureRow,
+    ): SugangLectureRow {
+        repeat(ENRICH_RETRY_COUNT) { attempt ->
+            runCatching { return sugangSnuLectureEnricher.enrich(year, semester, row) }
+                .onFailure { Thread.sleep(ENRICH_RETRY_BACKOFF_MS * (attempt + 1)) }
+        }
+        return sugangSnuLectureEnricher.enrich(year, semester, row)
     }
 
     private fun nextCoursebook(coursebook: Coursebook): Coursebook =
@@ -127,5 +159,8 @@ class SugangSnuSyncJobConfig(
 
     companion object {
         const val JOB_NAME = "sugangSnuMigrationJob"
+        private const val ENRICH_RETRY_COUNT = 2
+        private const val ENRICH_RETRY_BACKOFF_MS = 500L
+        private const val ENRICH_FAILURE_ABORT_COUNT = 20
     }
 }

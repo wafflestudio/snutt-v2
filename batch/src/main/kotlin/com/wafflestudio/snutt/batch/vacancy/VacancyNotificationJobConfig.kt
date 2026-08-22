@@ -95,8 +95,8 @@ class VacancyNotificationJobConfig(
             val statuses =
                 runCatching { crawler.getRegistrationStatus(year, semester, pages) }
                     .getOrElse {
-                        log.error("수강스누 페이지 크롤링 실패: {}", it.message)
-                        return
+                        log.error("수강스누 페이지 크롤링 실패, 해당 청크는 건너뛴다: {}", it.message)
+                        return@forEach
                     }
             if (statuses.all { it.registrationCount == 0 }) {
                 log.info("수강신청이 시작되지 않아 중단한다")

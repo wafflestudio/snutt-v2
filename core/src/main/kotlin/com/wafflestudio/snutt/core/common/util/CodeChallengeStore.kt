@@ -26,12 +26,8 @@ class CodeChallengeStore(
         private val jsonMapper: JsonMapper = JsonMapper.builder().findAndAddModules().build()
     }
 
-    fun store(
-        key: Any,
-        code: String,
-        payload: String = "",
-    ) {
-        // 발송 제한은 코드 TTL과 별개 카운터: 1분에 1회, 1시간(고정 창)에 maxSendsPerHour회
+    /** 코드 발송 없이 발송 제한만 적용한다(아이디 찾기 등). */
+    fun throttleSend(key: Any) {
         val firstInMinute =
             redisTemplate.opsForValue().setIfAbsent(sendMinutePrefix + key, "1", Duration.ofMinutes(1)) ?: false
         if (!firstInMinute) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
@@ -42,7 +38,14 @@ class CodeChallengeStore(
             redisTemplate.expire(hourKey, Duration.ofHours(1))
         }
         if (sendsThisHour > maxSendsPerHour) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
+    }
 
+    fun store(
+        key: Any,
+        code: String,
+        payload: String = "",
+    ) {
+        throttleSend(key)
         val stored = Stored(payload = payload, code = code)
         redisTemplate.opsForValue().set(codePrefix + key, jsonMapper.writeValueAsString(stored), ttl)
         redisTemplate.delete(attemptPrefix + key)

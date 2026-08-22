@@ -29,7 +29,12 @@ class SugangSnuRegistrationStatusCrawler(
         semester: Semester,
     ): Int {
         val firstPage = parse(sugangSnuLectureApi.getSearchPageHtml(year, semester, 1))
-        val totalCount = firstPage.select("div.content > div.search-result-con > small > em").text().toInt()
+        val totalCount =
+            firstPage
+                .select("div.content > div.search-result-con > small > em")
+                .text()
+                .filter { it.isDigit() }
+                .toInt()
         return (totalCount + COUNT_PER_PAGE - 1) / COUNT_PER_PAGE
     }
 

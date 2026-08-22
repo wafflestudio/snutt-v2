@@ -79,20 +79,22 @@ class EvaluationService(
             throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
         }
         val evaluation =
-            evaluationRepository.save(
-                Evaluation(
-                    courseId = courseId,
-                    userId = userId,
-                    year = year,
-                    semester = semester,
-                    content = request.content,
-                    gradeSatisfaction = request.gradeSatisfaction,
-                    teachingSkill = request.teachingSkill,
-                    gains = request.gains,
-                    lifeBalance = request.lifeBalance,
-                    rating = request.rating,
-                ),
-            )
+            conflictAs(ErrorType.DUPLICATE_EVALUATION) {
+                evaluationRepository.save(
+                    Evaluation(
+                        courseId = courseId,
+                        userId = userId,
+                        year = year,
+                        semester = semester,
+                        content = request.content,
+                        gradeSatisfaction = request.gradeSatisfaction,
+                        teachingSkill = request.teachingSkill,
+                        gains = request.gains,
+                        lifeBalance = request.lifeBalance,
+                        rating = request.rating,
+                    ),
+                )
+            }
         courseAggregateUpdater.update(courseId)
         return evaluation.toDisplay(userId)
     }
@@ -127,7 +129,7 @@ class EvaluationService(
     ): List<EvaluationDisplay> {
         val (courseId, year, semester) = resolveLectureAnchor(lectureId)
         return evaluationRepository
-            .findByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(courseId, year, semester, userId)
+            .findByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalseOrderByIdDesc(courseId, year, semester, userId)
             .map { it.toDisplay(userId) }
     }
 
@@ -173,6 +175,7 @@ class EvaluationService(
         if (isUpdatingAny(evaluation, request)) {
             evaluation.likeCount = 0
             evaluationLikeRepository.deleteByEvaluationId(evaluationId)
+            evaluationRepository.resetLikeCount(evaluationId)
         }
         request.content?.let {
             if (it.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
@@ -246,7 +249,7 @@ class EvaluationService(
         conflictAs(ErrorType.DUPLICATE_EVALUATION_LIKE) {
             evaluationLikeRepository.save(EvaluationLike(evaluationId = evaluationId, userId = userId))
         }
-        evaluation.likeCount++
+        evaluationRepository.incrementLikeCount(evaluationId)
     }
 
     @Transactional
@@ -259,7 +262,7 @@ class EvaluationService(
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         val deleted = evaluationLikeRepository.deleteByEvaluationIdAndUserId(evaluationId, userId)
         if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_LIKE_NOT_FOUND)
-        evaluation.likeCount = (evaluation.likeCount - 1).coerceAtLeast(0)
+        evaluationRepository.decrementLikeCount(evaluationId)
     }
 
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> =

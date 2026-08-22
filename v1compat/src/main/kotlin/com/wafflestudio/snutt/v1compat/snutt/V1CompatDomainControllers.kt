@@ -24,6 +24,7 @@ import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
+import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
@@ -400,6 +401,7 @@ data class LegacyPopupDto(
     val hiddenDaysSnake: Int?,
 )
 
+@V1Public
 @RestController
 @RequestMapping("/v1/popups")
 class V1CompatPopupController(
@@ -424,6 +426,7 @@ class V1CompatPopupController(
         }
 }
 
+@V1Public
 @RestController
 @RequestMapping("/v1/configs")
 class V1CompatConfigController(
@@ -461,6 +464,7 @@ class V1CompatPushPreferenceController(
     }
 }
 
+@V1Public
 @RestController
 @RequestMapping("/v1/feedback")
 class V1CompatFeedbackController(

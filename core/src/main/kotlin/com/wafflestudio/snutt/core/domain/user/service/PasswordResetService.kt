@@ -38,10 +38,22 @@ class PasswordResetService(
 
     @Transactional
     fun sendLocalIdToEmail(email: String) {
-        val users = userRepository.findAllByEmailAndActiveTrue(email.trim())
-        val accountInfo = buildFindIdAccountInfo(users)
-        if (accountInfo.isBlank()) throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val accountInfo = findIdAccountInfo(email) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        store.throttleSend(email.trim())
         mailClient.sendCodeMail(MailType.VERIFICATION, email.trim(), accountInfo)
+    }
+
+    /** 아이디 찾기 요청도 이메일 존재 여부를 응답으로 노출하지 않는다(v2). */
+    @Transactional
+    fun sendLocalIdToEmailQuietly(email: String) {
+        val accountInfo = findIdAccountInfo(email) ?: return
+        store.throttleSend(email.trim())
+        mailClient.sendCodeMail(MailType.VERIFICATION, email.trim(), accountInfo)
+    }
+
+    private fun findIdAccountInfo(email: String): String? {
+        val users = userRepository.findAllByEmailAndActiveTrue(email.trim())
+        return buildFindIdAccountInfo(users).ifEmpty { null }
     }
 
     private fun buildFindIdAccountInfo(users: List<User>): String {
@@ -130,6 +142,19 @@ class PasswordResetService(
         confirmReset(user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND), code, newPassword)
     }
 
+    /** 존재하지 않는 이메일과 코드 불일치를 구분하지 않는다(v2). */
+    @Transactional
+    fun confirmResetQuietly(
+        email: String,
+        code: String,
+        newPassword: String,
+    ) {
+        val user =
+            userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
+                ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+        confirmResetFor(user, code, newPassword)
+    }
+
     @Transactional
     fun confirmReset(
         email: String,
@@ -139,6 +164,14 @@ class PasswordResetService(
         val user =
             userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        confirmResetFor(user, code, newPassword)
+    }
+
+    private fun confirmResetFor(
+        user: User,
+        code: String,
+        newPassword: String,
+    ) {
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
         store.verify(userId, code)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)

@@ -21,15 +21,19 @@ data class LegacyLoginResponse(
 )
 
 data class LegacyTimetableDto(
+    @param:JsonProperty("_id")
     val id: String?,
+    @param:JsonProperty("user_id")
     val userId: String,
     val year: Int,
     val semester: Semester,
+    @param:JsonProperty("lecture_list")
     val lectures: List<LegacyTimetableLectureDto>,
     val title: String,
     val theme: Int,
     val themeId: String?,
     val isPrimary: Boolean,
+    @param:JsonProperty("updated_at")
     val updatedAt: Instant,
 )
 
@@ -54,24 +58,34 @@ fun LegacyTimetableDto(
     )
 
 data class LegacyTimetableLectureDto(
+    @param:JsonProperty("_id")
     val id: String?,
+    @param:JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
-    val classPlaceAndTimes: List<LegacyClassPlaceAndTimeDto>,
+    @param:JsonProperty("class_time_json")
+    val classPlaceAndTimes: List<LegacyClassPlaceAndTimeFullDto>,
     val classification: String?,
     val credit: Int?,
     val department: String?,
     val instructor: String?,
+    @param:JsonProperty("lecture_number")
     val lectureNumber: String?,
     val quota: Int?,
+    @param:JsonProperty("freshman_quota")
     val freshmanQuota: Int?,
     val remark: String?,
+    @param:JsonProperty("course_number")
     val courseNumber: String?,
+    @param:JsonProperty("course_title")
     val courseTitle: String,
     val color: LegacyColorSetDto?,
+    @param:JsonProperty("colorIndex")
     val colorIndex: Int,
+    @param:JsonProperty("lecture_id")
     val lectureId: String?,
     val snuttEvLecture: LegacyEvLectureIdDto?,
+    @param:JsonProperty("categoryPre2025")
     val categoryPre2025: String?,
 )
 
@@ -84,7 +98,7 @@ fun LegacyTimetableLectureDto(
         id = display.id.toString(),
         academicYear = language.select(display.academicYear, display.academicYearEn),
         category = language.select(display.category, display.categoryEn),
-        classPlaceAndTimes = display.classPlaceAndTimes.map { LegacyClassPlaceAndTimeDto(it) },
+        classPlaceAndTimes = display.classPlaceAndTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
         classification = language.select(display.classification, display.classificationEn),
         credit = display.credit,
         department = language.select(display.department, display.departmentEn),
@@ -116,21 +130,6 @@ data class LegacyColorSetDto(
     val bg: String?,
     val fg: String?,
 )
-
-data class LegacyClassPlaceAndTimeDto(
-    val day: Int,
-    val place: String,
-    val startMinute: Int,
-    val endMinute: Int,
-)
-
-fun LegacyClassPlaceAndTimeDto(time: ClassPlaceAndTime): LegacyClassPlaceAndTimeDto =
-    LegacyClassPlaceAndTimeDto(
-        day = time.day.value,
-        place = time.place,
-        startMinute = time.startMinute,
-        endMinute = time.endMinute,
-    )
 
 data class LegacyClassPlaceAndTimeFullDto(
     val day: Int,

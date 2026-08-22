@@ -239,16 +239,18 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val detail = get("/v1/tables/$timetableId", legacyToken)
         assertEquals(200, detail.statusCode.value())
         val node = body(detail)
-        assertEquals(timetableId, node["id"].asString())
-        assertEquals(userId, node["userId"].asString())
-        val lectures = node["lectures"]
+        assertEquals(timetableId, node["_id"].asString())
+        assertEquals(userId, node["user_id"].asString())
+        val lectures = node["lecture_list"]
         assertEquals(1, lectures.size())
         val lecture = lectures[0]
-        assertEquals("고급한국어", lecture["courseTitle"].asString())
-        assertEquals(lectureId, lecture["lectureId"].asString())
-        val classTimes = lecture["classPlaceAndTimes"]
+        assertEquals("고급한국어", lecture["course_title"].asString())
+        assertEquals(lectureId, lecture["lecture_id"].asString())
+        assertTrue(lecture.has("class_time_json"))
+        val classTimes = lecture["class_time_json"]
         assertEquals(0, classTimes[0]["day"].asInt())
         assertEquals(570, classTimes[0]["startMinute"].asInt())
+        assertEquals("09:30", classTimes[0]["start_time"].asString())
     }
 
     @Test

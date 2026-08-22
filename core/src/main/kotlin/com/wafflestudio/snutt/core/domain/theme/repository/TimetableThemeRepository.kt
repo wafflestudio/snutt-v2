@@ -35,6 +35,10 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
 }
 
 interface PublishedThemeRepository : JpaRepository<PublishedTheme, Long> {
+    @Modifying
+    @Query("UPDATE PublishedTheme p SET p.downloadCount = p.downloadCount + 1 WHERE p.id = :id")
+    fun incrementDownloadCount(id: Long)
+
     fun findByThemeId(themeId: Long): PublishedTheme?
 
     fun findByThemeIdIn(themeIds: Collection<Long>): List<PublishedTheme>
