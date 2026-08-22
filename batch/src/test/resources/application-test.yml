@@ -5,7 +5,4 @@ snutt:
       public-key: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq09ytNYWbyfk+iDyVE+rPSBuOHv5csJIxN/tVqRnabmScM+fQGaIQrCDr/FhLGNJsNuZU16hTaZpB1QdwN8pHQ==
       access-token-ttl: PT2H
     refresh-token-ttl: P180D
-    legacy-secret-key: test-legacy-secret-key
     platform-keys: ios:test-ios-key,android:test-android-key,web:test-web-key
-  friend-link:
-    secret: test-friend-link-secret
