@@ -7,14 +7,8 @@ import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import java.security.KeyFactory
-import java.security.PrivateKey
-import java.security.PublicKey
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
 import java.time.Duration
 import java.time.Instant
-import java.util.Base64
 import java.util.Date
 
 data class AccessTokenPayload(
@@ -24,19 +18,9 @@ data class AccessTokenPayload(
 
 @Service
 class AccessTokenService(
-    @Value("\${snutt.auth.jwt.private-key}") privateKeyBase64: String,
-    @Value("\${snutt.auth.jwt.public-key}") publicKeyBase64: String,
+    private val es256Keys: Es256Keys,
     @param:Value("\${snutt.auth.jwt.access-token-ttl:PT2H}") private val accessTokenTtl: Duration,
 ) {
-    private val privateKey: PrivateKey =
-        KeyFactory
-            .getInstance("EC")
-            .generatePrivate(PKCS8EncodedKeySpec(Base64.getDecoder().decode(privateKeyBase64)))
-    private val publicKey: PublicKey =
-        KeyFactory
-            .getInstance("EC")
-            .generatePublic(X509EncodedKeySpec(Base64.getDecoder().decode(publicKeyBase64)))
-
     companion object {
         private const val ISSUER = "snutt"
         private const val SESSION_CLAIM = "sid"
@@ -51,7 +35,7 @@ class AccessTokenService(
             .claim(SESSION_CLAIM, payload.sessionId.toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now + accessTokenTtl))
-            .signWith(privateKey, Jwts.SIG.ES256)
+            .signWith(es256Keys.privateKey, Jwts.SIG.ES256)
             .compact()
     }
 
@@ -60,7 +44,7 @@ class AccessTokenService(
             try {
                 Jwts
                     .parser()
-                    .verifyWith(publicKey)
+                    .verifyWith(es256Keys.publicKey)
                     .requireIssuer(ISSUER)
                     .build()
                     .parseSignedClaims(token)

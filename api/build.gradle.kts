@@ -8,6 +8,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 
+    testImplementation("io.jsonwebtoken:jjwt-api:0.13.0")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     // Testcontainers 2.x 아티팩트 명 (mysql/junit-jupiter → testcontainers-*)
     testImplementation("org.testcontainers:testcontainers-mysql")

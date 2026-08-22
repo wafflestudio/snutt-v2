@@ -13,6 +13,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+import io.jsonwebtoken.Jwts
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -28,6 +29,7 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import javax.crypto.spec.SecretKeySpec
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -174,6 +176,39 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val v2Token = body(v2Login)["accessToken"].asString()
         val rejected = get("/v1/users/me", v2Token)
         assertEquals(403, rejected.statusCode.value())
+    }
+
+    @Test
+    fun `구 백엔드 apikey JWT로 v1 API를 호출할 수 있다`() {
+        fun legacyApiKey(
+            platform: String,
+            keyVersion: String,
+        ): String =
+            Jwts
+                .builder()
+                .claim("string", platform)
+                .claim("key_version", keyVersion)
+                .signWith(
+                    SecretKeySpec("test-legacy-secret-key-0123456789abcdef".toByteArray(), "HmacSHA256"),
+                    Jwts.SIG.HS256,
+                ).compact()
+
+        fun callWith(apiKey: String): ResponseEntity<String> =
+            RestClient
+                .builder()
+                .baseUrl("http://localhost:$port")
+                .defaultStatusHandler({ true }) { _, _ -> }
+                .defaultHeader("x-access-apikey", apiKey)
+                .defaultHeader("Content-Type", "application/json")
+                .build()
+                .post()
+                .uri("/v1/auth/login_local")
+                .body("""{"id":"v1user","password":"password1"}""")
+                .retrieve()
+                .toEntity(String::class.java)
+
+        assertEquals(200, callWith(legacyApiKey("ios", "0")).statusCode.value())
+        assertEquals(403, callWith(legacyApiKey("ios", "9")).statusCode.value())
     }
 
     @Test
