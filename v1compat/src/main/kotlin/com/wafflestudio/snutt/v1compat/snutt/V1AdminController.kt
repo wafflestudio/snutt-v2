@@ -94,7 +94,7 @@ class V1AdminController(
 
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
-        @PathVariable source: Long,
+        @PathVariable source: String,
         @RequestParam(defaultValue = "1") count: Int,
     ): List<FileUploadUri> {
         val storageSource = StorageSource.from(source) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

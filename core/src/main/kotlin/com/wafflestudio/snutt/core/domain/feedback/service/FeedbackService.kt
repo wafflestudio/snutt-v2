@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.core.domain.feedback.service
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -21,7 +23,7 @@ class FeedbackService(
         appVersion: String,
         deviceModel: String,
     ) {
-        if (token.isBlank()) return
+        if (token.isBlank()) throw SnuttException(ErrorType.FEEDBACK_UPLOAD_FAILED)
         val platform = osVersion?.let { "$osType ($osVersion)" } ?: osType
         val body =
             """

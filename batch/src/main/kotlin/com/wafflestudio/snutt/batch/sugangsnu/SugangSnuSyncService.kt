@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
-import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -12,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatu
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
@@ -57,10 +55,8 @@ class SugangSnuSyncService(
     private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val courseRepository: CourseRepository,
-    private val lectureVocabularyService: LectureVocabularyService,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableRepository: TimetableRepository,
-    private val bookmarkRepository: BookmarkRepository,
     private val bookmarkLectureRepository: BookmarkLectureRepository,
     private val notificationRepository: NotificationRepository,
     private val pushService: PushService,
@@ -109,7 +105,6 @@ class SugangSnuSyncService(
         syncRegistrationCounts(year, semester, rows, lectureByKey)
         syncUserLectures(updated, deleted)
         deleted.forEach(lectureRepository::delete)
-        lectureVocabularyService.invalidate()
 
         runCatching {
             lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
@@ -286,11 +281,12 @@ class SugangSnuSyncService(
         lecture: Lecture,
         action: (userId: Long) -> Unit,
     ) {
-        val bookmarkLectures = bookmarkLectureRepository.findByLectureIdIn(listOf(lecture.id!!))
-        if (bookmarkLectures.isEmpty()) return
-        bookmarkRepository
-            .findAllById(bookmarkLectures.map { it.bookmarkId }.distinct())
-            .forEach { action(it.userId) }
+        bookmarkLectureRepository
+            .findByLectureIdIn(listOf(lecture.id!!))
+            .asSequence()
+            .map { it.userId }
+            .distinct()
+            .forEach(action)
     }
 
     private fun overlapsOtherLecture(

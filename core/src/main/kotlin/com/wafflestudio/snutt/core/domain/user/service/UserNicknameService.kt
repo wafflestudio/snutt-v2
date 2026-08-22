@@ -32,6 +32,7 @@ class UserNicknameService(
             .readBytes()
             .decodeToString()
             .split("\n")
+            .map { it.trimEnd('\r') }
             .filter { it.isNotBlank() }
 
     fun generateUniqueRandomNickname(): String = appendNewTag(nicknames.random())

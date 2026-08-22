@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -15,6 +16,7 @@ import java.time.Instant
 @Service
 class UserService(
     private val userRepository: UserRepository,
+    private val userSocialAuthRepository: UserSocialAuthRepository,
     private val userSessionRepository: UserSessionRepository,
     private val userNicknameService: UserNicknameService,
     private val eventPublisher: ApplicationEventPublisher,
@@ -38,6 +40,7 @@ class UserService(
     fun deactivate(user: User) {
         user.active = false
         userSessionRepository.revokeAllByUserId(user.id!!)
+        userSocialAuthRepository.deleteByUserId(user.id!!)
         userRepository.save(user)
         eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))
     }
@@ -47,8 +50,4 @@ class UserService(
         user.notificationCheckedAt = Instant.now()
         userRepository.save(user)
     }
-
-    fun getByExternalId(externalId: String): User = get(externalId.toLong())
-
-    fun getExternalIds(userIds: Collection<Long>): Map<Long, String> = userIds.associateWith { it.toString() }
 }

@@ -99,7 +99,7 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                     ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645),
                     ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "3-106", 570, 645),
                 ),
-            ).externalId
+            ).id!!.toString()
 
         val register =
             post(

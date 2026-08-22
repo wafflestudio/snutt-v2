@@ -31,6 +31,10 @@ spring:
       hibernate:
         format_sql: true
 
+snutt:
+  friend-link:
+    secret: ${SNUTT_FRIEND_LINK_SECRET:local-dev-friend-link-secret}
+
 ---
 spring:
   config:

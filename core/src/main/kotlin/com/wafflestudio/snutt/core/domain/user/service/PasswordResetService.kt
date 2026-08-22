@@ -7,26 +7,30 @@ import com.wafflestudio.snutt.core.common.mail.MailType
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.common.util.VerificationCode
+import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
 
 @Service
 class PasswordResetService(
     redisTemplate: StringRedisTemplate,
     private val userRepository: UserRepository,
+    private val userSocialAuthRepository: UserSocialAuthRepository,
     private val userSessionRepository: UserSessionRepository,
     private val mailClient: MailClient,
     private val passwordEncoder: PasswordEncoder,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
-    private val store = CodeChallengeStore(redisTemplate, "reset-password")
+    private val store = CodeChallengeStore(redisTemplate, "reset-password", ttl = Duration.ofMinutes(15))
 
     companion object {
         private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
@@ -41,28 +45,59 @@ class PasswordResetService(
     }
 
     private fun buildFindIdAccountInfo(users: List<User>): String {
-        val accounts = users.filter { it.localId != null || it.authProviders.isNotEmpty() }.sortedBy { it.createdAt }
+        val socialProvidersByUser =
+            userSocialAuthRepository
+                .findByUserIdIn(users.mapNotNull { it.id })
+                .groupBy({ it.userId }, { it.provider })
+
+        fun providersOf(user: User): List<AuthProvider> =
+            buildList {
+                if (user.localId != null) add(AuthProvider.LOCAL)
+                socialProvidersByUser[user.id].orEmpty().forEach { add(it) }
+            }
+        val accounts =
+            users
+                .filter { it.localId != null || !socialProvidersByUser[it.id].isNullOrEmpty() }
+                .sortedBy { it.createdAt }
         return when (accounts.size) {
             0 -> ""
-            1 -> renderFindIdAccount(accounts[0])
+            1 ->
+                renderFindIdAccount(accounts[0], providersOf(accounts[0]))
             else ->
                 accounts
-                    .mapIndexed { index, user -> "<b>&lt;계정 ${index + 1}&gt;</b><br/>" + renderFindIdAccount(user) }
+                    .mapIndexed { index, user -> "<b>&lt;계정 ${index + 1}&gt;</b><br/>" + renderFindIdAccount(user, providersOf(user)) }
                     .joinToString(separator = "<br/>")
         }
     }
 
-    private fun renderFindIdAccount(user: User): String =
+    private fun renderFindIdAccount(
+        user: User,
+        providers: List<AuthProvider>,
+    ): String =
         buildList {
             user.localId?.let { add("<b>[아이디]</b> $it") }
-            if (user.authProviders.isNotEmpty()) add("<b>[소셜 로그인 수단]</b> ${user.authProviders.joinToString(", ")}")
+            if (providers.isNotEmpty()) add("<b>[소셜 로그인 수단]</b> ${providers.joinToString(", ")}")
         }.joinToString(separator = "<br/>", postfix = "<br/>")
 
     @Transactional
     fun requestReset(email: String) {
-        val user =
-            userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
-                ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user = findResetTargetUser(email) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        sendResetCode(user, email)
+    }
+
+    /** 이메일 존재 여채를 응답으로 노출하지 않는다(v2). 없으면 아무 일도 하지 않는다. */
+    @Transactional
+    fun requestResetQuietly(email: String) {
+        val user = findResetTargetUser(email) ?: return
+        sendResetCode(user, email)
+    }
+
+    private fun findResetTargetUser(email: String): User? = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
+
+    private fun sendResetCode(
+        user: User,
+        email: String,
+    ) {
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
         val code = VerificationCode.generate()
         store.store(userId, code)

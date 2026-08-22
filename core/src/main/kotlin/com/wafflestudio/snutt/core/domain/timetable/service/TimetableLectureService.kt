@@ -232,27 +232,4 @@ class TimetableLectureService(
         val shortFormOfTitles = if (overlappingLectures.size < 3) "" else "외 ${overlappingLectures.size - 2}개의 "
         return "$overlappingLectureTitles ${shortFormOfTitles}강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?"
     }
-
-    @Transactional
-    fun modifyLecture(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-        request: TimetableLectureModifyRequest,
-    ): TimetableDisplay = modifyLecture(userId, timetableExternalId.toLong(), timetableLectureExternalId.toLong(), request)
-
-    @Transactional
-    fun resetLecture(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-        isForced: Boolean,
-    ): TimetableDisplay = resetLecture(userId, timetableExternalId.toLong(), timetableLectureExternalId.toLong(), isForced)
-
-    @Transactional
-    fun deleteLecture(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-    ): TimetableDisplay = deleteLecture(userId, timetableExternalId.toLong(), timetableLectureExternalId.toLong())
 }

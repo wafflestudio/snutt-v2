@@ -29,7 +29,6 @@ class UserDataStep(
     override val tables =
         listOf(
             "bookmark_lecture",
-            "bookmark",
             "vacancy_notification",
             "user_device",
             "push_preference",
@@ -48,33 +47,26 @@ class UserDataStep(
 
     private fun migrateBookmarks() {
         val ids = IdSequence()
-        val lectureIds = IdSequence()
         var lectureCount = 0L
-        writer("bookmark", listOf("id", "user_id", "year", "semester", "created_at", "updated_at")).use { out ->
-            writer(
-                "bookmark_lecture",
-                listOf("id", "bookmark_id", "lecture_id", "created_at", "updated_at"),
-                parent = out,
-            ).use { items ->
-                mongo.each("bookmarks") { doc ->
-                    val userId = context.userIds[doc.oid("user_id")] ?: return@each
-                    val id = ids.next()
-                    val now = Instant.now().toSqlTimestamp()
-                    out.add(id, userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, now, now)
-                    doc
-                        .docs("lectures")
-                        .mapNotNull { context.lectureIds[it.id()] }
-                        .distinct()
-                        .forEach { lectureId ->
-                            items.add(lectureIds.next(), id, lectureId, now, now)
-                            lectureCount++
-                        }
-                }
+        writer(
+            "bookmark_lecture",
+            listOf("id", "user_id", "year", "semester", "lecture_id", "created_at", "updated_at"),
+        ).use { out ->
+            mongo.each("bookmarks") { doc ->
+                val userId = context.userIds[doc.oid("user_id")] ?: return@each
+                val now = Instant.now().toSqlTimestamp()
+                doc
+                    .docs("lectures")
+                    .mapNotNull { context.lectureIds[it.id()] }
+                    .distinct()
+                    .forEach { lectureId ->
+                        out.add(ids.next(), userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, lectureId, now, now)
+                        lectureCount++
+                    }
             }
         }
-        alignAutoIncrement("bookmark", ids.peek())
-        alignAutoIncrement("bookmark_lecture", lectureIds.peek())
-        log.info("북마크 이관: {}건, 담긴 강의 {}건", ids.peek() - 1, lectureCount)
+        alignAutoIncrement("bookmark_lecture", ids.peek())
+        log.info("북마크 이관: 담긴 강의 {}건", lectureCount)
     }
 
     private fun migrateVacancyNotifications() {

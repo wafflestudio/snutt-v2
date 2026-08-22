@@ -32,7 +32,7 @@ data class UpdateUserRequest(
     @field:NotBlank val nickname: String,
 )
 
-private fun User.toResponse() =
+private fun User.toResponse(authProviders: List<AuthProvider>) =
     UserResponse(
         id = id!!,
         nickname = nicknameWithoutTag,
@@ -53,13 +53,13 @@ class UserController(
     @GetMapping("/me")
     fun getMe(
         @CurrentUser user: User,
-    ): UserResponse = user.toResponse()
+    ): UserResponse = user.toResponse(authService.getAuthProviders(user))
 
     @PatchMapping("/me")
     fun updateMe(
         @CurrentUser user: User,
         @RequestBody request: UpdateUserRequest,
-    ): UserResponse = userService.updateNickname(user, request.nickname).toResponse()
+    ): UserResponse = userService.updateNickname(user, request.nickname).toResponse(authService.getAuthProviders(user))
 
     @DeleteMapping("/me")
     fun deleteMe(
@@ -139,7 +139,7 @@ class UserController(
         @RequestBody body: AttachLocalRequest,
     ): AuthProvidersResponse {
         authService.attachLocal(user, body.localId, body.password)
-        return AuthProvidersResponse(user.authProviders)
+        return AuthProvidersResponse(authService.getAuthProviders(user))
     }
 
     @PatchMapping("/me/password")
@@ -158,7 +158,7 @@ class UserController(
         @RequestBody body: SocialTokenRequest,
     ): AuthProvidersResponse {
         authService.attachSocial(user, parseSocialProvider(provider), body.token)
-        return AuthProvidersResponse(user.authProviders)
+        return AuthProvidersResponse(authService.getAuthProviders(user))
     }
 
     @DeleteMapping("/me/social/{provider}")
@@ -167,7 +167,7 @@ class UserController(
         @PathVariable provider: String,
     ): AuthProvidersResponse {
         authService.detachSocial(user, parseSocialProvider(provider))
-        return AuthProvidersResponse(user.authProviders)
+        return AuthProvidersResponse(authService.getAuthProviders(user))
     }
 
     private fun parseSocialProvider(value: String): AuthProvider =

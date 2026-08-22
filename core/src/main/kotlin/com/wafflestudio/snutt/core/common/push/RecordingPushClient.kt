@@ -9,10 +9,17 @@ import java.util.concurrent.CopyOnWriteArrayList
 class RecordingPushClient : PushClient {
     val sentMessages: MutableList<TargetedPushMessage> = CopyOnWriteArrayList()
 
+    val topicMessages: MutableList<TopicPushMessage> = CopyOnWriteArrayList()
+
     val globalTopicSubscriptions: MutableList<String> = CopyOnWriteArrayList()
 
-    override fun sendMessages(messages: List<TargetedPushMessage>) {
+    override fun sendMessages(messages: List<TargetedPushMessage>): PushSendResult {
         sentMessages.addAll(messages)
+        return PushSendResult()
+    }
+
+    override fun sendTopicMessage(message: TopicPushMessage) {
+        topicMessages.add(message)
     }
 
     override fun subscribeGlobalTopic(registrationId: String) {

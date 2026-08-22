@@ -25,14 +25,25 @@ class UserStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "user"
-    override val tables = listOf("user")
+    override val tables = listOf("user_social_auth", "user")
+
+    private data class SocialCredential(
+        val provider: String,
+        val sub: String,
+        val email: String?,
+        val displayName: String?,
+        val transferSub: String?,
+    )
 
     override fun run() {
         val localIdOwner = HashMap<String, String>()
         val emailOwner = HashMap<String, String>()
-        resolveLoginOwners(localIdOwner, emailOwner)
+        val socialOwner = HashMap<String, String>()
+        resolveLoginOwners(localIdOwner, emailOwner, socialOwner)
 
         val ids = IdSequence()
+        val socialIds = IdSequence()
+        val socialRows = mutableListOf<Pair<String, SocialCredential>>()
         val takenNicknames = HashSet<String>(256_000)
         writer("user", COLUMNS).use { out ->
             mongo.each("users") { doc ->
@@ -57,6 +68,15 @@ class UserStep(
                     context.resolved("같은 이메일이 인증된 활성 계정이 여럿이라 인증 상태를 해제")
                 }
 
+                val social = socialCredentials(credential)
+                social.forEach { credentialEntry ->
+                    if (active && socialOwner[credentialEntry.subKey] == externalId) {
+                        socialRows += externalId to credentialEntry
+                    } else if (active) {
+                        context.resolved("같은 소셜 계정을 쓰는 활성 계정이 여럿이라 소셜 로그인 수단을 제거")
+                    }
+                }
+
                 val registeredAt = doc.instant("regDate").orNow()
                 out.add(
                     id,
@@ -65,15 +85,6 @@ class UserStep(
                     uniqueNickname(doc.str("nickname"), takenNicknames),
                     localId,
                     localPw,
-                    credential.str("fbId"),
-                    credential.str("fbName"),
-                    credential.str("appleSub"),
-                    credential.str("appleTransferSub"),
-                    credential.str("appleEmail"),
-                    credential.str("googleSub"),
-                    credential.str("googleEmail"),
-                    credential.str("kakaoSub"),
-                    credential.str("kakaoEmail"),
                     active,
                     doc.bool("isAdmin"),
                     lastLoginAt(doc, registeredAt).toSqlTimestamp(),
@@ -84,15 +95,56 @@ class UserStep(
             }
         }
         alignAutoIncrement("user", ids.peek())
-        log.info("사용자 이관: {}건", context.userIds.size)
+
+        writer(
+            "user_social_auth",
+            listOf("id", "user_id", "provider", "sub", "email", "display_name", "transfer_sub", "created_at", "updated_at"),
+        ).use { out ->
+            socialRows.forEach { (externalId, credential) ->
+                val now = Instant.now().toSqlTimestamp()
+                out.add(
+                    socialIds.next(),
+                    context.userIds[externalId],
+                    credential.provider,
+                    credential.sub,
+                    credential.email,
+                    credential.displayName,
+                    credential.transferSub,
+                    now,
+                    now,
+                )
+            }
+        }
+        alignAutoIncrement("user_social_auth", socialIds.peek())
+        log.info("사용자 이관: {}건 (소셜 로그인 {}건)", context.userIds.size, socialRows.size)
     }
+
+    private val SocialCredential.subKey: String get() = "$provider|$sub"
+
+    private fun socialCredentials(credential: Document): List<SocialCredential> =
+        buildList {
+            credential.str("fbId")?.let {
+                add(SocialCredential("facebook", it, null, credential.str("fbName"), null))
+            }
+            credential.str("appleSub")?.let {
+                add(SocialCredential("apple", it, credential.str("appleEmail"), null, credential.str("appleTransferSub")))
+            }
+            credential.str("googleSub")?.let {
+                add(SocialCredential("google", it, credential.str("googleEmail"), null, null))
+            }
+            credential.str("kakaoSub")?.let {
+                add(SocialCredential("kakao", it, credential.str("kakaoEmail"), null, null))
+            }
+        }
 
     private fun resolveLoginOwners(
         localIdOwner: HashMap<String, String>,
         emailOwner: HashMap<String, String>,
+        socialOwner: HashMap<String, String>,
     ) {
         val localIdLastLogin = HashMap<String, Long>()
         val emailLastLogin = HashMap<String, Long>()
+        val socialLastLogin = HashMap<String, Long>()
         mongo.each("users") { doc ->
             if (!doc.bool("active")) return@each
             val externalId = doc.id()
@@ -108,6 +160,14 @@ class UserStep(
                     if (lastLogin >= (emailLastLogin[email] ?: -1L)) {
                         emailLastLogin[email] = lastLogin
                         emailOwner[email] = externalId
+                    }
+                }
+            }
+            doc.doc("credential")?.let { credential ->
+                socialCredentials(credential).forEach { social ->
+                    if (lastLogin >= (socialLastLogin[social.subKey] ?: -1L)) {
+                        socialLastLogin[social.subKey] = lastLogin
+                        socialOwner[social.subKey] = externalId
                     }
                 }
             }
@@ -146,15 +206,6 @@ class UserStep(
                 "nickname",
                 "local_id",
                 "local_pw",
-                "facebook_sub",
-                "facebook_name",
-                "apple_sub",
-                "apple_transfer_sub",
-                "apple_email",
-                "google_sub",
-                "google_email",
-                "kakao_sub",
-                "kakao_email",
                 "active",
                 "is_admin",
                 "last_login_at",

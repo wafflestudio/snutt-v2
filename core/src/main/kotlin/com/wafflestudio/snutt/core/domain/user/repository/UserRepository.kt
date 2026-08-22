@@ -6,16 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface UserRepository : JpaRepository<User, Long> {
     fun findByLocalIdAndActiveTrue(localId: String): User?
 
-    fun findByFacebookSubAndActiveTrue(facebookSub: String): User?
-
-    fun findByAppleSubAndActiveTrue(appleSub: String): User?
-
-    fun findByAppleTransferSubAndActiveTrue(appleTransferSub: String): User?
-
-    fun findByGoogleSubAndActiveTrue(googleSub: String): User?
-
-    fun findByKakaoSubAndActiveTrue(kakaoSub: String): User?
-
     fun findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email: String): User?
 
     fun findByNicknameAndActiveTrue(nickname: String): User?
@@ -31,12 +21,4 @@ interface UserRepository : JpaRepository<User, Long> {
     fun findAllByEmailAndActiveTrue(email: String): List<User>
 
     fun existsByLocalIdAndActiveTrue(localId: String): Boolean
-
-    fun existsByFacebookSubAndActiveTrue(facebookSub: String): Boolean
-
-    fun existsByGoogleSubAndActiveTrue(googleSub: String): Boolean
-
-    fun existsByKakaoSubAndActiveTrue(kakaoSub: String): Boolean
-
-    fun existsByAppleSubAndActiveTrue(appleSub: String): Boolean
 }

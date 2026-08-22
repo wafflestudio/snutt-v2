@@ -13,6 +13,8 @@ interface CoursebookRepository : JpaRepository<Coursebook, Long> {
 
     fun findFirstByOrderByYearDescSemesterDesc(): Coursebook?
 
+    fun findFirstByOrderByUpdatedAtDesc(): Coursebook?
+
     fun findAllByOrderByYearDescSemesterDesc(): List<Coursebook>
 
     fun existsByYearAndSemester(
