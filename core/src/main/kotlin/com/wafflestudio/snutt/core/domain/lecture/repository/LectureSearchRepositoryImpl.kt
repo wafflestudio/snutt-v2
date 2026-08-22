@@ -6,6 +6,7 @@ import com.querydsl.core.types.dsl.StringExpression
 import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQuery
 import com.querydsl.jpa.impl.JPAQueryFactory
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
@@ -61,7 +62,9 @@ class LectureSearchRepositoryImpl(
                 lecture.semester.eq(criteria.semester),
             )
 
-        criteria.query?.split(' ')?.forEach { keyword -> keywordPredicate(keyword)?.let(predicates::add) }
+        criteria.query?.split(' ')?.forEach { keyword ->
+            keywordPredicate(keyword, criteria.language)?.let(predicates::add)
+        }
         criteria.classification?.takeIf { it.isNotEmpty() }?.let {
             predicates +=
                 koOrEn(lecture.classification, lecture.classificationEn, it)
@@ -94,9 +97,14 @@ class LectureSearchRepositoryImpl(
         return query.where(*predicates.toTypedArray())
     }
 
-    private fun keywordPredicate(keyword: String): BooleanExpression? =
+    private fun keywordPredicate(
+        keyword: String,
+        language: Language,
+    ): BooleanExpression? =
         when {
             keyword.isEmpty() -> null
+            // 구버전 EN 분기: 스마트검색(특수키워드/학과접미사) 없이 ko+en 필드 단순 매칭만
+            language == Language.EN -> enKeywordPredicate(keyword)
             keyword == "전공" -> lecture.classification.`in`("전선", "전필")
             keyword in listOf("석박", "대학원") -> lecture.academicYear.`in`("석사", "박사", "석박사통합")
             keyword in listOf("학부", "학사") -> lecture.academicYear.notIn("석사", "박사", "석박사통합")
@@ -135,11 +143,20 @@ class LectureSearchRepositoryImpl(
         values: List<String>,
     ): BooleanExpression = ko.`in`(values).or(en.`in`(values))
 
+    // 구버전 KO 분기: 한글 미포함 키워드는 ko 필드만 대상으로 한다
     private fun nonKoreanKeywordPredicate(keyword: String): BooleanExpression =
         listOfNotNull(
             regexMatches(lecture.courseTitle, regexEscape(keyword)),
             regexMatches(lecture.instructor, regexEscape(keyword)),
+            exactlyMatches(lecture.courseNumber, keyword),
+            exactlyMatches(lecture.lectureNumber, keyword),
+        ).reduce(BooleanExpression::or)
+
+    private fun enKeywordPredicate(keyword: String): BooleanExpression =
+        listOfNotNull(
+            regexMatches(lecture.courseTitle, regexEscape(keyword)),
             regexMatches(lecture.courseTitleEn, regexEscape(keyword)),
+            regexMatches(lecture.instructor, regexEscape(keyword)),
             regexMatches(lecture.instructorEn, regexEscape(keyword)),
             exactlyMatches(lecture.courseNumber, keyword),
             exactlyMatches(lecture.lectureNumber, keyword),
