@@ -10,13 +10,9 @@ import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.security.SecureRandom
-import java.time.Duration
-import java.util.Base64
 
 enum class FriendState {
     ACTIVE,
@@ -28,16 +24,13 @@ enum class FriendState {
 class FriendService(
     private val friendRepository: FriendRepository,
     private val userRepository: UserRepository,
-    private val redisTemplate: StringRedisTemplate,
+    private val friendLinkTokenProvider: FriendLinkTokenProvider,
     private val pushService: PushService,
 ) {
     companion object {
-        private val secureRandom = SecureRandom()
         private val friendDisplayNameRegex = "^[a-zA-Z가-힣0-9 ]+$".toRegex()
         private const val DISPLAY_NAME_MAX_LENGTH = 10
-        private const val FRIEND_LINK_REDIS_PREFIX = "friend-link:"
         private const val FRIEND_URL_SCHEME = "snutt://friends?openDrawer=true"
-        private val friendLinkTtl: Duration = Duration.ofDays(14)
     }
 
     fun getMyFriends(
@@ -131,16 +124,7 @@ class FriendService(
 
     fun get(friendId: Long): Friend? = friendRepository.findByIdOrNull(friendId)
 
-    fun generateFriendRequestLink(userId: Long): String {
-        val bytes = ByteArray(8)
-        var token: String
-        do {
-            secureRandom.nextBytes(bytes)
-            token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-        } while (redisTemplate.hasKey(FRIEND_LINK_REDIS_PREFIX + token))
-        redisTemplate.opsForValue().set(FRIEND_LINK_REDIS_PREFIX + token, userId.toString(), friendLinkTtl)
-        return token
-    }
+    fun generateFriendRequestLink(userId: Long): String = friendLinkTokenProvider.issue(userId)
 
     @Transactional
     fun acceptFriendByLink(
@@ -148,8 +132,7 @@ class FriendService(
         requestToken: String,
     ): Pair<Friend, User> {
         val fromUserId =
-            redisTemplate.opsForValue().get(FRIEND_LINK_REDIS_PREFIX + requestToken)?.toLongOrNull()
-                ?: throw SnuttException(ErrorType.FRIEND_LINK_NOT_FOUND)
+            friendLinkTokenProvider.parse(requestToken) ?: throw SnuttException(ErrorType.FRIEND_LINK_NOT_FOUND)
         val fromUser =
             userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (fromUser.id == userId) throw SnuttException(ErrorType.INVALID_FRIEND)
@@ -183,39 +166,4 @@ class FriendService(
             urlScheme = FRIEND_URL_SCHEME,
         )
     }
-
-    @Transactional
-    fun acceptFriend(
-        friendExternalId: String,
-        toUserId: Long,
-    ) {
-        acceptFriend(friendExternalId.toLong(), toUserId)
-    }
-
-    @Transactional
-    fun declineFriend(
-        friendExternalId: String,
-        toUserId: Long,
-    ) {
-        declineFriend(friendExternalId.toLong(), toUserId)
-    }
-
-    @Transactional
-    fun breakFriend(
-        friendExternalId: String,
-        userId: Long,
-    ) {
-        breakFriend(friendExternalId.toLong(), userId)
-    }
-
-    @Transactional
-    fun updateFriendDisplayName(
-        userId: Long,
-        friendExternalId: String,
-        displayName: String,
-    ) {
-        updateFriendDisplayName(userId, friendExternalId.toLong(), displayName)
-    }
-
-    fun get(friendExternalId: String): Friend? = get(friendExternalId.toLong())
 }

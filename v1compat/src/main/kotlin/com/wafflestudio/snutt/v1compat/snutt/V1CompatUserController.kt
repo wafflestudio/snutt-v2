@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
 import com.wafflestudio.snutt.core.domain.user.service.EmailVerificationService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
@@ -90,11 +91,15 @@ data class LegacyTokenResponse(
 @RequestMapping("/v1/users")
 class V1CompatUsersController(
     private val userService: UserService,
+    private val userSocialAuthRepository: UserSocialAuthRepository,
 ) {
+    private fun legacyFbName(userId: Long): String? =
+        userSocialAuthRepository.findByUserIdAndProvider(userId, AuthProvider.FACEBOOK)?.displayName
+
     @GetMapping("/me")
     fun getMe(
         @V1CurrentUser user: User,
-    ): LegacyUserDto = user.toLegacyUserDto()
+    ): LegacyUserDto = user.toLegacyUserDto(legacyFbName(user.id!!))
 
     @PatchMapping("/me")
     fun updateMe(
@@ -102,21 +107,23 @@ class V1CompatUsersController(
         @RequestBody body: LegacyUpdateUserRequest,
     ): LegacyUserDto {
         val nickname = body.nickname?.trim().orEmpty()
-        if (nickname.isEmpty() || nickname == user.nicknameWithoutTag) return user.toLegacyUserDto()
-        return userService.updateNickname(user, nickname).toLegacyUserDto()
+        if (nickname.isEmpty() || nickname == user.nicknameWithoutTag) return user.toLegacyUserDto(legacyFbName(user.id!!))
+        return userService.updateNickname(user, nickname).toLegacyUserDto(legacyFbName(user.id!!))
     }
 
     @GetMapping("/me/social_providers", "/me/auth-providers")
     fun socialProviders(
         @V1CurrentUser user: User,
     ): LegacySocialProvidersResponse =
-        LegacySocialProvidersResponse(
-            local = user.localId != null,
-            facebook = user.facebookSub != null,
-            google = user.googleSub != null,
-            kakao = user.kakaoSub != null,
-            apple = user.appleSub != null,
-        )
+        userSocialAuthRepository.findByUserId(user.id!!).map { it.provider }.toSet().let { providers ->
+            LegacySocialProvidersResponse(
+                local = user.localId != null,
+                facebook = AuthProvider.FACEBOOK in providers,
+                google = AuthProvider.GOOGLE in providers,
+                kakao = AuthProvider.KAKAO in providers,
+                apple = AuthProvider.APPLE in providers,
+            )
+        }
 }
 
 @RestController
@@ -126,11 +133,12 @@ class V1CompatUserController(
     private val emailVerificationService: EmailVerificationService,
     private val authService: AuthService,
     private val legacyTokenService: LegacyTokenService,
+    private val userSocialAuthRepository: UserSocialAuthRepository,
 ) {
     @GetMapping("/info")
     fun getUserInfo(
         @V1CurrentUser user: User,
-    ): LegacyUserInfoDto = user.toLegacyUserInfoDto()
+    ): LegacyUserInfoDto = user.toLegacyUserInfoDto(legacyFbName(user.id!!))
 
     @DeleteMapping("/account")
     fun deleteAccount(
@@ -206,31 +214,34 @@ class V1CompatUserController(
         return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
+    private fun legacyFbName(userId: Long): String? =
+        userSocialAuthRepository.findByUserIdAndProvider(userId, AuthProvider.FACEBOOK)?.displayName
+
     private fun socialProvider(value: String): AuthProvider =
         AuthProvider.from(value)?.takeIf { it != AuthProvider.LOCAL }
             ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }
 
-internal fun User.toLegacyUserDto() =
+internal fun User.toLegacyUserDto(fbName: String?) =
     LegacyUserDto(
-        id = externalId.toString(),
+        id = id!!.toString(),
         isAdmin = isAdmin,
         regDate = checkNotNull(createdAt).toLegacyLocalDateTime(),
         notificationCheckedAt = notificationCheckedAt.toLegacyLocalDateTime(),
         email = email,
         localId = localId,
-        fbName = facebookName,
+        fbName = fbName,
         nickname = LegacyNicknameDto(nickname = nicknameWithoutTag, tag = nicknameTag?.toString()),
     )
 
-internal fun User.toLegacyUserInfoDto() =
+internal fun User.toLegacyUserInfoDto(fbName: String?) =
     LegacyUserInfoDto(
         isAdmin = isAdmin,
         regDate = checkNotNull(createdAt).atZone(KST),
         notificationCheckedAt = notificationCheckedAt.atZone(KST),
         email = email,
         localId = localId,
-        fbName = facebookName,
+        fbName = fbName,
     )
 
 data class SendVerificationEmailRequest(

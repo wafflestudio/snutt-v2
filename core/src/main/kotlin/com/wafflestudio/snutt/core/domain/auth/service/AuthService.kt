@@ -13,7 +13,9 @@ import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.event.UserRegisteredEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.model.UserSocialAuth
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
 import com.wafflestudio.snutt.core.domain.user.service.UserNicknameService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
@@ -35,6 +37,7 @@ data class TokenPair(
 @Service
 class AuthService(
     private val userRepository: UserRepository,
+    private val userSocialAuthRepository: UserSocialAuthRepository,
     private val userSessionRepository: UserSessionRepository,
     private val userDeviceRepository: UserDeviceRepository,
     private val accessTokenService: AccessTokenService,
@@ -193,10 +196,11 @@ class AuthService(
             val presentUser = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
             if (presentUser != null && presentUser.id != user.id) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
-        if (provider in user.authProviders) throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
+        if (userSocialAuthRepository.findByUserIdAndProvider(user.id!!, provider) != null) {
+            throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
+        }
         if (existsBySocialId(provider, response.socialId)) throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
-        user.applySocial(provider, response)
-        save(user, ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+        insertSocialAuth(user.id!!, provider, response)
         publishCredentialChanged(user)
     }
 
@@ -205,13 +209,24 @@ class AuthService(
         user: User,
         provider: AuthProvider,
     ) {
-        val attached = user.authProviders
-        if (provider !in attached) throw SnuttException(ErrorType.SOCIAL_PROVIDER_NOT_ATTACHED)
-        if (attached.size == 1) throw SnuttException(ErrorType.CANNOT_REMOVE_LAST_AUTH_PROVIDER)
-        user.clearSocial(provider)
-        userRepository.save(user)
+        val socialProviders = userSocialAuthRepository.findByUserId(user.id!!).map { it.provider }
+        if (provider !in socialProviders) throw SnuttException(ErrorType.SOCIAL_PROVIDER_NOT_ATTACHED)
+        if (socialProviders.size + (if (user.localId != null) 1 else 0) == 1) {
+            throw SnuttException(ErrorType.CANNOT_REMOVE_LAST_AUTH_PROVIDER)
+        }
+        userSocialAuthRepository.deleteByUserIdAndProvider(user.id!!, provider)
         publishCredentialChanged(user)
     }
+
+    @Transactional(readOnly = true)
+    fun getAuthProviders(user: User): List<AuthProvider> =
+        buildList {
+            if (user.localId != null) add(AuthProvider.LOCAL)
+            userSocialAuthRepository
+                .findByUserId(user.id!!)
+                .sortedBy { it.provider.ordinal }
+                .forEach { add(it.provider) }
+        }
 
     @Transactional
     fun changePassword(
@@ -241,33 +256,23 @@ class AuthService(
     private fun findBySocialResponse(
         provider: AuthProvider,
         response: OAuth2UserResponse,
-    ): User? =
-        when (provider) {
-            AuthProvider.FACEBOOK -> userRepository.findByFacebookSubAndActiveTrue(response.socialId)
-            AuthProvider.GOOGLE -> userRepository.findByGoogleSubAndActiveTrue(response.socialId)
-            AuthProvider.KAKAO -> userRepository.findByKakaoSubAndActiveTrue(response.socialId)
-            AuthProvider.APPLE ->
-                userRepository.findByAppleSubAndActiveTrue(response.socialId)
-                    ?: response.transferInfo?.let { transferSub ->
-                        userRepository.findByAppleTransferSubAndActiveTrue(transferSub)?.apply {
-                            appleSub = response.socialId
-                            appleEmail = response.email
-                        }
-                    }
-            AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
+    ): User? {
+        require(provider != AuthProvider.LOCAL) { "LOCAL is not a social provider" }
+        userSocialAuthRepository.findActiveUserByProviderAndSub(provider, response.socialId)?.let { return it }
+        if (provider != AuthProvider.APPLE) return null
+        val transferSub = response.transferInfo ?: return null
+        return userSocialAuthRepository.findActiveByProviderAndTransferSub(provider, transferSub)?.let { auth ->
+            auth.sub = response.socialId
+            auth.email = response.email
+            userSocialAuthRepository.save(auth)
+            userRepository.findByIdAndActiveTrue(auth.userId)
         }
+    }
 
     private fun existsBySocialId(
         provider: AuthProvider,
         socialId: String,
-    ): Boolean =
-        when (provider) {
-            AuthProvider.FACEBOOK -> userRepository.existsByFacebookSubAndActiveTrue(socialId)
-            AuthProvider.GOOGLE -> userRepository.existsByGoogleSubAndActiveTrue(socialId)
-            AuthProvider.KAKAO -> userRepository.existsByKakaoSubAndActiveTrue(socialId)
-            AuthProvider.APPLE -> userRepository.existsByAppleSubAndActiveTrue(socialId)
-            AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
-        }
+    ): Boolean = userSocialAuthRepository.existsByProviderAndSub(provider, socialId)
 
     private fun createSocialUser(
         provider: AuthProvider,
@@ -278,60 +283,30 @@ class AuthService(
                 email = response.email,
                 isEmailVerified = response.email != null && response.isEmailVerified,
                 nickname = userNicknameService.generateUniqueRandomNickname(),
-            ).apply { applySocial(provider, response) }
+            )
         save(user, ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+        insertSocialAuth(user.id!!, provider, response)
         eventPublisher.publishEvent(UserRegisteredEvent(user.id!!))
         return user
     }
 
-    private fun User.applySocial(
+    private fun insertSocialAuth(
+        userId: Long,
         provider: AuthProvider,
         response: OAuth2UserResponse,
-    ) {
-        when (provider) {
-            AuthProvider.FACEBOOK -> {
-                facebookSub = response.socialId
-                facebookName = response.name
-            }
-            AuthProvider.GOOGLE -> {
-                googleSub = response.socialId
-                googleEmail = response.email
-            }
-            AuthProvider.KAKAO -> {
-                kakaoSub = response.socialId
-                kakaoEmail = response.email
-            }
-            AuthProvider.APPLE -> {
-                appleSub = response.socialId
-                appleEmail = response.email
-                appleTransferSub = response.transferInfo
-            }
-            AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
+    ): UserSocialAuth =
+        conflictAs(ErrorType.DUPLICATE_SOCIAL_ACCOUNT) {
+            userSocialAuthRepository.save(
+                UserSocialAuth(
+                    userId = userId,
+                    provider = provider,
+                    sub = response.socialId,
+                    email = response.email,
+                    displayName = response.name,
+                    transferSub = response.transferInfo,
+                ),
+            )
         }
-    }
-
-    private fun User.clearSocial(provider: AuthProvider) {
-        when (provider) {
-            AuthProvider.FACEBOOK -> {
-                facebookSub = null
-                facebookName = null
-            }
-            AuthProvider.GOOGLE -> {
-                googleSub = null
-                googleEmail = null
-            }
-            AuthProvider.KAKAO -> {
-                kakaoSub = null
-                kakaoEmail = null
-            }
-            AuthProvider.APPLE -> {
-                appleSub = null
-                appleEmail = null
-                appleTransferSub = null
-            }
-            AuthProvider.LOCAL -> throw IllegalArgumentException("LOCAL is not a social provider")
-        }
-    }
 
     private fun save(
         user: User,

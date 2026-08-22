@@ -160,23 +160,4 @@ class TimetableLectureReminderService(
     ): TimetableLecture =
         timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
             ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
-
-    fun getReminder(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-    ): TimetableLectureReminderDisplay = getReminder(userId, timetableExternalId.toLong(), timetableLectureExternalId.toLong())
-
-    fun getReminders(
-        userId: Long,
-        timetableExternalId: String,
-    ): List<TimetableLectureReminderDisplay> = getReminders(userId, timetableExternalId.toLong())
-
-    @Transactional
-    fun modifyReminder(
-        userId: Long,
-        timetableExternalId: String,
-        timetableLectureExternalId: String,
-        option: TimetableLectureReminderOption,
-    ): TimetableLectureReminderDisplay = modifyReminder(userId, timetableExternalId.toLong(), timetableLectureExternalId.toLong(), option)
 }

@@ -189,7 +189,7 @@ class V1CompatFriendController(
         val partnerExternalId = partnerId.toString()
         return LegacyTimetableDto(
             timetable = timetable,
-            userId = partnerId,
+            userId = partnerExternalId,
             display = display,
             evLectureIds = emptyMap(),
         )

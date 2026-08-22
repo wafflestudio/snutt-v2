@@ -124,7 +124,7 @@ class AuthController(
     fun requestPasswordReset(
         @RequestBody body: RequestPasswordResetRequest,
     ) {
-        passwordResetService.requestReset(body.email)
+        passwordResetService.requestResetQuietly(body.email)
     }
 
     @Public

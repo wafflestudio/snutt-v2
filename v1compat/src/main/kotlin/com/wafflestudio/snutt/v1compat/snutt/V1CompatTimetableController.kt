@@ -171,14 +171,13 @@ class V1CompatTimetableController(
         @RequestBody body: LegacyTimetableModifyThemeRequest,
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val themeExternalId =
+        val themeId =
             body.themeId
                 ?: timetableThemeService
                     .findThemeById(
                         timetableThemeService.builtinThemeId(BasicThemeType.fromValue(body.theme!!)),
                     ).id!!
-                    .toString()
-        val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeExternalId)
+        val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeId)
         return LegacyTimetableDto(
             timetable = display.timetable,
             userId = user.id!!.toString(),
@@ -245,7 +244,7 @@ class V1CompatTimetableController(
                 user.id!!,
                 timetable.id!!,
                 TimetableLectureAddRequest(
-                    lectureId = lectureRepository.findByIdOrNull(lectureId.toLong())!!.id!!,
+                    lectureId = lectureId,
                     isForced =
                         isForced ?: body?.isForced ?: false,
                 ),
@@ -319,7 +318,7 @@ class V1CompatTimetableController(
         timetable: Timetable,
         language: Language = Language.KO,
     ): LegacyTimetableDto {
-        val display = timetableService.getTimetableDisplay(user.id!!, timetable.id!!.toString())
+        val display = timetableService.getTimetableDisplay(user.id!!, timetable.id!!)
         return toLegacy(user, timetable, display, language)
     }
 
@@ -329,7 +328,7 @@ class V1CompatTimetableController(
         display: TimetableDisplay,
         language: Language = Language.KO,
     ): LegacyTimetableDto {
-        val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureExternalId })
+        val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
         return LegacyTimetableDto(
             timetable = timetable,
             userId = user.id!!.toString(),
@@ -339,14 +338,12 @@ class V1CompatTimetableController(
         )
     }
 
-    private fun fetchEvLectureIds(lectureExternalIds: List<String>): Map<String, Long> {
-        if (lectureExternalIds.isEmpty()) return emptyMap()
-        val numericIds = lectureExternalIds.associate { it to it.toLong() }.toMap()
-        val summaries = evaluationService.findSummariesByLectureIds(numericIds.values)
-        return numericIds
-            .mapValues { (_, numericId) -> summaries[numericId]?.let { numericId } }
-            .filterValues { it != null }
-            .mapValues { it.value!! }
+    private fun fetchEvLectureIds(lectureIds: List<Long>): Map<String, Long> {
+        if (lectureIds.isEmpty()) return emptyMap()
+        val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
+        return lectureIds
+            .filter { it in summaries }
+            .associate { it.toString() to it }
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

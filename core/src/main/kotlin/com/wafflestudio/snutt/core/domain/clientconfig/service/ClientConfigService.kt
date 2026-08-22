@@ -77,19 +77,4 @@ class ClientConfigService(
         if (config.name != name) throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         clientConfigRepository.delete(config)
     }
-
-    @Transactional
-    fun patchConfig(
-        name: String,
-        configExternalId: String,
-        request: ClientConfigWriteRequest,
-    ): ClientConfig = patchConfig(name, configExternalId.toLong(), request)
-
-    @Transactional
-    fun deleteConfig(
-        name: String,
-        configExternalId: String,
-    ) {
-        deleteConfig(name, configExternalId.toLong())
-    }
 }

@@ -107,15 +107,22 @@ class MigrationIntegrationTest {
     fun `credential 중첩 문서가 평면 컬럼으로 펴진다`() {
         val row =
             jdbc.queryForMap(
-                "SELECT local_id, local_pw, facebook_sub, facebook_name, is_admin, last_login_at FROM `user` WHERE id = ?",
+                "SELECT local_id, local_pw, is_admin, last_login_at FROM `user` WHERE id = ?",
                 context.userIds[userWithBoth.toHexString()],
             )
         assertEquals("waffle", row["local_id"])
         assertEquals("encoded-pw", row["local_pw"])
-        assertEquals("fb-1", row["facebook_sub"])
-        assertEquals("김와플", row["facebook_name"])
         assertEquals(true, row["is_admin"])
         assertNotNull(row["last_login_at"])
+
+        val social =
+            jdbc.queryForMap(
+                "SELECT provider, sub, display_name FROM user_social_auth WHERE user_id = ?",
+                context.userIds[userWithBoth.toHexString()],
+            )
+        assertEquals("facebook", social["provider"])
+        assertEquals("fb-1", social["sub"])
+        assertEquals("김와플", social["display_name"])
     }
 
     @Test

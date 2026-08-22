@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -58,5 +59,12 @@ class DeviceService(
             .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
             ?.let { it.isDeleted = true }
         pushClient.unsubscribeGlobalTopic(registrationId)
+    }
+
+    /** FCM이 무효하다고 응답한 토큰의 기기를 soft delete 한다. 읽기 전용 트랜잭션에서 호출되므로 독립 트랜잭션으로 커밋한다. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    fun markDeletedByRegistrationIds(registrationIds: Collection<String>) {
+        if (registrationIds.isEmpty()) return
+        userDeviceRepository.markDeletedByFcmRegistrationIds(registrationIds)
     }
 }

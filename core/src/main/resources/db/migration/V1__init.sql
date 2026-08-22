@@ -6,15 +6,6 @@ CREATE TABLE `user`
     nickname                VARCHAR(64)  NOT NULL,
     local_id                VARCHAR(64)  NULL,
     local_pw                VARCHAR(255) NULL,
-    facebook_sub            VARCHAR(128) NULL,
-    facebook_name           VARCHAR(128) NULL,
-    apple_sub               VARCHAR(128) NULL,
-    apple_transfer_sub      VARCHAR(128) NULL,
-    apple_email             VARCHAR(255) NULL,
-    google_sub              VARCHAR(128) NULL,
-    google_email            VARCHAR(255) NULL,
-    kakao_sub               VARCHAR(128) NULL,
-    kakao_email             VARCHAR(255) NULL,
     active                  BOOLEAN      NOT NULL DEFAULT TRUE,
     is_admin                BOOLEAN      NOT NULL DEFAULT FALSE,
     last_login_at           DATETIME(6)  NOT NULL,
@@ -24,19 +15,27 @@ CREATE TABLE `user`
     active_nickname         VARCHAR(64) GENERATED ALWAYS AS (IF(active, nickname, NULL)) VIRTUAL,
     active_local_id         VARCHAR(64) GENERATED ALWAYS AS (IF(active, local_id, NULL)) VIRTUAL,
     active_email            VARCHAR(255) GENERATED ALWAYS AS (IF(active AND is_email_verified, LOWER(email), NULL)) VIRTUAL,
-    active_facebook_sub     VARCHAR(128) GENERATED ALWAYS AS (IF(active, facebook_sub, NULL)) VIRTUAL,
-    active_apple_sub        VARCHAR(128) GENERATED ALWAYS AS (IF(active, apple_sub, NULL)) VIRTUAL,
-    active_google_sub       VARCHAR(128) GENERATED ALWAYS AS (IF(active, google_sub, NULL)) VIRTUAL,
-    active_kakao_sub        VARCHAR(128) GENERATED ALWAYS AS (IF(active, kakao_sub, NULL)) VIRTUAL,
     CONSTRAINT uk_user_active_nickname UNIQUE (active_nickname),
     CONSTRAINT uk_user_active_local_id UNIQUE (active_local_id),
     CONSTRAINT uk_user_active_email UNIQUE (active_email),
-    CONSTRAINT uk_user_active_facebook_sub UNIQUE (active_facebook_sub),
-    CONSTRAINT uk_user_active_apple_sub UNIQUE (active_apple_sub),
-    CONSTRAINT uk_user_active_google_sub UNIQUE (active_google_sub),
-    CONSTRAINT uk_user_active_kakao_sub UNIQUE (active_kakao_sub),
-    INDEX idx_user_email (email),
-    INDEX idx_user_apple_transfer_sub (apple_transfer_sub)
+    INDEX idx_user_email (email)
+);
+
+CREATE TABLE user_social_auth
+(
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id      BIGINT       NOT NULL,
+    provider     VARCHAR(16)  NOT NULL,
+    sub          VARCHAR(128) NOT NULL,
+    email        VARCHAR(255) NULL,
+    display_name VARCHAR(128) NULL,
+    transfer_sub VARCHAR(128) NULL,
+    created_at   DATETIME(6)  NOT NULL,
+    updated_at   DATETIME(6)  NOT NULL,
+    CONSTRAINT uk_user_social_auth UNIQUE (user_id, provider),
+    CONSTRAINT uk_user_social_auth_sub UNIQUE (provider, sub),
+    CONSTRAINT fk_user_social_auth_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
+    INDEX idx_user_social_auth_transfer_sub (transfer_sub)
 );
 
 CREATE TABLE user_device
@@ -358,27 +357,17 @@ CREATE TABLE timetable_lecture_reminder
     INDEX idx_reminder_next_fire (next_day, next_minute)
 );
 
-CREATE TABLE bookmark
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id     BIGINT      NOT NULL,
-    year        INT         NOT NULL,
-    semester    TINYINT     NOT NULL,
-    created_at  DATETIME(6) NOT NULL,
-    updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_bookmark_user_semester UNIQUE (user_id, year, semester),
-    CONSTRAINT fk_bookmark_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
-);
-
 CREATE TABLE bookmark_lecture
 (
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    bookmark_id BIGINT      NOT NULL,
-    lecture_id  BIGINT      NOT NULL,
-    created_at  DATETIME(6) NOT NULL,
-    updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_bookmark_lecture UNIQUE (bookmark_id, lecture_id),
-    CONSTRAINT fk_bookmark_lecture_bookmark FOREIGN KEY (bookmark_id) REFERENCES bookmark (id) ON DELETE CASCADE,
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT      NOT NULL,
+    year       INT         NOT NULL,
+    semester   TINYINT     NOT NULL,
+    lecture_id BIGINT      NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    CONSTRAINT uk_bookmark_lecture UNIQUE (user_id, year, semester, lecture_id),
+    CONSTRAINT fk_bookmark_lecture_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_bookmark_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE,
     INDEX idx_bookmark_lecture_lecture (lecture_id)
 );

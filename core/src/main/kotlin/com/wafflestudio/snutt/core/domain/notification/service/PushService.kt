@@ -1,8 +1,11 @@
 package com.wafflestudio.snutt.core.domain.notification.service
 
+import com.wafflestudio.snutt.core.common.push.GLOBAL_TOPIC
 import com.wafflestudio.snutt.core.common.push.PushClient
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
+import com.wafflestudio.snutt.core.common.push.TopicPushMessage
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
+import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
@@ -21,6 +24,7 @@ data class TargetedPush(
 class PushService(
     private val pushClient: PushClient,
     private val userDeviceRepository: UserDeviceRepository,
+    private val deviceService: DeviceService,
     private val pushPreferenceRepository: PushPreferenceRepository,
     private val notificationRepository: NotificationRepository,
 ) {
@@ -38,7 +42,7 @@ class PushService(
         val targets = messagesByUserId.filterKeys { it !in disabledUserIds }
         if (targets.isEmpty()) return
         val devices = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(targets.keys)
-        pushClient.sendMessages(
+        sendToDevicesWithCleanup(
             devices.mapNotNull { device ->
                 targets[device.user.id]?.let {
                     TargetedPushMessage(it.title, it.body, it.urlScheme, device.fcmRegistrationId)
@@ -54,10 +58,7 @@ class PushService(
         type: NotificationType,
         urlScheme: String? = null,
     ) {
-        val devices = userDeviceRepository.findAllByIsDeletedFalse()
-        pushClient.sendMessages(
-            devices.map { TargetedPushMessage(title, body, urlScheme, it.fcmRegistrationId) },
-        )
+        pushClient.sendTopicMessage(TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC))
         notificationRepository.save(
             Notification(userId = null, title = title, message = body, type = type, deeplink = urlScheme),
         )
@@ -81,7 +82,7 @@ class PushService(
         val pushTargets = userIds.filter { it !in disabledUserIds }
 
         val devices = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(pushTargets)
-        pushClient.sendMessages(
+        sendToDevicesWithCleanup(
             devices.map { device ->
                 TargetedPushMessage(
                     title = title,
@@ -94,5 +95,10 @@ class PushService(
         notificationRepository.saveAll(
             userIds.map { userId -> Notification(userId = userId, title = title, message = body, type = type, deeplink = urlScheme) },
         )
+    }
+
+    private fun sendToDevicesWithCleanup(messages: List<TargetedPushMessage>) {
+        val result = pushClient.sendMessages(messages)
+        deviceService.markDeletedByRegistrationIds(result.invalidRegistrationIds)
     }
 }

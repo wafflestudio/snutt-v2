@@ -10,19 +10,20 @@ class CodeChallengeStore(
     private val redisTemplate: StringRedisTemplate,
     namespace: String,
     private val ttl: Duration = Duration.ofMinutes(3),
+    private val maxSendsPerHour: Int = 5,
 ) {
     private val codePrefix = "$namespace:code:"
     private val attemptPrefix = "$namespace:attempt:"
+    private val sendMinutePrefix = "$namespace:send-minute:"
+    private val sendHourPrefix = "$namespace:send-hour:"
 
     private data class Stored(
         val payload: String,
         val code: String,
-        val sendCount: Int,
     )
 
     companion object {
-        private const val MAX_SENDS = 5
-        private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
+        private val jsonMapper: JsonMapper = JsonMapper.builder().findAndAddModules().build()
     }
 
     fun store(
@@ -30,11 +31,19 @@ class CodeChallengeStore(
         code: String,
         payload: String = "",
     ) {
-        val existing = read(key)
-        if (existing != null && existing.sendCount >= MAX_SENDS) {
-            throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
+        // 발송 제한은 코드 TTL과 별개 카운터: 1분에 1회, 1시간(고정 창)에 maxSendsPerHour회
+        val firstInMinute =
+            redisTemplate.opsForValue().setIfAbsent(sendMinutePrefix + key, "1", Duration.ofMinutes(1)) ?: false
+        if (!firstInMinute) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
+
+        val hourKey = sendHourPrefix + key
+        val sendsThisHour = redisTemplate.opsForValue().increment(hourKey) ?: 1L
+        if (sendsThisHour == 1L) {
+            redisTemplate.expire(hourKey, Duration.ofHours(1))
         }
-        val stored = Stored(payload = payload, code = code, sendCount = (existing?.sendCount ?: 0) + 1)
+        if (sendsThisHour > maxSendsPerHour) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
+
+        val stored = Stored(payload = payload, code = code)
         redisTemplate.opsForValue().set(codePrefix + key, jsonMapper.writeValueAsString(stored), ttl)
         redisTemplate.delete(attemptPrefix + key)
     }

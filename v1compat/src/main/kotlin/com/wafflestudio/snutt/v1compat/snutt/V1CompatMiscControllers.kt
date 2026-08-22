@@ -159,7 +159,7 @@ class V1CompatBuildingController(
 
     private fun LectureBuilding.toLegacy() =
         LegacyLectureBuildingDto(
-            id = externalId.toString(),
+            id = id!!.toString(),
             buildingNumber = buildingNumber,
             buildingNameKor = buildingNameKor,
             buildingNameEng = buildingNameEng,
@@ -179,7 +179,7 @@ class V1CompatDeviceController(
     @PostMapping("/{registrationId}")
     fun addRegistrationId(
         @V1CurrentUser user: User,
-        @PathVariable registrationId: Long,
+        @PathVariable registrationId: String,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ) {
         if (registrationId.isBlank()) throw SnuttException(ErrorType.INVALID_PARAMETER)
@@ -189,7 +189,7 @@ class V1CompatDeviceController(
     @DeleteMapping("/{registrationId}")
     fun removeRegistrationId(
         @V1CurrentUser user: User,
-        @PathVariable registrationId: Long,
+        @PathVariable registrationId: String,
     ) {
         if (registrationId.isBlank()) throw SnuttException(ErrorType.INVALID_PARAMETER)
         deviceService.removeRegistrationId(user, registrationId)

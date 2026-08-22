@@ -91,7 +91,7 @@ private fun Lecture.toLegacy(
     evaluationSummary: LegacyEvSummary?,
     status: LectureRegistrationStatus?,
 ) = LegacyLectureDto(
-    id = externalId.toString(),
+    id = id!!.toString(),
     academicYear = language.select(academicYear, academicYearEn),
     category = language.select(category, categoryEn),
     classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },

@@ -58,7 +58,13 @@ enum class ErrorType(
     NOT_DEFAULT_THEME_ERROR(HttpStatus.BAD_REQUEST, 40014, "default 테마가 아닙니다", "default 테마가 아닙니다"),
     TOO_MANY_FILES(HttpStatus.BAD_REQUEST, 40015, "파일 개수가 너무 많습니다", "파일 개수가 너무 많습니다"),
     EMAIL_ALREADY_VERIFIED(HttpStatus.BAD_REQUEST, 40016, "이미 메일 인증이 완료된 유저입니다", "이미 메일 인증이 완료된 유저입니다"),
-    TOO_MANY_VERIFICATION_CODE_REQUEST(HttpStatus.BAD_REQUEST, 40017, "인증 코드 요청이 너무 많습니다", "3분 후 인증 요청을 다시 해주시기 바랍니다", "인증 요청 실패"),
+    TOO_MANY_VERIFICATION_CODE_REQUEST(
+        HttpStatus.BAD_REQUEST,
+        40017,
+        "인증 코드 요청이 너무 많습니다",
+        "인증 코드는 1분에 1회, 1시간에 최대 5회까지 요청할 수 있습니다",
+        "인증 요청 실패",
+    ),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, 40018, "인증 코드가 유효하지 않습니다", "인증 코드가 유효하지 않습니다"),
     ALREADY_LOCAL_ACCOUNT(HttpStatus.BAD_REQUEST, 40019, "이미 로컬 계정이 존재합니다", "이미 로컬 계정이 존재합니다"),
     ALREADY_SOCIAL_ACCOUNT(HttpStatus.BAD_REQUEST, 40020, "이미 소셜 계정이 존재합니다", "이미 소셜 계정이 존재합니다"),
@@ -127,4 +133,10 @@ enum class ErrorType(
         "현재 Coursebook이 수강신청 사이트보다 최근입니다.",
     ),
     REGISTRATION_PERIOD_NOT_SET(HttpStatus.INTERNAL_SERVER_ERROR, 50003, "학기에 대한 수강신청 기간이 설정되지 않았습니다", "학기에 대한 수강신청 기간이 설정되지 않았습니다"),
+    FEEDBACK_UPLOAD_FAILED(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        50004,
+        "피드백 전송에 실패했습니다",
+        "피드백을 전송하지 못했습니다. 잠시 후 다시 시도해 주세요",
+    ),
 }
