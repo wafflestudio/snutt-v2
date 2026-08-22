@@ -33,6 +33,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 data class LegacyInsertNotificationRequest(
     val userId: String? = null,
@@ -43,12 +45,22 @@ data class LegacyInsertNotificationRequest(
     val deeplink: String? = null,
 )
 
+data class LegacyConfigVersion(
+    val ios: String?,
+    val android: String?,
+)
+
+data class LegacyConfigResponse(
+    val id: Long,
+    val data: JsonNode,
+    val minVersion: LegacyConfigVersion?,
+    val maxVersion: LegacyConfigVersion?,
+)
+
 data class LegacyAdminConfigWriteRequest(
-    val value: String,
-    val minIosVersion: String? = null,
-    val maxIosVersion: String? = null,
-    val minAndroidVersion: String? = null,
-    val maxAndroidVersion: String? = null,
+    val data: JsonNode? = null,
+    val minVersion: LegacyConfigVersion? = null,
+    val maxVersion: LegacyConfigVersion? = null,
 )
 
 data class LegacyAdminPopupWriteRequest(
@@ -92,6 +104,8 @@ class V1AdminController(
         const val MAX_UPLOAD_FILE_COUNT = 10
     }
 
+    private val configJsonMapper = JsonMapper.builder().build()
+
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
         @PathVariable source: String,
@@ -118,23 +132,62 @@ class V1AdminController(
         )
     }
 
+    // 구버전 계약: {data, minVersion{ios,android}, maxVersion}, POST는 동일 버전 범위 설정을 재사용한다
     @PostMapping("/configs/{name}")
     fun postConfig(
         @PathVariable name: String,
         @RequestBody body: LegacyAdminConfigWriteRequest,
-    ): ClientConfig = configService.postConfig(name, body.toWriteRequest())
+    ): LegacyConfigResponse {
+        val data = body.data ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val writeRequest =
+            ClientConfigWriteRequest(
+                value = configJsonMapper.writeValueAsString(data),
+                minIosVersion = body.minVersion?.ios,
+                maxIosVersion = body.maxVersion?.ios,
+                minAndroidVersion = body.minVersion?.android,
+                maxAndroidVersion = body.maxVersion?.android,
+            )
+        val sameRange =
+            configService.getConfigsByName(name).firstOrNull { config ->
+                config.minIosVersion == writeRequest.minIosVersion &&
+                    config.maxIosVersion == writeRequest.maxIosVersion &&
+                    config.minAndroidVersion == writeRequest.minAndroidVersion &&
+                    config.maxAndroidVersion == writeRequest.maxAndroidVersion
+            }
+        val saved =
+            if (sameRange != null) {
+                configService.patchConfig(name, checkNotNull(sameRange.id), writeRequest)
+            } else {
+                configService.postConfig(name, writeRequest)
+            }
+        return saved.toLegacyConfigResponse()
+    }
 
     @GetMapping("/configs/{name}")
     fun getConfigs(
         @PathVariable name: String,
-    ): List<ClientConfig> = configService.getConfigsByName(name)
+    ): List<LegacyConfigResponse> = configService.getConfigsByName(name).map { it.toLegacyConfigResponse() }
 
     @PatchMapping("/configs/{name}/{configId}")
     fun patchConfig(
         @PathVariable name: String,
         @PathVariable configId: Long,
         @RequestBody body: LegacyAdminConfigWriteRequest,
-    ): ClientConfig = configService.patchConfig(name, configId, body.toWriteRequest())
+    ): LegacyConfigResponse {
+        val current =
+            configService.getConfigsByName(name).firstOrNull { it.id == configId }
+                ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
+        // 구버전과 동일하게 누락된 필드는 기존 값을 유지한다(merge)
+        val merged =
+            ClientConfigWriteRequest(
+                value = body.data?.let(configJsonMapper::writeValueAsString) ?: current.value,
+                minIosVersion = body.minVersion?.ios ?: current.minIosVersion,
+                maxIosVersion = body.maxVersion?.ios ?: current.maxIosVersion,
+                minAndroidVersion = body.minVersion?.android ?: current.minAndroidVersion,
+                maxAndroidVersion = body.maxVersion?.android ?: current.maxAndroidVersion,
+            )
+        return configService.patchConfig(name, configId, merged).toLegacyConfigResponse()
+    }
 
     @DeleteMapping("/configs/{name}/{configId}")
     fun deleteConfig(
@@ -143,6 +196,20 @@ class V1AdminController(
     ) {
         configService.deleteConfig(name, configId)
     }
+
+    private fun ClientConfig.toLegacyConfigResponse(): LegacyConfigResponse =
+        LegacyConfigResponse(
+            id = checkNotNull(id),
+            data = configJsonMapper.readTree(value),
+            minVersion =
+                minIosVersion?.let { min ->
+                    maxIosVersion?.let { max -> LegacyConfigVersion(min, max) }
+                },
+            maxVersion =
+                minAndroidVersion?.let { min ->
+                    maxAndroidVersion?.let { max -> LegacyConfigVersion(min, max) }
+                },
+        )
 
     @PostMapping("/popups")
     fun postPopup(
@@ -244,15 +311,6 @@ class V1AdminController(
     ) {
         diaryService.removeQuestion(questionId)
     }
-
-    private fun LegacyAdminConfigWriteRequest.toWriteRequest() =
-        ClientConfigWriteRequest(
-            value = value,
-            minIosVersion = minIosVersion,
-            maxIosVersion = maxIosVersion,
-            minAndroidVersion = minAndroidVersion,
-            maxAndroidVersion = maxAndroidVersion,
-        )
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

@@ -205,8 +205,10 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `팝업은 공개 오브젝트 URL과 구 필드명을 함께 준다`() {
         val response = getV1("/v1/popups")
         assertEquals(200, response.statusCode.value())
-        val popups = body(response)
+        // 레거시 계약: ListResponse(content, totalCount) 래퍼로 감싸 반환된다
+        val popups = body(response)["content"]
         assertEquals(1, popups.size())
+        assertEquals(1, body(response)["totalCount"].asInt())
         assertEquals("notice", popups[0]["key"].asString())
         assertEquals(
             "https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/testnamespace/b/snutt-asset/o/popup-images/a.jpg",

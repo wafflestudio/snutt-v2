@@ -44,6 +44,7 @@ data class LegacySearchQuery(
     val timesToExclude: List<LegacySearchTime>? = null,
     val etc: List<String>? = null,
     val page: Int = 0,
+    val offset: Long? = null,
     val limit: Int = 20,
     val sortCriteria: String? = null,
     val categoryPre2025: List<String>? = null,
@@ -142,13 +143,24 @@ class V1CompatLectureSearchController(
                 etcTags = query.etc,
                 times =
                     query.times?.map {
-                        SearchTime(DayOfWeek.getOfValue(it.day)!!, it.startMinute, it.endMinute)
+                        SearchTime(
+                            DayOfWeek.getOfValue(it.day)
+                                ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+                            it.startMinute,
+                            it.endMinute,
+                        )
                     },
                 timesToExclude =
                     query.timesToExclude?.map {
-                        SearchTime(DayOfWeek.getOfValue(it.day)!!, it.startMinute, it.endMinute)
+                        SearchTime(
+                            DayOfWeek.getOfValue(it.day)
+                                ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+                            it.startMinute,
+                            it.endMinute,
+                        )
                     },
-                offset = query.page * query.limit.toLong(),
+                // 구버전 계약: offset 미지정 시 page당 20개 기준으로 계산한다(limit과 무관)
+                offset = query.offset ?: query.page * 20L,
                 limit = query.limit,
                 sort = LectureSort.getOfName(query.sortCriteria) ?: LectureSort.DEFAULT,
             )
