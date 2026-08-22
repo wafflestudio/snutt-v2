@@ -21,10 +21,6 @@ interface EvaluationRepository :
     @Query("UPDATE Evaluation e SET e.likeCount = GREATEST(e.likeCount - 1, 0) WHERE e.id = :id")
     fun decrementLikeCount(id: Long)
 
-    @Modifying
-    @Query("UPDATE Evaluation e SET e.likeCount = 0 WHERE e.id = :id")
-    fun resetLikeCount(id: Long)
-
     fun existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
         courseId: Long,
         year: Int,

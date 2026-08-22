@@ -169,12 +169,6 @@ class VacancyNotificationJobConfig(
                 .filter { it.startMinute > currentMinute }
                 .minOfOrNull { it.startMinute }
                 ?.let { return "%02d:%02d".format(it / 60, it % 60) }
-            // 모든 슬롯이 시작됐으면 지금 열려 있는 슬롯의 현재 시각을 안내한다
-            val openNow =
-                vacantSeatRegistrationTimes.firstOrNull { currentMinute >= it.startMinute && currentMinute < it.endMinute }
-            if (openNow != null) {
-                return "%02d:%02d".format(currentMinute / 60, currentMinute % 60)
-            }
             return "다음 수강신청 일자"
         }
     }
