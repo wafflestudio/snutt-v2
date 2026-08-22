@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface TimetableRepository : JpaRepository<Timetable, Long> {
-    // 같은 시간표로의 동시 강의 추가가 겹침 검증을 우회하지 않도록 행 잠금으로 조회한다
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM Timetable t WHERE t.id = :id AND t.userId = :userId")
     fun findByIdAndUserIdForUpdate(

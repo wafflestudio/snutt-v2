@@ -15,13 +15,16 @@ import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
+import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.timetable.service.ClassTimeUtils
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 
 data class SugangSnuSyncResult(
     val createdCount: Int,
@@ -59,10 +62,11 @@ class SugangSnuSyncService(
     private val notificationRepository: NotificationRepository,
     private val pushService: PushService,
     private val lectureBuildingSync: LectureBuildingSync,
+    transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val transactionTemplate = TransactionTemplate(transactionManager)
 
-    @Transactional
     fun sync(
         year: Int,
         semester: Semester,
@@ -103,16 +107,27 @@ class SugangSnuSyncService(
                 key !in newKeys && key !in skipKeys
             }
 
-        upsertLectures(created, updated)
-        val lectureByKey =
-            oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
-        syncRegistrationCounts(year, semester, rows, lectureByKey)
-        syncUserLectures(updated, deleted)
-        deleted.forEach(lectureRepository::delete)
+        // DB 변경은 하나의 짧은 트랜잭션으로 묶고, 푸시는 커밋된 뒤에 보낸다(롤백 시 유령 알림 방지)
+        var timetableChangeCounts: Map<Long, TimetableChangeCount> = emptyMap()
+        transactionTemplate.executeWithoutResult {
+            upsertLectures(created, updated)
+            val lectureByKey =
+                oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
+            syncRegistrationCounts(year, semester, rows, lectureByKey)
+            timetableChangeCounts = syncUserLectures(updated, deleted)
+            deleted.forEach(lectureRepository::delete)
+        }
 
         runCatching {
             lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
         }.onFailure { log.error("강의 건물 갱신 실패: {}", it.message) }
+
+        pushService.sendTargetedPushes(
+            timetableChangeCounts.mapValues { (_, counts) ->
+                TargetedPush(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
+            },
+            PushPreferenceType.LECTURE_UPDATE,
+        )
 
         log.info("sugang sync: created={} updated={} deleted={}", created.size, updated.size, deleted.size)
         return SugangSnuSyncResult(createdCount = created.size, updatedCount = updated.size, deletedCount = deleted.size)

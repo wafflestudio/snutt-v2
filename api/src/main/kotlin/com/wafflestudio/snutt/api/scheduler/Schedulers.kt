@@ -54,7 +54,6 @@ class ReminderScheduler(
         }
     }
 
-    /** 테스트용: 지정 시각 기준으로 발화 대상을 처리한다 */
     fun fireDueReminders(
         now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
