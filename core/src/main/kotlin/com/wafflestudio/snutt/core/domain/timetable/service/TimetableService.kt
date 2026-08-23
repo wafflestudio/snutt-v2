@@ -14,6 +14,7 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -25,6 +26,7 @@ class TimetableService(
     private val lectureService: LectureService,
     private val coursebookService: CoursebookService,
     private val timetableThemeService: TimetableThemeService,
+    private val userRepository: UserRepository,
 ) {
     fun getTimetables(userId: Long): List<Timetable> = timetableRepository.findByUserId(userId)
 
@@ -159,9 +161,9 @@ class TimetableService(
         themeId: Long,
     ): TimetableDisplay {
         val timetable = getTimetable(userId, timetableId)
-        timetable.themeId = timetableThemeService.findThemeById(themeId).id!!
+        val theme = timetableThemeService.findThemeAvailableToUser(userId, themeId)
+        timetable.themeId = theme.id!!
 
-        val theme = timetableThemeService.findThemeById(timetable.themeId)
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
         if (theme.isBuiltin) {
             lectures.forEachIndexed { index, timetableLecture ->
@@ -183,6 +185,7 @@ class TimetableService(
         userId: Long,
         timetableId: Long,
     ) {
+        userRepository.findByIdForUpdate(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val newPrimary = getTimetable(userId, timetableId)
         if (newPrimary.isPrimary) return
         timetableRepository

@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.EmailVerificationService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -58,7 +59,7 @@ class UserController(
     @PatchMapping("/me")
     fun updateMe(
         @CurrentUser user: User,
-        @RequestBody request: UpdateUserRequest,
+        @Valid @RequestBody request: UpdateUserRequest,
     ): UserResponse = userService.updateNickname(user, request.nickname).toResponse(authService.getAuthProviders(user))
 
     @DeleteMapping("/me")

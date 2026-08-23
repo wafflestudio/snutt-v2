@@ -27,6 +27,7 @@ import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationD
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -118,7 +119,7 @@ class AdminController(
 
     @PostMapping("/notifications", "/insert_noti")
     fun insertNotification(
-        @RequestBody body: InsertNotificationRequest,
+        @Valid @RequestBody body: InsertNotificationRequest,
     ) {
         val userId = body.userId
         when {
@@ -154,7 +155,7 @@ class AdminController(
     @PostMapping("/configs/{name}")
     fun postConfig(
         @PathVariable name: String,
-        @RequestBody body: AdminConfigWriteRequest,
+        @Valid @RequestBody body: AdminConfigWriteRequest,
     ): ClientConfig = configService.postConfig(name, body.toWriteRequest())
 
     @GetMapping("/configs/{name}")
@@ -166,7 +167,7 @@ class AdminController(
     fun patchConfig(
         @PathVariable name: String,
         @PathVariable configId: Long,
-        @RequestBody body: AdminConfigWriteRequest,
+        @Valid @RequestBody body: AdminConfigWriteRequest,
     ): ClientConfig = configService.patchConfig(name, configId, body.toWriteRequest())
 
     @DeleteMapping("/configs/{name}/{configId}")
@@ -179,7 +180,7 @@ class AdminController(
 
     @PostMapping("/popups")
     fun postPopup(
-        @RequestBody body: AdminPopupWriteRequest,
+        @Valid @RequestBody body: AdminPopupWriteRequest,
     ): Popup =
         popupService.postPopup(
             PopupWriteRequest(
@@ -260,7 +261,7 @@ class AdminController(
 
     @PostMapping("/diary/questions")
     fun insertDiaryQuestion(
-        @RequestBody body: AdminDiaryQuestionWriteRequest,
+        @Valid @RequestBody body: AdminDiaryQuestionWriteRequest,
     ) {
         diaryService.addQuestion(
             question = body.question,

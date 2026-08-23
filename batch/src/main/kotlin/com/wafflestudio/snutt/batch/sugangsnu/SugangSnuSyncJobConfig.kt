@@ -54,13 +54,10 @@ class SugangSnuSyncJobConfig(
                         semester?.let {
                             Semester.getOfValue(it) ?: throw IllegalStateException("잘못된 semester 파라미터: $it")
                         }
-                    if (year != null && semesterValue != null) {
-                        syncSemester(year, semesterValue)
-                    } else {
-                        val latest =
-                            coursebookService.findLatestCoursebook()
-                                ?: throw IllegalStateException("coursebook이 비어 있다. 파라미터 없이 먼저 실행해 최초 편람을 생성한다")
-                        syncSemester(year ?: latest.year, semesterValue ?: latest.semester)
+                    when {
+                        year == null && semesterValue == null -> run()
+                        year != null && semesterValue != null -> syncSemester(year, semesterValue)
+                        else -> throw IllegalStateException("year와 semester 파라미터는 함께 지정해야 한다")
                     }
                     RepeatStatus.FINISHED
                 },

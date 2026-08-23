@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -112,7 +113,7 @@ class ThemeController(
     @PostMapping("")
     fun addTheme(
         @CurrentUser user: User,
-        @RequestBody body: ThemeAddRequest,
+        @Valid @RequestBody body: ThemeAddRequest,
     ): ThemeResponse = timetableThemeService.addTheme(user.id!!, body.name, body.colors).toResponse()
 
     @PatchMapping("/{themeId}")
@@ -134,7 +135,7 @@ class ThemeController(
     fun publishTheme(
         @CurrentUser user: User,
         @PathVariable themeId: Long,
-        @RequestBody body: ThemePublishRequest,
+        @Valid @RequestBody body: ThemePublishRequest,
     ) {
         timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.authorAnonymous)
     }
@@ -143,7 +144,7 @@ class ThemeController(
     fun downloadTheme(
         @CurrentUser user: User,
         @PathVariable themeId: Long,
-        @RequestBody body: ThemeDownloadRequest,
+        @Valid @RequestBody body: ThemeDownloadRequest,
     ): ThemeResponse = timetableThemeService.downloadTheme(user.id!!, themeId, body.name).toResponse()
 
     @DeleteMapping("/{themeId}/published")

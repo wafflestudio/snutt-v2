@@ -15,6 +15,7 @@ import com.wafflestudio.snutt.migration.oids
 import com.wafflestudio.snutt.migration.orNow
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
+import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -92,6 +93,20 @@ class UserDataStep(
     }
 
     private fun migrateUserDevices() {
+        val devices = mutableListOf<Document>()
+        mongo.each("userDevice", devices::add)
+        val activeOwnerByRegistrationId =
+            devices.indices
+                .filter { index ->
+                    val doc = devices[index]
+                    context.userIds[doc.oid("userId")] != null &&
+                        !doc.bool("isDeleted") &&
+                        !doc.str("fcmRegistrationId").isNullOrBlank()
+                }.groupBy { devices[it].str("fcmRegistrationId").orEmpty() }
+                .mapValues { (_, indexes) ->
+                    indexes.maxWith(compareBy<Int> { devices[it].instant("updatedAt") ?: Instant.EPOCH }.thenBy { it })
+                }
+
         val ids = IdSequence()
         writer(
             "user_device",
@@ -110,8 +125,16 @@ class UserDataStep(
                 "updated_at",
             ),
         ).use { out ->
-            mongo.each("userDevice") { doc ->
-                val userId = context.userIds[doc.oid("userId")] ?: return@each
+            devices.forEachIndexed { index, doc ->
+                val userId = context.userIds[doc.oid("userId")] ?: return@forEachIndexed
+                val registrationId = doc.str("fcmRegistrationId").orEmpty()
+                val duplicateActiveRegistrationId =
+                    !doc.bool("isDeleted") &&
+                        registrationId.isNotBlank() &&
+                        activeOwnerByRegistrationId[registrationId] != index
+                val missingRegistrationId = !doc.bool("isDeleted") && registrationId.isBlank()
+                if (duplicateActiveRegistrationId) context.resolved("같은 FCM 등록 토큰의 활성 기기가 중복되어 이전 항목을 비활성화")
+                if (missingRegistrationId) context.resolved("FCM 등록 토큰이 없는 기기를 비활성화")
                 out.add(
                     ids.next(),
                     userId,
@@ -121,8 +144,8 @@ class UserDataStep(
                     doc.str("deviceModel"),
                     doc.str("appType"),
                     doc.str("appVersion"),
-                    doc.str("fcmRegistrationId").orEmpty(),
-                    doc.bool("isDeleted"),
+                    registrationId,
+                    doc.bool("isDeleted") || duplicateActiveRegistrationId || missingRegistrationId,
                     doc.instant("createdAt").orNow().toSqlTimestamp(),
                     doc.instant("updatedAt").orNow().toSqlTimestamp(),
                 )

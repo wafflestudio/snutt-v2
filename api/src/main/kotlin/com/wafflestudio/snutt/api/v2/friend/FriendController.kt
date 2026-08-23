@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Size
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -87,7 +88,7 @@ class FriendController(
     @PostMapping("")
     fun requestFriend(
         @CurrentUser user: User,
-        @RequestBody body: FriendRequest,
+        @Valid @RequestBody body: FriendRequest,
     ) {
         friendService.requestFriend(user.id!!, body.nickname)
     }
@@ -112,7 +113,7 @@ class FriendController(
     fun updateFriendDisplayName(
         @CurrentUser user: User,
         @PathVariable friendId: Long,
-        @RequestBody body: UpdateFriendDisplayNameRequest,
+        @Valid @RequestBody body: UpdateFriendDisplayNameRequest,
     ) {
         friendService.updateFriendDisplayName(user.id!!, friendId, body.displayName)
     }

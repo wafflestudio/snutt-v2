@@ -326,6 +326,14 @@ class TimetableThemeService(
     fun findThemeById(themeId: Long): TimetableTheme =
         timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
+    fun findThemeAvailableToUser(
+        userId: Long,
+        themeId: Long,
+    ): TimetableTheme =
+        findThemeById(themeId).also { theme ->
+            if (!theme.isBuiltin && theme.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
+        }
+
     private fun builtinTheme(id: Long): TimetableTheme =
         timetableThemeRepository.findByIdOrNull(id) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
