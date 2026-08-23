@@ -7,8 +7,6 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.transaction.annotation.Transactional
 
 interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
-    fun findAllByUserIdAndIsDeletedFalse(userId: Long): List<UserDevice>
-
     fun findAllByUserIdInAndIsDeletedFalse(userIds: Collection<Long>): List<UserDevice>
 
     fun findByUserIdAndDeviceIdAndIsDeletedFalse(

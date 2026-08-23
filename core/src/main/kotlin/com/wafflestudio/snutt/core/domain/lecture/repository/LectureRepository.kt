@@ -11,11 +11,4 @@ interface LectureRepository : JpaRepository<Lecture, Long> {
         year: Int,
         semester: Semester,
     ): List<Lecture>
-
-    fun findByYearAndSemesterAndCourseNumberAndLectureNumber(
-        year: Int,
-        semester: Semester,
-        courseNumber: String,
-        lectureNumber: String,
-    ): Lecture?
 }

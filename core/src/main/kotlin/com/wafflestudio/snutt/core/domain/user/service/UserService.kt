@@ -12,7 +12,6 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
 
 @Service
 class UserService(
@@ -44,11 +43,5 @@ class UserService(
         userSocialAuthRepository.deleteByUserId(user.id!!)
         userRepository.save(user)
         eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))
-    }
-
-    @Transactional
-    fun updateNotificationCheckedAt(user: User) {
-        user.notificationCheckedAt = Instant.now()
-        userRepository.save(user)
     }
 }

@@ -19,9 +19,4 @@ interface TimetableLectureRepository : JpaRepository<TimetableLecture, Long> {
         timetableId: Long,
         id: Long,
     )
-
-    fun findByTimetableIdAndId(
-        timetableId: Long,
-        id: Long,
-    ): TimetableLecture?
 }

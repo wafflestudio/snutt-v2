@@ -59,28 +59,4 @@ class Lecture(
         remarkEn = other.remarkEn
         courseTitle = other.courseTitle
     }
-
-    fun equalsMetadata(other: Lecture): Boolean =
-        academicYear == other.academicYear &&
-            category == other.category &&
-            categoryPre2025 == other.categoryPre2025 &&
-            classification == other.classification &&
-            credit == other.credit &&
-            department == other.department &&
-            instructor == other.instructor &&
-            lectureNumber == other.lectureNumber &&
-            quota == other.quota &&
-            freshmanQuota == other.freshmanQuota &&
-            remark == other.remark &&
-            courseTitleEn == other.courseTitleEn &&
-            instructorEn == other.instructorEn &&
-            departmentEn == other.departmentEn &&
-            academicYearEn == other.academicYearEn &&
-            categoryEn == other.categoryEn &&
-            classificationEn == other.classificationEn &&
-            remarkEn == other.remarkEn &&
-            semester == other.semester &&
-            year == other.year &&
-            courseNumber == other.courseNumber &&
-            courseTitle == other.courseTitle
 }

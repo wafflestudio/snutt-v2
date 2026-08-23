@@ -12,8 +12,6 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
 
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): TimetableTheme?
 
-    fun findByBuiltinType(builtinType: Int): TimetableTheme?
-
     fun findByIdAndUserId(
         id: Long,
         userId: Long,
@@ -25,8 +23,6 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
         originThemeId: Long,
         userId: Long,
     ): Boolean
-
-    fun existsByUserId(userId: Long): Boolean
 
     // 기본 테마 지정은 updatedAt 최신화로 표현한다. @UpdateTimestamp는 변경이 없으면 갱신되지 않으므로 명시적으로 쓴다
     @Modifying(clearAutomatically = true, flushAutomatically = true)

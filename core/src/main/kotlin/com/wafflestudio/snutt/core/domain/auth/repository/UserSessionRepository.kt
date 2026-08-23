@@ -7,8 +7,6 @@ import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 
 interface UserSessionRepository : JpaRepository<UserSession, Long> {
-    fun findByRefreshTokenHash(refreshTokenHash: String): UserSession?
-
     @Query("SELECT s FROM UserSession s JOIN FETCH s.user WHERE s.id = :sessionId")
     fun findWithUserById(sessionId: Long): UserSession?
 

@@ -40,9 +40,4 @@ class NotificationService(
     fun sendNotification(notification: Notification) {
         notificationRepository.save(notification)
     }
-
-    @Transactional
-    fun sendNotifications(notifications: List<Notification>) {
-        notificationRepository.saveAll(notifications)
-    }
 }

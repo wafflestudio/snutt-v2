@@ -195,7 +195,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     private fun deviceCount(
         userId: Long,
         deviceId: String,
-    ): Int = userDeviceRepository.findAllByUserIdAndIsDeletedFalse(userId).count { it.deviceId == deviceId }
+    ): Int = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(listOf(userId)).count { it.deviceId == deviceId }
 
     @Autowired
     lateinit var userDeviceRepository: UserDeviceRepository
