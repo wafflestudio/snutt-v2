@@ -317,10 +317,6 @@ class TimetableThemeService(
         }
     }
 
-    fun themeColors(themeId: Long): List<ColorSet>? = timetableThemeRepository.findByIdOrNull(themeId)?.colors
-
-    fun themeColorCount(themeId: Long): Int? = themeColors(themeId)?.size
-
     fun builtinThemeId(basicThemeType: BasicThemeType): Long = builtinTheme(basicThemeType.value + 1L).id!!
 
     fun findThemeById(themeId: Long): TimetableTheme =

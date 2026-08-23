@@ -165,11 +165,6 @@ class AuthService(
     }
 
     @Transactional
-    fun revokeAllSessions(userId: Long) {
-        userSessionRepository.revokeAllByUserId(userId)
-    }
-
-    @Transactional
     fun attachLocal(
         user: User,
         localId: String,
