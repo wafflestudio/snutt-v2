@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.v2.feedback
 
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.domain.feedback.service.FeedbackService
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestAttribute
@@ -21,7 +22,7 @@ class FeedbackController(
 ) {
     @PostMapping("")
     fun postFeedback(
-        @RequestBody body: FeedbackPostRequest,
+        @Valid @RequestBody body: FeedbackPostRequest,
         @RequestAttribute clientInfo: ClientInfo,
     ) {
         feedbackService.postFeedback(

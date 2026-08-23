@@ -14,6 +14,7 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -174,7 +175,7 @@ class TimetableController(
     fun addTimetable(
         @CurrentUser user: User,
         @RequestParam(required = false) source: Long?,
-        @RequestBody body: TimetableAddRequest,
+        @Valid @RequestBody body: TimetableAddRequest,
     ): List<TimetableBriefResponse> {
         val userId = user.id!!
         if (source == null) {
@@ -196,7 +197,7 @@ class TimetableController(
     fun modifyTimetable(
         @CurrentUser user: User,
         @PathVariable timetableId: Long,
-        @RequestBody body: TimetableModifyRequest,
+        @Valid @RequestBody body: TimetableModifyRequest,
     ): List<TimetableBriefResponse> {
         val userId = user.id!!
         timetableService.modifyTimetableTitle(userId, timetableId, body.title)

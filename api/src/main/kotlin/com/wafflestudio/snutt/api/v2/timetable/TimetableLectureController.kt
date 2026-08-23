@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddR
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureModifyRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -93,7 +94,7 @@ class TimetableLectureController(
     fun addCustomLecture(
         @CurrentUser user: User,
         @PathVariable timetableId: Long,
-        @RequestBody body: CustomTimetableLectureAddRequestBody,
+        @Valid @RequestBody body: CustomTimetableLectureAddRequestBody,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableLectureService

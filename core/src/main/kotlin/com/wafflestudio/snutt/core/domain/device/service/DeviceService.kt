@@ -21,31 +21,30 @@ class DeviceService(
         clientInfo: ClientInfo,
     ) {
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
-        val device =
+        val deviceByRegistrationId = userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(registrationId)
+        val deviceByDeviceId =
             clientInfo.deviceId?.let { userDeviceRepository.findByUserIdAndDeviceIdAndIsDeletedFalse(userId, it) }
-                ?: userDeviceRepository.findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
-        if (device == null) {
-            userDeviceRepository.save(
-                UserDevice(
-                    user = user,
-                    osType = clientInfo.osType,
-                    osVersion = clientInfo.osVersion,
-                    deviceId = clientInfo.deviceId,
-                    deviceModel = clientInfo.deviceModel,
-                    appType = clientInfo.appType,
-                    appVersion = clientInfo.appVersion,
-                    fcmRegistrationId = registrationId,
-                ),
-            )
-        } else {
-            device.fcmRegistrationId = registrationId
-            device.osType = clientInfo.osType
-            device.osVersion = clientInfo.osVersion
-            device.deviceId = clientInfo.deviceId
-            device.deviceModel = clientInfo.deviceModel
-            device.appType = clientInfo.appType
-            device.appVersion = clientInfo.appVersion
-        }
+        val device =
+            if (deviceByRegistrationId?.user?.id == userId) {
+                if (deviceByDeviceId != null && deviceByDeviceId.id != deviceByRegistrationId.id) {
+                    deviceByDeviceId.isDeleted = true
+                }
+                deviceByRegistrationId
+            } else {
+                if (deviceByRegistrationId != null) {
+                    deviceByRegistrationId.isDeleted = true
+                    userDeviceRepository.flush()
+                }
+                deviceByDeviceId ?: UserDevice(user = user, fcmRegistrationId = registrationId)
+            }
+        device.fcmRegistrationId = registrationId
+        device.osType = clientInfo.osType
+        device.osVersion = clientInfo.osVersion
+        device.deviceId = clientInfo.deviceId
+        device.deviceModel = clientInfo.deviceModel
+        device.appType = clientInfo.appType
+        device.appVersion = clientInfo.appVersion
+        userDeviceRepository.save(device)
         pushClient.subscribeGlobalTopic(registrationId)
     }
 
@@ -55,9 +54,10 @@ class DeviceService(
         registrationId: String,
     ) {
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
-        userDeviceRepository
-            .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
-            ?.let { it.isDeleted = true }
+        val device =
+            userDeviceRepository.findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
+                ?: return
+        device.isDeleted = true
         pushClient.unsubscribeGlobalTopic(registrationId)
     }
 

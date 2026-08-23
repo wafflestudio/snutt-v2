@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.auth.service.TokenPair
 import com.wafflestudio.snutt.core.domain.user.service.PasswordResetService
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -74,7 +75,7 @@ class AuthController(
     @Public
     @PostMapping("/register")
     fun registerLocal(
-        @RequestBody request: RegisterLocalRequest,
+        @Valid @RequestBody request: RegisterLocalRequest,
     ): TokenResponse {
         val user = authService.registerLocal(request.localId, request.password, request.email)
         return authService.issueTokens(user).toResponse(user.id!!)
@@ -83,7 +84,7 @@ class AuthController(
     @Public
     @PostMapping("/login")
     fun loginLocal(
-        @RequestBody request: LoginLocalRequest,
+        @Valid @RequestBody request: LoginLocalRequest,
     ): TokenResponse {
         val user = authService.loginLocal(request.localId, request.password)
         return authService.issueTokens(user).toResponse(user.id!!)
@@ -93,7 +94,7 @@ class AuthController(
     @PostMapping("/login/{provider}")
     fun loginSocial(
         @PathVariable provider: String,
-        @RequestBody request: SocialLoginRequest,
+        @Valid @RequestBody request: SocialLoginRequest,
     ): TokenResponse {
         val authProvider =
             AuthProvider.from(provider)?.takeIf { it != AuthProvider.LOCAL }
@@ -105,7 +106,7 @@ class AuthController(
     @Public
     @PostMapping("/refresh")
     fun refresh(
-        @RequestBody request: RefreshRequest,
+        @Valid @RequestBody request: RefreshRequest,
     ): TokenResponse {
         val (user, tokens) = authService.refresh(request.refreshToken)
         return tokens.toResponse(user.id!!)
@@ -122,7 +123,7 @@ class AuthController(
     @Public
     @PostMapping("/password/reset/request")
     fun requestPasswordReset(
-        @RequestBody body: RequestPasswordResetRequest,
+        @Valid @RequestBody body: RequestPasswordResetRequest,
     ) {
         passwordResetService.requestResetQuietly(body.email)
     }
@@ -130,7 +131,7 @@ class AuthController(
     @Public
     @PostMapping("/password/reset/confirm")
     fun confirmPasswordReset(
-        @RequestBody body: ConfirmPasswordResetRequest,
+        @Valid @RequestBody body: ConfirmPasswordResetRequest,
     ) {
         passwordResetService.confirmResetQuietly(body.email, body.code, body.newPassword)
     }
@@ -138,7 +139,7 @@ class AuthController(
     @Public
     @PostMapping("/id/find")
     fun findId(
-        @RequestBody body: FindIdRequest,
+        @Valid @RequestBody body: FindIdRequest,
     ) {
         passwordResetService.sendLocalIdToEmailQuietly(body.email)
     }

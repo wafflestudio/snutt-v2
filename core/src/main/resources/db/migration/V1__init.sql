@@ -52,6 +52,8 @@ CREATE TABLE user_device
     is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at          DATETIME(6)  NOT NULL,
     updated_at          DATETIME(6)  NOT NULL,
+    active_fcm_registration_id VARCHAR(512) GENERATED ALWAYS AS (IF(is_deleted, NULL, fcm_registration_id)) VIRTUAL,
+    CONSTRAINT uk_user_device_active_fcm_registration_id UNIQUE (active_fcm_registration_id),
     CONSTRAINT fk_user_device_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     INDEX idx_user_device_user (user_id, is_deleted),
     INDEX idx_user_device_fcm_registration_id (fcm_registration_id)

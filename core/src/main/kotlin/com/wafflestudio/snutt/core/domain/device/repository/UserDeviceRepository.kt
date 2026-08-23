@@ -21,6 +21,8 @@ interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
         fcmRegistrationId: String,
     ): UserDevice?
 
+    fun findByFcmRegistrationIdAndIsDeletedFalse(fcmRegistrationId: String): UserDevice?
+
     @Transactional
     @Modifying
     @Query(

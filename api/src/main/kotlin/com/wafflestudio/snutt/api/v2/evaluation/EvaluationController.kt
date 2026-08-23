@@ -13,6 +13,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateReq
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.user.model.User
+import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -138,7 +139,7 @@ class EvaluationController(
     fun createEvaluation(
         @CurrentUser user: User,
         @PathVariable lectureId: Long,
-        @RequestBody body: EvaluationWriteRequestBody,
+        @Valid @RequestBody body: EvaluationWriteRequestBody,
     ): EvaluationResponse =
         evaluationService
             .createEvaluation(
@@ -250,7 +251,7 @@ class EvaluationController(
     fun reportEvaluation(
         @CurrentUser user: User,
         @PathVariable evaluationId: Long,
-        @RequestBody body: EvaluationReportRequestBody,
+        @Valid @RequestBody body: EvaluationReportRequestBody,
     ): Long = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content)).id!!
 
     @PostMapping("/v2/evaluations/{evaluationId}/like")
