@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.timetable.service
 
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
@@ -9,7 +10,9 @@ import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminder
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminderSchedule
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderScheduleRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
@@ -61,6 +64,7 @@ class TimetableLectureReminderService(
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
+    private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private var lastCleanupAt: Instant? = null
@@ -79,8 +83,14 @@ class TimetableLectureReminderService(
         val lastNotifiedBefore = now.toInstant().minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
         val pushes = mutableListOf<DueReminderPush>()
         dueWindows(now).forEach { window ->
+            val reminderIds =
+                timetableLectureReminderScheduleRepository.findReminderIdsByFireInRange(
+                    DayOfWeek.getOfValue(window.day)!!,
+                    window.startMinute,
+                    window.endMinute,
+                )
             timetableLectureReminderRepository
-                .findByNextFireInRange(window.day, window.startMinute, window.endMinute)
+                .findAllById(reminderIds.toSet())
                 .forEach { reminder ->
                     collect(reminder, now, current, listOf(window), lastNotifiedBefore)?.let { pushes += it }
                 }
@@ -135,10 +145,11 @@ class TimetableLectureReminderService(
         if (!timetable.isPrimary) return null
 
         // 이번 윈도우에 해당하고 아직 알리지 않은 스케줄만 대상으로 한다(같은 강의의 연속 스케줄 누락 방지)
+        val schedules = timetableLectureReminderScheduleRepository.findByReminderId(reminder.id!!)
         val dueSchedules =
-            reminder.scheduleList.filter { schedule ->
+            schedules.filter { schedule ->
                 val lastNotified = schedule.recentNotifiedAt
-                windows.any { it.contains(schedule) } &&
+                windows.any { it.contains(schedule.toSchedule()) } &&
                     (lastNotified == null || lastNotified.isBefore(lastNotifiedBefore))
             }
         if (dueSchedules.isEmpty()) return null
@@ -154,17 +165,8 @@ class TimetableLectureReminderService(
                 else -> "$courseTitle 강의 시작 ${-reminder.offsetMinutes}분 전이에요."
             }
 
-        reminder.scheduleList =
-            reminder.scheduleList.map { schedule ->
-                if (dueSchedules.any { it.day == schedule.day && it.minute == schedule.minute }) {
-                    schedule.copy(recentNotifiedAt = now.toInstant())
-                } else {
-                    schedule
-                }
-            }
-        reminder.recentNotifiedAt = now.toInstant()
-        reminder.recomputeNextFire(now.toInstant().plusSeconds(60))
-        timetableLectureReminderRepository.save(reminder)
+        dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
+        timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
         return DueReminderPush(userId = timetable.userId, body = body)
     }
 
@@ -218,7 +220,9 @@ class TimetableLectureReminderService(
         if (display.classPlaceAndTimes.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
 
         if (option == TimetableLectureReminderOption.NONE) {
-            timetableLectureReminderRepository.deleteByTimetableLectureId(timetableLecture.id!!)
+            timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)?.let {
+                deleteReminder(it)
+            }
             return TimetableLectureReminderDisplay(
                 timetableLecture.id!!,
                 display.courseTitle,
@@ -233,11 +237,9 @@ class TimetableLectureReminderService(
                 ?: TimetableLectureReminder(
                     timetableLectureId = timetableLecture.id!!,
                     offsetMinutes = offsetMinutes,
-                    scheduleList = schedules,
                 ).also { timetableLectureReminderRepository.save(it) }
         reminder.offsetMinutes = offsetMinutes
-        reminder.scheduleList = schedules
-        reminder.recomputeNextFire()
+        replaceSchedules(reminder.id!!, schedules)
         return TimetableLectureReminderDisplay(timetableLecture.id!!, display.courseTitle, option)
     }
 
@@ -248,17 +250,37 @@ class TimetableLectureReminderService(
     ) {
         val reminder = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId) ?: return
         if (times.isEmpty()) {
-            timetableLectureReminderRepository.delete(reminder)
+            deleteReminder(reminder)
             return
         }
         val newSchedules =
             times.map { classTime ->
-                val newSchedule = Schedule(classTime.day, classTime.startMinute).plusMinutes(reminder.offsetMinutes)
-                reminder.scheduleList.firstOrNull { it.day == newSchedule.day && it.minute == newSchedule.minute } ?: newSchedule
+                Schedule(classTime.day, classTime.startMinute).plusMinutes(reminder.offsetMinutes)
             }
-        if (newSchedules == reminder.scheduleList) return
-        reminder.scheduleList = newSchedules
-        reminder.recomputeNextFire()
+        replaceSchedules(reminder.id!!, newSchedules)
+    }
+
+    private fun deleteReminder(reminder: TimetableLectureReminder) {
+        timetableLectureReminderScheduleRepository.deleteByReminderId(reminder.id!!)
+        timetableLectureReminderRepository.delete(reminder)
+    }
+
+    private fun replaceSchedules(
+        reminderId: Long,
+        schedules: List<Schedule>,
+    ) {
+        val existing =
+            timetableLectureReminderScheduleRepository
+                .findByReminderId(reminderId)
+                .associateBy { it.day to it.minute }
+        timetableLectureReminderScheduleRepository.deleteByReminderId(reminderId)
+        timetableLectureReminderScheduleRepository.saveAll(
+            schedules.map { schedule ->
+                existing[schedule.day to schedule.minute]
+                    ?.let { prev -> TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, prev.recentNotifiedAt) }
+                    ?: TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute)
+            },
+        )
     }
 
     private fun getTimetableLectureWithDisplay(

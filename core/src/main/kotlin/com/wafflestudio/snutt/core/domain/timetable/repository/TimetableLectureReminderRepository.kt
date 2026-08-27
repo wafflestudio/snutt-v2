@@ -9,17 +9,6 @@ import org.springframework.transaction.annotation.Transactional
 interface TimetableLectureReminderRepository : JpaRepository<TimetableLectureReminder, Long> {
     fun findByTimetableLectureId(timetableLectureId: Long): TimetableLectureReminder?
 
-    // 발화 여부(스케줄별 최근 알림)는 스케줄러에서 스케줄 단위로 판단한다
-    @Query(
-        "SELECT r FROM TimetableLectureReminder r WHERE r.nextDay = :day " +
-            "AND r.nextMinute BETWEEN :startMinute AND :endMinute",
-    )
-    fun findByNextFireInRange(
-        day: Int,
-        startMinute: Int,
-        endMinute: Int,
-    ): List<TimetableLectureReminder>
-
     @Modifying
     @Transactional
     @Query(
@@ -36,6 +25,4 @@ interface TimetableLectureReminderRepository : JpaRepository<TimetableLectureRem
     ): Int
 
     fun findByTimetableLectureIdIn(timetableLectureIds: Collection<Long>): List<TimetableLectureReminder>
-
-    fun deleteByTimetableLectureId(timetableLectureId: Long)
 }

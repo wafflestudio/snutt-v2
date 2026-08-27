@@ -87,55 +87,75 @@ class TimetableStep(
     private fun migrateReminders() {
         val ids = IdSequence()
         var count = 0L
+        val scheduleIds = IdSequence()
+        var scheduleCount = 0L
         writer(
             "timetable_lecture_reminder",
             listOf(
                 "id",
                 "timetable_lecture_id",
                 "offset_minutes",
-                "schedule_list",
-                "next_day",
-                "next_minute",
                 "created_at",
                 "updated_at",
             ),
-        ).use { out ->
-            mongo.each("timetableLectureReminder") { doc ->
-                val timetableLectureId =
-                    doc.oid("timetableLectureId")?.let(context.timetableLectureIds::get) ?: return@each
-                val schedules =
-                    doc.docs("schedules").mapNotNull { schedule ->
-                        val day =
-                            when (val raw = schedule.get("day")) {
-                                is String -> DayOfWeek.valueOf(raw)
-                                is Number -> DayOfWeek.getOfValue(raw.toInt())
-                                else -> null
-                            } ?: return@mapNotNull null
-                        val minute = schedule.int("minute") ?: return@mapNotNull null
-                        // recentNotifiedAt는 11분 내 중복 방지에만 쓰이므로 이관하지 않는다
-                        Schedule(day, minute)
+        ).use { reminderOut ->
+            writer(
+                "timetable_lecture_reminder_schedule",
+                listOf(
+                    "id",
+                    "reminder_id",
+                    "day",
+                    "minute",
+                    "recent_notified_at",
+                    "created_at",
+                    "updated_at",
+                ),
+            ).use { scheduleOut ->
+                mongo.each("timetableLectureReminder") { doc ->
+                    val timetableLectureId =
+                        doc.oid("timetableLectureId")?.let(context.timetableLectureIds::get) ?: return@each
+                    val schedules =
+                        doc.docs("schedules").mapNotNull { schedule ->
+                            val day =
+                                when (val raw = schedule.get("day")) {
+                                    is String -> DayOfWeek.valueOf(raw)
+                                    is Number -> DayOfWeek.getOfValue(raw.toInt())
+                                    else -> null
+                                } ?: return@mapNotNull null
+                            val minute = schedule.int("minute") ?: return@mapNotNull null
+                            // recentNotifiedAt는 11분 내 중복 방지에만 쓰이므로 이관하지 않는다
+                            Schedule(day, minute)
+                        }
+                    if (schedules.isEmpty()) return@each
+
+                    val now = Instant.now().toSqlTimestamp()
+                    val reminderId = ids.next()
+                    reminderOut.add(
+                        reminderId,
+                        timetableLectureId,
+                        doc.int("offsetMinutes") ?: 0,
+                        now,
+                        now,
+                    )
+                    schedules.forEach { schedule ->
+                        scheduleOut.add(
+                            scheduleIds.next(),
+                            reminderId,
+                            schedule.day.value,
+                            schedule.minute,
+                            null,
+                            now,
+                            now,
+                        )
+                        scheduleCount++
                     }
-                if (schedules.isEmpty()) return@each
-
-                val nowSchedule = Schedule.fromInstant(Instant.now())
-                val next = schedules.sorted().firstOrNull { it >= nowSchedule } ?: schedules.minOrNull()
-
-                val now = Instant.now().toSqlTimestamp()
-                out.add(
-                    ids.next(),
-                    timetableLectureId,
-                    doc.int("offsetMinutes") ?: 0,
-                    Json.writeRequired(schedules.map { mapOf("day" to it.day.value, "minute" to it.minute) }),
-                    next?.day?.value,
-                    next?.minute,
-                    now,
-                    now,
-                )
-                count++
+                    count++
+                }
             }
         }
         alignAutoIncrement("timetable_lecture_reminder", ids.peek())
-        log.info("리마인더 이관: {}건", count)
+        alignAutoIncrement("timetable_lecture_reminder_schedule", scheduleIds.peek())
+        log.info("리마인더 이관: {}건(스케줄 {}건)", count, scheduleCount)
     }
 
     private fun Document.toRow(

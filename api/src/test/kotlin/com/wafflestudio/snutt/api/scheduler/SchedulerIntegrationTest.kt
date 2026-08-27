@@ -12,16 +12,18 @@ import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
-import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminder
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminderSchedule
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderScheduleRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -68,6 +70,9 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
     lateinit var timetableLectureReminderRepository: TimetableLectureReminderRepository
 
     @Autowired
+    lateinit var timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository
+
+    @Autowired
     lateinit var lectureRepository: LectureRepository
 
     @Autowired
@@ -82,6 +87,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
     @BeforeEach
     fun cleanTables() {
         timetableLectureReminderRepository.deleteAll()
+        timetableLectureReminderScheduleRepository.deleteAll()
         timetableLectureRepository.deleteAll()
         timetableRepository.deleteAll()
         lectureRepository.deleteAll()
@@ -136,19 +142,18 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
         val timetableLectureId = timetableLecture.id!!
 
         val now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"))
-        timetableLectureReminderRepository.save(
-            TimetableLectureReminder(
-                timetableLectureId = timetableLectureId,
-                offsetMinutes = -10,
-                scheduleList =
-                    listOf(
-                        Schedule(
-                            day = DayOfWeek.getOfValue(now.dayOfWeek.value - 1)!!,
-                            minute = now.hour * 60 + now.minute,
-                        ),
-                    ),
-                nextDay = now.dayOfWeek.value - 1,
-                nextMinute = now.hour * 60 + now.minute,
+        val reminder =
+            timetableLectureReminderRepository.save(
+                TimetableLectureReminder(
+                    timetableLectureId = timetableLectureId,
+                    offsetMinutes = -10,
+                ),
+            )
+        timetableLectureReminderScheduleRepository.save(
+            TimetableLectureReminderSchedule(
+                reminderId = reminder.id!!,
+                day = DayOfWeek.getOfValue(now.dayOfWeek.value - 1)!!,
+                minute = now.hour * 60 + now.minute,
             ),
         )
 
@@ -161,10 +166,11 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
         assertTrue(recordingPushClient.sentMessages[0].body.contains("10분 전"))
 
         val after = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId)!!
-        assertTrue(after.recentNotifiedAt != null)
-        val nextMinute = after.nextDay!! * 1440 + after.nextMinute!!
-        val nowMinute = now.dayOfWeek.value * 1440 + now.hour * 60 + now.minute
-        assertTrue(nextMinute > nowMinute || nextMinute + 7 * 1440 > nowMinute)
+        val schedule =
+            timetableLectureReminderScheduleRepository
+                .findByReminderId(after.id!!)
+                .single { it.day == DayOfWeek.getOfValue(now.dayOfWeek.value - 1)!! && it.minute == now.hour * 60 + now.minute }
+        assertNotNull(schedule.recentNotifiedAt)
     }
 
     @Test
