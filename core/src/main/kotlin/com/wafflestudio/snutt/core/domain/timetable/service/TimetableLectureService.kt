@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
+import com.wafflestudio.snutt.core.domain.timetable.model.LectureOverrides
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
@@ -119,11 +120,14 @@ class TimetableLectureService(
                 lectureId = null,
                 color = request.color ?: color,
                 colorIndex = request.colorIndex ?: colorIndex,
-                courseTitle = request.courseTitle,
-                instructor = request.instructor,
-                credit = request.credit,
-                remark = request.remark,
-                classPlaceAndTimes = request.classPlaceAndTimes,
+                overrides =
+                    LectureOverrides(
+                        courseTitle = request.courseTitle,
+                        instructor = request.instructor,
+                        credit = request.credit,
+                        remark = request.remark,
+                        classPlaceAndTimes = request.classPlaceAndTimes,
+                    ),
             ),
         )
         return displayAfterLectureChange(userId, timetable)
@@ -149,15 +153,19 @@ class TimetableLectureService(
         request.color?.let { timetableLecture.color = it }
         request.colorIndex?.let { timetableLecture.colorIndex = it }
 
-        request.courseTitle?.let { timetableLecture.courseTitle = it }
-        request.instructor?.let { timetableLecture.instructor = it }
-        request.credit?.let { timetableLecture.credit = it }
-        request.remark?.let { timetableLecture.remark = it }
-        request.classPlaceAndTimes?.let { timetableLecture.classPlaceAndTimes = it }
-        request.academicYear?.let { timetableLecture.academicYear = it }
-        request.category?.let { timetableLecture.category = it }
-        request.classification?.let { timetableLecture.classification = it }
-        request.categoryPre2025?.let { timetableLecture.categoryPre2025 = it }
+        timetableLecture.updateOverrides { o ->
+            o.copy(
+                courseTitle = request.courseTitle ?: o.courseTitle,
+                instructor = request.instructor ?: o.instructor,
+                credit = request.credit ?: o.credit,
+                remark = request.remark ?: o.remark,
+                classPlaceAndTimes = request.classPlaceAndTimes ?: o.classPlaceAndTimes,
+                academicYear = request.academicYear ?: o.academicYear,
+                category = request.category ?: o.category,
+                classification = request.classification ?: o.classification,
+                categoryPre2025 = request.categoryPre2025 ?: o.categoryPre2025,
+            )
+        }
 
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         return displayAfterLectureChange(userId, timetable)
