@@ -7,6 +7,8 @@ import com.querydsl.jpa.JPAExpressions
 import com.querydsl.jpa.impl.JPAQuery
 import com.querydsl.jpa.impl.JPAQueryFactory
 import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.search.KeywordIntent
+import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
@@ -24,6 +26,7 @@ class LectureSearchRepositoryImpl(
     private val ratingJoinView = ratingJoinViewProvider.ifAvailable
     private val lecture = QLecture.lecture
     private val classTime = QLectureClassTime.lectureClassTime
+    private val classifier = SearchKeywordClassifier(placeRegex, buildingRegex)
 
     companion object {
         private val placeRegex = """^(?:|#|\*)\d+(?:-\d+|-[a-zA-Z])?-[a-zA-Z]?\d+[a-zA-Z]?(?:-\d+)?$""".toRegex()
@@ -101,22 +104,19 @@ class LectureSearchRepositoryImpl(
         keyword: String,
         language: Language,
     ): BooleanExpression? =
-        when {
-            keyword.isEmpty() -> null
-            // 구버전 EN 분기: 스마트검색(특수키워드/학과접미사) 없이 ko+en 필드 단순 매칭만
-            language == Language.EN -> enKeywordPredicate(keyword)
-            keyword == "전공" -> lecture.classification.`in`("전선", "전필")
-            keyword in listOf("석박", "대학원") -> lecture.academicYear.`in`("석사", "박사", "석박사통합")
-            keyword in listOf("학부", "학사") -> lecture.academicYear.notIn("석사", "박사", "석박사통합")
-            keyword == "체육" -> lecture.category.eq("체육")
-            keyword in listOf("영강", "영어강의") -> remarkMatches(".*ⓔ.*")
-            keyword in listOf("군휴학", "군휴학원격") -> remarkMatches(".*ⓜⓞ.*")
-            keyword == "권장과목" -> remarkMatches(".*권장과목.*")
-            placeRegex.matches(keyword) || buildingRegex.matches(keyword) ->
-                placePredicate(keyword.replace("동", "").uppercase())
-
-            keyword.hasKorean() -> koreanKeywordPredicate(keyword)
-            else -> nonKoreanKeywordPredicate(keyword)
+        when (val intent = classifier.classify(keyword, language)) {
+            KeywordIntent.Empty -> null
+            KeywordIntent.Major -> lecture.classification.`in`("전선", "전필")
+            KeywordIntent.Graduate -> lecture.academicYear.`in`("석사", "박사", "석박사통합")
+            KeywordIntent.Undergraduate -> lecture.academicYear.notIn("석사", "박사", "석박사통합")
+            KeywordIntent.PhysicalEducation -> lecture.category.eq("체육")
+            KeywordIntent.EnglishLecture -> remarkMatches(".*ⓔ.*")
+            KeywordIntent.MilitaryLeave -> remarkMatches(".*ⓜⓞ.*")
+            KeywordIntent.Recommended -> remarkMatches(".*권장과목.*")
+            is KeywordIntent.Place -> placePredicate(intent.keyword)
+            is KeywordIntent.Fuzzy -> koreanKeywordPredicate(intent.keyword)
+            is KeywordIntent.Plain ->
+                if (language == Language.EN) enKeywordPredicate(intent.keyword) else nonKoreanKeywordPredicate(intent.keyword)
         }
 
     private fun koreanKeywordPredicate(keyword: String): BooleanExpression {
@@ -239,6 +239,4 @@ class LectureSearchRepositoryImpl(
     // 백슬래시 이스케이프를 쓴다. 두 엔진 모두 메타문자 리터럴 매칭은 동일하다
     private fun regexEscape(value: String): String =
         value.flatMap { ch -> if (ch in "\\^$.|?*+()[]{}") listOf('\\', ch) else listOf(ch) }.joinToString("")
-
-    private fun String.hasKorean(): Boolean = isNotEmpty() && any { it in '가'..'힣' }
 }
