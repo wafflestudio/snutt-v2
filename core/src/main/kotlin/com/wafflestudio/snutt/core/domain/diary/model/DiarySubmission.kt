@@ -23,8 +23,4 @@ class DiarySubmission(
     var courseTitle: String,
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var comment: String,
-    @JdbcTypeCode(SqlTypes.JSON)
-    var dailyClassTypeIdList: List<Long>,
-    @JdbcTypeCode(SqlTypes.JSON)
-    var questionAnswerList: List<QuestionAnswer>,
 ) : BaseEntity()

@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
-import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -225,6 +224,8 @@ class UserDataStep(
 
     private fun migrateDiarySubmissions() {
         val ids = IdSequence()
+        val dctIds = IdSequence()
+        val answerIds = IdSequence()
         writer(
             "diary_submission",
             listOf(
@@ -235,36 +236,47 @@ class UserDataStep(
                 "lecture_id",
                 "course_title",
                 "comment",
-                "daily_class_type_id_list",
-                "question_answer_list",
                 "created_at",
                 "updated_at",
             ),
         ).use { out ->
-            mongo.each("diarySubmission") { doc ->
-                val userId = context.userIds[doc.oid("userId")] ?: return@each
-                val createdAt = doc.instant("createdAt").orNow().toSqlTimestamp()
-                val answers =
-                    doc.docs("questionAnswers").mapNotNull { answer ->
-                        val questionId = answer.str("questionId")?.let(context.diaryQuestionIds::get) ?: return@mapNotNull null
-                        mapOf("questionId" to questionId, "answerIndex" to (answer.int("answerIndex") ?: 0))
+            writer(
+                "diary_submission_daily_class_type",
+                listOf("id", "submission_id", "daily_class_type_id", "created_at", "updated_at"),
+            ).use { dctOut ->
+                writer(
+                    "diary_submission_answer",
+                    listOf("id", "submission_id", "question_id", "answer_index", "created_at", "updated_at"),
+                ).use { answerOut ->
+                    mongo.each("diarySubmission") { doc ->
+                        val userId = context.userIds[doc.oid("userId")] ?: return@each
+                        val createdAt = doc.instant("createdAt").orNow().toSqlTimestamp()
+                        val submissionId = ids.next()
+                        out.add(
+                            submissionId,
+                            userId,
+                            doc.int("year") ?: 0,
+                            doc.int("semester") ?: 1,
+                            doc.oid("lectureId")?.let(context.lectureIds::get),
+                            doc.str("courseTitle").orEmpty(),
+                            doc.str("comment"),
+                            createdAt,
+                            createdAt,
+                        )
+                        doc.oids("dailyClassTypeIds").mapNotNull(context.diaryClassTypeIds::get).forEach { typeId ->
+                            dctOut.add(dctIds.next(), submissionId, typeId, createdAt, createdAt)
+                        }
+                        doc.docs("questionAnswers").forEach { answer ->
+                            val questionId = answer.str("questionId")?.let(context.diaryQuestionIds::get) ?: return@forEach
+                            answerOut.add(answerIds.next(), submissionId, questionId, answer.int("answerIndex") ?: 0, createdAt, createdAt)
+                        }
                     }
-                out.add(
-                    ids.next(),
-                    userId,
-                    doc.int("year") ?: 0,
-                    doc.int("semester") ?: 1,
-                    doc.oid("lectureId")?.let(context.lectureIds::get),
-                    doc.str("courseTitle").orEmpty(),
-                    doc.str("comment"),
-                    Json.writeRequired(doc.oids("dailyClassTypeIds").mapNotNull(context.diaryClassTypeIds::get)),
-                    Json.writeRequired(answers),
-                    createdAt,
-                    createdAt,
-                )
+                }
             }
         }
         alignAutoIncrement("diary_submission", ids.peek())
+        alignAutoIncrement("diary_submission_daily_class_type", dctIds.peek())
+        alignAutoIncrement("diary_submission_answer", answerIds.peek())
         log.info("강의 일기장 기록 이관: {}건", ids.peek() - 1)
     }
 

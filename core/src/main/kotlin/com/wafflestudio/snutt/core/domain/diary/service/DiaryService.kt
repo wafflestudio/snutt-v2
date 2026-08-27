@@ -5,10 +5,16 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestionTarget
 import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmission
+import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmissionAnswer
+import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmissionDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.QuestionAnswer
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryDailyClassTypeRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionTargetRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionAnswerRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionDailyClassTypeRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
@@ -45,6 +51,9 @@ class DiaryService(
     private val diaryDailyClassTypeRepository: DiaryDailyClassTypeRepository,
     private val diaryQuestionRepository: DiaryQuestionRepository,
     private val diarySubmissionRepository: DiarySubmissionRepository,
+    private val diaryQuestionTargetRepository: DiaryQuestionTargetRepository,
+    private val diarySubmissionDailyClassTypeRepository: DiarySubmissionDailyClassTypeRepository,
+    private val diarySubmissionAnswerRepository: DiarySubmissionAnswerRepository,
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
@@ -60,10 +69,15 @@ class DiaryService(
         request: DiaryQuestionnaireRequest,
     ): DiaryQuestionnaireDisplay {
         val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).mapNotNull { it.id }
+        val targetedQuestionIds =
+            diaryQuestionTargetRepository
+                .findByDailyClassTypeIdIn(dailyClassTypeIds)
+                .map { it.questionId }
+                .toSet()
         val questions =
             diaryQuestionRepository
                 .findAllByActiveTrue()
-                .filter { it.targetDailyClassTypeIdList.any { targetId -> targetId in dailyClassTypeIds } }
+                .filter { it.id in targetedQuestionIds }
                 .shuffled()
                 .take(QUESTION_COUNT)
         val lecture =
@@ -132,17 +146,22 @@ class DiaryService(
         if (dailyClassTypeIds.size != request.dailyClassTypes.toSet().size) {
             throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
         }
-        diarySubmissionRepository.save(
-            DiarySubmission(
-                userId = userId,
-                year = lecture.year,
-                semester = lecture.semester,
-                lectureId = lecture.id,
-                courseTitle = lecture.courseTitle,
-                comment = request.comment,
-                dailyClassTypeIdList = dailyClassTypeIds,
-                questionAnswerList = request.questionAnswers,
-            ),
+        val submission =
+            diarySubmissionRepository.save(
+                DiarySubmission(
+                    userId = userId,
+                    year = lecture.year,
+                    semester = lecture.semester,
+                    lectureId = lecture.id,
+                    courseTitle = lecture.courseTitle,
+                    comment = request.comment,
+                ),
+            )
+        diarySubmissionDailyClassTypeRepository.saveAll(
+            dailyClassTypeIds.map { DiarySubmissionDailyClassType(submission.id!!, it) },
+        )
+        diarySubmissionAnswerRepository.saveAll(
+            request.questionAnswers.map { DiarySubmissionAnswer(submission.id!!, it.questionId, it.answerIndex) },
         )
     }
 
@@ -156,9 +175,13 @@ class DiaryService(
 
     fun getSubmissionIdShortQuestionRepliesMap(submissions: List<DiarySubmission>): Map<Long, List<DiaryShortQuestionReply>> {
         val questions = diaryQuestionRepository.findAllByActiveTrue().associateBy { it.id!! }
+        val answersBySubmissionId =
+            diarySubmissionAnswerRepository
+                .findBySubmissionIdIn(submissions.mapNotNull { it.id })
+                .groupBy { it.submissionId }
         return submissions.associate { submission ->
             submission.id!! to
-                submission.questionAnswerList.mapNotNull { answer ->
+                answersBySubmissionId[submission.id].orEmpty().mapNotNull { answer ->
                     val question = questions[answer.questionId] ?: return@mapNotNull null
                     DiaryShortQuestionReply(
                         questionId = answer.questionId,
@@ -178,6 +201,8 @@ class DiaryService(
             diarySubmissionRepository.findByIdOrNull(submissionId)
                 ?: throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
         if (submission.userId != userId) throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
+        diarySubmissionAnswerRepository.deleteBySubmissionId(submissionId)
+        diarySubmissionDailyClassTypeRepository.deleteBySubmissionId(submissionId)
         diarySubmissionRepository.delete(submission)
     }
 
@@ -206,15 +231,18 @@ class DiaryService(
         active: Boolean = true,
     ) {
         val targetIds = diaryDailyClassTypeRepository.findAllByNameIn(targetDailyClassTypes).mapNotNull { it.id }
-        diaryQuestionRepository.save(
-            DiaryQuestion(
-                question = question,
-                shortQuestion = shortQuestion,
-                answerList = answers,
-                shortAnswerList = shortAnswers,
-                targetDailyClassTypeIdList = targetIds,
-                active = active,
-            ),
+        val questionEntity =
+            diaryQuestionRepository.save(
+                DiaryQuestion(
+                    question = question,
+                    shortQuestion = shortQuestion,
+                    answerList = answers,
+                    shortAnswerList = shortAnswers,
+                    active = active,
+                ),
+            )
+        diaryQuestionTargetRepository.saveAll(
+            targetIds.map { DiaryQuestionTarget(questionEntity.id!!, it) },
         )
     }
 

@@ -8,8 +8,10 @@ import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestionTarget
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryDailyClassTypeRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionTargetRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
@@ -67,6 +69,9 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var diaryQuestionRepository: DiaryQuestionRepository
+
+    @Autowired
+    lateinit var diaryQuestionTargetRepository: DiaryQuestionTargetRepository
 
     @Autowired
     lateinit var userRepository: UserRepository
@@ -140,15 +145,19 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
                 Triple("오늘 공부는 어땠나요?", "공부", listOf("잘했어요", "못했어요")),
                 Triple("오늘 하루는 어땠나요?", "하루", listOf("행복", "우울")),
             ).map { (question, short, answers) ->
-                diaryQuestionRepository.save(
-                    DiaryQuestion(
-                        question = question,
-                        shortQuestion = short,
-                        answerList = answers,
-                        shortAnswerList = answers,
-                        targetDailyClassTypeIdList = classTypeIds,
-                    ),
-                )
+                diaryQuestionRepository
+                    .save(
+                        DiaryQuestion(
+                            question = question,
+                            shortQuestion = short,
+                            answerList = answers,
+                            shortAnswerList = answers,
+                        ),
+                    ).also { saved ->
+                        diaryQuestionTargetRepository.saveAll(
+                            classTypeIds.map { DiaryQuestionTarget(saved.id!!, it) },
+                        )
+                    }
             }
         questionIds = questions.mapNotNull { it.id }
 

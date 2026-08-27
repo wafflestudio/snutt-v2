@@ -484,10 +484,21 @@ CREATE TABLE diary_question
     short_question                  VARCHAR(255) NOT NULL,
     answer_list                     JSON         NOT NULL,
     short_answer_list               JSON         NOT NULL,
-    target_daily_class_type_id_list JSON         NOT NULL,
     active                          BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at                      DATETIME(6)  NOT NULL,
     updated_at                      DATETIME(6)  NOT NULL
+);
+
+CREATE TABLE diary_question_target
+(
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    question_id         BIGINT NOT NULL,
+    daily_class_type_id BIGINT NOT NULL,
+    created_at          DATETIME(6) NOT NULL,
+    updated_at          DATETIME(6) NOT NULL,
+    CONSTRAINT fk_diary_question_target_question FOREIGN KEY (question_id) REFERENCES diary_question (id) ON DELETE CASCADE,
+    CONSTRAINT fk_diary_question_target_type FOREIGN KEY (daily_class_type_id) REFERENCES diary_daily_class_type (id) ON DELETE CASCADE,
+    INDEX idx_diary_question_target_type (daily_class_type_id)
 );
 
 CREATE TABLE diary_submission
@@ -499,11 +510,32 @@ CREATE TABLE diary_submission
     lecture_id               BIGINT       NULL,
     course_title             VARCHAR(256) NOT NULL,
     comment                  TEXT         NULL,
-    daily_class_type_id_list JSON         NOT NULL,
-    question_answer_list     JSON         NOT NULL,
     created_at               DATETIME(6)  NOT NULL,
     updated_at               DATETIME(6)  NOT NULL,
     CONSTRAINT fk_diary_submission_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_diary_submission_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE SET NULL,
     INDEX idx_diary_submission_user (user_id, year, semester, created_at DESC)
+);
+
+CREATE TABLE diary_submission_daily_class_type
+(
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    submission_id       BIGINT NOT NULL,
+    daily_class_type_id BIGINT NOT NULL,
+    created_at          DATETIME(6) NOT NULL,
+    updated_at          DATETIME(6) NOT NULL,
+    CONSTRAINT fk_diary_submission_dct_submission FOREIGN KEY (submission_id) REFERENCES diary_submission (id) ON DELETE CASCADE,
+    INDEX idx_diary_submission_dct_submission (submission_id)
+);
+
+CREATE TABLE diary_submission_answer
+(
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    submission_id BIGINT NOT NULL,
+    question_id   BIGINT NOT NULL,
+    answer_index  INT    NOT NULL,
+    created_at    DATETIME(6) NOT NULL,
+    updated_at    DATETIME(6) NOT NULL,
+    CONSTRAINT fk_diary_submission_answer_submission FOREIGN KEY (submission_id) REFERENCES diary_submission (id) ON DELETE CASCADE,
+    INDEX idx_diary_submission_answer_submission (submission_id)
 );
