@@ -173,21 +173,28 @@ class TimetableStep(
         ): T? = if (snapshot == null) value else value.takeIf { it != original(snapshot) }
 
         val classTimeChanged = snapshot == null || LectureStep.classTimeKey(places) != snapshot.classTimeKey
+        val overrides =
+            buildMap<String, Any?> {
+                override(str("course_title")) { it.courseTitle }?.let { put("courseTitle", it) }
+                override(str("instructor")) { it.instructor }?.let { put("instructor", it) }
+                override(int("credit")) { it.credit }?.let { put("credit", it) }
+                override(str("remark")) { it.remark }?.let { put("remark", it) }
+                if (classTimeChanged) {
+                    val times = places.map { it.toClassPlaceAndTime() }
+                    if (times.isNotEmpty()) put("classPlaceAndTimes", times)
+                }
+                override(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
+                override(str("category")) { it.category }?.let { put("category", it) }
+                override(str("classification")) { it.classification }?.let { put("classification", it) }
+                override(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
+            }
         return arrayOf(
             id,
             timetableId,
             lectureId,
             doc("color")?.let { Json.write(mapOf("backgroundColor" to it.str("bg"), "foregroundColor" to it.str("fg"))) },
             int("colorIndex") ?: 0,
-            override(str("course_title")) { it.courseTitle },
-            override(str("instructor")) { it.instructor },
-            override(int("credit")) { it.credit },
-            override(str("remark")) { it.remark },
-            if (classTimeChanged) Json.write(places.map { it.toClassPlaceAndTime() }) else null,
-            override(str("academic_year")) { it.academicYear },
-            override(str("category")) { it.category },
-            override(str("classification")) { it.classification },
-            override(str("categoryPre2025")) { it.categoryPre2025 },
+            if (overrides.isEmpty()) null else Json.write(overrides),
             updatedAt,
             updatedAt,
         )
@@ -236,15 +243,7 @@ class TimetableStep(
                 "lecture_id",
                 "color",
                 "color_index",
-                "course_title",
-                "instructor",
-                "credit",
-                "remark",
-                "class_place_and_times",
-                "academic_year",
-                "category",
-                "classification",
-                "category_pre2025",
+                "overrides",
                 "created_at",
                 "updated_at",
             )

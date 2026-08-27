@@ -168,16 +168,20 @@ class MigrationIntegrationTest {
     fun `시간표 강의는 달라진 값만 남기고 같은 값은 강의를 따른다`() {
         val referenced =
             jdbc.queryForMap(
-                "SELECT course_title, instructor, class_place_and_times, lecture_id FROM timetable_lecture WHERE lecture_id IS NOT NULL",
+                "SELECT overrides->>'$.courseTitle' AS courseTitle, overrides->>'$.instructor' AS instructor, " +
+                    "overrides->>'$.classPlaceAndTimes' AS classPlaceAndTimes, lecture_id FROM timetable_lecture WHERE lecture_id IS NOT NULL",
             )
-        assertEquals("내가 바꾼 이름", referenced["course_title"])
+        assertEquals("내가 바꾼 이름", referenced["courseTitle"])
         assertNull(referenced["instructor"])
-        assertNull(referenced["class_place_and_times"])
+        assertNull(referenced["classPlaceAndTimes"])
 
         val custom =
-            jdbc.queryForMap("SELECT course_title, class_place_and_times FROM timetable_lecture WHERE lecture_id IS NULL")
-        assertEquals("직접 만든 강의", custom["course_title"])
-        assertNotNull(custom["class_place_and_times"])
+            jdbc.queryForMap(
+                "SELECT overrides->>'$.courseTitle' AS courseTitle, overrides->>'$.classPlaceAndTimes' AS classPlaceAndTimes " +
+                    "FROM timetable_lecture WHERE lecture_id IS NULL",
+            )
+        assertEquals("직접 만든 강의", custom["courseTitle"])
+        assertNotNull(custom["classPlaceAndTimes"])
     }
 
     @Test
