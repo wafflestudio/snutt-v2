@@ -10,7 +10,9 @@ import org.springframework.stereotype.Component
 
 data class SugangLectureRow(
     val classification: String,
-    val category: String,
+    // category는 교양영역(전공 강의는 값 없음). xlsx에 교양영역 컬럼이 없어 null이 기본값이고,
+    // enrich 단계에서 API의 sbjtFldNm으로 채워진다. classification에서 파생하면 안 된다.
+    val category: String?,
     val department: String,
     val academicYear: String,
     val courseNumber: String,
@@ -142,7 +144,7 @@ class SugangSnuXlsxParser {
 
         return SugangLectureRow(
             classification = classification,
-            category = deriveCategory(classification),
+            category = null,
             department = department,
             academicYear = academicYear,
             courseNumber = courseNumber,
@@ -185,16 +187,6 @@ class SugangSnuXlsxParser {
         }.getOrElse {
             log.error("classTime 변환 실패: {}", classTimesTexts, it)
             emptyList()
-        }
-
-    private fun deriveCategory(classification: String): String =
-        when (classification) {
-            "전필" -> "전공필수"
-            "전선" -> "전공선택"
-            "교필" -> "교양필수"
-            "교선" -> "교양선택"
-            "일선" -> "일반교양"
-            else -> classification.ifEmpty { "일반교양" }
         }
 
     private fun parseClassTime(text: String): ParsedClassTime? {
