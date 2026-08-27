@@ -197,6 +197,14 @@ class TimetableThemeService(
     ) {
         if (publishedThemeRepository.existsByThemeId(theme.id!!)) throw SnuttException(ErrorType.PUBLISHED_THEME_DELETE_ERROR)
 
+        // 삭제되는 테마가 기본 테마면 내장 테마로 되돌린다. 그렇지 않으면 user_preference의
+        // default_theme_id FK가 삭제를 막는다.
+        userPreferenceRepository.findByUserId(userId)?.let { pref ->
+            if (pref.defaultThemeId == theme.id) {
+                pref.defaultThemeId = SNUTT_BUILTIN_THEME_ID
+                userPreferenceRepository.saveAndFlush(pref)
+            }
+        }
         timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
             timetable.themeId = SNUTT_BUILTIN_THEME_ID
         }

@@ -299,12 +299,23 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `친구 코스북은 구 경로 별칭으로도 조회된다`() {
-        val friend = acceptedFriend()
-        val aliased = get("/v2/friends/${friend.id}/registered-course-books", userAToken)
-        assertEquals(200, aliased.statusCode.value())
-        val canonical = get("/v2/friends/${friend.id}/coursebooks", userAToken)
-        assertEquals(body(canonical), body(aliased))
+    fun `기본 테마로 지정된 커스텀 테마를 삭제하면 내장 테마로 돌아간다`() {
+        val created =
+            post(
+                "/v2/themes",
+                """{"name":"삭제할기본테마","colors":[{"backgroundColor":"#000000","foregroundColor":"#ffffff"}]}""",
+                userBToken,
+            )
+        assertEquals(200, created.statusCode.value())
+        val themeId = body(created)["id"].asLong()
+        post("/v2/themes/$themeId/default", token = userBToken)
+
+        val deleted = delete("/v2/themes/$themeId", userBToken)
+        assertEquals(200, deleted.statusCode.value())
+
+        val marked = body(get("/v2/themes", userBToken)).filter { it["isDefault"].asBoolean() }
+        assertEquals(1, marked.size)
+        assertEquals("SNUTT", marked[0]["name"].asString())
     }
 
     @Test

@@ -89,11 +89,20 @@ class TimetableLectureReminderService(
                     window.startMinute,
                     window.endMinute,
                 )
-            timetableLectureReminderRepository
-                .findAllById(reminderIds.toSet())
-                .forEach { reminder ->
-                    collect(reminder, now, current, listOf(window), lastNotifiedBefore)?.let { pushes += it }
-                }
+            if (reminderIds.isEmpty()) return@forEach
+            val reminders = timetableLectureReminderRepository.findAllById(reminderIds.toSet())
+            val schedulesByReminderId =
+                timetableLectureReminderScheduleRepository.findByReminderIdIn(reminderIds).groupBy { it.reminderId }
+            reminders.forEach { reminder ->
+                collect(
+                    reminder,
+                    schedulesByReminderId[reminder.id].orEmpty(),
+                    now,
+                    current,
+                    listOf(window),
+                    lastNotifiedBefore,
+                )?.let { pushes += it }
+            }
         }
         return pushes
     }
@@ -131,6 +140,7 @@ class TimetableLectureReminderService(
 
     private fun collect(
         reminder: TimetableLectureReminder,
+        schedules: List<TimetableLectureReminderSchedule>,
         now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
         windows: List<DueWindow>,
@@ -145,7 +155,6 @@ class TimetableLectureReminderService(
         if (!timetable.isPrimary) return null
 
         // 이번 윈도우에 해당하고 아직 알리지 않은 스케줄만 대상으로 한다(같은 강의의 연속 스케줄 누락 방지)
-        val schedules = timetableLectureReminderScheduleRepository.findByReminderId(reminder.id!!)
         val dueSchedules =
             schedules.filter { schedule ->
                 val lastNotified = schedule.recentNotifiedAt

@@ -49,6 +49,7 @@ class TimetableLecture(
     }
 
     fun updateOverrides(transform: (LectureOverrides) -> LectureOverrides) {
-        overrides = transform(overrides ?: LectureOverrides())
+        // 모든 필드가 null이면 빈 JSON({})을 쓰지 않고 null로 되돌린다
+        overrides = transform(overrides ?: LectureOverrides()).takeUnless { it == LectureOverrides() }
     }
 }

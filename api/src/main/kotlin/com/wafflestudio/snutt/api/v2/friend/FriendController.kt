@@ -153,7 +153,7 @@ class FriendController(
         return timetableService.getTimetableDisplay(partnerId, timetable.id!!).toResponse()
     }
 
-    @GetMapping("/{friendId}/coursebooks", "/{friendId}/registered-course-books")
+    @GetMapping("/{friendId}/coursebooks")
     fun getCoursebooks(
         @CurrentUser user: User,
         @PathVariable friendId: Long,

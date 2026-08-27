@@ -117,7 +117,7 @@ class AdminController(
         diaryScheduler.sendDiaryNotifications()
     }
 
-    @PostMapping("/notifications", "/insert_noti")
+    @PostMapping("/notifications")
     fun insertNotification(
         @Valid @RequestBody body: InsertNotificationRequest,
     ) {
@@ -198,16 +198,16 @@ class AdminController(
         popupService.deletePopup(popupId)
     }
 
-    @GetMapping("/registration-periods", "/registrationPeriods")
+    @GetMapping("/registration-periods")
     fun getSemesterRegistrationPeriods(): List<SemesterRegistrationPeriod> = semesterRegistrationPeriodService.getAll()
 
-    @GetMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
+    @GetMapping("/registration-periods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
     ): SemesterRegistrationPeriod? = semesterRegistrationPeriodService.getByYearAndSemester(year, parseSemester(semester))
 
-    @PatchMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
+    @PatchMapping("/registration-periods/{year}/{semester}")
     fun patchSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
@@ -216,7 +216,7 @@ class AdminController(
         semesterRegistrationPeriodService.upsert(year, parseSemester(semester), registrationPeriods)
     }
 
-    @DeleteMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
+    @DeleteMapping("/registration-periods/{year}/{semester}")
     fun deleteSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
@@ -239,20 +239,20 @@ class AdminController(
             )
         }
 
-    @GetMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
+    @GetMapping("/diary/daily-class-types")
     fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
 
     @GetMapping("/diary/questions")
     fun getDiaryQuestions(): List<DiaryQuestion> = diaryService.getActiveQuestions()
 
-    @PostMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
+    @PostMapping("/diary/daily-class-types")
     fun insertDiaryDailyClassType(
         @RequestParam name: String,
     ) {
         diaryService.addOrEnableDailyClassType(name)
     }
 
-    @DeleteMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
+    @DeleteMapping("/diary/daily-class-types")
     fun removeDiaryDailyClassType(
         @RequestParam name: String,
     ) {
