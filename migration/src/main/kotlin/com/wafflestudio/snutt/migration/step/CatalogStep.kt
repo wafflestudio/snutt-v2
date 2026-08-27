@@ -210,6 +210,9 @@ class CatalogStep(
         val questionIds =
             com.wafflestudio.snutt.migration
                 .IdSequence()
+        val targetIds =
+            com.wafflestudio.snutt.migration
+                .IdSequence()
         writer(
             "diary_question",
             listOf(
@@ -218,31 +221,44 @@ class CatalogStep(
                 "short_question",
                 "answer_list",
                 "short_answer_list",
-                "target_daily_class_type_id_list",
                 "active",
                 "created_at",
                 "updated_at",
             ),
         ).use { out ->
-            mongo.each("diaryQuestion") { doc ->
-                val id = questionIds.next()
-                context.diaryQuestionIds[doc.id()] = id
-                val targets = doc.oids("targetDailyClassTypeIds").mapNotNull { context.diaryClassTypeIds[it] }
-                val now = Instant.now().toSqlTimestamp()
-                out.add(
-                    id,
-                    doc.str("question") ?: "",
-                    doc.str("shortQuestion") ?: "",
-                    Json.writeRequired(doc.strings("answers")),
-                    Json.writeRequired(doc.strings("shortAnswers")),
-                    Json.writeRequired(targets),
-                    doc.bool("active"),
-                    now,
-                    now,
-                )
+            writer(
+                "diary_question_target",
+                listOf(
+                    "id",
+                    "question_id",
+                    "daily_class_type_id",
+                    "created_at",
+                    "updated_at",
+                ),
+            ).use { targetOut ->
+                mongo.each("diaryQuestion") { doc ->
+                    val id = questionIds.next()
+                    context.diaryQuestionIds[doc.id()] = id
+                    val targets = doc.oids("targetDailyClassTypeIds").mapNotNull { context.diaryClassTypeIds[it] }
+                    val now = Instant.now().toSqlTimestamp()
+                    out.add(
+                        id,
+                        doc.str("question") ?: "",
+                        doc.str("shortQuestion") ?: "",
+                        Json.writeRequired(doc.strings("answers")),
+                        Json.writeRequired(doc.strings("shortAnswers")),
+                        doc.bool("active"),
+                        now,
+                        now,
+                    )
+                    targets.forEach { targetId ->
+                        targetOut.add(targetIds.next(), id, targetId, now, now)
+                    }
+                }
             }
         }
         alignAutoIncrement("diary_question", questionIds.peek())
+        alignAutoIncrement("diary_question_target", targetIds.peek())
         log.info(
             "카탈로그 이관: 일기장 종류 {}건, 질문 {}건",
             context.diaryClassTypeIds.size,

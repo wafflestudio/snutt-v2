@@ -15,7 +15,5 @@ class DiaryQuestion(
     var answerList: List<String>,
     @JdbcTypeCode(SqlTypes.JSON)
     var shortAnswerList: List<String>,
-    @JdbcTypeCode(SqlTypes.JSON)
-    var targetDailyClassTypeIdList: List<Long>,
     var active: Boolean = true,
 ) : BaseEntity()
