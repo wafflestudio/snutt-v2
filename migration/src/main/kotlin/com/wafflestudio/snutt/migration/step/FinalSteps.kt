@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
-import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -32,47 +31,65 @@ class ReminderStep(
     override fun run() {
         val ids = IdSequence()
         var skipped = 0L
+        val scheduleIds = IdSequence()
         writer(
             "timetable_lecture_reminder",
             listOf(
                 "id",
                 "timetable_lecture_id",
                 "offset_minutes",
-                "schedule_list",
-                "next_day",
-                "next_minute",
-                "recent_notified_at",
                 "created_at",
                 "updated_at",
             ),
-        ).use { out ->
-            mongo.each("timetableLectureReminder") { doc ->
-                val externalId = doc.oid("timetableLectureId")
-                val timetableLectureId = externalId?.let(context.timetableLectureIds::get)
-                if (timetableLectureId == null) {
-                    skipped++
-                    return@each
-                }
-                val schedules =
-                    doc.docs("schedules").map {
-                        mapOf("day" to (it.int("day") ?: 0), "minute" to (it.int("minute") ?: 0), "recentNotifiedAt" to null)
+        ).use { reminderOut ->
+            writer(
+                "timetable_lecture_reminder_schedule",
+                listOf(
+                    "id",
+                    "reminder_id",
+                    "day",
+                    "minute",
+                    "recent_notified_at",
+                    "created_at",
+                    "updated_at",
+                ),
+            ).use { scheduleOut ->
+                mongo.each("timetableLectureReminder") { doc ->
+                    val externalId = doc.oid("timetableLectureId")
+                    val timetableLectureId = externalId?.let(context.timetableLectureIds::get)
+                    if (timetableLectureId == null) {
+                        skipped++
+                        return@each
                     }
-                val next = schedules.minByOrNull { (it["day"] as Int) * 1440 + (it["minute"] as Int) }
-                val now = Timestamp.from(Instant.now())
-                out.add(
-                    ids.next(),
-                    timetableLectureId,
-                    doc.int("offsetMinutes") ?: 0,
-                    Json.writeRequired(schedules),
-                    next?.get("day"),
-                    next?.get("minute"),
-                    null,
-                    now,
-                    now,
-                )
+                    val schedules =
+                        doc.docs("schedules").map {
+                            mapOf("day" to (it.int("day") ?: 0), "minute" to (it.int("minute") ?: 0))
+                        }
+                    val now = Timestamp.from(Instant.now())
+                    val reminderId = ids.next()
+                    reminderOut.add(
+                        reminderId,
+                        timetableLectureId,
+                        doc.int("offsetMinutes") ?: 0,
+                        now,
+                        now,
+                    )
+                    schedules.forEach { schedule ->
+                        scheduleOut.add(
+                            scheduleIds.next(),
+                            reminderId,
+                            schedule["day"],
+                            schedule["minute"],
+                            null,
+                            now,
+                            now,
+                        )
+                    }
+                }
             }
         }
         alignAutoIncrement("timetable_lecture_reminder", ids.peek())
+        alignAutoIncrement("timetable_lecture_reminder_schedule", scheduleIds.peek())
         log.info("리마인더 이관: {}건 (시간표 강의를 찾지 못해 제외 {}건)", ids.peek() - 1, skipped)
     }
 }

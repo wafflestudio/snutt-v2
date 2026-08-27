@@ -12,7 +12,6 @@ import java.time.ZoneId
 data class Schedule(
     val day: DayOfWeek,
     val minute: Int,
-    val recentNotifiedAt: Instant? = null,
 ) : Comparable<Schedule> {
     fun plusMinutes(minutesToAdd: Int): Schedule {
         val minutesPerDay = 1440
@@ -47,24 +46,16 @@ data class Schedule(
 class TimetableLectureReminder(
     var timetableLectureId: Long,
     var offsetMinutes: Int,
-    @JdbcTypeCode(SqlTypes.JSON)
-    var scheduleList: List<Schedule>,
+) : BaseEntity()
+
+@Entity
+@Table(name = "timetable_lecture_reminder_schedule")
+class TimetableLectureReminderSchedule(
+    var reminderId: Long,
     @JdbcTypeCode(SqlTypes.TINYINT)
-    var nextDay: Int? = null,
-    @JdbcTypeCode(SqlTypes.SMALLINT)
-    var nextMinute: Int? = null,
+    var day: DayOfWeek,
+    var minute: Int,
     var recentNotifiedAt: Instant? = null,
 ) : BaseEntity() {
-    fun recomputeNextFire(now: Instant = Instant.now()) {
-        val nowSchedule = Schedule.fromInstant(now)
-        val next =
-            scheduleList
-                .sorted()
-                .firstOrNull { it >= nowSchedule }
-                ?: scheduleList.minOrNull()
-        if (next != null) {
-            nextDay = next.day.value
-            nextMinute = next.minute
-        }
-    }
+    fun toSchedule() = Schedule(day, minute)
 }

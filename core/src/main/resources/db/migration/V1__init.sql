@@ -339,16 +339,26 @@ CREATE TABLE timetable_lecture_reminder
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
     timetable_lecture_id BIGINT      NOT NULL,
     offset_minutes       INT         NOT NULL,
-    schedule_list        JSON        NOT NULL,
-    next_day             TINYINT     NULL,
-    next_minute          SMALLINT    NULL,
-    recent_notified_at   DATETIME(6) NULL,
     created_at           DATETIME(6) NOT NULL,
     updated_at           DATETIME(6) NOT NULL,
     CONSTRAINT uk_timetable_lecture_reminder UNIQUE (timetable_lecture_id),
     CONSTRAINT fk_reminder_timetable_lecture FOREIGN KEY (timetable_lecture_id)
-        REFERENCES timetable_lecture (id) ON DELETE CASCADE,
-    INDEX idx_reminder_next_fire (next_day, next_minute)
+        REFERENCES timetable_lecture (id) ON DELETE CASCADE
+);
+
+CREATE TABLE timetable_lecture_reminder_schedule
+(
+    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+    reminder_id        BIGINT       NOT NULL,
+    day                TINYINT      NOT NULL,
+    minute             INT          NOT NULL,
+    recent_notified_at DATETIME(6)  NULL,
+    created_at         DATETIME(6)  NOT NULL,
+    updated_at         DATETIME(6)  NOT NULL,
+    CONSTRAINT fk_reminder_schedule_reminder FOREIGN KEY (reminder_id)
+        REFERENCES timetable_lecture_reminder (id) ON DELETE CASCADE,
+    UNIQUE INDEX idx_reminder_schedule_fire (reminder_id, day, minute),
+    INDEX idx_reminder_schedule_slot (day, minute)
 );
 
 CREATE TABLE bookmark_lecture
