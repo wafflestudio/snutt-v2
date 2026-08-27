@@ -40,24 +40,25 @@ fun TimetableLectureDisplay(
     timetableLecture: TimetableLecture,
     lecture: Lecture?,
     classTimes: List<ClassPlaceAndTime>,
-): TimetableLectureDisplay =
-    TimetableLectureDisplay(
+): TimetableLectureDisplay {
+    val overrides = timetableLecture.overrides
+    return TimetableLectureDisplay(
         id = checkNotNull(timetableLecture.id),
         lectureId = lecture?.id,
-        academicYear = timetableLecture.academicYear ?: lecture?.academicYear,
-        category = timetableLecture.category ?: lecture?.category,
-        categoryPre2025 = timetableLecture.categoryPre2025 ?: lecture?.categoryPre2025,
-        classification = timetableLecture.classification ?: lecture?.classification,
+        academicYear = overrides?.academicYear ?: lecture?.academicYear,
+        category = overrides?.category ?: lecture?.category,
+        categoryPre2025 = overrides?.categoryPre2025 ?: lecture?.categoryPre2025,
+        classification = overrides?.classification ?: lecture?.classification,
         courseNumber = lecture?.courseNumber,
         lectureNumber = lecture?.lectureNumber,
         department = lecture?.department,
         quota = lecture?.quota,
         freshmanQuota = lecture?.freshmanQuota,
-        courseTitle = timetableLecture.courseTitle ?: lecture?.courseTitle ?: "",
-        instructor = timetableLecture.instructor ?: lecture?.instructor,
-        credit = timetableLecture.credit ?: lecture?.credit,
-        remark = timetableLecture.remark ?: lecture?.remark,
-        classPlaceAndTimes = timetableLecture.classPlaceAndTimes ?: classTimes,
+        courseTitle = overrides?.courseTitle ?: lecture?.courseTitle ?: "",
+        instructor = overrides?.instructor ?: lecture?.instructor,
+        credit = overrides?.credit ?: lecture?.credit,
+        remark = overrides?.remark ?: lecture?.remark,
+        classPlaceAndTimes = overrides?.classPlaceAndTimes ?: classTimes,
         color = timetableLecture.color,
         colorIndex = timetableLecture.colorIndex,
         courseTitleEn = lecture?.courseTitleEn,
@@ -68,6 +69,7 @@ fun TimetableLectureDisplay(
         classificationEn = lecture?.classificationEn,
         remarkEn = lecture?.remarkEn,
     )
+}
 
 data class TimetableDisplay(
     val timetable: Timetable,
