@@ -267,6 +267,14 @@ CREATE TABLE theme
     INDEX idx_theme_user_updated (user_id, updated_at DESC)
 );
 
+CREATE TABLE user_preference
+(
+    user_id          BIGINT NOT NULL PRIMARY KEY,
+    default_theme_id BIGINT NOT NULL,
+    CONSTRAINT fk_user_preference_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_preference_theme FOREIGN KEY (default_theme_id) REFERENCES theme (id) ON DELETE RESTRICT
+);
+
 INSERT INTO theme (id, user_id, builtin_type, name, colors, created_at, updated_at) VALUES
     (1, NULL, 0, 'SNUTT',
      '[{"backgroundColor":"#E54459","foregroundColor":"#ffffff"},{"backgroundColor":"#F58D3D","foregroundColor":"#ffffff"},{"backgroundColor":"#FAC42D","foregroundColor":"#ffffff"},{"backgroundColor":"#A6D930","foregroundColor":"#ffffff"},{"backgroundColor":"#2BC267","foregroundColor":"#ffffff"},{"backgroundColor":"#1BD0C8","foregroundColor":"#ffffff"},{"backgroundColor":"#1D99E8","foregroundColor":"#ffffff"},{"backgroundColor":"#4F48C4","foregroundColor":"#ffffff"},{"backgroundColor":"#AF56B3","foregroundColor":"#ffffff"}]',
