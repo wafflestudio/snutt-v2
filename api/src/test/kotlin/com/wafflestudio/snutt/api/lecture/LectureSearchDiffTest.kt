@@ -93,8 +93,17 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
 
     private val instructors = listOf("김컴퓨터", "이전기", "박수학", "최물리", "정경제", "한데이터", "오운영", "유알고", "강체육", "John Smith", "Jane Doe")
     private val academicYears = listOf("1학년", "2학년", "3학년", "4학년", "석사", "박사", "석박사통합")
-    private val classifications = listOf("전선", "전필", "교양", "일선")
-    private val categories = listOf("전공필수", "전공선택", "교양필수", "교양선택", "체육", "일반교양")
+
+    // 실 데이터: classification은 교과구분 약어, category는 교양영역(교양/교직 강의에만 값 존재)
+    private val classifications = listOf("전선", "전필", "교양", "일선", "논문", "교직")
+
+    // 2025년 이후 신규 교양영역 (category)
+    private val liberalAreas =
+        listOf("수학과학컴퓨팅", "외국어", "글쓰기와 말하기", "예술과 체육", "지식의 세계", "역사적 탐구와 철학적 사유", "문화 해석과 상상", "자율과 창의", "교과교육", "학부생 세미나")
+
+    // 2025년 이전 구 교양영역 (categoryPre2025): 2025+ 강의의 과거 기준 분류를 보여주기 위한 값
+    private val liberalAreasPre2025 =
+        listOf("과학적 사고와 실험", "수량적 분석과 추론", "사고와 표현", "체육", "역사와 철학", "창의와 융합", "문화와 예술", "대학과 리더십", "언어와 문학", "정치와 경제")
     private val remarks = listOf(null, "ⓔ", "ⓜⓞ", "권장과목", "ⓔⓜⓞ", "권장과목ⓔ", "원어강의", "실험실습")
     private val places = listOf("302-101", "302-102", "43-1-302", "43-1-303", "301-1A", "301-1B")
     private val timeSlots =
@@ -116,13 +125,13 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         random: Random,
     ): SeedLecture {
         val instructor = instructors[random.nextInt(instructors.size)]
-        val category = categories[random.nextInt(categories.size)]
-        val classification =
-            when (category) {
-                "전공필수" -> "전필"
-                "전공선택" -> "전선"
-                "체육" -> "교양"
-                else -> classifications[random.nextInt(classifications.size)]
+        val classification = classifications[random.nextInt(classifications.size)]
+        // category(교양영역)는 교양/교직 강의에만 채워지고 전공·논문 등은 null이다
+        val category =
+            if (classification == "교양" || classification == "교직") {
+                liberalAreas[random.nextInt(liberalAreas.size)]
+            } else {
+                null
             }
         val credit = listOf(2, 3, 3, 3, 4)[random.nextInt(5)]
         val remark = remarks[random.nextInt(remarks.size)]
@@ -136,7 +145,14 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             department = department,
             academicYear = academicYears[random.nextInt(academicYears.size)],
             category = category,
-            categoryPre2025 = if (category.startsWith("전공")) category else null,
+            categoryPre2025 =
+                if (category != null &&
+                    random.nextInt(10) < 4
+                ) {
+                    liberalAreasPre2025[random.nextInt(liberalAreasPre2025.size)]
+                } else {
+                    null
+                },
             classification = classification,
             credit = credit,
             remark = remark,
@@ -155,6 +171,7 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         }
         val explicit =
             listOf(
+                // 체육 특수어(keyword == "체육" -> category == "체육") 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -180,8 +197,8 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "박수학",
                     "수학과",
                     "석박사통합",
-                    "전공선택",
-                    "전공선택",
+                    null,
+                    null,
                     "전선",
                     3,
                     null,
@@ -196,13 +213,14 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "이전기",
                     "전기공학부",
                     "4학년",
-                    "전공선택",
-                    "전공선택",
+                    null,
+                    null,
                     "전선",
                     3,
                     "ⓜⓞ",
                     listOf(ReferenceClassTime(DayOfWeek.WEDNESDAY, "302-102", 570, 660)),
                 ),
+                // post-2025 교양영역(category) + 권장과목 특수어 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -212,7 +230,7 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "한데이터",
                     "컴퓨터공학부",
                     "4학년",
-                    "교양필수",
+                    "자율과 창의",
                     null,
                     "교양",
                     2,
@@ -228,12 +246,29 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "오운영",
                     "컴퓨터공학부",
                     "석사",
-                    "전공필수",
-                    "전공필수",
+                    null,
+                    null,
                     "전필",
                     3,
                     null,
                     listOf(ReferenceClassTime(DayOfWeek.THURSDAY, "43-1-303", 780, 870)),
+                ),
+                // post-2025 category + pre2025 구 교양영역(categoryPre2025) 검증용
+                SeedLecture(
+                    2026,
+                    Semester.AUTUMN,
+                    "000.006",
+                    "001",
+                    "공감과공존세미나",
+                    "김컴퓨터",
+                    "기초교육원",
+                    "1학년",
+                    "공감과 공존",
+                    "창의와 융합",
+                    "교양",
+                    2,
+                    null,
+                    emptyList(),
                 ),
             )
         seeds += explicit
@@ -248,7 +283,7 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "기타교수$i",
                     "기타학과",
                     "1학년",
-                    "일반교양",
+                    null,
                     null,
                     "일선",
                     1,
@@ -408,8 +443,8 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                 "과목코드 필터" to criteria(courseNumber = listOf("4190.204", "4190.205")),
                 "학년 필터" to criteria(academicYear = listOf("1학년", "2학년")),
                 "학과 필터" to criteria(department = listOf("컴퓨터공학부")),
-                "카테고리 필터" to criteria(category = listOf("전공필수", "체육")),
-                "카테고리 pre2025 필터" to criteria(categoryPre2025 = listOf("전공필수")),
+                "카테고리 필터" to criteria(category = listOf("자율과 창의", "공감과 공존")),
+                "카테고리 pre2025 필터" to criteria(categoryPre2025 = listOf("창의와 융합")),
                 "etcTags E" to criteria(etcTags = listOf("E")),
                 "etcTags MO" to criteria(etcTags = listOf("MO")),
                 "etcTags R" to criteria(etcTags = listOf("R")),
