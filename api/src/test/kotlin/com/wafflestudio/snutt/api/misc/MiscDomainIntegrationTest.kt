@@ -339,15 +339,25 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `정적 페이지가 제공된다`() {
+    fun `정적 페이지는 v2 정적 경로로 제공되고 구 루트 경로는 영구 리다이렉트된다`() {
         val member =
+            client()
+                .get()
+                .uri("/v2/static/member")
+                .retrieve()
+                .toEntity(String::class.java)
+        assertEquals(200, member.statusCode.value())
+        assertTrue(member.body!!.contains("<html"))
+
+        // 기본 HTTP 클라이언트는 301을 따라가므로 구 경로도 결국 페이지를 서빙한다
+        val legacy =
             client()
                 .get()
                 .uri("/member")
                 .retrieve()
                 .toEntity(String::class.java)
-        assertEquals(200, member.statusCode.value())
-        assertTrue(member.body!!.contains("<html"))
+        assertEquals(200, legacy.statusCode.value())
+        assertTrue(legacy.body!!.contains("<html"))
     }
 
     private fun getNickname(localId: String): String = userRepository.findByLocalIdAndActiveTrue(localId)!!.nickname
