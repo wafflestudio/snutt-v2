@@ -9,8 +9,10 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
+import com.wafflestudio.snutt.core.domain.theme.model.UserPreference
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
+import com.wafflestudio.snutt.core.domain.theme.repository.UserPreferenceRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional
 class TimetableThemeService(
     private val timetableThemeRepository: TimetableThemeRepository,
     private val publishedThemeRepository: PublishedThemeRepository,
+    private val userPreferenceRepository: UserPreferenceRepository,
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val userRepository: UserRepository,
@@ -252,11 +255,7 @@ class TimetableThemeService(
         val theme = findThemeById(themeId)
         if (theme.isBuiltin) throw SnuttException(ErrorType.THEME_NOT_FOUND)
         if (theme.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
-        return setDefaultInternal(theme)
-    }
-
-    private fun setDefaultInternal(theme: TimetableTheme): TimetableThemeDisplay {
-        timetableThemeRepository.touchUpdatedAt(requireNotNull(theme.id))
+        userPreferenceRepository.save(UserPreference(userId = userId, defaultThemeId = theme.id!!))
         return theme.toDisplay(published = publishedThemeRepository.findByThemeId(theme.id!!), isDefault = true)
     }
 
@@ -266,19 +265,19 @@ class TimetableThemeService(
     ): TimetableThemeDisplay {
         val current = getDefaultTheme(userId)
         if (current.isBuiltin || current.id != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        userPreferenceRepository.save(UserPreference(userId = userId, defaultThemeId = SNUTT_BUILTIN_THEME_ID))
         return builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
     }
 
     fun getDefaultTheme(userId: Long): TimetableThemeDisplay {
-        val theme = timetableThemeRepository.findFirstByUserIdOrderByUpdatedAtDesc(userId)
-        return theme?.toDisplay(
+        val theme = findThemeById(getDefaultThemeId(userId))
+        return theme.toDisplay(
             published = theme.id?.let { publishedThemeRepository.findByThemeId(it) },
             isDefault = true,
-        ) ?: builtinTheme(SNUTT_BUILTIN_THEME_ID).toDisplay(published = null, isDefault = true)
+        )
     }
 
-    fun getDefaultThemeId(userId: Long): Long =
-        timetableThemeRepository.findFirstByUserIdOrderByUpdatedAtDesc(userId)?.id ?: SNUTT_BUILTIN_THEME_ID
+    fun getDefaultThemeId(userId: Long): Long = userPreferenceRepository.findByUserId(userId)?.defaultThemeId ?: SNUTT_BUILTIN_THEME_ID
 
     fun getTheme(
         userId: Long,
