@@ -23,6 +23,7 @@ class V1CompatEvExceptionHandler {
     companion object {
         private val EV_ERROR_CODE_MAP =
             mapOf(
+                ErrorType.INVALID_CURSOR to 20001,
                 ErrorType.EVALUATION_CONTENT_BLANK to 20004,
                 ErrorType.INVALID_EVALUATION_SORT to 20005,
                 ErrorType.NOT_MY_EVALUATION to 23001,

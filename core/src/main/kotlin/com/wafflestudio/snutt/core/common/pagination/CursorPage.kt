@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.core.common.pagination
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import tools.jackson.databind.json.JsonMapper
 import java.util.Base64
 
@@ -37,5 +39,11 @@ object CursorCodec {
             .encodeToString(jsonMapper.writeValueAsBytes(value))
 
     inline fun <reified T> decode(cursor: String?): T? =
-        cursor?.let { jsonMapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java) }
+        cursor?.let {
+            try {
+                jsonMapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java)
+            } catch (_: Exception) {
+                throw SnuttException(ErrorType.INVALID_CURSOR)
+            }
+        }
 }

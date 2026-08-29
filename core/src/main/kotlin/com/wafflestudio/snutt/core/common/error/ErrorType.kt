@@ -59,6 +59,7 @@ enum class ErrorType(
     INVALID_TIMETABLE_TITLE(HttpStatus.BAD_REQUEST, 40032, "시간표 이름을 입력해 주세요"),
     INVALID_TIME(HttpStatus.BAD_REQUEST, 40033, "강좌의 시간이 올바르게 설정되었는지 확인해 주시기 바랍니다", "시간대 겹침"),
     INVALID_EVALUATION_SORT(HttpStatus.BAD_REQUEST, 40034, "sort는 latest 또는 recommended 여야 합니다"),
+    INVALID_CURSOR(HttpStatus.BAD_REQUEST, 40035, "cursor 형식이 올바르지 않습니다"),
 
     // 401 UNAUTHORIZED
     SOCIAL_CONNECT_FAIL(HttpStatus.UNAUTHORIZED, 40100, "소셜 로그인에 실패했습니다"),

@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -66,6 +67,7 @@ class EvaluationService(
 ) {
     companion object {
         private const val DEFAULT_PAGE_SIZE = 20
+        private const val CURSOR_VERSION = 1
     }
 
     @Transactional
@@ -159,14 +161,14 @@ class EvaluationService(
                 year = year,
                 semester = semester,
                 userId = userId,
-                cursor = CursorCodec.decode<EvaluationCursor>(cursor),
+                cursor = decodeEvaluationCursor(cursor, sort),
                 pageSize = DEFAULT_PAGE_SIZE + 1,
                 sort = sort,
             )
         return page.toCursorPage(
             DEFAULT_PAGE_SIZE,
             totalCount,
-            { EvaluationCursor(it.year, it.semester.value, it.id!!, it.likeCount) },
+            { it.toCursor(sort) },
             { it.toDisplay(userId) },
         )
     }
@@ -186,9 +188,9 @@ class EvaluationService(
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
-        val cursorId = CursorCodec.decode<Long>(cursor)
+        val cursorId = decodeEvaluationIdCursor(cursor)
         val page = evaluationRepository.findMine(userId, cursorId, DEFAULT_PAGE_SIZE + 1)
-        return page.toCursorPage(DEFAULT_PAGE_SIZE, totalCount, { it.id!! }, { it.toDisplay(userId) })
+        return page.toCursorPage(DEFAULT_PAGE_SIZE, totalCount, { EvaluationIdCursor(CURSOR_VERSION, it.id!!) }, { it.toDisplay(userId) })
     }
 
     fun getEvaluationsByTag(
@@ -196,9 +198,9 @@ class EvaluationService(
         tag: EvaluationTag,
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
-        val cursorId = CursorCodec.decode<Long>(cursor)
+        val cursorId = decodeEvaluationIdCursor(cursor)
         val page = evaluationRepository.findByTag(tag, cursorId, DEFAULT_PAGE_SIZE + 1)
-        return page.toCursorPage(DEFAULT_PAGE_SIZE, null, { it.id!! }, { it.toDisplay(userId) })
+        return page.toCursorPage(DEFAULT_PAGE_SIZE, null, { EvaluationIdCursor(CURSOR_VERSION, it.id!!) }, { it.toDisplay(userId) })
     }
 
     fun getEvaluation(
@@ -407,6 +409,37 @@ class EvaluationService(
                             moveToSemester != evaluation.semester
                     )
             )
+
+    private fun decodeEvaluationCursor(
+        cursor: String?,
+        sort: EvaluationSort,
+    ): EvaluationCursor? =
+        CursorCodec.decode<EvaluationCursor>(cursor)?.also {
+            val validSortKey =
+                when (sort) {
+                    EvaluationSort.LATEST -> it.year > 0 && Semester.getOfValue(it.semester) != null
+                    EvaluationSort.RECOMMENDED -> it.likeCount != null && it.likeCount >= 0
+                }
+            if (it.version != CURSOR_VERSION || it.sort != sort || it.evaluationId <= 0 || !validSortKey) {
+                throw SnuttException(ErrorType.INVALID_CURSOR)
+            }
+        }
+
+    private fun decodeEvaluationIdCursor(cursor: String?): Long? =
+        CursorCodec.decode<EvaluationIdCursor>(cursor)?.let {
+            if (it.version != CURSOR_VERSION || it.evaluationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
+            it.evaluationId
+        }
+
+    private fun Evaluation.toCursor(sort: EvaluationSort): EvaluationCursor =
+        EvaluationCursor(
+            version = CURSOR_VERSION,
+            sort = sort,
+            year = year,
+            semester = semester.value,
+            evaluationId = id!!,
+            likeCount = likeCount.takeIf { sort == EvaluationSort.RECOMMENDED },
+        )
 
     private fun Evaluation.toDisplay(userId: Long) =
         EvaluationDisplay(
