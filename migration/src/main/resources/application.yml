@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: snutt-migration
+  main:
+    web-application-type: none
+
+migration:
+  target:
+    url: ${SNUTT_DB_URL}
+    username: ${SNUTT_DB_USERNAME}
+    password: ${SNUTT_DB_PASSWORD}
+  mongo:
+    uri: ${SNUTT_OLD_MONGO_URI}
+    database: ${SNUTT_OLD_MONGO_DATABASE:snutt}
+  old-ev:
+    url: ${SNUTT_OLD_EV_DB_URL:}
+    username: ${SNUTT_OLD_EV_DB_USERNAME:}
+    password: ${SNUTT_OLD_EV_DB_PASSWORD:}
+
+logging:
+  level:
+    com.wafflestudio.snutt.migration: INFO

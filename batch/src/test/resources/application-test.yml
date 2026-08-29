@@ -1,0 +1,8 @@
+snutt:
+  auth:
+    jwt:
+      private-key: MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWr+BPfaAImqowq1RujLg1ivMaNxiBOjP4OrVV6ucRBOhRANCAASrT3K01hZvJ+T6IPJUT6s9IG44e/lywkjE3+1WpGdpuZJwz59AZohCsIOv8WEsY0mw25lTXqFNpmkHVB3A3ykd
+      public-key: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq09ytNYWbyfk+iDyVE+rPSBuOHv5csJIxN/tVqRnabmScM+fQGaIQrCDr/FhLGNJsNuZU16hTaZpB1QdwN8pHQ==
+      access-token-ttl: PT2H
+    refresh-token-ttl: P180D
+    platform-keys: ios:test-ios-key,android:test-android-key,web:test-web-key

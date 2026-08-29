@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: snutt-api
+  jackson:
+    default-property-inclusion: non_null
+  config:
+    import: classpath:application-core.yml
+
+server:
+  port: 8080
+
+snutt:
+  syllabus-proxy:
+    base-url: ${SNUTT_SYLLABUS_PROXY_BASE_URL:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+springdoc:
+  paths-to-match: /v2/**
+  swagger-ui:
+    enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+springdoc:
+  swagger-ui:
+    enabled: false
