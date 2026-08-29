@@ -126,18 +126,21 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     @Order(5)
-    fun `refresh 회전 후 이전 refresh 토큰 재사용은 전체 세션을 폐기한다`() {
+    fun `refresh 회전 후 이전 refresh 토큰은 거부되고 현재 로그인은 유지된다`() {
         val oldRefreshToken = refreshToken
         val rotated = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
         assertEquals(200, rotated.statusCode.value())
         val newRefreshToken = body(rotated)["refreshToken"].asString()
         assertNotEquals(oldRefreshToken, newRefreshToken)
 
+        // 회전으로 교체된 옛 토큰은 어느 행과도 일치하지 않는다.
         val reuse = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
         assertEquals(401, reuse.statusCode.value())
 
+        // 재사용 탐지를 하지 않으므로 옛 토큰이 제시돼도 로그인 자체는 살아있다.
         val afterReuse = post("/v2/auth/refresh", """{"refreshToken":"$newRefreshToken"}""")
-        assertEquals(401, afterReuse.statusCode.value())
+        assertEquals(200, afterReuse.statusCode.value())
+        refreshToken = body(afterReuse)["refreshToken"].asString()
     }
 
     @Test
@@ -145,7 +148,9 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `로그인이 다시 동작하고 me 조회가 성공한다`() {
         val login = post("/v2/auth/login", """{"localId":"testuser1","password":"password1"}""")
         assertEquals(200, login.statusCode.value())
-        accessToken = body(login)["accessToken"].asString()
+        val loginBody = body(login)
+        accessToken = loginBody["accessToken"].asString()
+        refreshToken = loginBody["refreshToken"].asString()
 
         val me = get("/v2/users/me", bearer = accessToken)
         assertEquals(200, me.statusCode.value())
@@ -160,8 +165,20 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     @Order(8)
-    fun `로그아웃하면 세션이 폐기된다`() {
-        val response = post("/v2/auth/logout", """{}""", bearer = accessToken)
+    fun `로그아웃하면 refresh token 이 만료된다`() {
+        val response = post("/v2/auth/logout", """{"refreshToken":"$refreshToken"}""")
         assertEquals(200, response.statusCode.value())
+
+        val afterLogout = post("/v2/auth/refresh", """{"refreshToken":"$refreshToken"}""")
+        assertEquals(401, afterLogout.statusCode.value())
+    }
+
+    @Test
+    @Order(9)
+    fun `로그아웃해도 access token 은 만료 전까지 인증에 쓸 수 있다`() {
+        // access token 검증은 상태를 조회하지 않으므로 로그아웃이 즉시 무효화하지 못한다.
+        // 무효화는 access token TTL 만큼 지연되며, 이는 stateless 인증을 택한 대가다.
+        val me = get("/v2/users/me", bearer = accessToken)
+        assertEquals(200, me.statusCode.value())
     }
 }

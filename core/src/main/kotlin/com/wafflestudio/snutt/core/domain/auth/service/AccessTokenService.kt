@@ -13,7 +13,6 @@ import java.util.Date
 
 data class AccessTokenPayload(
     val userId: Long,
-    val sessionId: Long,
 )
 
 @Service
@@ -23,7 +22,6 @@ class AccessTokenService(
 ) {
     companion object {
         private const val ISSUER = "snutt"
-        private const val SESSION_CLAIM = "sid"
     }
 
     fun issue(payload: AccessTokenPayload): String {
@@ -32,7 +30,6 @@ class AccessTokenService(
             .builder()
             .issuer(ISSUER)
             .subject(payload.userId.toString())
-            .claim(SESSION_CLAIM, payload.sessionId.toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(now + accessTokenTtl))
             .signWith(es256Keys.privateKey, Jwts.SIG.ES256)
@@ -56,7 +53,6 @@ class AccessTokenService(
             }
         return AccessTokenPayload(
             userId = claims.subject?.toLongOrNull() ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
-            sessionId = (claims[SESSION_CLAIM] as? String)?.toLongOrNull() ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
         )
     }
 }

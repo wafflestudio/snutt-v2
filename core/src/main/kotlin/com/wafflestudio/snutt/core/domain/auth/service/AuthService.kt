@@ -7,8 +7,8 @@ import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
-import com.wafflestudio.snutt.core.domain.auth.model.UserSession
-import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
+import com.wafflestudio.snutt.core.domain.auth.model.RefreshToken
+import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.event.UserRegisteredEvent
@@ -19,7 +19,6 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthReposito
 import com.wafflestudio.snutt.core.domain.user.service.UserNicknameService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -38,7 +37,7 @@ data class TokenPair(
 class AuthService(
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val userSessionRepository: UserSessionRepository,
+    private val refreshTokenRepository: RefreshTokenRepository,
     private val userDeviceRepository: UserDeviceRepository,
     private val accessTokenService: AccessTokenService,
     private val userNicknameService: UserNicknameService,
@@ -100,67 +99,55 @@ class AuthService(
         return user
     }
 
-    @Transactional(readOnly = true)
-    fun authenticate(payload: AccessTokenPayload): User {
-        val session =
-            userSessionRepository.findWithUserById(payload.sessionId)
-                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-        if (!session.isValid) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-        val user = session.user
-        if (!user.active || user.id != payload.userId) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-        return user
-    }
-
-    @Transactional(noRollbackFor = [SnuttException::class])
+    @Transactional
     fun refresh(refreshToken: String): Pair<User, TokenPair> {
-        val refreshTokenHash = sha256Hex(refreshToken)
-        val session =
-            userSessionRepository.findWithUserByRefreshTokenHash(refreshTokenHash)
+        val presentedTokenHash = sha256Hex(refreshToken)
+        val refreshTokenRecord =
+            refreshTokenRepository.findWithUserByTokenHash(presentedTokenHash)
                 ?: throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
-        val user = session.user
+        val user = refreshTokenRecord.user
+        if (!user.active) throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
 
-        if (userSessionRepository.revokeIfActive(refreshTokenHash, Instant.now()) == 0) {
-            if (session.revokedAt != null) userSessionRepository.revokeAllByUserId(user.id!!)
-            throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
-        }
-        return user to issueTokens(user, session)
+        val newRefreshToken = generateRefreshToken()
+        val now = Instant.now()
+        val rotatedCount =
+            refreshTokenRepository.rotate(
+                presentedTokenHash = presentedTokenHash,
+                newTokenHash = sha256Hex(newRefreshToken),
+                newExpiresAt = now + refreshTokenTtl,
+                now = now,
+            )
+        if (rotatedCount == 0) throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
+
+        val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!))
+        return user to TokenPair(accessToken = accessToken, refreshToken = newRefreshToken)
     }
 
     @Transactional
-    fun issueTokens(
-        user: User,
-        rotatedFrom: UserSession? = null,
-    ): TokenPair {
+    fun issueTokens(user: User): TokenPair {
         val refreshToken = generateRefreshToken()
-        val session =
-            userSessionRepository.save(
-                UserSession(
-                    user = user,
-                    refreshTokenHash = sha256Hex(refreshToken),
-                    userDevice = rotatedFrom?.userDevice,
-                    expiresAt = Instant.now() + refreshTokenTtl,
-                ),
-            )
-        val accessToken =
-            accessTokenService.issue(
-                AccessTokenPayload(
-                    userId = user.id!!,
-                    sessionId = session.id!!,
-                ),
-            )
+        refreshTokenRepository.save(
+            RefreshToken(
+                user = user,
+                tokenHash = sha256Hex(refreshToken),
+                expiresAt = Instant.now() + refreshTokenTtl,
+            ),
+        )
+        val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!))
         return TokenPair(accessToken = accessToken, refreshToken = refreshToken)
     }
 
     @Transactional
     fun logout(
-        sessionId: Long,
+        refreshToken: String,
         fcmRegistrationId: String?,
     ) {
-        val session = userSessionRepository.findByIdOrNull(sessionId) ?: return
-        session.revokedAt = Instant.now()
+        val refreshTokenRecord = refreshTokenRepository.findWithUserByTokenHash(sha256Hex(refreshToken)) ?: return
+        val userId = refreshTokenRecord.user.id!!
+        refreshTokenRepository.delete(refreshTokenRecord)
         if (fcmRegistrationId == null) return
         userDeviceRepository
-            .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(session.user.id!!, fcmRegistrationId)
+            .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, fcmRegistrationId)
             ?.let { it.isDeleted = true }
     }
 
@@ -234,7 +221,7 @@ class AuthService(
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
         userRepository.save(user)
-        userSessionRepository.revokeAllByUserId(user.id!!)
+        refreshTokenRepository.deleteAllByUserId(user.id!!)
         publishCredentialChanged(user)
         return issueTokens(user)
     }

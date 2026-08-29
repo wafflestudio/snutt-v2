@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.api.v2.auth
 
-import com.wafflestudio.snutt.api.auth.CurrentSessionId
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -36,6 +35,7 @@ data class RefreshRequest(
 )
 
 data class LogoutRequest(
+    @field:NotBlank val refreshToken: String,
     val fcmRegistrationId: String? = null,
 )
 
@@ -112,12 +112,12 @@ class AuthController(
         return tokens.toResponse(user.id!!)
     }
 
+    @Public
     @PostMapping("/logout")
     fun logout(
-        @CurrentSessionId sessionId: Long,
-        @RequestBody(required = false) request: LogoutRequest?,
+        @Valid @RequestBody request: LogoutRequest,
     ) {
-        authService.logout(sessionId, request?.fcmRegistrationId)
+        authService.logout(request.refreshToken, request.fcmRegistrationId)
     }
 
     @Public

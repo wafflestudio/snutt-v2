@@ -13,25 +13,14 @@ import org.springframework.web.method.support.ModelAndViewContainer
 
 @Component
 class CurrentUserArgumentResolver : HandlerMethodArgumentResolver {
-    override fun supportsParameter(parameter: MethodParameter): Boolean =
-        parameter.hasParameterAnnotation(CurrentUser::class.java) ||
-            parameter.hasParameterAnnotation(CurrentSessionId::class.java)
+    override fun supportsParameter(parameter: MethodParameter): Boolean = parameter.hasParameterAnnotation(CurrentUser::class.java)
 
     override fun resolveArgument(
         parameter: MethodParameter,
         mavContainer: ModelAndViewContainer?,
         webRequest: NativeWebRequest,
         binderFactory: WebDataBinderFactory?,
-    ): Any {
-        if (parameter.hasParameterAnnotation(CurrentUser::class.java)) {
-            return webRequest.getAttribute(UserAuthInterceptor.USER_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST)
-                as? User ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
-        }
-        val sessionId = webRequest.getAttribute(UserAuthInterceptor.SESSION_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST)
-        return when {
-            sessionId is Long -> sessionId
-            sessionId is String -> sessionId.toLongOrNull() ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
-            else -> throw SnuttException(ErrorType.NO_USER_TOKEN)
-        }
-    }
+    ): Any =
+        webRequest.getAttribute(UserAuthInterceptor.USER_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST)
+            as? User ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
 }
