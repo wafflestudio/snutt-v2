@@ -22,19 +22,3 @@ CREATE TABLE legacy_search_tag
     string_value   VARCHAR(128) NULL,
     INDEX idx_legacy_search_tag_group (group_ordering, ordering)
 );
-
-CREATE TABLE legacy_semester_lecture
-(
-    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    course_id      BIGINT       NOT NULL,
-    year           INT          NOT NULL,
-    semester       TINYINT      NOT NULL,
-    credit         INT          NOT NULL,
-    extra_info     TEXT         NOT NULL,
-    academic_year  VARCHAR(255) NOT NULL,
-    category       VARCHAR(255) NOT NULL,
-    classification VARCHAR(255) NOT NULL,
-    CONSTRAINT uk_legacy_semester_lecture_offering UNIQUE (course_id, year, semester),
-    CONSTRAINT fk_legacy_semester_lecture_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE CASCADE,
-    INDEX idx_legacy_semester_lecture_course (course_id, year DESC, semester DESC)
-);

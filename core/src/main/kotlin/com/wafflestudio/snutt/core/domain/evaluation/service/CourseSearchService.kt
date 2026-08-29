@@ -39,14 +39,11 @@ class CourseSearchService(
     fun count(criteria: CourseSearchCriteria): Long = courseSearchRepository.count(criteria)
 
     @Transactional(readOnly = true)
-    fun getCourse(courseId: Long): Course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.COURSE_NOT_FOUND) }
-
-    @Transactional(readOnly = true)
     fun getCourseWithSemesters(
         courseId: Long,
         userId: Long,
     ): CourseWithSemesters {
-        val course = getCourse(courseId)
+        val course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.COURSE_NOT_FOUND) }
         val lectures =
             lectureRepository
                 .findByCourseIdOrderByYearDescSemesterDesc(courseId)

@@ -5,9 +5,9 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
-import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenCourseInput
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import org.springframework.web.bind.annotation.GetMapping
@@ -161,8 +161,7 @@ data class LegacySemesterLectureDto(
 class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
-    private val legacySemesterLectureService: LegacySemesterLectureService,
-    private val evaluationService: EvaluationService,
+    private val lectureService: LectureService,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -185,12 +184,9 @@ class V1CompatCourseSearchController(
         @V1CurrentUser user: User,
         @PathVariable courseId: Long,
     ): LegacyCourseWithSemestersResponse {
-        val course = courseSearchService.getCourse(courseId)
-        val evaluatedSemesters =
-            evaluationService
-                .getMyEvaluationsOfCourse(user.id!!, courseId)
-                .map { it.evaluation.year to it.evaluation.semester }
-                .toSet()
+        val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
+        val course = result.course
+        val lecturesById = lectureService.getAllByIds(result.semesters.map { it.lectureId })
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = course.title,
@@ -202,17 +198,18 @@ class V1CompatCourseSearchController(
             category = course.category,
             classification = course.classification,
             semesterLectures =
-                legacySemesterLectureService.getAll(courseId).map {
+                result.semesters.map {
+                    val lecture = checkNotNull(lecturesById[it.lectureId])
                     LegacySemesterLectureDto(
-                        id = checkNotNull(it.id),
+                        id = it.lectureId,
                         year = it.year,
                         semester = it.semester.value,
-                        credit = it.credit,
-                        extraInfo = it.extraInfo,
-                        academicYear = it.academicYear,
-                        category = it.category,
-                        classification = it.classification,
-                        myEvaluationExists = (it.year to it.semester) in evaluatedSemesters,
+                        credit = lecture.credit,
+                        extraInfo = lecture.remark.orEmpty(),
+                        academicYear = lecture.academicYear.orEmpty(),
+                        category = lecture.category.orEmpty(),
+                        classification = lecture.classification.orEmpty(),
+                        myEvaluationExists = it.myEvaluationExists,
                     )
                 },
         )

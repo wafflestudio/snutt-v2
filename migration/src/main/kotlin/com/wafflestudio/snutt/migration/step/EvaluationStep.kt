@@ -16,17 +16,12 @@ class EvaluationStep(
     private val ev: EvSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "evaluation"
-    override val tables = listOf("evaluation_like", "evaluation_report", "evaluation", "legacy_semester_lecture")
+    override val tables = listOf("evaluation_like", "evaluation_report", "evaluation")
 
     private class Anchor(
         val courseId: Long,
         val year: Int,
         val semester: Int,
-        val credit: Int,
-        val extraInfo: String,
-        val academicYear: String,
-        val category: String,
-        val classification: String,
     )
 
     override fun run() {
@@ -34,44 +29,21 @@ class EvaluationStep(
             log.info("구 ev DB가 없어 강의평 이관을 건너뛴다")
             return
         }
-        val anchors = migrateSemesterLectures()
+        val anchors = loadAnchors()
         val migrated = migrateEvaluations(anchors)
         migrateLikes(migrated)
         migrateReports(migrated)
     }
 
-    private fun migrateSemesterLectures(): Map<Long, Anchor> {
+    private fun loadAnchors(): Map<Long, Anchor> {
         val anchors = HashMap<Long, Anchor>(256_000)
-        writer("legacy_semester_lecture", LEGACY_SEMESTER_LECTURE_COLUMNS).use { out ->
-            ev.jdbc.query(
-                "SELECT id, lecture_id, year, semester, credit, extra_info, academic_year, category, classification " +
-                    "FROM semester_lecture",
-            ) { rs ->
-                val id = rs.getLong("id")
-                val anchor =
-                    Anchor(
-                        courseId = rs.getLong("lecture_id"),
-                        year = rs.getInt("year"),
-                        semester = rs.getInt("semester"),
-                        credit = rs.getInt("credit"),
-                        extraInfo = rs.getString("extra_info").orEmpty(),
-                        academicYear = rs.getString("academic_year").orEmpty(),
-                        category = rs.getString("category").orEmpty(),
-                        classification = rs.getString("classification").orEmpty(),
-                    )
-                anchors[id] = anchor
-                out.add(
-                    id,
-                    anchor.courseId,
-                    anchor.year,
-                    anchor.semester,
-                    anchor.credit,
-                    anchor.extraInfo,
-                    anchor.academicYear,
-                    anchor.category,
-                    anchor.classification,
+        ev.jdbc.query("SELECT id, lecture_id, year, semester FROM semester_lecture") { rs ->
+            anchors[rs.getLong("id")] =
+                Anchor(
+                    courseId = rs.getLong("lecture_id"),
+                    year = rs.getInt("year"),
+                    semester = rs.getInt("semester"),
                 )
-            }
         }
         return anchors
     }
@@ -195,19 +167,6 @@ class EvaluationStep(
     }
 
     companion object {
-        private val LEGACY_SEMESTER_LECTURE_COLUMNS =
-            listOf(
-                "id",
-                "course_id",
-                "year",
-                "semester",
-                "credit",
-                "extra_info",
-                "academic_year",
-                "category",
-                "classification",
-            )
-
         private val COLUMNS =
             listOf(
                 "id",

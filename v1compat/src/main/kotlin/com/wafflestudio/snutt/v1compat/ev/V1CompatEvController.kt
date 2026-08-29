@@ -10,6 +10,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportReq
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
@@ -87,7 +88,7 @@ data class LegacyEvaluationReportResponse(
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
     private val userService: UserService,
-    private val legacySemesterLectureService: LegacySemesterLectureService,
+    private val lectureService: LectureService,
 ) {
     @GetMapping("/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
@@ -123,14 +124,14 @@ class V1CompatEvController(
         @PathVariable semesterLectureId: Long,
         @RequestBody body: LegacyEvaluationWriteRequest,
     ): LegacyEvaluationCreateResponse {
-        val semesterLecture =
-            legacySemesterLectureService.get(semesterLectureId)
+        val lecture = lectureService.get(semesterLectureId)
+        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
         return evaluationService
             .createEvaluation(
                 user.id!!,
-                semesterLecture.courseId,
-                semesterLecture.year,
-                semesterLecture.semester,
+                courseId,
+                lecture.year,
+                lecture.semester,
                 EvaluationWriteRequest(
                     content = body.content,
                     gradeSatisfaction = body.gradeSatisfaction,
@@ -228,16 +229,17 @@ class V1CompatEvController(
             if (body.semesterLectureId == null) {
                 evaluationService.updateEvaluation(user.id!!, evaluationId, request)
             } else {
-                val semesterLecture =
-                    semesterLectureId?.let(legacySemesterLectureService::get)
+                val lecture =
+                    semesterLectureId?.let(lectureService::get)
                         ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+                val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
                 evaluationService.updateEvaluationForCourseSemester(
                     user.id!!,
                     evaluationId,
                     request,
-                    semesterLecture.courseId,
-                    semesterLecture.year,
-                    semesterLecture.semester,
+                    courseId,
+                    lecture.year,
+                    lecture.semester,
                 )
             }
         return display.toLegacyWithSemester(userExternalIds(listOfNotNull(display.evaluation.userId)))
