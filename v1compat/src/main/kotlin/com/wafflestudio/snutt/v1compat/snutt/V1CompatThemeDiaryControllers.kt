@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.diary.model.QuestionAnswer
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
@@ -147,13 +148,14 @@ class V1CompatThemeController(
     fun getBestThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getBestThemes(page - 1, LEGACY_THEME_PAGE_SIZE))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, legacyPage(page) { cursor -> timetableThemeService.getBestThemes(cursor) })
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getFriendsThemes(user.id!!, page - 1, LEGACY_THEME_PAGE_SIZE))
+    ): LegacyPageResponse<LegacyThemeDto> =
+        wrap(user, legacyPage(page) { cursor -> timetableThemeService.getFriendsThemes(user.id!!, cursor) })
 
     @PostMapping("/search")
     fun searchThemes(
@@ -252,6 +254,22 @@ class V1CompatThemeController(
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
         }
         return current.toLegacy(user.id!!.toString(), null)
+    }
+
+    private fun <T> legacyPage(
+        page: Int,
+        load: (String?) -> CursorPage<T>,
+    ): List<T> {
+        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val end = page * LEGACY_THEME_PAGE_SIZE
+        val all = mutableListOf<T>()
+        var cursor: String? = null
+        while (all.size < end) {
+            val result = load(cursor)
+            all += result.content
+            cursor = result.cursor ?: break
+        }
+        return all.drop((page - 1) * LEGACY_THEME_PAGE_SIZE).take(LEGACY_THEME_PAGE_SIZE)
     }
 
     private fun wrap(

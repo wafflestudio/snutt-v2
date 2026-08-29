@@ -358,13 +358,24 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             }
     }
 
+    private data class SearchCase(
+        val criteria: LectureSearchCriteria,
+        val offset: Long,
+        val limit: Int,
+    )
+
     private fun assertSearch(
         name: String,
-        criteria: LectureSearchCriteria,
+        case: SearchCase,
         expectNonEmpty: Boolean = true,
     ) {
-        val reference = LectureSearchReference.search(referenceLectures, criteria).map { it.id }
-        val sql = lectureSearchRepository.search(criteria).map { checkNotNull(it.id) }
+        val reference =
+            LectureSearchReference.search(referenceLectures, case.criteria, case.offset, case.limit).map { it.id }
+        val sql =
+            lectureSearchRepository
+                .search(case.criteria, null, (case.offset + case.limit).toInt())
+                .drop(case.offset.toInt())
+                .map { checkNotNull(it.id) }
         if (expectNonEmpty) {
             assertEquals(true, reference.isNotEmpty(), "corpus[$name]: 참조 결과가 비어 있음 — 데이터셋 확인 필요")
         }
@@ -386,23 +397,26 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         offset: Long = 0,
         limit: Int = 20,
         sort: LectureSort = LectureSort.DEFAULT,
-    ) = LectureSearchCriteria(
-        year = 2026,
-        semester = Semester.AUTUMN,
-        query = query,
-        classification = classification,
-        credit = credit,
-        courseNumber = courseNumber,
-        academicYear = academicYear,
-        department = department,
-        category = category,
-        categoryPre2025 = categoryPre2025,
-        etcTags = etcTags,
-        times = times,
-        timesToExclude = timesToExclude,
+    ) = SearchCase(
+        criteria =
+            LectureSearchCriteria(
+                year = 2026,
+                semester = Semester.AUTUMN,
+                query = query,
+                classification = classification,
+                credit = credit,
+                courseNumber = courseNumber,
+                academicYear = academicYear,
+                department = department,
+                category = category,
+                categoryPre2025 = categoryPre2025,
+                etcTags = etcTags,
+                times = times,
+                timesToExclude = timesToExclude,
+                sort = sort,
+            ),
         offset = offset,
         limit = limit,
-        sort = sort,
     )
 
     @Test

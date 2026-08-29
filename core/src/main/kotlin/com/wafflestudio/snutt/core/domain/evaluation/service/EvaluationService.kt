@@ -67,7 +67,6 @@ class EvaluationService(
 ) {
     companion object {
         private const val DEFAULT_PAGE_SIZE = 20
-        private const val CURSOR_VERSION = 1
     }
 
     @Transactional
@@ -190,7 +189,7 @@ class EvaluationService(
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
         val cursorId = decodeEvaluationIdCursor(cursor)
         val page = evaluationRepository.findMine(userId, cursorId, DEFAULT_PAGE_SIZE + 1)
-        return page.toCursorPage(DEFAULT_PAGE_SIZE, totalCount, { EvaluationIdCursor(CURSOR_VERSION, it.id!!) }, { it.toDisplay(userId) })
+        return page.toCursorPage(DEFAULT_PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }, { it.toDisplay(userId) })
     }
 
     fun getEvaluationsByTag(
@@ -200,7 +199,7 @@ class EvaluationService(
     ): CursorPage<EvaluationDisplay> {
         val cursorId = decodeEvaluationIdCursor(cursor)
         val page = evaluationRepository.findByTag(tag, cursorId, DEFAULT_PAGE_SIZE + 1)
-        return page.toCursorPage(DEFAULT_PAGE_SIZE, null, { EvaluationIdCursor(CURSOR_VERSION, it.id!!) }, { it.toDisplay(userId) })
+        return page.toCursorPage(DEFAULT_PAGE_SIZE, null, { EvaluationIdCursor(it.id!!) }, { it.toDisplay(userId) })
     }
 
     fun getEvaluation(
@@ -420,20 +419,19 @@ class EvaluationService(
                     EvaluationSort.LATEST -> it.year > 0 && Semester.getOfValue(it.semester) != null
                     EvaluationSort.RECOMMENDED -> it.likeCount != null && it.likeCount >= 0
                 }
-            if (it.version != CURSOR_VERSION || it.sort != sort || it.evaluationId <= 0 || !validSortKey) {
+            if (it.sort != sort || it.evaluationId <= 0 || !validSortKey) {
                 throw SnuttException(ErrorType.INVALID_CURSOR)
             }
         }
 
     private fun decodeEvaluationIdCursor(cursor: String?): Long? =
         CursorCodec.decode<EvaluationIdCursor>(cursor)?.let {
-            if (it.version != CURSOR_VERSION || it.evaluationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
+            if (it.evaluationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
             it.evaluationId
         }
 
     private fun Evaluation.toCursor(sort: EvaluationSort): EvaluationCursor =
         EvaluationCursor(
-            version = CURSOR_VERSION,
             sort = sort,
             year = year,
             semester = semester.value,

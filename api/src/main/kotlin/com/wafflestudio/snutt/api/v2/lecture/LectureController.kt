@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
@@ -35,7 +36,7 @@ data class LectureSearchRequest(
     val etcTags: List<String>? = null,
     val times: List<SearchTimeRequest>? = null,
     val timesToExclude: List<SearchTimeRequest>? = null,
-    val page: Int = 0,
+    val cursor: String? = null,
     val limit: Int = 20,
     val sortBy: String? = null,
 )
@@ -123,7 +124,7 @@ class LectureController(
     fun searchLectures(
         @RequestBody request: LectureSearchRequest,
         @RequestAttribute clientInfo: ClientInfo,
-    ): List<LectureResponse> {
+    ): CursorPage<LectureResponse> {
         val criteria =
             LectureSearchCriteria(
                 year = request.year,
@@ -140,19 +141,26 @@ class LectureController(
                 etcTags = request.etcTags,
                 times = request.times?.map { parseSearchTime(it) },
                 timesToExclude = request.timesToExclude?.map { parseSearchTime(it) },
-                offset = request.page * request.limit.toLong(),
-                limit = request.limit,
                 sort = LectureSort.getOfName(request.sortBy) ?: LectureSort.DEFAULT,
             )
-        val lectures = lectureService.search(criteria)
+        val page = lectureService.search(criteria, request.cursor, request.limit)
+        val lectures = page.content
         val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
         val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
-        return lectures.map { lecture ->
-            val classTimes = classTimesMap[lecture.id].orEmpty()
-            val evaluationSummary =
-                summaries[lecture.id]?.let { LectureEvSummaryResponse(avgRating = it.avgRating, evalCount = it.evalCount) }
-            lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
-        }
+        val content =
+            lectures.map { lecture ->
+                val classTimes = classTimesMap[lecture.id].orEmpty()
+                val evaluationSummary =
+                    summaries[lecture.id]?.let { LectureEvSummaryResponse(avgRating = it.avgRating, evalCount = it.evalCount) }
+                lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
+            }
+        return CursorPage(
+            content = content,
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

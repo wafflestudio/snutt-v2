@@ -13,7 +13,6 @@ data class CourseSearchCriteria(
 )
 
 data class CourseSearchCursor(
-    val version: Int,
     val evalCount: Long,
     val courseId: Long,
 )

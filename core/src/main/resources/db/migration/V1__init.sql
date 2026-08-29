@@ -99,8 +99,8 @@ CREATE TABLE notification
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    INDEX idx_notification_user_created (user_id, created_at DESC),
-    INDEX idx_notification_created (created_at DESC)
+    INDEX idx_notification_user_created (user_id, created_at DESC, id DESC),
+    INDEX idx_notification_created (created_at DESC, id DESC)
 );
 
 CREATE TABLE course
@@ -153,7 +153,7 @@ CREATE TABLE lecture
     updated_at         DATETIME(6)  NOT NULL,
     CONSTRAINT uk_lecture_offering UNIQUE (year, semester, course_number, lecture_number),
     CONSTRAINT fk_lecture_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE SET NULL,
-    INDEX idx_lecture_year_semester (year, semester),
+    INDEX idx_lecture_year_semester (year, semester, id ASC),
     INDEX idx_lecture_course (course_id, year, semester),
     INDEX idx_lecture_course_lecture_number (course_number, lecture_number),
     INDEX idx_lecture_department (department),
@@ -307,7 +307,7 @@ CREATE TABLE published_theme
     updated_at       DATETIME(6)  NOT NULL,
     CONSTRAINT uk_published_theme_theme UNIQUE (theme_id),
     CONSTRAINT fk_published_theme_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE CASCADE,
-    INDEX idx_published_theme_download (download_count DESC)
+    INDEX idx_published_theme_download (download_count DESC, id DESC)
 );
 
 CREATE TABLE timetable

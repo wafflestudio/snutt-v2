@@ -33,13 +33,23 @@ class LectureSearchRepositoryImpl(
         private val buildingRegex = """^(?:|#|\*)\d+(?:-\d+)?동$""".toRegex()
     }
 
-    override fun search(criteria: LectureSearchCriteria): List<Lecture> {
+    override fun search(
+        criteria: LectureSearchCriteria,
+        cursorLectureId: Long?,
+        limit: Int,
+    ): List<Lecture> {
         val query = queryFactory.selectFrom(lecture)
         applySort(query, criteria.sort)
-        return applyFilters(query, criteria)
-            .offset(criteria.offset)
-            .limit(criteria.limit.toLong())
-            .fetch()
+        applyFilters(query, criteria)
+        cursorLectureId?.let {
+            when (criteria.sort) {
+                LectureSort.DEFAULT -> query.where(lecture.id.gt(it))
+                LectureSort.RATING_DESC, LectureSort.COUNT_DESC ->
+                    checkNotNull(ratingJoinView) { "LectureRatingJoinView implementation is missing" }
+                        .applyCursor(query, criteria.sort, it)
+            }
+        }
+        return query.limit(limit.toLong()).fetch()
     }
 
     private fun applySort(

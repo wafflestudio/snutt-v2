@@ -38,7 +38,10 @@ data class LectureSearchCriteria(
     val etcTags: List<String>? = null,
     val times: List<SearchTime>? = null,
     val timesToExclude: List<SearchTime>? = null,
-    val offset: Long = 0,
-    val limit: Int = 20,
     val sort: LectureSort = LectureSort.DEFAULT,
+)
+
+data class LectureSearchCursor(
+    val sort: LectureSort,
+    val lectureId: Long,
 )

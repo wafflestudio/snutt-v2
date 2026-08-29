@@ -20,24 +20,9 @@ class CourseSearchRepository(
     private val course = QCourse.course
 
     companion object {
-        private const val PAGE_SIZE = 20
         private val GRADUATE_YEARS = listOf("석사", "박사", "석박사통합")
         private val placeRegex = """^(?:|#|\*)\d+(?:-\d+|-[a-zA-Z])?-[a-zA-Z]?\d+[a-zA-Z]?(?:-\d+)?$""".toRegex()
         private val buildingRegex = """^(?:|#|\*)\d+(?:-\d+)?동$""".toRegex()
-    }
-
-    fun searchPage(
-        criteria: CourseSearchCriteria,
-        page: Int,
-    ): List<Course> {
-        val course = QCourse.course
-        return queryFactory
-            .selectFrom(course)
-            .where(predicate(criteria))
-            .orderBy(course.evalCount.desc(), course.id.asc())
-            .offset(page.toLong() * PAGE_SIZE)
-            .limit(PAGE_SIZE.toLong())
-            .fetch()
     }
 
     fun search(

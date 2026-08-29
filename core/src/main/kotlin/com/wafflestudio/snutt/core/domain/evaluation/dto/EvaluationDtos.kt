@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.core.domain.evaluation.dto
 
 data class EvaluationCursor(
-    val version: Int,
     val sort: EvaluationSort,
     val year: Int,
     val semester: Int,
@@ -10,7 +9,6 @@ data class EvaluationCursor(
 )
 
 data class EvaluationIdCursor(
-    val version: Int,
     val evaluationId: Long,
 )
 

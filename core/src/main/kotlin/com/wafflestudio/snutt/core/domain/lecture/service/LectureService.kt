@@ -2,7 +2,10 @@ package com.wafflestudio.snutt.core.domain.lecture.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorCodec
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
+import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCursor
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
@@ -17,7 +20,31 @@ class LectureService(
     private val lectureSearchRepository: LectureSearchRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
 ) {
-    fun search(criteria: LectureSearchCriteria): List<Lecture> = lectureSearchRepository.search(criteria)
+    fun search(
+        criteria: LectureSearchCriteria,
+        cursor: String?,
+        limit: Int = 20,
+    ): CursorPage<Lecture> {
+        if (limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val decoded =
+            CursorCodec.decode<LectureSearchCursor>(cursor)?.also {
+                if (it.sort != criteria.sort || it.lectureId <= 0) {
+                    throw SnuttException(ErrorType.INVALID_CURSOR)
+                }
+            }
+        val results = lectureSearchRepository.search(criteria, decoded?.lectureId, limit + 1)
+        val hasMore = results.size > limit
+        val content = if (hasMore) results.take(limit) else results
+        val nextCursor =
+            if (hasMore) {
+                content.lastOrNull()?.let {
+                    CursorCodec.encode(LectureSearchCursor(criteria.sort, it.id!!))
+                }
+            } else {
+                null
+            }
+        return CursorPage.of(content, nextCursor, limit)
+    }
 
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 

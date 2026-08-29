@@ -159,12 +159,17 @@ class V1CompatLectureSearchController(
                             it.endMinute,
                         )
                     },
-                // 구버전 계약: offset 미지정 시 page당 20개 기준으로 계산한다(limit과 무관)
-                offset = query.offset ?: query.page * 20L,
-                limit = query.limit,
                 sort = LectureSort.getOfName(query.sortCriteria) ?: LectureSort.DEFAULT,
             )
-        val lectures = lectureService.search(criteria)
+        val offset = query.offset ?: query.page * 20L
+        if (offset < 0 || query.limit <= 0 || offset > Int.MAX_VALUE - query.limit) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
+        val lectures =
+            lectureService
+                .search(criteria, null, offset.toInt() + query.limit)
+                .content
+                .drop(offset.toInt())
         val lectureIds = lectures.mapNotNull { it.id }
         val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
         val classTimesMap = lectureService.classTimesByLectureId(lectureIds)

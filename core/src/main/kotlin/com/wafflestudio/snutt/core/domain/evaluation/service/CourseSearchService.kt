@@ -37,14 +37,7 @@ class CourseSearchService(
 ) {
     companion object {
         private const val PAGE_SIZE = 20
-        private const val CURSOR_VERSION = 1
     }
-
-    @Transactional(readOnly = true)
-    fun searchPage(
-        criteria: CourseSearchCriteria,
-        page: Int,
-    ): List<Course> = courseSearchRepository.searchPage(criteria, page)
 
     @Transactional(readOnly = true)
     fun count(criteria: CourseSearchCriteria): Long = courseSearchRepository.count(criteria)
@@ -56,7 +49,7 @@ class CourseSearchService(
     ): CursorPage<Course> {
         val decoded =
             CursorCodec.decode<CourseSearchCursor>(cursor)?.also {
-                if (it.version != CURSOR_VERSION || it.evalCount < 0 || it.courseId <= 0) {
+                if (it.evalCount < 0 || it.courseId <= 0) {
                     throw SnuttException(ErrorType.INVALID_CURSOR)
                 }
             }
@@ -66,7 +59,7 @@ class CourseSearchService(
         val nextCursor =
             if (hasMore) {
                 content.lastOrNull()?.let {
-                    CursorCodec.encode(CourseSearchCursor(CURSOR_VERSION, it.evalCount, it.id!!))
+                    CursorCodec.encode(CourseSearchCursor(it.evalCount, it.id!!))
                 }
             } else {
                 null

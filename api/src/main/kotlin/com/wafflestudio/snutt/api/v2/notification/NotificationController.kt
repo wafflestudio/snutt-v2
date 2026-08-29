@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v2.notification
 
 import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
@@ -32,10 +33,19 @@ class NotificationController(
     @GetMapping("")
     fun getNotifications(
         @CurrentUser user: User,
-        @RequestParam(defaultValue = "0") offset: Long,
+        @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
-    ): List<NotificationResponse> = notificationService.getNotifications(user, offset, limit, explicit > 0).map { it.toResponse() }
+    ): CursorPage<NotificationResponse> {
+        val page = notificationService.getNotifications(user, cursor, limit, explicit > 0)
+        return CursorPage(
+            content = page.content.map { it.toResponse() },
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
+    }
 
     @GetMapping("/count")
     fun getUnreadCount(

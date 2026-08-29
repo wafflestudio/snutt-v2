@@ -262,7 +262,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, broadcast.statusCode.value())
 
-        val notifications = body(get("/v2/notifications", userAToken))
+        val notifications = body(get("/v2/notifications", userAToken))["content"]
         assertEquals(1, notifications.size())
         assertEquals("전체공지", notifications[0]["title"].asString())
 
