@@ -246,7 +246,7 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): List<LegacyNotificationDto> {
-        val notifications = notificationService.getNotifications(user, offset, limit, explicit > 0)
+        val notifications = notificationService.getNotifications(user.id!!, offset, limit, explicit > 0)
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(
@@ -264,7 +264,7 @@ class V1CompatNotificationController(
     @GetMapping("/count")
     fun getUnreadCount(
         @V1CurrentUser user: User,
-    ): LegacyNotificationCountResponse = LegacyNotificationCountResponse(count = notificationService.getUnreadCount(user))
+    ): LegacyNotificationCountResponse = LegacyNotificationCountResponse(count = notificationService.getUnreadCount(user.id!!))
 }
 
 data class LegacyBookmarksResponse(
@@ -461,15 +461,15 @@ class V1CompatPushPreferenceController(
     @GetMapping("")
     fun getPushPreferences(
         @V1CurrentUser user: User,
-    ): PushPreferenceDto = pushPreferenceService.getPushPreferences(user)
+    ): PushPreferenceDto = pushPreferenceService.getPushPreferences(user.id!!)
 
     @PostMapping("")
     fun savePushPreferences(
         @V1CurrentUser user: User,
         @RequestBody dto: PushPreferenceDto,
     ): PushPreferenceDto {
-        pushPreferenceService.savePushPreferences(user, dto)
-        return pushPreferenceService.getPushPreferences(user)
+        pushPreferenceService.savePushPreferences(user.id!!, dto)
+        return pushPreferenceService.getPushPreferences(user.id!!)
     }
 }
 

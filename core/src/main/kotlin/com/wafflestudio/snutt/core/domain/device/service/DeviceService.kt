@@ -4,7 +4,7 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.push.PushClient
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
-import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -12,15 +12,15 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class DeviceService(
     private val userDeviceRepository: UserDeviceRepository,
+    private val userRepository: UserRepository,
     private val pushClient: PushClient,
 ) {
     @Transactional
     fun addRegistrationId(
-        user: User,
+        userId: Long,
         registrationId: String,
         clientInfo: ClientInfo,
     ) {
-        val userId = requireNotNull(user.id) { "persisted user must have an id" }
         val deviceByRegistrationId = userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(registrationId)
         val deviceByDeviceId =
             clientInfo.deviceId?.let { userDeviceRepository.findByUserIdAndDeviceIdAndIsDeletedFalse(userId, it) }
@@ -35,7 +35,7 @@ class DeviceService(
                     deviceByRegistrationId.isDeleted = true
                     userDeviceRepository.flush()
                 }
-                deviceByDeviceId ?: UserDevice(user = user, fcmRegistrationId = registrationId)
+                deviceByDeviceId ?: UserDevice(user = userRepository.getReferenceById(userId), fcmRegistrationId = registrationId)
             }
         device.fcmRegistrationId = registrationId
         device.osType = clientInfo.osType
@@ -50,10 +50,9 @@ class DeviceService(
 
     @Transactional
     fun removeRegistrationId(
-        user: User,
+        userId: Long,
         registrationId: String,
     ) {
-        val userId = requireNotNull(user.id) { "persisted user must have an id" }
         val device =
             userDeviceRepository.findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
                 ?: return

@@ -182,7 +182,7 @@ class V1CompatDeviceController(
         @PathVariable registrationId: String,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ) {
-        deviceService.addRegistrationId(user, registrationId, clientInfo)
+        deviceService.addRegistrationId(user.id!!, registrationId, clientInfo)
     }
 
     @DeleteMapping("/{registrationId}")
@@ -190,7 +190,7 @@ class V1CompatDeviceController(
         @V1CurrentUser user: User,
         @PathVariable registrationId: String,
     ) {
-        deviceService.removeRegistrationId(user, registrationId)
+        deviceService.removeRegistrationId(user.id!!, registrationId)
     }
 }
 

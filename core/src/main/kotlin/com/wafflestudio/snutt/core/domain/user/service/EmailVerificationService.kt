@@ -10,6 +10,7 @@ import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,9 +28,10 @@ class EmailVerificationService(
 
     @Transactional
     fun sendVerificationCode(
-        user: User,
+        userId: Long,
         email: String,
     ) {
+        val user = getUser(userId)
         val trimmed = email.trim()
         if (user.isEmailVerified) throw SnuttException(ErrorType.EMAIL_ALREADY_VERIFIED)
         if (!snuMailRegex.matches(trimmed)) throw SnuttException(ErrorType.INVALID_EMAIL)
@@ -37,25 +39,29 @@ class EmailVerificationService(
             throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
         val code = VerificationCode.generate()
-        store.store(user.id!!, code, payload = trimmed)
+        store.store(userId, code, payload = trimmed)
         mailClient.sendCodeMail(MailType.VERIFICATION, trimmed, code)
     }
 
     @Transactional
     fun verifyEmail(
-        user: User,
+        userId: Long,
         code: String,
     ) {
-        val email = store.verify(user.id!!, code)
+        val user = getUser(userId)
+        val email = store.verify(userId, code)
         user.email = email
         user.isEmailVerified = true
         conflictAs(ErrorType.DUPLICATE_EMAIL) { userRepository.save(user) }
-        store.clear(user.id!!)
+        store.clear(userId)
     }
 
     @Transactional
-    fun resetEmailVerification(user: User) {
+    fun resetEmailVerification(userId: Long) {
+        val user = getUser(userId)
         user.isEmailVerified = false
         userRepository.save(user)
     }
+
+    private fun getUser(userId: Long): User = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 }

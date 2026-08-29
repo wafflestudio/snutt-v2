@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.evaluation
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -9,7 +9,6 @@ import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -68,7 +67,7 @@ class CourseController(
 ) {
     @GetMapping("")
     fun searchCourses(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam(required = false, defaultValue = "") query: String,
         @RequestParam(required = false) classification: List<String>?,
         @RequestParam(required = false) department: List<String>?,
@@ -103,10 +102,10 @@ class CourseController(
 
     @GetMapping("/{courseId}")
     fun getCourse(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
     ): CourseDetailResponse {
-        val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
+        val result = courseSearchService.getCourseWithSemesters(courseId, userId)
         return CourseDetailResponse(
             course = result.course.toResponse(),
             semesters =

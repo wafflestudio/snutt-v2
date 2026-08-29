@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.bookmark
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
@@ -12,7 +12,6 @@ import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -99,36 +98,36 @@ class BookmarkController(
 ) {
     @GetMapping("")
     fun getBookmarks(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Int,
         @RequestAttribute clientInfo: ClientInfo,
     ): BookmarkResponse {
         val display =
-            bookmarkService.getBookmark(user.id!!, year, Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER))
+            bookmarkService.getBookmark(userId, year, Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER))
         val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
         return display.toResponse(classTimesMap, clientInfo.language)
     }
 
     @GetMapping("/lectures/{lectureId}/state")
     fun existsBookmarkLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
-    ): Boolean = bookmarkService.existsBookmarkLecture(user.id!!, lectureId)
+    ): Boolean = bookmarkService.existsBookmarkLecture(userId, lectureId)
 
     @PostMapping("/lecture")
     fun addLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: BookmarkLectureModifyRequest,
     ) {
-        bookmarkService.addLecture(user.id!!, body.lectureId)
+        bookmarkService.addLecture(userId, body.lectureId)
     }
 
     @DeleteMapping("/lecture")
     fun deleteLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: BookmarkLectureModifyRequest,
     ) {
-        bookmarkService.deleteLecture(user.id!!, body.lectureId)
+        bookmarkService.deleteLecture(userId, body.lectureId)
     }
 }

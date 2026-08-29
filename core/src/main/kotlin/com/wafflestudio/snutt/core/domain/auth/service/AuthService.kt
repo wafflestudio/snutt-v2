@@ -153,10 +153,11 @@ class AuthService(
 
     @Transactional
     fun attachLocal(
-        user: User,
+        userId: Long,
         localId: String,
         password: String,
     ) {
+        val user = getActiveUser(userId)
         if (user.localId != null) throw SnuttException(ErrorType.ALREADY_LOCAL_ACCOUNT)
         if (!localId.matches(PasswordPolicy.localIdRegex)) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!PasswordPolicy.isValidPassword(password)) throw SnuttException(ErrorType.INVALID_PASSWORD)
@@ -169,53 +170,56 @@ class AuthService(
 
     @Transactional
     fun attachSocial(
-        user: User,
+        userId: Long,
         provider: AuthProvider,
         token: String,
     ) {
+        val user = getActiveUser(userId)
         val response = fetchSocialUser(provider, token)
         if (response.email != null) {
             val presentUser = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
-            if (presentUser != null && presentUser.id != user.id) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
+            if (presentUser != null && presentUser.id != userId) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
-        if (userSocialAuthRepository.findByUserIdAndProvider(user.id!!, provider) != null) {
+        if (userSocialAuthRepository.findByUserIdAndProvider(userId, provider) != null) {
             throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
         }
         if (existsBySocialId(provider, response.socialId)) throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
-        insertSocialAuth(user.id!!, provider, response)
+        insertSocialAuth(userId, provider, response)
         publishCredentialChanged(user)
     }
 
     @Transactional
     fun detachSocial(
-        user: User,
+        userId: Long,
         provider: AuthProvider,
     ) {
-        val socialProviders = userSocialAuthRepository.findByUserId(user.id!!).map { it.provider }
+        val user = getActiveUser(userId)
+        val socialProviders = userSocialAuthRepository.findByUserId(userId).map { it.provider }
         if (provider !in socialProviders) throw SnuttException(ErrorType.SOCIAL_PROVIDER_NOT_ATTACHED)
         if (socialProviders.size + (if (user.localId != null) 1 else 0) == 1) {
             throw SnuttException(ErrorType.CANNOT_REMOVE_LAST_AUTH_PROVIDER)
         }
-        userSocialAuthRepository.deleteByUserIdAndProvider(user.id!!, provider)
+        userSocialAuthRepository.deleteByUserIdAndProvider(userId, provider)
         publishCredentialChanged(user)
     }
 
     @Transactional(readOnly = true)
-    fun getAuthProviders(user: User): List<AuthProvider> =
+    fun getAuthProviders(userId: Long): List<AuthProvider> =
         buildList {
-            if (user.localId != null) add(AuthProvider.LOCAL)
+            if (getActiveUser(userId).localId != null) add(AuthProvider.LOCAL)
             userSocialAuthRepository
-                .findByUserId(user.id!!)
+                .findByUserId(userId)
                 .sortedBy { it.provider.ordinal }
                 .forEach { add(it.provider) }
         }
 
     @Transactional
     fun changePassword(
-        user: User,
+        userId: Long,
         currentPassword: String,
         newPassword: String,
     ): TokenPair {
+        val user = getActiveUser(userId)
         if (user.localPw == null) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
@@ -225,6 +229,9 @@ class AuthService(
         publishCredentialChanged(user)
         return issueTokens(user)
     }
+
+    private fun getActiveUser(userId: Long): User =
+        userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
     private fun fetchSocialUser(
         provider: AuthProvider,

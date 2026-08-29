@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.evaluation
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -12,7 +12,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
-import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -130,20 +129,20 @@ class EvaluationController(
 ) {
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getEvaluationsOfLecture(user.id!!, lectureId, cursor).toEvaluationResponsePage()
+    ): CursorPage<EvaluationResponse> = evaluationService.getEvaluationsOfLecture(userId, lectureId, cursor).toEvaluationResponsePage()
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
         @Valid @RequestBody body: EvaluationWriteRequestBody,
     ): EvaluationResponse =
         evaluationService
             .createEvaluation(
-                user.id!!,
+                userId,
                 lectureId,
                 EvaluationWriteRequest(
                     content = body.content,
@@ -157,13 +156,13 @@ class EvaluationController(
 
     @GetMapping("/v2/lectures/{lectureId}/evaluations/me")
     fun getMyEvaluationsOfLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
-    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(user.id!!, lectureId).toEvaluationResponses()
+    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(userId, lectureId).toEvaluationResponses()
 
     @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
     ): LectureEvaluationSummaryResponse {
         val display = evaluationService.getEvaluationSummaryOfLecture(lectureId)
@@ -193,41 +192,41 @@ class EvaluationController(
 
     @GetMapping("/v2/evaluations/me")
     fun getMyEvaluations(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(user.id!!, cursor).toEvaluationResponsePage()
+    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(userId, cursor).toEvaluationResponsePage()
 
     @GetMapping("/v2/evaluations/tags")
     fun getEvaluationTags(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
     ): List<EvaluationTagResponse> =
         EvaluationTag.entries.map { EvaluationTagResponse(key = it.key, title = it.title, description = it.description) }
 
     @GetMapping("/v2/evaluations/tags/{tagKey}")
     fun getEvaluationsByTag(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable tagKey: String,
         @RequestParam(required = false) cursor: String?,
     ): CursorPage<EvaluationResponse> {
         val tag = EvaluationTag.fromKey(tagKey) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return evaluationService.getEvaluationsByTag(user.id!!, tag, cursor).toEvaluationResponsePage()
+        return evaluationService.getEvaluationsByTag(userId, tag, cursor).toEvaluationResponsePage()
     }
 
     @GetMapping("/v2/evaluations/{evaluationId}")
     fun getEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationService.getEvaluation(user.id!!, evaluationId).toEvaluationResponse()
+    ): EvaluationResponse = evaluationService.getEvaluation(userId, evaluationId).toEvaluationResponse()
 
     @PatchMapping("/v2/evaluations/{evaluationId}")
     fun updateEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
         @RequestBody body: EvaluationUpdateRequestBody,
     ): EvaluationResponse =
         evaluationService
             .updateEvaluation(
-                user.id!!,
+                userId,
                 evaluationId,
                 EvaluationUpdateRequest(
                     content = body.content,
@@ -241,32 +240,32 @@ class EvaluationController(
 
     @DeleteMapping("/v2/evaluations/{evaluationId}")
     fun deleteEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
     ) {
-        evaluationService.deleteEvaluation(user.id!!, evaluationId)
+        evaluationService.deleteEvaluation(userId, evaluationId)
     }
 
     @PostMapping("/v2/evaluations/{evaluationId}/report")
     fun reportEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
         @Valid @RequestBody body: EvaluationReportRequestBody,
-    ): Long = evaluationService.reportEvaluation(user.id!!, evaluationId, EvaluationReportRequest(content = body.content)).id!!
+    ): Long = evaluationService.reportEvaluation(userId, evaluationId, EvaluationReportRequest(content = body.content)).id!!
 
     @PostMapping("/v2/evaluations/{evaluationId}/like")
     fun likeEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
     ) {
-        evaluationService.likeEvaluation(user.id!!, evaluationId)
+        evaluationService.likeEvaluation(userId, evaluationId)
     }
 
     @DeleteMapping("/v2/evaluations/{evaluationId}/like")
     fun cancelLikeEvaluation(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
     ) {
-        evaluationService.cancelLikeEvaluation(user.id!!, evaluationId)
+        evaluationService.cancelLikeEvaluation(userId, evaluationId)
     }
 }

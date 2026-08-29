@@ -195,7 +195,7 @@ class V1CompatAuthController(
     ): LegacyOkResponse {
         val registrationId = body?.registrationId
         if (!registrationId.isNullOrBlank()) {
-            deviceService.removeRegistrationId(user, registrationId)
+            deviceService.removeRegistrationId(user.id!!, registrationId)
         }
         return LegacyOkResponse()
     }

@@ -29,19 +29,21 @@ class UserService(
 
     @Transactional
     fun updateNickname(
-        user: User,
+        userId: Long,
         nickname: String,
     ): User {
+        val user = get(userId)
         user.nickname = userNicknameService.appendNewTag(nickname)
         return conflictAs(ErrorType.DUPLICATE_NICKNAME) { userRepository.save(user) }
     }
 
     @Transactional
-    fun deactivate(user: User) {
+    fun deactivate(userId: Long) {
+        val user = get(userId)
         user.active = false
-        refreshTokenRepository.deleteAllByUserId(user.id!!)
-        userSocialAuthRepository.deleteByUserId(user.id!!)
+        refreshTokenRepository.deleteAllByUserId(userId)
+        userSocialAuthRepository.deleteByUserId(userId)
         userRepository.save(user)
-        eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))
+        eventPublisher.publishEvent(UserCredentialChangedEvent(userId))
     }
 }

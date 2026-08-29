@@ -1,10 +1,9 @@
 package com.wafflestudio.snutt.api.v2.notification
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -31,16 +30,16 @@ class NotificationController(
 ) {
     @GetMapping("")
     fun getNotifications(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam(defaultValue = "0") offset: Long,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
-    ): List<NotificationResponse> = notificationService.getNotifications(user, offset, limit, explicit > 0).map { it.toResponse() }
+    ): List<NotificationResponse> = notificationService.getNotifications(userId, offset, limit, explicit > 0).map { it.toResponse() }
 
     @GetMapping("/count")
     fun getUnreadCount(
-        @CurrentUser user: User,
-    ): NotificationCountResponse = NotificationCountResponse(notificationService.getUnreadCount(user))
+        @CurrentUserId userId: Long,
+    ): NotificationCountResponse = NotificationCountResponse(notificationService.getUnreadCount(userId))
 }
 
 private fun Notification.toResponse(): NotificationResponse =
