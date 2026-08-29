@@ -172,9 +172,9 @@ class V1CompatCourseSearchController(
         @RequestParam(required = false, defaultValue = "0") page: Int,
         @RequestParam(required = false) tags: List<Long>?,
     ): LegacyCourseSearchResponse {
-        val criteria = legacySearchTagService.toCriteria(query, page, tags.orEmpty())
+        val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty())
         return LegacyCourseSearchResponse(
-            content = courseSearchService.search(criteria).map { it.toLegacyCourse() },
+            content = courseSearchService.searchPage(criteria, page).map { it.toLegacyCourse() },
             totalCount = courseSearchService.count(criteria),
         )
     }

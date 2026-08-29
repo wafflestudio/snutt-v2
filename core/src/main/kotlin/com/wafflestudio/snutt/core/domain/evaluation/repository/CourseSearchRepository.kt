@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
 import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
@@ -25,16 +26,37 @@ class CourseSearchRepository(
         private val buildingRegex = """^(?:|#|\*)\d+(?:-\d+)?동$""".toRegex()
     }
 
-    fun search(criteria: CourseSearchCriteria): List<Course> {
+    fun searchPage(
+        criteria: CourseSearchCriteria,
+        page: Int,
+    ): List<Course> {
         val course = QCourse.course
         return queryFactory
             .selectFrom(course)
             .where(predicate(criteria))
             .orderBy(course.evalCount.desc(), course.id.asc())
-            .offset(criteria.page.toLong() * PAGE_SIZE)
+            .offset(page.toLong() * PAGE_SIZE)
             .limit(PAGE_SIZE.toLong())
             .fetch()
     }
+
+    fun search(
+        criteria: CourseSearchCriteria,
+        cursor: CourseSearchCursor?,
+        limit: Int,
+    ): List<Course> =
+        queryFactory
+            .selectFrom(course)
+            .where(
+                predicate(criteria),
+                cursor?.let {
+                    course.evalCount.lt(it.evalCount).or(
+                        course.evalCount.eq(it.evalCount).and(course.id.gt(it.courseId)),
+                    )
+                },
+            ).orderBy(course.evalCount.desc(), course.id.asc())
+            .limit(limit.toLong())
+            .fetch()
 
     fun count(criteria: CourseSearchCriteria): Long =
         queryFactory

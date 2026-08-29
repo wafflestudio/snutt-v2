@@ -3,7 +3,10 @@ package com.wafflestudio.snutt.core.domain.evaluation.service
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorCodec
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
@@ -32,11 +35,44 @@ class CourseSearchService(
     private val lectureRepository: LectureRepository,
     private val evaluationRepository: EvaluationRepository,
 ) {
+    companion object {
+        private const val PAGE_SIZE = 20
+        private const val CURSOR_VERSION = 1
+    }
+
     @Transactional(readOnly = true)
-    fun search(criteria: CourseSearchCriteria): List<Course> = courseSearchRepository.search(criteria)
+    fun searchPage(
+        criteria: CourseSearchCriteria,
+        page: Int,
+    ): List<Course> = courseSearchRepository.searchPage(criteria, page)
 
     @Transactional(readOnly = true)
     fun count(criteria: CourseSearchCriteria): Long = courseSearchRepository.count(criteria)
+
+    @Transactional(readOnly = true)
+    fun search(
+        criteria: CourseSearchCriteria,
+        cursor: String?,
+    ): CursorPage<Course> {
+        val decoded =
+            CursorCodec.decode<CourseSearchCursor>(cursor)?.also {
+                if (it.version != CURSOR_VERSION || it.evalCount < 0 || it.courseId <= 0) {
+                    throw SnuttException(ErrorType.INVALID_CURSOR)
+                }
+            }
+        val results = courseSearchRepository.search(criteria, decoded, PAGE_SIZE + 1)
+        val hasMore = results.size > PAGE_SIZE
+        val content = if (hasMore) results.take(PAGE_SIZE) else results
+        val nextCursor =
+            if (hasMore) {
+                content.lastOrNull()?.let {
+                    CursorCodec.encode(CourseSearchCursor(CURSOR_VERSION, it.evalCount, it.id!!))
+                }
+            } else {
+                null
+            }
+        return CursorPage.of(content, nextCursor, PAGE_SIZE, courseSearchRepository.count(criteria))
+    }
 
     @Transactional(readOnly = true)
     fun getCourseWithSemesters(

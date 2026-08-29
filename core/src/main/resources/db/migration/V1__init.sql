@@ -119,7 +119,8 @@ CREATE TABLE course
     created_at     DATETIME(6)  NOT NULL,
     updated_at     DATETIME(6)  NOT NULL,
     CONSTRAINT uk_course_number_instructor UNIQUE (course_number, instructor),
-    INDEX idx_course_avg_rating (avg_rating DESC)
+    INDEX idx_course_avg_rating (avg_rating DESC),
+    INDEX idx_course_eval_count (eval_count DESC, id ASC)
 );
 
 CREATE TABLE lecture
