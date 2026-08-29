@@ -239,7 +239,7 @@ class V1CompatThemeController(
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
         // 구버전(3.5.0)과 동일하게 기본 테마를 직접 지정할 수 없으며 현재 기본값을 그대로 반환한다
-        BasicThemeType.fromValue(basicThemeTypeValue) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        basicThemeType(basicThemeTypeValue)
         return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.id!!.toString(), null)
     }
 
@@ -248,7 +248,7 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        val basicThemeType = BasicThemeType.fromValue(basicThemeTypeValue) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val basicThemeType = basicThemeType(basicThemeTypeValue)
         val current = timetableThemeService.getDefaultTheme(user.id!!)
         if (!current.isCustom && current.builtinType != basicThemeType.value) {
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
@@ -271,6 +271,13 @@ class V1CompatThemeController(
         }
         return all.drop((page - 1) * LEGACY_THEME_PAGE_SIZE).take(LEGACY_THEME_PAGE_SIZE)
     }
+
+    private fun basicThemeType(value: Int): BasicThemeType =
+        try {
+            BasicThemeType.fromValue(value)
+        } catch (_: IllegalArgumentException) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
 
     private fun wrap(
         user: User,

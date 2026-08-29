@@ -77,15 +77,9 @@ class CourseSearchService(
                 .map { offerings -> offerings.minBy { it.id!! } }
                 .sortedWith(compareByDescending<Lecture> { it.year }.thenByDescending { it.semester.value })
         val evaluated =
-            lectures
-                .filter { lecture ->
-                    evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
-                        courseId,
-                        lecture.year,
-                        lecture.semester,
-                        userId,
-                    )
-                }.map { lecture -> lecture.year to lecture.semester }
+            evaluationRepository
+                .findEvaluatedCourseSemesters(userId, listOf(courseId))
+                .map { it.year to it.semester }
                 .toSet()
         return CourseWithSemesters(
             course = course,

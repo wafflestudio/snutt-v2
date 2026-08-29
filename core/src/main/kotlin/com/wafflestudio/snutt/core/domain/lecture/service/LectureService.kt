@@ -34,7 +34,7 @@ class LectureService(
                 }
             }
         val results = lectureSearchRepository.search(criteria, decoded?.lectureId, limit + 1)
-        return results.toCursorPage(limit, cursorOf = { LectureSearchCursor(criteria.sort, it.id!!) }, transform = { it })
+        return results.toCursorPage(limit, cursorOf = { LectureSearchCursor(criteria.sort, it.id!!) }) { it }
     }
 
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)

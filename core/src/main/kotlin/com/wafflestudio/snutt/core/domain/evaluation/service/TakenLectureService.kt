@@ -80,15 +80,13 @@ class TakenLectureService(
                     LectureTakenByUser(course, lecture.id!!, coursebook.year, coursebook.semester)
                 }.distinctBy { Triple(it.course.id, it.takenYear, it.takenSemester) }
 
-        if (!excludeEvaluated) return taken
-        return taken.filterNot { entry ->
-            evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
-                requireNotNull(entry.course.id),
-                entry.takenYear,
-                entry.takenSemester,
-                userId,
-            )
-        }
+        if (!excludeEvaluated || taken.isEmpty()) return taken
+        val evaluated =
+            evaluationRepository
+                .findEvaluatedCourseSemesters(userId, taken.map { it.course.id!! }.distinct())
+                .map { Triple(it.courseId, it.year, it.semester) }
+                .toSet()
+        return taken.filterNot { Triple(it.course.id, it.takenYear, it.takenSemester) in evaluated }
     }
 
     @Transactional(readOnly = true)
@@ -100,21 +98,21 @@ class TakenLectureService(
         val distinctInputs =
             inputs
                 .filter { !it.courseNumber.isNullOrEmpty() && !it.instructor.isNullOrEmpty() }
-                .associateBy { "${it.courseNumber}${it.instructor}" }
-        return distinctInputs.values.mapNotNull { input ->
-            val course =
-                courseRepository.findByCourseNumberAndInstructor(
-                    input.courseNumber!!,
-                    input.instructor!!,
-                ) ?: return@mapNotNull null
-            if (
-                excludeEvaluated &&
-                evaluationRepository
-                    .findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(course.id!!, userId)
-                    .isNotEmpty()
-            ) {
-                return@mapNotNull null
-            }
+                .associateBy { it.courseNumber!! to it.instructor!! }
+        if (distinctInputs.isEmpty()) return emptyList()
+        val coursesByKey =
+            courseRepository
+                .findByCourseNumberIn(distinctInputs.values.map { it.courseNumber!! }.distinct())
+                .associateBy { it.courseNumber to it.instructor }
+        if (coursesByKey.isEmpty()) return emptyList()
+        val evaluatedCourseIds =
+            evaluationRepository
+                .findEvaluatedCourseSemesters(userId, coursesByKey.values.map { it.id!! })
+                .map { it.courseId }
+                .toSet()
+        return distinctInputs.mapNotNull { (key, input) ->
+            val course = coursesByKey[key] ?: return@mapNotNull null
+            if (course.id in evaluatedCourseIds) return@mapNotNull null
             CourseTakenByUser(course, input.year, input.semester)
         }
     }

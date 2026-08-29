@@ -11,6 +11,12 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
+interface EvaluatedCourseSemester {
+    val courseId: Long
+    val year: Int
+    val semester: Semester
+}
+
 interface EvaluationRepository :
     JpaRepository<Evaluation, Long>,
     EvaluationCustomRepository {
@@ -28,6 +34,15 @@ interface EvaluationRepository :
         semester: Semester,
         userId: Long,
     ): Boolean
+
+    @Query(
+        "SELECT e.courseId AS courseId, e.year AS year, e.semester AS semester FROM Evaluation e " +
+            "WHERE e.userId = :userId AND e.courseId IN :courseIds AND e.isHidden = false",
+    )
+    fun findEvaluatedCourseSemesters(
+        userId: Long,
+        courseIds: Collection<Long>,
+    ): List<EvaluatedCourseSemester>
 
     fun findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(
         courseId: Long,

@@ -32,12 +32,12 @@ fun <T, R> List<T>.toCursorPage(
     pageSize: Int,
     totalCount: Long? = null,
     cursorOf: (T) -> Any,
-    transform: (T) -> R,
+    transform: (List<T>) -> List<R>,
 ): CursorPage<R> {
     val hasMore = size > pageSize
     val content = if (hasMore) take(pageSize) else this
     val nextCursor = if (hasMore) CursorCodec.encode(cursorOf(content.last())) else null
-    return CursorPage.of(content.map(transform), nextCursor, pageSize, totalCount)
+    return CursorPage.of(transform(content), nextCursor, pageSize, totalCount)
 }
 
 object CursorCodec {

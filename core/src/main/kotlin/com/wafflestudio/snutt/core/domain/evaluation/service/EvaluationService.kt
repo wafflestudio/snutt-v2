@@ -170,8 +170,7 @@ class EvaluationService(
             DEFAULT_PAGE_SIZE,
             totalCount,
             { it.toCursor(sort) },
-            { it.toDisplay(userId) },
-        )
+        ) { it.toDisplays(userId) }
     }
 
     fun getMyEvaluationsOfCourse(
@@ -181,7 +180,7 @@ class EvaluationService(
         courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return evaluationRepository
             .findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(courseId, userId)
-            .map { it.toDisplay(userId) }
+            .toDisplays(userId)
     }
 
     fun getMyEvaluations(
@@ -191,7 +190,11 @@ class EvaluationService(
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
         val cursorId = decodeEvaluationIdCursor(cursor)
         val page = evaluationRepository.findMine(userId, cursorId, DEFAULT_PAGE_SIZE + 1)
-        return page.toCursorPage(DEFAULT_PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }, { it.toDisplay(userId) })
+        return page.toCursorPage(
+            DEFAULT_PAGE_SIZE,
+            totalCount,
+            { EvaluationIdCursor(it.id!!) },
+        ) { it.toDisplays(userId) }
     }
 
     fun getEvaluationsByTag(
@@ -201,7 +204,11 @@ class EvaluationService(
     ): CursorPage<EvaluationDisplay> {
         val cursorId = decodeEvaluationIdCursor(cursor)
         val page = evaluationRepository.findByTag(tag, cursorId, DEFAULT_PAGE_SIZE + 1)
-        return page.toCursorPage(DEFAULT_PAGE_SIZE, null, { EvaluationIdCursor(it.id!!) }, { it.toDisplay(userId) })
+        return page.toCursorPage(
+            DEFAULT_PAGE_SIZE,
+            null,
+            { EvaluationIdCursor(it.id!!) },
+        ) { it.toDisplays(userId) }
     }
 
     fun getEvaluation(
@@ -432,6 +439,15 @@ class EvaluationService(
             it.evaluationId
         }
 
+    private fun Collection<Evaluation>.toDisplays(userId: Long): List<EvaluationDisplay> {
+        val likedEvaluationIds =
+            mapNotNull { it.id }
+                .takeIf { it.isNotEmpty() }
+                ?.let { evaluationLikeRepository.findLikedEvaluationIds(userId, it).toSet() }
+                .orEmpty()
+        return map { it.toDisplay(userId, it.id in likedEvaluationIds) }
+    }
+
     private fun Evaluation.toCursor(sort: EvaluationSort): EvaluationCursor =
         EvaluationCursor(
             sort = sort,
@@ -441,11 +457,13 @@ class EvaluationService(
             likeCount = likeCount.takeIf { sort == EvaluationSort.RECOMMENDED },
         )
 
-    private fun Evaluation.toDisplay(userId: Long) =
-        EvaluationDisplay(
-            evaluation = this,
-            isLiked = evaluationLikeRepository.existsByEvaluationIdAndUserId(id!!, userId),
-            isModifiable = this.userId == userId,
-            isReportable = this.userId != userId,
-        )
+    private fun Evaluation.toDisplay(
+        userId: Long,
+        isLiked: Boolean = evaluationLikeRepository.existsByEvaluationIdAndUserId(id!!, userId),
+    ) = EvaluationDisplay(
+        evaluation = this,
+        isLiked = isLiked,
+        isModifiable = this.userId == userId,
+        isReportable = this.userId != userId,
+    )
 }
