@@ -1,35 +1,24 @@
 package com.wafflestudio.snutt.v1compat.ev
 
-import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
-import com.wafflestudio.snutt.core.domain.evaluation.service.TakenCourseInput
+import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import tools.jackson.databind.json.JsonMapper
 
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
     val totalCount: Int = content.size,
-)
-
-data class LegacyTakenCourseInput(
-    val year: Int,
-    val semester: Int,
-    val instructor: String?,
-    val courseNumber: String?,
 )
 
 data class LegacyTakenLectureDto(
@@ -50,59 +39,34 @@ data class LegacyTakenLectureDto(
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatTakenLectureController(
     private val takenLectureService: TakenLectureService,
-    private val jsonMapper: JsonMapper,
 ) {
+    // 구 백엔드는 클라이언트 요청을 가로채 서버 시간표에서 최근 2개 학기 강의를 조립해
+    // snutt-ev에 전달했다. 클라이언트는 snutt_lecture_info를 보내지 않는다.
     @GetMapping("/users/me/lectures/latest")
     fun getMyLatestLectures(
         @V1CurrentUser user: User,
-        @RequestParam("snutt_lecture_info", required = false, defaultValue = "[]") inputsJson: String,
         @RequestParam(required = false) filter: String?,
-    ): LegacyTakenLecturesResponse {
-        val inputs = jsonMapper.readValue(inputsJson, Array<LegacyTakenCourseInput>::class.java).toList()
-        return getMyLatestLectures(user, inputs, filter)
-    }
-
-    @PostMapping("/users/me/lectures/latest")
-    fun postMyLatestLectures(
-        @V1CurrentUser user: User,
-        @RequestBody inputs: List<LegacyTakenCourseInput>,
-        @RequestParam(required = false) filter: String?,
-    ): LegacyTakenLecturesResponse = getMyLatestLectures(user, inputs, filter)
-
-    private fun getMyLatestLectures(
-        user: User,
-        inputs: List<LegacyTakenCourseInput>,
-        filter: String?,
     ): LegacyTakenLecturesResponse =
         LegacyTakenLecturesResponse(
             content =
                 takenLectureService
-                    .getCoursesFromInputs(
-                        user.id!!,
-                        inputs.map {
-                            TakenCourseInput(
-                                year = it.year,
-                                semester = Semester.getOfValue(it.semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
-                                courseNumber = it.courseNumber,
-                                instructor = it.instructor,
-                            )
-                        },
-                        excludeEvaluated = filter == "no-my-evaluations",
-                    ).map {
-                        LegacyTakenLectureDto(
-                            id = it.course.id,
-                            title = it.course.title,
-                            instructor = it.course.instructor,
-                            department = it.course.department,
-                            courseNumber = it.course.courseNumber,
-                            credit = it.course.credit,
-                            academicYear = it.course.academicYear,
-                            category = it.course.category,
-                            classification = it.course.classification,
-                            takenYear = it.takenYear,
-                            takenSemester = it.takenSemester.value,
-                        )
-                    },
+                    .getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
+                    .map { it.toLegacyTakenLecture() },
+        )
+
+    private fun LectureTakenByUser.toLegacyTakenLecture() =
+        LegacyTakenLectureDto(
+            id = course.id,
+            title = course.title,
+            instructor = course.instructor,
+            department = course.department,
+            courseNumber = course.courseNumber,
+            credit = course.credit,
+            academicYear = course.academicYear,
+            category = course.category,
+            classification = course.classification,
+            takenYear = takenYear,
+            takenSemester = takenSemester.value,
         )
 }
 

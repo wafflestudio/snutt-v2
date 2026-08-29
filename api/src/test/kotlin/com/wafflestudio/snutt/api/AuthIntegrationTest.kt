@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api
 
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
@@ -29,7 +28,6 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
         }
 
         var accessToken = ""
-        var refreshToken = ""
         var userId = ""
     }
 
@@ -92,13 +90,12 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     @Order(2)
-    fun `로컬 회원가입 시 토큰 쌍이 발급된다`() {
+    fun `로컬 회원가입 시 토큰이 발급된다`() {
         val response =
             post("/v2/auth/register", """{"localId":"testuser1","password":"password1","email":"test@snu.ac.kr"}""")
         assertEquals(200, response.statusCode.value())
         val node = body(response)
         accessToken = node["accessToken"].asString()
-        refreshToken = node["refreshToken"].asString()
         userId = node["userId"].asString()
         assertTrue(userId.toLong() > 0)
         assertTrue(accessToken.isNotBlank())
@@ -124,22 +121,6 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     @Order(5)
-    fun `refresh 회전 후 이전 refresh 토큰 재사용은 전체 세션을 폐기한다`() {
-        val oldRefreshToken = refreshToken
-        val rotated = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
-        assertEquals(200, rotated.statusCode.value())
-        val newRefreshToken = body(rotated)["refreshToken"].asString()
-        assertNotEquals(oldRefreshToken, newRefreshToken)
-
-        val reuse = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
-        assertEquals(401, reuse.statusCode.value())
-
-        val afterReuse = post("/v2/auth/refresh", """{"refreshToken":"$newRefreshToken"}""")
-        assertEquals(401, afterReuse.statusCode.value())
-    }
-
-    @Test
-    @Order(6)
     fun `로그인이 다시 동작하고 me 조회가 성공한다`() {
         val login = post("/v2/auth/login", """{"localId":"testuser1","password":"password1"}""")
         assertEquals(200, login.statusCode.value())
@@ -150,16 +131,9 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    @Order(7)
+    @Order(6)
     fun `잘못된 형식의 토큰은 거부된다`() {
         val response = get("/v2/users/me", bearer = "invalid.token.value")
         assertEquals(403, response.statusCode.value())
-    }
-
-    @Test
-    @Order(8)
-    fun `로그아웃하면 세션이 폐기된다`() {
-        val response = post("/v2/auth/logout", """{}""", bearer = accessToken)
-        assertEquals(200, response.statusCode.value())
     }
 }

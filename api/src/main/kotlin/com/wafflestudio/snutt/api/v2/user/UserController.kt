@@ -123,7 +123,6 @@ class UserController(
 
     data class ChangePasswordResponse(
         val accessToken: String,
-        val refreshToken: String,
     )
 
     data class SocialTokenRequest(
@@ -148,8 +147,8 @@ class UserController(
         @CurrentUser user: User,
         @RequestBody body: ChangePasswordRequest,
     ): ChangePasswordResponse {
-        val tokens = authService.changePassword(user, body.currentPassword, body.newPassword)
-        return ChangePasswordResponse(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
+        val accessToken = authService.changePassword(user, body.currentPassword, body.newPassword)
+        return ChangePasswordResponse(accessToken)
     }
 
     @PostMapping("/me/social/{provider}")

@@ -59,23 +59,6 @@ CREATE TABLE user_device
     INDEX idx_user_device_fcm_registration_id (fcm_registration_id)
 );
 
-CREATE TABLE user_session
-(
-    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id            BIGINT      NOT NULL,
-    refresh_token_hash CHAR(64)    NOT NULL,
-    user_device_id     BIGINT      NULL,
-    expires_at         DATETIME(6) NOT NULL,
-    revoked_at         DATETIME(6) NULL,
-    last_used_at       DATETIME(6) NOT NULL,
-    created_at         DATETIME(6) NOT NULL,
-    updated_at         DATETIME(6) NOT NULL,
-    CONSTRAINT uk_user_session_refresh_token_hash UNIQUE (refresh_token_hash),
-    CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_session_user_device FOREIGN KEY (user_device_id) REFERENCES user_device (id) ON DELETE SET NULL,
-    INDEX idx_user_session_user (user_id)
-);
-
 CREATE TABLE push_preference
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,

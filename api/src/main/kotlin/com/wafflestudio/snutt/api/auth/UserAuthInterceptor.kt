@@ -17,7 +17,6 @@ class UserAuthInterceptor(
 ) : HandlerInterceptor {
     companion object {
         const val USER_ATTRIBUTE = "user"
-        const val SESSION_ATTRIBUTE = "sessionExternalId"
     }
 
     override fun preHandle(
@@ -49,7 +48,6 @@ class UserAuthInterceptor(
         if (isEmailVerifiedRequired && !user.isEmailVerified) throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
 
         request.setAttribute(USER_ATTRIBUTE, user)
-        request.setAttribute(SESSION_ATTRIBUTE, payload.sessionId)
         return true
     }
 }

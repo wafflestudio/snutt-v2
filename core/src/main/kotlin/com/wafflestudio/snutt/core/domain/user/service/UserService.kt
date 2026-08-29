@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.core.domain.user.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
-import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -17,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional
 class UserService(
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val userSessionRepository: UserSessionRepository,
     private val userNicknameService: UserNicknameService,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
@@ -39,7 +37,6 @@ class UserService(
     @Transactional
     fun deactivate(user: User) {
         user.active = false
-        userSessionRepository.revokeAllByUserId(user.id!!)
         userSocialAuthRepository.deleteByUserId(user.id!!)
         userRepository.save(user)
         eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))

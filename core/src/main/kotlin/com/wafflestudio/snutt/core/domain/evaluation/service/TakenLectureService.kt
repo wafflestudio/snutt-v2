@@ -11,19 +11,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-data class TakenCourseInput(
-    val year: Int,
-    val semester: Semester,
-    val courseNumber: String?,
-    val instructor: String?,
-)
-
-data class CourseTakenByUser(
-    val course: Course,
-    val takenYear: Int,
-    val takenSemester: Semester,
-)
-
 data class LectureTakenByUser(
     val course: Course,
     val lectureId: Long,
@@ -87,33 +74,5 @@ class TakenLectureService(
                 .map { Triple(it.courseId, it.year, it.semester) }
                 .toSet()
         return taken.filterNot { Triple(it.course.id, it.takenYear, it.takenSemester) in evaluated }
-    }
-
-    @Transactional(readOnly = true)
-    fun getCoursesFromInputs(
-        userId: Long,
-        inputs: List<TakenCourseInput>,
-        excludeEvaluated: Boolean,
-    ): List<CourseTakenByUser> {
-        val distinctInputs =
-            inputs
-                .filter { !it.courseNumber.isNullOrEmpty() && !it.instructor.isNullOrEmpty() }
-                .associateBy { it.courseNumber!! to it.instructor!! }
-        if (distinctInputs.isEmpty()) return emptyList()
-        val coursesByKey =
-            courseRepository
-                .findByCourseNumberIn(distinctInputs.values.map { it.courseNumber!! }.distinct())
-                .associateBy { it.courseNumber to it.instructor }
-        if (coursesByKey.isEmpty()) return emptyList()
-        val evaluatedCourseIds =
-            evaluationRepository
-                .findEvaluatedCourseSemesters(userId, coursesByKey.values.map { it.id!! })
-                .map { it.courseId }
-                .toSet()
-        return distinctInputs.mapNotNull { (key, input) ->
-            val course = coursesByKey[key] ?: return@mapNotNull null
-            if (course.id in evaluatedCourseIds) return@mapNotNull null
-            CourseTakenByUser(course, input.year, input.semester)
-        }
     }
 }

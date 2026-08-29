@@ -7,9 +7,6 @@ import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
-import com.wafflestudio.snutt.core.domain.auth.model.UserSession
-import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
-import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.event.UserRegisteredEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -17,38 +14,23 @@ import com.wafflestudio.snutt.core.domain.user.model.UserSocialAuth
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
 import com.wafflestudio.snutt.core.domain.user.service.UserNicknameService
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.security.MessageDigest
-import java.security.SecureRandom
-import java.time.Duration
 import java.time.Instant
-import java.util.Base64
-
-data class TokenPair(
-    val accessToken: String,
-    val refreshToken: String,
-)
 
 @Service
 class AuthService(
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val userSessionRepository: UserSessionRepository,
-    private val userDeviceRepository: UserDeviceRepository,
     private val accessTokenService: AccessTokenService,
     private val userNicknameService: UserNicknameService,
     private val passwordEncoder: PasswordEncoder,
     private val eventPublisher: ApplicationEventPublisher,
     oauth2Clients: Map<String, OAuth2Client>,
-    @param:Value("\${snutt.auth.refresh-token-ttl:P180D}") private val refreshTokenTtl: Duration,
 ) {
     private val oauth2Clients = oauth2Clients.mapKeys { AuthProvider.valueOf(it.key) }
-    private val secureRandom = SecureRandom()
 
     companion object {
         private val emailRegex = """^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$""".toRegex()
@@ -104,58 +86,7 @@ class AuthService(
     fun authenticate(payload: AccessTokenPayload): User =
         userRepository.findByIdAndActiveTrue(payload.userId) ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
 
-    @Transactional(noRollbackFor = [SnuttException::class])
-    fun refresh(refreshToken: String): Pair<User, TokenPair> {
-        val refreshTokenHash = sha256Hex(refreshToken)
-        val session =
-            userSessionRepository.findWithUserByRefreshTokenHash(refreshTokenHash)
-                ?: throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
-        val user = session.user
-
-        if (userSessionRepository.revokeIfActive(refreshTokenHash, Instant.now()) == 0) {
-            if (session.revokedAt != null) userSessionRepository.revokeAllByUserId(user.id!!)
-            throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
-        }
-        return user to issueTokens(user, session)
-    }
-
-    @Transactional
-    fun issueTokens(
-        user: User,
-        rotatedFrom: UserSession? = null,
-    ): TokenPair {
-        val refreshToken = generateRefreshToken()
-        val session =
-            userSessionRepository.save(
-                UserSession(
-                    user = user,
-                    refreshTokenHash = sha256Hex(refreshToken),
-                    userDevice = rotatedFrom?.userDevice,
-                    expiresAt = Instant.now() + refreshTokenTtl,
-                ),
-            )
-        val accessToken =
-            accessTokenService.issue(
-                AccessTokenPayload(
-                    userId = user.id!!,
-                    sessionId = session.id!!,
-                ),
-            )
-        return TokenPair(accessToken = accessToken, refreshToken = refreshToken)
-    }
-
-    @Transactional
-    fun logout(
-        sessionId: Long,
-        fcmRegistrationId: String?,
-    ) {
-        val session = userSessionRepository.findByIdOrNull(sessionId) ?: return
-        session.revokedAt = Instant.now()
-        if (fcmRegistrationId == null) return
-        userDeviceRepository
-            .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(session.user.id!!, fcmRegistrationId)
-            ?.let { it.isDeleted = true }
-    }
+    fun issueToken(user: User): String = accessTokenService.issue(AccessTokenPayload(userId = user.id!!))
 
     @Transactional
     fun attachLocal(
@@ -221,15 +152,14 @@ class AuthService(
         user: User,
         currentPassword: String,
         newPassword: String,
-    ): TokenPair {
+    ): String {
         if (user.localPw == null) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
         userRepository.save(user)
-        userSessionRepository.revokeAllByUserId(user.id!!)
         publishCredentialChanged(user)
-        return issueTokens(user)
+        return issueToken(user)
     }
 
     private fun fetchSocialUser(
@@ -310,16 +240,4 @@ class AuthService(
     private fun publishCredentialChanged(user: User) {
         eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))
     }
-
-    private fun generateRefreshToken(): String {
-        val bytes = ByteArray(32)
-        secureRandom.nextBytes(bytes)
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
-    }
-
-    private fun sha256Hex(value: String): String =
-        MessageDigest
-            .getInstance("SHA-256")
-            .digest(value.toByteArray())
-            .joinToString("") { "%02x".format(it) }
 }

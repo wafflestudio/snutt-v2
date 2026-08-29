@@ -78,7 +78,6 @@ data class LegacyTokenExchangeRequest(
 data class LegacyTokenExchangeResponse(
     val userId: String,
     val accessToken: String,
-    val refreshToken: String,
 )
 
 data class LegacyMaskedEmailResponse(
@@ -135,11 +134,9 @@ class V1CompatAuthController(
         @RequestBody body: LegacyTokenExchangeRequest,
     ): LegacyTokenExchangeResponse {
         val user = legacyTokenService.authenticate(body.legacyToken)
-        val tokens = authService.issueTokens(user)
         return LegacyTokenExchangeResponse(
             userId = user.id!!.toString(),
-            accessToken = tokens.accessToken,
-            refreshToken = tokens.refreshToken,
+            accessToken = authService.issueToken(user),
         )
     }
 

@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
-import com.wafflestudio.snutt.core.domain.auth.repository.UserSessionRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -25,7 +24,6 @@ class PasswordResetService(
     redisTemplate: StringRedisTemplate,
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val userSessionRepository: UserSessionRepository,
     private val mailClient: MailClient,
     private val passwordEncoder: PasswordEncoder,
     private val eventPublisher: ApplicationEventPublisher,
@@ -178,7 +176,6 @@ class PasswordResetService(
         user.localPw = passwordEncoder.encode(newPassword)
         userRepository.save(user)
         store.clear(userId)
-        userSessionRepository.revokeAllByUserId(userId)
         eventPublisher.publishEvent(UserCredentialChangedEvent(userId))
     }
 }
