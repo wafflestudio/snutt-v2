@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -54,17 +55,12 @@ class CourseSearchService(
                 }
             }
         val results = courseSearchRepository.search(criteria, decoded, PAGE_SIZE + 1)
-        val hasMore = results.size > PAGE_SIZE
-        val content = if (hasMore) results.take(PAGE_SIZE) else results
-        val nextCursor =
-            if (hasMore) {
-                content.lastOrNull()?.let {
-                    CursorCodec.encode(CourseSearchCursor(it.evalCount, it.id!!))
-                }
-            } else {
-                null
-            }
-        return CursorPage.of(content, nextCursor, PAGE_SIZE, courseSearchRepository.count(criteria))
+        return results.toCursorPage(
+            PAGE_SIZE,
+            courseSearchRepository.count(criteria),
+            { CourseSearchCursor(it.evalCount, it.id!!) },
+            { it },
+        )
     }
 
     @Transactional(readOnly = true)

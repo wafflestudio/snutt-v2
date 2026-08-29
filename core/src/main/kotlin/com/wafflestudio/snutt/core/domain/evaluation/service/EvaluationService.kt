@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
@@ -447,16 +448,4 @@ class EvaluationService(
             isModifiable = this.userId == userId,
             isReportable = this.userId != userId,
         )
-
-    private fun <T> List<T>.toCursorPage(
-        pageSize: Int,
-        totalCount: Long?,
-        cursorOf: (T) -> Any,
-        mapper: (T) -> EvaluationDisplay,
-    ): CursorPage<EvaluationDisplay> {
-        val hasMore = size > pageSize
-        val page = if (hasMore) dropLast(1) else this
-        val nextCursor = if (hasMore) page.lastOrNull()?.let { CursorCodec.encode(cursorOf(it)) } else null
-        return CursorPage.of(page.map(mapper), nextCursor, pageSize, totalCount)
-    }
 }

@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -375,25 +376,27 @@ class TimetableThemeService(
         }
 
     private fun List<PublishedTheme>.toCursorPage(pageSize: Int): CursorPage<TimetableThemeDisplay> {
-        val hasMore = size > pageSize
-        val page = if (hasMore) take(pageSize) else this
-        val nextCursor =
-            if (hasMore) {
-                page.lastOrNull()?.let {
-                    CursorCodec.encode(PublishedThemeCursor(it.downloadCount, it.id!!))
-                }
-            } else {
-                null
-            }
-        return CursorPage.of(page.toMarketDisplays(), nextCursor, pageSize)
+        val page =
+            toCursorPage(
+                pageSize,
+                cursorOf = { PublishedThemeCursor(it.downloadCount, it.id!!) },
+                transform = { it },
+            )
+        return CursorPage(
+            content = page.content.toMarketDisplays(),
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
     }
 
     private fun List<PublishedTheme>.toMarketDisplays(): List<TimetableThemeDisplay> {
         if (isEmpty()) return emptyList()
         val themes = timetableThemeRepository.findAllById(mapNotNull { it.themeId }).associateBy { it.id!! }
         val nicknameMap = userRepository.findAllById(themes.values.mapNotNull { it.userId }).associate { it.id!! to it.nicknameWithoutTag }
-        return mapNotNull { published ->
-            val theme = themes[published.themeId] ?: return@mapNotNull null
+        return map { published ->
+            val theme = checkNotNull(themes[published.themeId])
             theme.toDisplay(published = published, authorNickname = nicknameMap[theme.userId])
         }
     }

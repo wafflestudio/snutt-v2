@@ -28,6 +28,18 @@ data class CursorPage<T>(
     }
 }
 
+fun <T, R> List<T>.toCursorPage(
+    pageSize: Int,
+    totalCount: Long? = null,
+    cursorOf: (T) -> Any,
+    transform: (T) -> R,
+): CursorPage<R> {
+    val hasMore = size > pageSize
+    val content = if (hasMore) take(pageSize) else this
+    val nextCursor = if (hasMore) CursorCodec.encode(cursorOf(content.last())) else null
+    return CursorPage.of(content.map(transform), nextCursor, pageSize, totalCount)
+}
+
 object CursorCodec {
     @PublishedApi
     internal val jsonMapper = JsonMapper.builder().findAndAddModules().build()

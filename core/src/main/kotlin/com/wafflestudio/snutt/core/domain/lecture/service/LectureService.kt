@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCursor
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -33,17 +34,7 @@ class LectureService(
                 }
             }
         val results = lectureSearchRepository.search(criteria, decoded?.lectureId, limit + 1)
-        val hasMore = results.size > limit
-        val content = if (hasMore) results.take(limit) else results
-        val nextCursor =
-            if (hasMore) {
-                content.lastOrNull()?.let {
-                    CursorCodec.encode(LectureSearchCursor(criteria.sort, it.id!!))
-                }
-            } else {
-                null
-            }
-        return CursorPage.of(content, nextCursor, limit)
+        return results.toCursorPage(limit, cursorOf = { LectureSearchCursor(criteria.sort, it.id!!) }, transform = { it })
     }
 
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)

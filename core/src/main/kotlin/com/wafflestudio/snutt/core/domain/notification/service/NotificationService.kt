@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -46,17 +47,11 @@ class NotificationService(
             user.notificationCheckedAt = Instant.now()
             userRepository.save(user)
         }
-        val hasMore = results.size > limit
-        val content = if (hasMore) results.take(limit) else results
-        val nextCursor =
-            if (hasMore) {
-                content.lastOrNull()?.let {
-                    CursorCodec.encode(NotificationCursor(checkNotNull(it.createdAt), it.id!!))
-                }
-            } else {
-                null
-            }
-        return CursorPage.of(content, nextCursor, limit)
+        return results.toCursorPage(
+            limit,
+            cursorOf = { NotificationCursor(checkNotNull(it.createdAt), it.id!!) },
+            transform = { it },
+        )
     }
 
     fun getUnreadCount(user: User): Long = notificationRepository.countUnread(user.id!!, user.notificationCheckedAt)

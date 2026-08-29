@@ -1,13 +1,16 @@
 package com.wafflestudio.snutt.core.domain.auth.client
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcVerificationOptions
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClientException
+import org.springframework.web.client.RestClientResponseException
 
 private data class FacebookOAuth2UserResponse(
     val id: String,
@@ -20,8 +23,6 @@ class FacebookClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
     @param:Value("\${snutt.auth.oidc.facebook-app-id:}") private val facebookAppId: String,
 ) : OAuth2Client {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val restClient = TimedRestClients.restClient()
 
     companion object {
@@ -39,14 +40,22 @@ class FacebookClient(
 
     private fun getMeFromAccessToken(token: String): OAuth2UserResponse? {
         val response =
-            runCatching {
+            try {
                 restClient
                     .get()
                     .uri("$USER_INFO_URI?access_token={token}", token)
                     .retrieve()
                     .body(FacebookOAuth2UserResponse::class.java)
-            }.onFailure { log.warn("facebook getMe failed: {}", it.message) }
-                .getOrNull() ?: return null
+                    ?: throw SnuttException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE)
+            } catch (e: RestClientException) {
+                throw SnuttException(
+                    if (e is RestClientResponseException && e.statusCode.is4xxClientError) {
+                        ErrorType.SOCIAL_CONNECT_FAIL
+                    } else {
+                        ErrorType.SOCIAL_PROVIDER_UNAVAILABLE
+                    },
+                )
+            }
 
         return OAuth2UserResponse(
             socialId = response.id,

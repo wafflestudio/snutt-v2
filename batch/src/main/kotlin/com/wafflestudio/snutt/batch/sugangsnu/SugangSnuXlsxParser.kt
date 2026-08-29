@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
-import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.WorkbookFactory
@@ -39,8 +38,6 @@ data class SugangLectureRow(
 class SugangSnuXlsxParser {
     private val log = LoggerFactory.getLogger(javaClass)
     private val quotaRegex = """(?<quota>\d+)(\s*\((?<quotaForCurrentStudent>\d+)\))?""".toRegex()
-    private val classTimeRegex =
-        """^(?<day>[월화수목금토일])\((?<startHour>\d{2}):(?<startMinute>\d{2})~(?<endHour>\d{2}):(?<endMinute>\d{2})\)$""".toRegex()
 
     data class SugangLectureRowEnglish(
         val courseNumber: String,
@@ -156,55 +153,7 @@ class SugangSnuXlsxParser {
             quota = quota,
             freshmanQuota = freshmanQuota,
             registrationCount = registrationCount,
-            classPlaceAndTimes = convertClassTimes(classTimeTexts, locationTexts),
+            classPlaceAndTimes = SugangSnuClassTimeUtils.convertTextToClassTimeObject(classTimeTexts, locationTexts),
         )
     }
-
-    private fun convertClassTimes(
-        classTimesTexts: List<String>,
-        locationsTexts: List<String>,
-    ): List<ClassPlaceAndTime> =
-        runCatching {
-            val classTimes = classTimesTexts.filter { it.isNotBlank() }.mapNotNull { parseClassTime(it) }
-            val locations =
-                when (locationsTexts.size) {
-                    classTimes.size -> locationsTexts
-                    1 -> List(classTimes.size) { locationsTexts.first() }
-                    0 -> List(classTimes.size) { "" }
-                    else -> throw RuntimeException("locations does not match times")
-                }
-            classTimes
-                .zip(locations)
-                .groupBy({ it.first }, { it.second })
-                .map { (time, locationTexts) ->
-                    ClassPlaceAndTime(
-                        day = DayOfWeek.getByKoreanText(time.dayOfWeek)!!,
-                        place = locationTexts.joinToString("/"),
-                        startMinute = time.startHour * 60 + time.startMinute,
-                        endMinute = time.endHour * 60 + time.endMinute,
-                    )
-                }.sortedWith(compareBy({ it.day.value }, { it.startMinute }))
-        }.getOrElse {
-            log.error("classTime 변환 실패: {}", classTimesTexts, it)
-            emptyList()
-        }
-
-    private fun parseClassTime(text: String): ParsedClassTime? {
-        val match = classTimeRegex.find(text) ?: return null
-        return ParsedClassTime(
-            dayOfWeek = match.groups["day"]!!.value,
-            startHour = match.groups["startHour"]!!.value.toInt(),
-            startMinute = match.groups["startMinute"]!!.value.toInt(),
-            endHour = match.groups["endHour"]!!.value.toInt(),
-            endMinute = match.groups["endMinute"]!!.value.toInt(),
-        )
-    }
-
-    private data class ParsedClassTime(
-        val dayOfWeek: String,
-        val startHour: Int,
-        val startMinute: Int,
-        val endHour: Int,
-        val endMinute: Int,
-    )
 }

@@ -2,6 +2,8 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.querydsl.jpa.impl.JPAQuery
 import com.querydsl.jpa.impl.JPAQueryFactory
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
@@ -44,7 +46,7 @@ class CourseRatingJoinView(
                 .on(course.id.eq(lecture.courseId))
                 .where(lecture.id.eq(cursorLectureId))
                 .fetchOne()
-                ?: return query.where(lecture.id.isNull)
+                ?: throw SnuttException(ErrorType.INVALID_CURSOR)
         return when (sort) {
             LectureSort.RATING_DESC -> {
                 val rating = cursor.get(course.avgRating)

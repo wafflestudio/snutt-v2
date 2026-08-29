@@ -141,4 +141,11 @@ enum class ErrorType(
         50004,
         "피드백을 전송하지 못했습니다. 잠시 후 다시 시도해 주세요",
     ),
+
+    // 502 BAD_GATEWAY
+    SOCIAL_PROVIDER_UNAVAILABLE(
+        HttpStatus.BAD_GATEWAY,
+        50200,
+        "소셜 로그인 서버에 문제가 있습니다. 잠시 후 다시 시도해 주세요",
+    ),
 }
