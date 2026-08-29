@@ -11,6 +11,19 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+data class TakenCourseInput(
+    val year: Int,
+    val semester: Semester,
+    val courseNumber: String?,
+    val instructor: String?,
+)
+
+data class CourseTakenByUser(
+    val course: Course,
+    val takenYear: Int,
+    val takenSemester: Semester,
+)
+
 data class LectureTakenByUser(
     val course: Course,
     val lectureId: Long,
@@ -75,6 +88,34 @@ class TakenLectureService(
                 entry.takenSemester,
                 userId,
             )
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun getCoursesFromInputs(
+        userId: Long,
+        inputs: List<TakenCourseInput>,
+        excludeEvaluated: Boolean,
+    ): List<CourseTakenByUser> {
+        val distinctInputs =
+            inputs
+                .filter { !it.courseNumber.isNullOrEmpty() && !it.instructor.isNullOrEmpty() }
+                .associateBy { "${it.courseNumber}${it.instructor}" }
+        return distinctInputs.values.mapNotNull { input ->
+            val course =
+                courseRepository.findByCourseNumberAndInstructor(
+                    input.courseNumber!!,
+                    input.instructor!!,
+                ) ?: return@mapNotNull null
+            if (
+                excludeEvaluated &&
+                evaluationRepository
+                    .findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(course.id!!, userId)
+                    .isNotEmpty()
+            ) {
+                return@mapNotNull null
+            }
+            CourseTakenByUser(course, input.year, input.semester)
         }
     }
 }

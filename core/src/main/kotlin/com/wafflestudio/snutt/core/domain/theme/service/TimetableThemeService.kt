@@ -113,7 +113,7 @@ class TimetableThemeService(
         colors?.let { newColors ->
             validateColorCount(newColors)
 
-            val colorMap = theme.colors.mapIndexed { i, color -> color to newColors.getOrNull(i) }.toMap()
+            val colorMap = theme.colors.mapIndexed { i, color -> color to newColors[i % newColors.size] }.toMap()
             timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
                 val lectures = timetableLecturesOf(timetable.id!!)
                 lectures.filter { it.color in theme.colors }.forEach { lecture ->

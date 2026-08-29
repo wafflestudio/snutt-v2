@@ -149,6 +149,7 @@ class SugangSnuSyncService(
                 lectureClassTimeRepository.deleteByLectureId(old.id!!)
                 saveClassTimes(old, update.input.classTimes)
             }
+            lectureRepository.save(old)
         }
     }
 

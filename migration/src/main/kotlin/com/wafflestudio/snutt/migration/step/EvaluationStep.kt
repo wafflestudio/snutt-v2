@@ -16,12 +16,17 @@ class EvaluationStep(
     private val ev: EvSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "evaluation"
-    override val tables = listOf("evaluation_like", "evaluation_report", "evaluation")
+    override val tables = listOf("evaluation_like", "evaluation_report", "evaluation", "legacy_semester_lecture")
 
     private class Anchor(
         val courseId: Long,
         val year: Int,
         val semester: Int,
+        val credit: Int,
+        val extraInfo: String,
+        val academicYear: String,
+        val category: String,
+        val classification: String,
     )
 
     override fun run() {
@@ -29,16 +34,44 @@ class EvaluationStep(
             log.info("구 ev DB가 없어 강의평 이관을 건너뛴다")
             return
         }
-        val anchors = loadAnchors()
+        val anchors = migrateSemesterLectures()
         val migrated = migrateEvaluations(anchors)
         migrateLikes(migrated)
         migrateReports(migrated)
     }
 
-    private fun loadAnchors(): Map<Long, Anchor> {
+    private fun migrateSemesterLectures(): Map<Long, Anchor> {
         val anchors = HashMap<Long, Anchor>(256_000)
-        ev.jdbc.query("SELECT id, lecture_id, year, semester FROM semester_lecture") { rs ->
-            anchors[rs.getLong("id")] = Anchor(rs.getLong("lecture_id"), rs.getInt("year"), rs.getInt("semester"))
+        writer("legacy_semester_lecture", LEGACY_SEMESTER_LECTURE_COLUMNS).use { out ->
+            ev.jdbc.query(
+                "SELECT id, lecture_id, year, semester, credit, extra_info, academic_year, category, classification " +
+                    "FROM semester_lecture",
+            ) { rs ->
+                val id = rs.getLong("id")
+                val anchor =
+                    Anchor(
+                        courseId = rs.getLong("lecture_id"),
+                        year = rs.getInt("year"),
+                        semester = rs.getInt("semester"),
+                        credit = rs.getInt("credit"),
+                        extraInfo = rs.getString("extra_info").orEmpty(),
+                        academicYear = rs.getString("academic_year").orEmpty(),
+                        category = rs.getString("category").orEmpty(),
+                        classification = rs.getString("classification").orEmpty(),
+                    )
+                anchors[id] = anchor
+                out.add(
+                    id,
+                    anchor.courseId,
+                    anchor.year,
+                    anchor.semester,
+                    anchor.credit,
+                    anchor.extraInfo,
+                    anchor.academicYear,
+                    anchor.category,
+                    anchor.classification,
+                )
+            }
         }
         return anchors
     }
@@ -66,6 +99,7 @@ class EvaluationStep(
                     val key = "${anchor.courseId}\u0000${anchor.year}\u0000${anchor.semester}\u0000$userId"
                     val previous = authored.put(key, id)
                     if (previous != null) {
+                        out.flush()
                         jdbc.update("UPDATE evaluation SET is_hidden = TRUE WHERE id = ?", previous)
                         context.resolved("한 사용자가 같은 개설에 강의평을 여럿 남겨 이전 것을 숨김")
                     }
@@ -161,6 +195,19 @@ class EvaluationStep(
     }
 
     companion object {
+        private val LEGACY_SEMESTER_LECTURE_COLUMNS =
+            listOf(
+                "id",
+                "course_id",
+                "year",
+                "semester",
+                "credit",
+                "extra_info",
+                "academic_year",
+                "category",
+                "classification",
+            )
+
         private val COLUMNS =
             listOf(
                 "id",

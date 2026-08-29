@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
@@ -73,7 +74,25 @@ class EvaluationService(
         lectureId: Long,
         request: EvaluationWriteRequest,
     ): EvaluationDisplay {
-        val (courseId, year, semester) = resolveLectureAnchor(lectureId)
+        val lecture = findLecture(lectureId)
+        return createEvaluation(
+            userId,
+            lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND),
+            lecture.year,
+            lecture.semester,
+            request,
+        )
+    }
+
+    @Transactional
+    fun createEvaluation(
+        userId: Long,
+        courseId: Long,
+        year: Int,
+        semester: Semester,
+        request: EvaluationWriteRequest,
+    ): EvaluationDisplay {
+        if (!courseRepository.existsById(courseId)) throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         if (evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(courseId, year, semester, userId)) {
             throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
@@ -103,9 +122,37 @@ class EvaluationService(
         userId: Long,
         lectureId: Long,
         cursor: String?,
+        sort: EvaluationSort = EvaluationSort.LATEST,
+        year: Int? = null,
+        semester: Semester? = null,
     ): CursorPage<EvaluationDisplay> {
-        val (courseId, year, semester) = resolveLectureAnchor(lectureId)
-        val totalCount = evaluationRepository.countByCourseIdAndYearAndSemesterAndIsHiddenFalse(courseId, year, semester)
+        val courseId = findLecture(lectureId).courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+        val totalCount = evaluationRepository.countOthersByCourseIdAndIsHiddenFalse(courseId, userId, year, semester)
+        return getEvaluationPage(userId, courseId, cursor, sort, year, semester, totalCount)
+    }
+
+    fun getEvaluationsOfCourse(
+        userId: Long,
+        courseId: Long,
+        cursor: String?,
+        sort: EvaluationSort = EvaluationSort.LATEST,
+        year: Int? = null,
+        semester: Semester? = null,
+    ): CursorPage<EvaluationDisplay> {
+        courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        val totalCount = evaluationRepository.countByCourseIdAndIsHiddenFalse(courseId, year, semester)
+        return getEvaluationPage(userId, courseId, cursor, sort, year, semester, totalCount)
+    }
+
+    private fun getEvaluationPage(
+        userId: Long,
+        courseId: Long,
+        cursor: String?,
+        sort: EvaluationSort,
+        year: Int?,
+        semester: Semester?,
+        totalCount: Long,
+    ): CursorPage<EvaluationDisplay> {
         val page =
             evaluationRepository.findOthersByCourseAndSemester(
                 courseId = courseId,
@@ -114,22 +161,23 @@ class EvaluationService(
                 userId = userId,
                 cursor = CursorCodec.decode<EvaluationCursor>(cursor),
                 pageSize = DEFAULT_PAGE_SIZE + 1,
+                sort = sort,
             )
         return page.toCursorPage(
             DEFAULT_PAGE_SIZE,
             totalCount,
-            { EvaluationCursor(it.year, it.semester.value, it.id!!) },
+            { EvaluationCursor(it.year, it.semester.value, it.id!!, it.likeCount) },
             { it.toDisplay(userId) },
         )
     }
 
-    fun getMyEvaluationsOfLecture(
+    fun getMyEvaluationsOfCourse(
         userId: Long,
-        lectureId: Long,
+        courseId: Long,
     ): List<EvaluationDisplay> {
-        val (courseId, year, semester) = resolveLectureAnchor(lectureId)
+        courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return evaluationRepository
-            .findByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalseOrderByIdDesc(courseId, year, semester, userId)
+            .findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(courseId, userId)
             .map { it.toDisplay(userId) }
     }
 
@@ -166,13 +214,42 @@ class EvaluationService(
         evaluationId: Long,
         request: EvaluationUpdateRequest,
     ): EvaluationDisplay {
+        val moveTo = request.moveToLectureId?.let(::findLecture)
+        return updateEvaluation(
+            userId,
+            evaluationId,
+            request,
+            moveTo?.courseId,
+            moveTo?.year,
+            moveTo?.semester,
+        )
+    }
+
+    @Transactional
+    fun updateEvaluationForCourseSemester(
+        userId: Long,
+        evaluationId: Long,
+        request: EvaluationUpdateRequest,
+        courseId: Long,
+        year: Int,
+        semester: Semester,
+    ): EvaluationDisplay = updateEvaluation(userId, evaluationId, request, courseId, year, semester)
+
+    private fun updateEvaluation(
+        userId: Long,
+        evaluationId: Long,
+        request: EvaluationUpdateRequest,
+        moveToCourseId: Long?,
+        moveToYear: Int?,
+        moveToSemester: Semester?,
+    ): EvaluationDisplay {
         val evaluation =
             evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         if (evaluation.userId != userId) throw SnuttException(ErrorType.NOT_MY_EVALUATION)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
 
-        if (isUpdatingAny(evaluation, request)) {
+        if (isUpdatingAny(evaluation, request, moveToCourseId, moveToYear, moveToSemester)) {
             evaluation.likeCount = 0
             evaluationLikeRepository.deleteByEvaluationId(evaluationId)
         }
@@ -185,7 +262,9 @@ class EvaluationService(
         request.gains?.let { evaluation.gains = it }
         request.lifeBalance?.let { evaluation.lifeBalance = it }
         request.rating?.let { evaluation.rating = it }
-        request.moveToLectureId?.let { moveTo(evaluation, it) }
+        if (moveToCourseId != null && moveToYear != null && moveToSemester != null) {
+            moveTo(evaluation, moveToCourseId, moveToYear, moveToSemester)
+        }
 
         courseAggregateUpdater.update(evaluation.courseId)
         return evaluation.toDisplay(userId)
@@ -193,9 +272,10 @@ class EvaluationService(
 
     private fun moveTo(
         evaluation: Evaluation,
-        lectureId: Long,
+        courseId: Long,
+        year: Int,
+        semester: Semester,
     ) {
-        val (courseId, year, semester) = resolveLectureAnchor(lectureId)
         if (courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
         if (year == evaluation.year && semester == evaluation.semester) return
         evaluation.year = year
@@ -282,18 +362,21 @@ class EvaluationService(
         )
     }
 
-    private data class LectureAnchor(
-        val courseId: Long,
-        val year: Int,
-        val semester: Semester,
+    data class CourseEvaluationSummaryDisplay(
+        val course: Course,
+        val averages: EvaluationAverages?,
     )
 
-    private fun resolveLectureAnchor(lectureId: Long): LectureAnchor {
-        val lecture =
-            lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        return LectureAnchor(courseId, lecture.year, lecture.semester)
+    fun getEvaluationSummaryOfCourse(courseId: Long): CourseEvaluationSummaryDisplay {
+        val course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        return CourseEvaluationSummaryDisplay(
+            course = course,
+            averages = evaluationRepository.findEvaluationAverages(courseId, null, null),
+        )
     }
+
+    private fun findLecture(lectureId: Long): Lecture =
+        lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
     private fun validateRatings(vararg ratings: Double?) {
         if (ratings.filterNotNull().any { it < 1.0 || it > 5.0 }) {
@@ -304,13 +387,26 @@ class EvaluationService(
     private fun isUpdatingAny(
         evaluation: Evaluation,
         request: EvaluationUpdateRequest,
+        moveToCourseId: Long?,
+        moveToYear: Int?,
+        moveToSemester: Semester?,
     ): Boolean =
         (request.content != null && request.content != evaluation.content) ||
             (request.gradeSatisfaction != null && request.gradeSatisfaction != evaluation.gradeSatisfaction) ||
             (request.teachingSkill != null && request.teachingSkill != evaluation.teachingSkill) ||
             (request.gains != null && request.gains != evaluation.gains) ||
             (request.lifeBalance != null && request.lifeBalance != evaluation.lifeBalance) ||
-            (request.rating != null && request.rating != evaluation.rating)
+            (request.rating != null && request.rating != evaluation.rating) ||
+            (
+                moveToCourseId != null &&
+                    moveToYear != null &&
+                    moveToSemester != null &&
+                    (
+                        moveToCourseId != evaluation.courseId ||
+                            moveToYear != evaluation.year ||
+                            moveToSemester != evaluation.semester
+                    )
+            )
 
     private fun Evaluation.toDisplay(userId: Long) =
         EvaluationDisplay(

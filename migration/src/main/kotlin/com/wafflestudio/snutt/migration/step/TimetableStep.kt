@@ -31,7 +31,7 @@ class TimetableStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "timetable"
-    override val tables = listOf("timetable_lecture_reminder", "timetable_lecture", "timetable")
+    override val tables = listOf("timetable_lecture_reminder_schedule", "timetable_lecture_reminder", "timetable_lecture", "timetable")
 
     override fun run() {
         val timetableIds = IdSequence()
@@ -180,8 +180,7 @@ class TimetableStep(
                 override(int("credit")) { it.credit }?.let { put("credit", it) }
                 override(str("remark")) { it.remark }?.let { put("remark", it) }
                 if (classTimeChanged) {
-                    val times = places.map { it.toClassPlaceAndTime() }
-                    if (times.isNotEmpty()) put("classPlaceAndTimes", times)
+                    put("classPlaceAndTimes", places.map { it.toClassPlaceAndTime() })
                 }
                 override(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
                 override(str("category")) { it.category }?.let { put("category", it) }

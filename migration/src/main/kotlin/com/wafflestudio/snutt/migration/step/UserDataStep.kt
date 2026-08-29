@@ -34,6 +34,8 @@ class UserDataStep(
             "push_preference",
             "friend",
             "diary_submission",
+            "diary_submission_daily_class_type",
+            "diary_submission_answer",
         )
 
     override fun run() {

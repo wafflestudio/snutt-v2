@@ -7,6 +7,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
@@ -25,22 +26,23 @@ class EvaluationRepositoryImpl(
 
     override fun findOthersByCourseAndSemester(
         courseId: Long,
-        year: Int,
-        semester: Semester,
+        year: Int?,
+        semester: Semester?,
         userId: Long,
         cursor: EvaluationCursor?,
         pageSize: Int,
+        sort: EvaluationSort,
     ): List<Evaluation> =
         queryFactory
             .selectFrom(evaluation)
             .where(
                 evaluation.courseId.eq(courseId),
-                evaluation.year.eq(year),
-                evaluation.semester.eq(semester),
+                year?.let { evaluation.year.eq(it) },
+                semester?.let { evaluation.semester.eq(it) },
                 evaluation.userId.isNull.or(evaluation.userId.ne(userId)),
                 evaluation.isHidden.isFalse,
-                cursor?.let { beforeCursor(it) },
-            ).orderBy(evaluation.year.desc(), evaluation.semester.desc(), evaluation.id.desc())
+                cursor?.let { beforeCursor(it, sort) },
+            ).orderBy(*sortOrder(sort))
             .limit(pageSize.toLong())
             .fetch()
 
@@ -74,6 +76,38 @@ class EvaluationRepositoryImpl(
             .limit(pageSize.toLong())
             .fetch()
 
+    override fun countByCourseIdAndIsHiddenFalse(
+        courseId: Long,
+        year: Int?,
+        semester: Semester?,
+    ): Long =
+        queryFactory
+            .select(evaluation.count())
+            .from(evaluation)
+            .where(
+                evaluation.courseId.eq(courseId),
+                evaluation.isHidden.isFalse,
+                year?.let { evaluation.year.eq(it) },
+                semester?.let { evaluation.semester.eq(it) },
+            ).fetchOne() ?: 0L
+
+    override fun countOthersByCourseIdAndIsHiddenFalse(
+        courseId: Long,
+        userId: Long,
+        year: Int?,
+        semester: Semester?,
+    ): Long =
+        queryFactory
+            .select(evaluation.count())
+            .from(evaluation)
+            .where(
+                evaluation.courseId.eq(courseId),
+                evaluation.isHidden.isFalse,
+                evaluation.userId.isNull.or(evaluation.userId.ne(userId)),
+                year?.let { evaluation.year.eq(it) },
+                semester?.let { evaluation.semester.eq(it) },
+            ).fetchOne() ?: 0L
+
     override fun findCourseAggregate(courseId: Long): Pair<Long, Double?> {
         val row =
             queryFactory
@@ -86,8 +120,8 @@ class EvaluationRepositoryImpl(
 
     override fun findEvaluationAverages(
         courseId: Long,
-        year: Int,
-        semester: Semester,
+        year: Int?,
+        semester: Semester?,
     ): EvaluationAverages? {
         val row =
             queryFactory
@@ -100,8 +134,8 @@ class EvaluationRepositoryImpl(
                 ).from(evaluation)
                 .where(
                     evaluation.courseId.eq(courseId),
-                    evaluation.year.eq(year),
-                    evaluation.semester.eq(semester),
+                    year?.let { evaluation.year.eq(it) },
+                    semester?.let { evaluation.semester.eq(it) },
                     evaluation.isHidden.isFalse,
                 ).fetchOne()
                 ?: return null
@@ -134,19 +168,39 @@ class EvaluationRepositoryImpl(
             }
     }
 
-    private fun beforeCursor(cursor: EvaluationCursor): BooleanExpression =
-        evaluation.year
-            .lt(cursor.year)
-            .or(
+    private fun beforeCursor(
+        cursor: EvaluationCursor,
+        sort: EvaluationSort,
+    ): BooleanExpression =
+        when (sort) {
+            EvaluationSort.LATEST ->
                 evaluation.year
-                    .eq(cursor.year)
-                    .and(evaluation.semester.lt(Semester.fromValue(cursor.semester))),
-            ).or(
-                evaluation.year
-                    .eq(cursor.year)
-                    .and(evaluation.semester.eq(Semester.fromValue(cursor.semester)))
-                    .and(evaluation.id.lt(cursor.evaluationId)),
-            )
+                    .lt(cursor.year)
+                    .or(
+                        evaluation.year
+                            .eq(cursor.year)
+                            .and(evaluation.semester.lt(Semester.fromValue(cursor.semester))),
+                    ).or(
+                        evaluation.year
+                            .eq(cursor.year)
+                            .and(evaluation.semester.eq(Semester.fromValue(cursor.semester)))
+                            .and(evaluation.id.lt(cursor.evaluationId)),
+                    )
+            EvaluationSort.RECOMMENDED -> {
+                val likeCount = cursor.likeCount ?: 0
+                evaluation.likeCount.lt(likeCount).or(
+                    evaluation.likeCount.eq(likeCount).and(evaluation.id.lt(cursor.evaluationId)),
+                )
+            }
+        }
+
+    private fun sortOrder(sort: EvaluationSort) =
+        when (sort) {
+            EvaluationSort.LATEST ->
+                arrayOf(evaluation.year.desc(), evaluation.semester.desc(), evaluation.id.desc())
+            EvaluationSort.RECOMMENDED ->
+                arrayOf(evaluation.likeCount.desc(), evaluation.id.desc())
+        }
 
     private fun tagPredicate(tag: EvaluationTag): BooleanExpression? =
         when (tag) {

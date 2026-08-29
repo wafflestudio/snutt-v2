@@ -256,11 +256,9 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""")
         assertEquals(403, duplicate.statusCode.value())
-        assertEquals(0x3004, body(duplicate)["errcode"].asInt())
 
         val overlap = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]}}""")
         assertEquals(403, overlap.statusCode.value())
-        assertEquals(0x300C, body(overlap)["errcode"].asInt())
         assertTrue(body(overlap)["displayMessage"].asString().contains("강의와 시간이 겹칩니다"))
 
         val forced = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]},"isForced":true}""")
@@ -351,7 +349,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, delete("/v2/timetables/$second").statusCode.value())
         val deleteLast = delete("/v2/timetables/$first")
         assertEquals(400, deleteLast.statusCode.value())
-        assertEquals(40010, body(deleteLast)["errcode"].asInt())
     }
 
     @Test

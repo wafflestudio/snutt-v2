@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -38,12 +39,21 @@ class CourseSearchService(
     fun count(criteria: CourseSearchCriteria): Long = courseSearchRepository.count(criteria)
 
     @Transactional(readOnly = true)
+    fun getCourse(courseId: Long): Course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.COURSE_NOT_FOUND) }
+
+    @Transactional(readOnly = true)
     fun getCourseWithSemesters(
         courseId: Long,
         userId: Long,
     ): CourseWithSemesters {
-        val course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.COURSE_NOT_FOUND) }
-        val lectures = lectureRepository.findByCourseIdOrderByYearDescSemesterDesc(courseId)
+        val course = getCourse(courseId)
+        val lectures =
+            lectureRepository
+                .findByCourseIdOrderByYearDescSemesterDesc(courseId)
+                .groupBy { it.year to it.semester }
+                .values
+                .map { offerings -> offerings.minBy { it.id!! } }
+                .sortedWith(compareByDescending<Lecture> { it.year }.thenByDescending { it.semester.value })
         val evaluated =
             lectures
                 .filter { lecture ->

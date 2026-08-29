@@ -37,6 +37,7 @@ class CatalogStep(
             "popup",
             "diary_question",
             "diary_daily_class_type",
+            "diary_question_target",
         )
 
     override fun run() {

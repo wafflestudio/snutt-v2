@@ -169,6 +169,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
         @RequestBody body: LegacyTimetableModifyThemeRequest,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val themeId =
@@ -180,12 +181,7 @@ class V1CompatTimetableController(
                         ),
                     ).id!!
         val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeId)
-        return LegacyTimetableDto(
-            timetable = display.timetable,
-            userId = user.id!!.toString(),
-            display = display,
-            evLectureIds = emptyMap(),
-        )
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     @PostMapping("/{timetableId}/primary")

@@ -101,15 +101,8 @@ class AuthService(
     }
 
     @Transactional(readOnly = true)
-    fun authenticate(payload: AccessTokenPayload): User {
-        val session =
-            userSessionRepository.findWithUserById(payload.sessionId)
-                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-        if (!session.isValid) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-        val user = session.user
-        if (!user.active || user.id != payload.userId) throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-        return user
-    }
+    fun authenticate(payload: AccessTokenPayload): User =
+        userRepository.findByIdAndActiveTrue(payload.userId) ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
 
     @Transactional(noRollbackFor = [SnuttException::class])
     fun refresh(refreshToken: String): Pair<User, TokenPair> {
@@ -273,6 +266,10 @@ class AuthService(
         provider: AuthProvider,
         response: OAuth2UserResponse,
     ): User {
+        if (response.email != null) {
+            val present = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
+            if (present != null) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
+        }
         val user =
             User(
                 email = response.email,

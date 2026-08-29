@@ -100,7 +100,13 @@ internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
         ordering = -1,
         color = null,
         tags =
-            EvaluationTag.entries.mapIndexed { index, tag ->
+            listOf(
+                EvaluationTag.RECENT,
+                EvaluationTag.RECOMMENDED,
+                EvaluationTag.WELL_TAUGHT,
+                EvaluationTag.SWEET,
+                EvaluationTag.HARD_BUT_WORTH,
+            ).mapIndexed { index, tag ->
                 LegacyEvTagDto(
                     id = tag.legacyId,
                     name = tag.title,

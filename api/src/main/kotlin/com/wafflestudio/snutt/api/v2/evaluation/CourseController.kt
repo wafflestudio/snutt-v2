@@ -79,6 +79,7 @@ class CourseController(
         @RequestParam(required = false) semester: Int?,
         @RequestParam(required = false, defaultValue = "0") page: Int,
     ): List<CourseResponse> {
+        if ((year == null) != (semester == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val yearSemesters =
             if (year != null && semester != null) {
                 val parsed = Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
