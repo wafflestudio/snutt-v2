@@ -133,11 +133,9 @@ class DiaryService(
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         val questionIds = request.questionAnswers.map { it.questionId }
         if (questionIds.size != questionIds.toSet().size) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
-        if (diaryQuestionRepository.countByIdIn(questionIds) != questionIds.size.toLong()) {
-            throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
-        }
-        // 선택지 범위를 벗어난 답변이 저장되지 않도록 검증한다
         val questionsById = diaryQuestionRepository.findAllById(questionIds).associateBy { it.id }
+        if (questionsById.size != questionIds.size) throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
+        if (questionsById.values.any { !it.active }) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
         request.questionAnswers.forEach { answer ->
             val question = questionsById[answer.questionId] ?: throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
             if (answer.answerIndex !in question.answerList.indices) {

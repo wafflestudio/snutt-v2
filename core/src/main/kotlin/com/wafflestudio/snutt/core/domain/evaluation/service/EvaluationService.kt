@@ -93,6 +93,7 @@ class EvaluationService(
         semester: Semester,
         request: EvaluationWriteRequest,
     ): EvaluationDisplay {
+        if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
         if (!courseRepository.existsById(courseId)) throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         if (evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(courseId, year, semester, userId)) {

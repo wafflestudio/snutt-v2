@@ -22,6 +22,7 @@ import tools.jackson.databind.json.JsonMapper
 
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
+    val totalCount: Int = content.size,
 )
 
 data class LegacyTakenCourseInput(
@@ -111,6 +112,9 @@ data class LegacySearchTagGroupsResponse(
 
 data class LegacyCourseSearchResponse(
     val content: List<LegacyCourseDto>,
+    val page: Int,
+    val size: Int,
+    val last: Boolean,
     val totalCount: Long,
 )
 
@@ -157,6 +161,8 @@ data class LegacySemesterLectureDto(
     val myEvaluationExists: Boolean,
 )
 
+private const val LEGACY_COURSE_PAGE_SIZE = 20
+
 @RestController
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatCourseSearchController(
@@ -174,9 +180,14 @@ class V1CompatCourseSearchController(
         @RequestParam(required = false) tags: List<Long>?,
     ): LegacyCourseSearchResponse {
         val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty())
+        val content = searchLegacyPage(criteria, page)
+        val totalCount = courseSearchService.count(criteria)
         return LegacyCourseSearchResponse(
-            content = searchLegacyPage(criteria, page).map { it.toLegacyCourse() },
-            totalCount = courseSearchService.count(criteria),
+            content = content.map { it.toLegacyCourse() },
+            page = page,
+            size = LEGACY_COURSE_PAGE_SIZE,
+            last = (page.toLong() + 1) * LEGACY_COURSE_PAGE_SIZE >= totalCount,
+            totalCount = totalCount,
         )
     }
 

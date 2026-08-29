@@ -104,7 +104,7 @@ class TimetableService(
         title: String,
     ): Timetable {
         val timetable = getTimetable(userId, timetableId)
-        validateTimetableTitle(userId, timetable.year, timetable.semester, title)
+        validateTimetableTitle(userId, timetable.year, timetable.semester, title, timetable.id)
         timetable.title = title
         return timetable
     }
@@ -241,10 +241,12 @@ class TimetableService(
         year: Int,
         semester: Semester,
         title: String,
+        excludeTimetableId: Long? = null,
     ) {
         if (title.isEmpty()) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
-        if (timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title) != null) {
+        val duplicate = timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title)
+        if (duplicate != null && duplicate.id != excludeTimetableId) {
             throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
         }
     }
