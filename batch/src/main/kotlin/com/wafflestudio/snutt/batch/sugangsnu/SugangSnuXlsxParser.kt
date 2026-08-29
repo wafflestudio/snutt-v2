@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.slf4j.LoggerFactory
 import org.springframework.core.io.Resource
@@ -52,10 +53,7 @@ class SugangSnuXlsxParser {
 
     fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
         val sheet = WorkbookFactory.create(englishXlsx.inputStream).getSheetAt(0)
-        val headerIndex =
-            sheet
-                .getRow(2)
-                .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
+        val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
         return (3..sheet.lastRowNum)
             .mapNotNull { rowNum ->
                 val row = sheet.getRow(rowNum) ?: return@mapNotNull null
@@ -86,15 +84,25 @@ class SugangSnuXlsxParser {
 
     fun parse(koreanXlsx: Resource): List<SugangLectureRow> {
         val sheet = WorkbookFactory.create(koreanXlsx.inputStream).getSheetAt(0)
-        val headerIndex =
-            sheet
-                .getRow(2)
-                .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
+        val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
         val rows =
             (3..sheet.lastRowNum)
                 .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex) }
         log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
         return rows
+    }
+
+    private fun headerIndex(
+        sheet: Sheet,
+        requiredHeaders: Set<String>,
+    ): Map<String, Int> {
+        val headerIndex =
+            sheet
+                .getRow(2)
+                .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
+        val missing = requiredHeaders - headerIndex.keys
+        if (missing.isNotEmpty()) throw IllegalArgumentException("xlsx 필수 컬럼이 없다: ${missing.sorted()}")
+        return headerIndex
     }
 
     private fun convertRow(
@@ -155,5 +163,41 @@ class SugangSnuXlsxParser {
             registrationCount = registrationCount,
             classPlaceAndTimes = SugangSnuClassTimeUtils.convertTextToClassTimeObject(classTimeTexts, locationTexts),
         )
+    }
+
+    companion object {
+        private val REQUIRED_ENGLISH_HEADERS =
+            setOf(
+                "Course Number",
+                "Lecture Number",
+                "Course Title",
+                "Course Subtitle",
+                "College",
+                "Department",
+                "Degree Program",
+                "Academic Year",
+                "Course Classification",
+                "Instructor",
+                "Remark",
+            )
+        private val REQUIRED_KOREAN_HEADERS =
+            setOf(
+                "교과목번호",
+                "강좌번호",
+                "교과구분",
+                "개설대학",
+                "개설학과",
+                "이수과정",
+                "학년",
+                "교과목명",
+                "부제명",
+                "학점",
+                "수업교시",
+                "강의실(동-호)(#연건, *평창)",
+                "주담당교수",
+                "정원",
+                "비고",
+                "수강신청인원",
+            )
     }
 }

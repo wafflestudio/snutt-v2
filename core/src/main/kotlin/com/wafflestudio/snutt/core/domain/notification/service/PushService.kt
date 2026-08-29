@@ -51,20 +51,18 @@ class PushService(
         )
     }
 
-    @Transactional
     fun sendGlobalPushAndNotification(
         title: String,
         body: String,
         type: NotificationType,
         urlScheme: String? = null,
     ) {
-        pushClient.sendTopicMessage(TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC))
         notificationRepository.save(
             Notification(userId = null, title = title, message = body, type = type, deeplink = urlScheme),
         )
+        pushClient.sendTopicMessage(TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC))
     }
 
-    @Transactional
     fun sendPushAndNotification(
         userIds: Collection<Long>,
         title: String,

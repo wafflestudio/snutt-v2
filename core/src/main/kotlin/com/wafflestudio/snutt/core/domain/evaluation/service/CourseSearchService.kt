@@ -57,9 +57,8 @@ class CourseSearchService(
         val results = courseSearchRepository.search(criteria, decoded, PAGE_SIZE + 1)
         return results.toCursorPage(
             PAGE_SIZE,
-            courseSearchRepository.count(criteria),
-            { CourseSearchCursor(it.evalCount, it.id!!) },
-            { it },
+            cursorOf = { CourseSearchCursor(it.evalCount, it.id!!) },
+            transform = { it },
         )
     }
 
