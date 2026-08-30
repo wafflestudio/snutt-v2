@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -71,7 +70,6 @@ class V1CompatTimetableController(
     private val timetableLectureService: TimetableLectureService,
     private val timetableThemeService: TimetableThemeService,
     private val lectureService: LectureService,
-    private val evaluationService: EvaluationService,
 ) {
     @GetMapping("")
     fun getTimetableBriefs(
@@ -338,10 +336,10 @@ class V1CompatTimetableController(
 
     private fun fetchEvLectureIds(lectureIds: List<Long>): Map<String, Long> {
         if (lectureIds.isEmpty()) return emptyMap()
-        val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
-        return lectureIds
-            .filter { it in summaries }
-            .associate { it.toString() to it }
+        val lectures = lectureService.getAllByIds(lectureIds)
+        return lectures
+            .mapNotNull { (lectureId, lecture) -> lecture.courseId?.let { lectureId.toString() to it } }
+            .toMap()
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

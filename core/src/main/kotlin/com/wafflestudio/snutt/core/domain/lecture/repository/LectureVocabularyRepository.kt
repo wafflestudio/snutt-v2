@@ -1,14 +1,16 @@
 package com.wafflestudio.snutt.core.domain.lecture.repository
 
-import com.querydsl.core.types.dsl.BooleanExpression
-import com.querydsl.core.types.dsl.NumberPath
-import com.querydsl.core.types.dsl.StringPath
-import com.querydsl.jpa.impl.JPAQueryFactory
+import com.linecorp.kotlinjdsl.dsl.jpql.jpql
+import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
+import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
+import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutorImpl
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
 import java.time.Instant
+import kotlin.reflect.KProperty1
 
 data class LectureVocabulary(
     val classification: List<String>,
@@ -23,73 +25,104 @@ data class LectureVocabulary(
 
 @Repository
 class LectureVocabularyRepository(
-    private val queryFactory: JPAQueryFactory,
-) {
-    private val lecture = QLecture.lecture
-
+    entityManager: EntityManager,
+    context: JpqlRenderContext,
+) : KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
     fun findVocabulary(
         year: Int?,
         semester: Semester?,
         language: Language,
     ): LectureVocabulary {
-        val scope = scope(year, semester)
-        val perSemester = scope != null
+        val perSemester = year != null && semester != null
         return LectureVocabulary(
-            classification = distinct(scope, language, lecture.classification, lecture.classificationEn),
-            department = distinct(scope, language, lecture.department, lecture.departmentEn),
-            academicYear = distinct(scope, language, lecture.academicYear, lecture.academicYearEn),
-            category = distinct(scope, language, lecture.category, lecture.categoryEn),
-            categoryPre2025 = distinct(scope, Language.KO, lecture.categoryPre2025, lecture.categoryPre2025),
-            credit = distinct(scope, lecture.credit),
-            instructor = if (perSemester) distinct(scope, language, lecture.instructor, lecture.instructorEn) else emptyList(),
-            updatedAt =
-                queryFactory
-                    .select(lecture.updatedAt.max())
-                    .from(lecture)
-                    .where(scope)
-                    .fetchOne(),
+            classification = distinct(year, semester, language, Lecture::classification, Lecture::classificationEn),
+            department = distinct(year, semester, language, Lecture::department, Lecture::departmentEn),
+            academicYear = distinct(year, semester, language, Lecture::academicYear, Lecture::academicYearEn),
+            category = distinct(year, semester, language, Lecture::category, Lecture::categoryEn),
+            categoryPre2025 =
+                distinct(
+                    year,
+                    semester,
+                    Language.KO,
+                    Lecture::categoryPre2025,
+                    Lecture::categoryPre2025,
+                ),
+            credit = distinctCredits(year, semester),
+            instructor =
+                if (perSemester) {
+                    distinct(year, semester, language, Lecture::instructor, Lecture::instructorEn)
+                } else {
+                    emptyList()
+                },
+            updatedAt = maxUpdatedAt(year, semester),
         )
     }
 
-    private fun scope(
+    private fun maxUpdatedAt(
         year: Int?,
         semester: Semester?,
-    ): BooleanExpression? = if (year != null && semester != null) lecture.year.eq(year).and(lecture.semester.eq(semester)) else null
+    ): Instant? =
+        findAll(offset = null, limit = 1) {
+            jpql {
+                select(max(path(Lecture::updatedAt)))
+                    .from(entity(Lecture::class))
+                    .where(
+                        and(
+                            year?.let { path(Lecture::year).equal(it) },
+                            semester?.let { path(Lecture::semester).equal(it) },
+                        ),
+                    )
+            }
+        }.firstOrNull()
 
     private fun distinct(
-        scope: BooleanExpression?,
+        year: Int?,
+        semester: Semester?,
         language: Language,
-        ko: StringPath,
-        en: StringPath,
+        ko: KProperty1<Lecture, String?>,
+        en: KProperty1<Lecture, String?>,
     ): List<String> {
         if (language == Language.EN) {
-            val english = distinct(scope, en)
+            val english = distinctStrings(year, semester, en)
             if (english.isNotEmpty()) return english
         }
-        return distinct(scope, ko)
+        return distinctStrings(year, semester, ko)
     }
 
-    private fun distinct(
-        scope: BooleanExpression?,
-        path: StringPath,
+    private fun distinctStrings(
+        year: Int?,
+        semester: Semester?,
+        prop: KProperty1<Lecture, String?>,
     ): List<String> =
-        queryFactory
-            .select(path)
-            .distinct()
-            .from(lecture)
-            .where(scope, path.isNotNull, path.ne(""))
-            .orderBy(path.asc())
-            .fetch()
+        findAll(offset = null, limit = null) {
+            jpql {
+                selectDistinct(path(prop))
+                    .from(entity(Lecture::class))
+                    .where(
+                        and(
+                            year?.let { path(Lecture::year).equal(it) },
+                            semester?.let { path(Lecture::semester).equal(it) },
+                            path(prop).isNotNull(),
+                            path(prop).notEqual(""),
+                        ),
+                    ).orderBy(path(prop).asc())
+            }
+        }.filterNotNull()
 
-    private fun distinct(
-        scope: BooleanExpression?,
-        path: NumberPath<Int>,
+    private fun distinctCredits(
+        year: Int?,
+        semester: Semester?,
     ): List<Int> =
-        queryFactory
-            .select(path)
-            .distinct()
-            .from(lecture)
-            .where(scope, path.isNotNull)
-            .orderBy(path.asc())
-            .fetch()
+        findAll(offset = null, limit = null) {
+            jpql {
+                selectDistinct(path(Lecture::credit))
+                    .from(entity(Lecture::class))
+                    .where(
+                        and(
+                            year?.let { path(Lecture::year).equal(it) },
+                            semester?.let { path(Lecture::semester).equal(it) },
+                        ),
+                    ).orderBy(path(Lecture::credit).asc())
+            }
+        }.filterNotNull()
 }

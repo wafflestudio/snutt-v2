@@ -1,23 +1,27 @@
 package com.wafflestudio.snutt.core.domain.evaluation.repository
 
-import com.querydsl.core.BooleanBuilder
-import com.querydsl.jpa.impl.JPAQueryFactory
+import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
+import com.linecorp.kotlinjdsl.dsl.jpql.jpql
+import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
+import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
+import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
+import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutorImpl
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
-import com.wafflestudio.snutt.core.domain.evaluation.model.QCourse
-import com.wafflestudio.snutt.core.domain.lecture.model.QLecture
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
 
 @Repository
 class CourseSearchRepository(
-    private val queryFactory: JPAQueryFactory,
-) {
+    entityManager: EntityManager,
+    context: JpqlRenderContext,
+) : KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
     private val classifier = SearchKeywordClassifier(placeRegex, buildingRegex)
-    private val course = QCourse.course
 
     companion object {
         private val GRADUATE_YEARS = listOf("석사", "박사", "석박사통합")
@@ -30,65 +34,85 @@ class CourseSearchRepository(
         cursor: CourseSearchCursor?,
         limit: Int,
     ): List<Course> =
-        queryFactory
-            .selectFrom(course)
-            .where(
-                predicate(criteria),
+        findAll(offset = null, limit = limit) {
+            jpql {
+                val predicates = mutableListOf<Predicate>()
+                predicates += criteriaPredicates(criteria)
                 cursor?.let {
-                    course.evalCount.lt(it.evalCount).or(
-                        course.evalCount.eq(it.evalCount).and(course.id.gt(it.courseId)),
-                    )
-                },
-            ).orderBy(course.evalCount.desc(), course.id.asc())
-            .limit(limit.toLong())
-            .fetch()
+                    predicates +=
+                        or(
+                            path(Course::evalCount).lessThan(it.evalCount),
+                            and(
+                                path(Course::evalCount).equal(it.evalCount),
+                                path(Course::id).greaterThan(it.courseId),
+                            ),
+                        )
+                }
+                select(entity(Course::class))
+                    .from(entity(Course::class))
+                    .where(and(*predicates.toTypedArray()))
+                    .orderBy(path(Course::evalCount).desc(), path(Course::id).asc())
+            }
+        }.filterNotNull()
 
     fun count(criteria: CourseSearchCriteria): Long =
-        queryFactory
-            .select(QCourse.course.count())
-            .from(QCourse.course)
-            .where(predicate(criteria))
-            .fetchOne() ?: 0L
+        findAll(offset = null, limit = 1) {
+            jpql {
+                select(count(path(Course::id)))
+                    .from(entity(Course::class))
+                    .where(and(*criteriaPredicates(criteria).toTypedArray()))
+            }
+        }.firstOrNull() ?: 0L
 
-    private fun predicate(criteria: CourseSearchCriteria): com.querydsl.core.types.Predicate? {
-        val builder = BooleanBuilder()
-        criteria.credit.takeIf { it.isNotEmpty() }?.let { builder.and(course.credit.`in`(it)) }
-        criteria.academicYear.takeIf { it.isNotEmpty() }?.let { builder.and(course.academicYear.`in`(it)) }
-        criteria.classification.takeIf { it.isNotEmpty() }?.let { builder.and(course.classification.`in`(it)) }
-        criteria.department.takeIf { it.isNotEmpty() }?.let { builder.and(course.department.`in`(it)) }
-        criteria.category.takeIf { it.isNotEmpty() }?.let { builder.and(course.category.`in`(it)) }
-        queryPredicate(criteria.query)?.let { builder.and(it) }
+    private fun Jpql.criteriaPredicates(criteria: CourseSearchCriteria): List<Predicate> {
+        val builder = mutableListOf<Predicate>()
+        criteria.credit.takeIf { it.isNotEmpty() }?.let { builder += path(Course::credit).`in`(it) }
+        criteria.academicYear.takeIf { it.isNotEmpty() }?.let { builder += path(Course::academicYear).`in`(it) }
+        criteria.classification.takeIf { it.isNotEmpty() }?.let { builder += path(Course::classification).`in`(it) }
+        criteria.department.takeIf { it.isNotEmpty() }?.let { builder += path(Course::department).`in`(it) }
+        criteria.category.takeIf { it.isNotEmpty() }?.let { builder += path(Course::category).`in`(it) }
+        queryPredicate(criteria.query)?.let { builder += it }
 
         if (criteria.yearSemesters.isNotEmpty()) {
-            val lecture = QLecture.lecture
-            val semesterBuilder = BooleanBuilder()
+            val semesterBuilder = mutableListOf<Predicate>()
             criteria.yearSemesters.forEach { (year, semester) ->
-                semesterBuilder.or(lecture.year.eq(year).and(lecture.semester.eq(semester)))
+                semesterBuilder +=
+                    and(
+                        path(Lecture::year).equal(year),
+                        path(Lecture::semester).equal(semester),
+                    )
             }
-            builder.and(
-                course.id.`in`(
-                    com.querydsl.jpa.JPAExpressions
-                        .select(lecture.courseId)
-                        .from(lecture)
-                        .where(semesterBuilder.value, lecture.courseId.isNotNull),
-                ),
-            )
+            builder +=
+                and(
+                    path(Course::id).`in`(
+                        jpql {
+                            select(path(Lecture::courseId))
+                                .from(entity(Lecture::class))
+                                .where(
+                                    and(
+                                        or(*semesterBuilder.toTypedArray()),
+                                        path(Lecture::courseId).isNotNull(),
+                                    ),
+                                )
+                        }.asSubquery(),
+                    ),
+                )
         }
 
-        return builder.value
+        return builder
     }
 
-    private fun queryPredicate(query: String?): com.querydsl.core.types.Predicate? {
+    private fun Jpql.queryPredicate(query: String?): Predicate? {
         if (query.isNullOrBlank()) return null
-        val builder = BooleanBuilder()
+        val builder = mutableListOf<Predicate>()
         query.split(' ').filter { it.isNotBlank() }.forEach { keyword ->
-            val or = BooleanBuilder()
+            val or = mutableListOf<Predicate>()
             when (val intent = classifier.classify(keyword, Language.KO)) {
                 KeywordIntent.Empty -> {}
-                KeywordIntent.Major -> or.or(course.classification.`in`("전선", "전필"))
-                KeywordIntent.Graduate -> or.or(course.academicYear.`in`(GRADUATE_YEARS))
-                KeywordIntent.Undergraduate -> or.or(course.academicYear.notIn(GRADUATE_YEARS))
-                KeywordIntent.PhysicalEducation -> or.or(course.category.eq("체육"))
+                KeywordIntent.Major -> or += path(Course::classification).`in`(listOf("전선", "전필"))
+                KeywordIntent.Graduate -> or += path(Course::academicYear).`in`(GRADUATE_YEARS)
+                KeywordIntent.Undergraduate -> or += path(Course::academicYear).notIn(GRADUATE_YEARS)
+                KeywordIntent.PhysicalEducation -> or += path(Course::category).equal("체육")
                 is KeywordIntent.Fuzzy,
                 KeywordIntent.EnglishLecture,
                 KeywordIntent.MilitaryLeave,
@@ -99,13 +123,13 @@ class CourseSearchRepository(
                 is KeywordIntent.Plain,
                 -> plainCoursePredicate(or, intent)
             }
-            if (or.hasValue()) builder.and(or.value)
+            if (or.isNotEmpty()) builder += or(*or.toTypedArray())
         }
-        return builder.value
+        return if (builder.isEmpty()) null else and(*builder.toTypedArray())
     }
 
-    private fun fuzzyCoursePredicate(
-        or: BooleanBuilder,
+    private fun Jpql.fuzzyCoursePredicate(
+        or: MutableList<Predicate>,
         intent: KeywordIntent,
     ) {
         val keyword =
@@ -117,20 +141,20 @@ class CourseSearchRepository(
                 else -> return
             }
         val fuzzy = keyword.fold("%") { acc, c -> "$acc$c%" }
-        or.or(course.title.like(fuzzy))
-        or.or(course.category.like(fuzzy))
-        or.or(course.instructor.eq(keyword))
-        or.or(course.academicYear.eq(keyword))
-        or.or(course.classification.eq(keyword))
+        or += path(Course::title).like(fuzzy)
+        or += path(Course::category).like(fuzzy)
+        or += path(Course::instructor).equal(keyword)
+        or += path(Course::academicYear).equal(keyword)
+        or += path(Course::classification).equal(keyword)
         when (keyword.last()) {
-            '과', '부' -> or.or(course.department.like(fuzzy.substring(1, fuzzy.length - 2)))
+            '과', '부' -> or += path(Course::department).like(fuzzy.substring(1, fuzzy.length - 2))
             '학' -> {}
-            else -> or.or(course.department.like(fuzzy.substring(1)))
+            else -> or += path(Course::department).like(fuzzy.substring(1))
         }
     }
 
-    private fun plainCoursePredicate(
-        or: BooleanBuilder,
+    private fun Jpql.plainCoursePredicate(
+        or: MutableList<Predicate>,
         intent: KeywordIntent,
     ) {
         val keyword =
@@ -139,8 +163,8 @@ class CourseSearchRepository(
                 is KeywordIntent.Plain -> intent.keyword
                 else -> return
             }
-        or.or(course.title.like("%$keyword%"))
-        or.or(course.instructor.like("%$keyword%"))
-        or.or(course.courseNumber.like(keyword))
+        or += path(Course::title).like("%$keyword%")
+        or += path(Course::instructor).like("%$keyword%")
+        or += path(Course::courseNumber).like(keyword)
     }
 }

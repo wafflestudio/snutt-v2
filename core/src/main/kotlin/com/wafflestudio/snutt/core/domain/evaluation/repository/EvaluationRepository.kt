@@ -8,41 +8,16 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.Modifying
-import org.springframework.data.jpa.repository.Query
-
-interface EvaluatedCourseSemester {
-    val courseId: Long
-    val year: Int
-    val semester: Semester
-}
 
 interface EvaluationRepository :
     JpaRepository<Evaluation, Long>,
     EvaluationCustomRepository {
-    @Modifying
-    @Query("UPDATE Evaluation e SET e.likeCount = e.likeCount + 1 WHERE e.id = :id")
-    fun incrementLikeCount(id: Long)
-
-    @Modifying
-    @Query("UPDATE Evaluation e SET e.likeCount = GREATEST(e.likeCount - 1, 0) WHERE e.id = :id")
-    fun decrementLikeCount(id: Long)
-
     fun existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
         courseId: Long,
         year: Int,
         semester: Semester,
         userId: Long,
     ): Boolean
-
-    @Query(
-        "SELECT e.courseId AS courseId, e.year AS year, e.semester AS semester FROM Evaluation e " +
-            "WHERE e.userId = :userId AND e.courseId IN :courseIds AND e.isHidden = false",
-    )
-    fun findEvaluatedCourseSemesters(
-        userId: Long,
-        courseIds: Collection<Long>,
-    ): List<EvaluatedCourseSemester>
 
     fun findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(
         courseId: Long,
@@ -55,6 +30,17 @@ interface EvaluationRepository :
 }
 
 interface EvaluationCustomRepository {
+    fun incrementLikeCount(id: Long): Int
+
+    fun decrementLikeCount(id: Long): Int
+
+    fun findEvaluatedCourseSemesters(
+        userId: Long,
+        courseIds: Collection<Long>,
+    ): List<EvaluatedCourseSemester>
+
+    fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary>
+
     fun findOthersByCourseAndSemester(
         courseId: Long,
         year: Int?,
@@ -84,8 +70,6 @@ interface EvaluationCustomRepository {
         year: Int?,
         semester: Semester?,
     ): EvaluationAverages?
-
-    fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary>
 
     fun countByCourseIdAndIsHiddenFalse(
         courseId: Long,

@@ -443,8 +443,12 @@ class EvaluationService(
         val likedEvaluationIds =
             mapNotNull { it.id }
                 .takeIf { it.isNotEmpty() }
-                ?.let { evaluationLikeRepository.findLikedEvaluationIds(userId, it).toSet() }
-                .orEmpty()
+                ?.let {
+                    evaluationLikeRepository
+                        .findByUserIdAndEvaluationIdIn(userId, it)
+                        .mapNotNull(EvaluationLike::evaluationId)
+                        .toSet()
+                }.orEmpty()
         return map { it.toDisplay(userId, it.id in likedEvaluationIds) }
     }
 

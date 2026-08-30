@@ -144,15 +144,15 @@ class LectureController(
                 sort = LectureSort.getOfName(request.sortBy) ?: LectureSort.DEFAULT,
             )
         val page = lectureService.search(criteria, request.cursor, request.limit)
-        val lectures = page.content
-        val summaries = evaluationService.findSummariesByLectureIds(lectures.mapNotNull { it.id })
+        val rows = page.content
+        val lectures = rows.map { it.lecture }
         val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
         val content =
-            lectures.map { lecture ->
-                val classTimes = classTimesMap[lecture.id].orEmpty()
+            rows.map { row ->
+                val classTimes = classTimesMap[row.lecture.id].orEmpty()
                 val evaluationSummary =
-                    summaries[lecture.id]?.let { LectureEvSummaryResponse(avgRating = it.avgRating, evalCount = it.evalCount) }
-                lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
+                    LectureEvSummaryResponse(avgRating = row.avgRating, evalCount = row.evalCount)
+                row.lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
             }
         return CursorPage(
             content = content,

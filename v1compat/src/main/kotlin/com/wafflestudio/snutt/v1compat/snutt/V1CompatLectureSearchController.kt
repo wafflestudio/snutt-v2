@@ -170,11 +170,12 @@ class V1CompatLectureSearchController(
                 .search(criteria, null, offset.toInt() + query.limit)
                 .content
                 .drop(offset.toInt())
-        val lectureIds = lectures.mapNotNull { it.id }
+        val lectureIds = lectures.mapNotNull { it.lecture.id }
         val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
         val classTimesMap = lectureService.classTimesByLectureId(lectureIds)
         val statuses = lectureRegistrationStatusRepository.findAllById(lectureIds).associateBy { it.lectureId }
-        return lectures.map { lecture ->
+        return lectures.map { row ->
+            val lecture = row.lecture
             lecture.toLegacy(
                 classTimesMap[lecture.id].orEmpty(),
                 clientInfo.language,

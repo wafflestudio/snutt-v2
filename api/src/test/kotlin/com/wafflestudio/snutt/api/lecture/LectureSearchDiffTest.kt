@@ -375,7 +375,7 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             lectureSearchRepository
                 .search(case.criteria, null, (case.offset + case.limit).toInt())
                 .drop(case.offset.toInt())
-                .map { checkNotNull(it.id) }
+                .map { checkNotNull(it.lecture.id) }
         if (expectNonEmpty) {
             assertEquals(true, reference.isNotEmpty(), "corpus[$name]: 참조 결과가 비어 있음 — 데이터셋 확인 필요")
         }
