@@ -33,28 +33,29 @@ class LectureVocabularyRepository(
         semester: Semester?,
         language: Language,
     ): LectureVocabulary {
-        val perSemester = year != null && semester != null
+        val (scopedYear, scopedSemester) = scope(year, semester)
+        val perSemester = scopedYear != null
         return LectureVocabulary(
-            classification = distinct(year, semester, language, Lecture::classification, Lecture::classificationEn),
-            department = distinct(year, semester, language, Lecture::department, Lecture::departmentEn),
-            academicYear = distinct(year, semester, language, Lecture::academicYear, Lecture::academicYearEn),
-            category = distinct(year, semester, language, Lecture::category, Lecture::categoryEn),
+            classification = distinct(scopedYear, scopedSemester, language, Lecture::classification, Lecture::classificationEn),
+            department = distinct(scopedYear, scopedSemester, language, Lecture::department, Lecture::departmentEn),
+            academicYear = distinct(scopedYear, scopedSemester, language, Lecture::academicYear, Lecture::academicYearEn),
+            category = distinct(scopedYear, scopedSemester, language, Lecture::category, Lecture::categoryEn),
             categoryPre2025 =
                 distinct(
-                    year,
-                    semester,
+                    scopedYear,
+                    scopedSemester,
                     Language.KO,
                     Lecture::categoryPre2025,
                     Lecture::categoryPre2025,
                 ),
-            credit = distinctCredits(year, semester),
+            credit = distinctCredits(scopedYear, scopedSemester),
             instructor =
                 if (perSemester) {
-                    distinct(year, semester, language, Lecture::instructor, Lecture::instructorEn)
+                    distinct(scopedYear, scopedSemester, language, Lecture::instructor, Lecture::instructorEn)
                 } else {
                     emptyList()
                 },
-            updatedAt = maxUpdatedAt(year, semester),
+            updatedAt = maxUpdatedAt(scopedYear, scopedSemester),
         )
     }
 
@@ -125,4 +126,14 @@ class LectureVocabularyRepository(
                     ).orderBy(path(Lecture::credit).asc())
             }
         }.filterNotNull()
+
+    private fun scope(
+        year: Int?,
+        semester: Semester?,
+    ): Pair<Int?, Semester?> =
+        if (year != null && semester != null) {
+            year to semester
+        } else {
+            null to null
+        }
 }

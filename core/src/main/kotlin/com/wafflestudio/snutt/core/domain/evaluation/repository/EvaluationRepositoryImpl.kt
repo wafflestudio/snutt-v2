@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
 import com.linecorp.kotlinjdsl.dsl.jpql.jpql
+import com.linecorp.kotlinjdsl.querymodel.jpql.entity.Entity
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
@@ -225,8 +226,12 @@ class EvaluationRepositoryImpl(
         update {
             jpql {
                 update(entity(Evaluation::class))
-                    .set(path(Evaluation::likeCount), path(Evaluation::likeCount).minus(1L))
-                    .where(path(Evaluation::id).equal(id))
+                    .set(
+                        path(Evaluation::likeCount),
+                        caseWhen(path(Evaluation::likeCount).greaterThan(0L))
+                            .then(path(Evaluation::likeCount).minus(1L))
+                            .`else`(0L),
+                    ).where(path(Evaluation::id).equal(id))
             }
         }
 
@@ -281,38 +286,46 @@ class EvaluationRepositoryImpl(
                             )
                     }.asSubquery(),
                 )
-            EvaluationTag.RECOMMENDED -> courseAvgHaving { avg(path(Evaluation::rating)).greaterThanOrEqualTo(4.0) }
+            EvaluationTag.RECOMMENDED ->
+                courseAvgHaving { innerEvaluation ->
+                    avg(innerEvaluation.path(Evaluation::rating)).greaterThanOrEqualTo(4.0)
+                }
             EvaluationTag.WELL_TAUGHT ->
-                courseAvgHaving {
+                courseAvgHaving { innerEvaluation ->
                     and(
-                        avg(path(Evaluation::teachingSkill)).greaterThanOrEqualTo(4.0),
-                        avg(path(Evaluation::gains)).greaterThanOrEqualTo(4.0),
+                        avg(innerEvaluation.path(Evaluation::teachingSkill)).greaterThanOrEqualTo(4.0),
+                        avg(innerEvaluation.path(Evaluation::gains)).greaterThanOrEqualTo(4.0),
                     )
                 }
             EvaluationTag.SWEET ->
-                courseAvgHaving {
+                courseAvgHaving { innerEvaluation ->
                     and(
-                        avg(path(Evaluation::gradeSatisfaction)).greaterThanOrEqualTo(4.0),
-                        avg(path(Evaluation::lifeBalance)).greaterThanOrEqualTo(4.0),
+                        avg(innerEvaluation.path(Evaluation::gradeSatisfaction)).greaterThanOrEqualTo(4.0),
+                        avg(innerEvaluation.path(Evaluation::lifeBalance)).greaterThanOrEqualTo(4.0),
                     )
                 }
             EvaluationTag.HARD_BUT_WORTH ->
-                courseAvgHaving {
+                courseAvgHaving { innerEvaluation ->
                     and(
-                        avg(path(Evaluation::lifeBalance)).lessThan(2.0),
-                        avg(path(Evaluation::gains)).greaterThanOrEqualTo(4.0),
+                        avg(innerEvaluation.path(Evaluation::lifeBalance)).lessThan(2.0),
+                        avg(innerEvaluation.path(Evaluation::gains)).greaterThanOrEqualTo(4.0),
                     )
                 }
         }
 
-    private fun Jpql.courseAvgHaving(having: () -> Predicate): Predicate =
+    private fun Jpql.courseAvgHaving(having: Jpql.(Entity<Evaluation>) -> Predicate): Predicate =
         exists(
             jpql {
-                select(path(Evaluation::courseId))
-                    .from(entity(Evaluation::class))
-                    .where(path(Evaluation::isHidden).equal(false))
-                    .groupBy(path(Evaluation::courseId))
-                    .having(having())
+                val innerEvaluation = entity(Evaluation::class, "innerEvaluation")
+                select(innerEvaluation.path(Evaluation::courseId))
+                    .from(innerEvaluation)
+                    .where(
+                        and(
+                            innerEvaluation.path(Evaluation::courseId).equal(path(Evaluation::courseId)),
+                            innerEvaluation.path(Evaluation::isHidden).equal(false),
+                        ),
+                    ).groupBy(innerEvaluation.path(Evaluation::courseId))
+                    .having(having(innerEvaluation))
             }.asSubquery(),
         )
 

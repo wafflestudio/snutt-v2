@@ -74,6 +74,9 @@ class LectureSearchRepositoryImpl(
                 val predicates = mutableListOf<Predicate>()
                 predicates += path(Lecture::year).equal(criteria.year)
                 predicates += path(Lecture::semester).equal(criteria.semester)
+                cursorLectureId
+                    ?.takeIf { criteria.sort == LectureSort.DEFAULT }
+                    ?.let { predicates += path(Lecture::id).greaterThan(it) }
 
                 criteria.query?.split(' ')?.forEach { keyword ->
                     when (val intent = classifier.classify(keyword, criteria.language)) {
