@@ -83,6 +83,7 @@ class TimetableService(
         semester: Semester,
         title: String,
     ): Timetable {
+        userRepository.findByIdForUpdate(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         validateTimetableTitle(userId, year, semester, title)
         return timetableRepository.save(
             Timetable(
@@ -103,7 +104,7 @@ class TimetableService(
         title: String,
     ): Timetable {
         val timetable = getTimetable(userId, timetableId)
-        validateTimetableTitle(userId, timetable.year, timetable.semester, title)
+        validateTimetableTitle(userId, timetable.year, timetable.semester, title, timetable.id)
         timetable.title = title
         return timetable
     }
@@ -113,6 +114,7 @@ class TimetableService(
         userId: Long,
         timetableId: Long,
     ) {
+        userRepository.findByIdForUpdate(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.TABLE_DELETE_ERROR)
         timetableRepository.delete(getTimetable(userId, timetableId))
     }
@@ -239,10 +241,12 @@ class TimetableService(
         year: Int,
         semester: Semester,
         title: String,
+        excludeTimetableId: Long? = null,
     ) {
         if (title.isEmpty()) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
-        if (timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title) != null) {
+        val duplicate = timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title)
+        if (duplicate != null && duplicate.id != excludeTimetableId) {
             throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
         }
     }

@@ -3,6 +3,9 @@ package com.wafflestudio.snutt.core.domain.theme.service
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorCodec
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -21,6 +24,11 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+data class PublishedThemeCursor(
+    val downloadCount: Long,
+    val publishedThemeId: Long,
+)
+
 @Service
 class TimetableThemeService(
     private val timetableThemeRepository: TimetableThemeRepository,
@@ -33,6 +41,8 @@ class TimetableThemeService(
 ) {
     companion object {
         private const val MAX_COLOR_COUNT = 9
+        private const val MARKET_PAGE_SIZE = 20
+        private const val FRIENDS_MARKET_PAGE_SIZE = 10
         private const val SNUTT_BUILTIN_THEME_ID = 1L
         private val copyNumberRegex = """\s\(\d+\)$""".toRegex()
     }
@@ -59,22 +69,33 @@ class TimetableThemeService(
         return themes.map { it.toDisplay(published = publishedByThemeId[it.id], isDefault = it.id == defaultThemeId) }
     }
 
-    fun getBestThemes(
-        page: Int,
-        size: Int = 20,
-    ): List<TimetableThemeDisplay> =
-        publishedThemeRepository
-            .findAllByOrderByDownloadCountDesc(PageRequest.of(page, size))
-            .toMarketDisplays()
+    fun getBestThemes(cursor: String?): CursorPage<TimetableThemeDisplay> {
+        val decoded = decodePublishedThemeCursor(cursor)
+        val pageable = PageRequest.of(0, MARKET_PAGE_SIZE + 1)
+        val themes =
+            if (decoded == null) {
+                publishedThemeRepository.findAllByOrderByDownloadCountDescIdDesc(pageable)
+            } else {
+                publishedThemeRepository.findBestPublishedAfter(decoded.downloadCount, decoded.publishedThemeId, pageable)
+            }
+        return themes.toCursorPage(MARKET_PAGE_SIZE)
+    }
 
     fun getFriendsThemes(
         userId: Long,
-        page: Int,
-        size: Int = 10,
-    ): List<TimetableThemeDisplay> {
+        cursor: String?,
+    ): CursorPage<TimetableThemeDisplay> {
         val friendUserIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
-        if (friendUserIds.isEmpty()) return emptyList()
-        return publishedThemeRepository.findFriendsPublished(friendUserIds, PageRequest.of(page, size)).toMarketDisplays()
+        if (friendUserIds.isEmpty()) return CursorPage.of(emptyList(), null, FRIENDS_MARKET_PAGE_SIZE)
+        val decoded = decodePublishedThemeCursor(cursor)
+        val themes =
+            publishedThemeRepository.findFriendsPublished(
+                friendUserIds,
+                decoded?.downloadCount,
+                decoded?.publishedThemeId,
+                PageRequest.of(0, FRIENDS_MARKET_PAGE_SIZE + 1),
+            )
+        return themes.toCursorPage(FRIENDS_MARKET_PAGE_SIZE)
     }
 
     fun searchThemes(keyword: String): List<TimetableThemeDisplay> =
@@ -113,7 +134,7 @@ class TimetableThemeService(
         colors?.let { newColors ->
             validateColorCount(newColors)
 
-            val colorMap = theme.colors.mapIndexed { i, color -> color to newColors.getOrNull(i) }.toMap()
+            val colorMap = theme.colors.mapIndexed { i, color -> color to newColors[i % newColors.size] }.toMap()
             timetableRepository.findByUserIdAndThemeId(userId, theme.id!!).forEach { timetable ->
                 val lectures = timetableLecturesOf(timetable.id!!)
                 lectures.filter { it.color in theme.colors }.forEach { lecture ->
@@ -347,12 +368,35 @@ class TimetableThemeService(
 
     private fun timetableLecturesOf(timetableId: Long) = timetableLectureRepository.findByTimetableId(timetableId)
 
+    private fun decodePublishedThemeCursor(cursor: String?): PublishedThemeCursor? =
+        CursorCodec.decode<PublishedThemeCursor>(cursor)?.also {
+            if (it.downloadCount < 0 || it.publishedThemeId <= 0) {
+                throw SnuttException(ErrorType.INVALID_CURSOR)
+            }
+        }
+
+    private fun List<PublishedTheme>.toCursorPage(pageSize: Int): CursorPage<TimetableThemeDisplay> {
+        val page =
+            toCursorPage(
+                pageSize,
+                cursorOf = { PublishedThemeCursor(it.downloadCount, it.id!!) },
+                transform = { it },
+            )
+        return CursorPage(
+            content = page.content.toMarketDisplays(),
+            cursor = page.cursor,
+            size = page.size,
+            last = page.last,
+            totalCount = page.totalCount,
+        )
+    }
+
     private fun List<PublishedTheme>.toMarketDisplays(): List<TimetableThemeDisplay> {
         if (isEmpty()) return emptyList()
         val themes = timetableThemeRepository.findAllById(mapNotNull { it.themeId }).associateBy { it.id!! }
         val nicknameMap = userRepository.findAllById(themes.values.mapNotNull { it.userId }).associate { it.id!! to it.nicknameWithoutTag }
-        return mapNotNull { published ->
-            val theme = themes[published.themeId] ?: return@mapNotNull null
+        return map { published ->
+            val theme = checkNotNull(themes[published.themeId])
             theme.toDisplay(published = published, authorNickname = nicknameMap[theme.userId])
         }
     }

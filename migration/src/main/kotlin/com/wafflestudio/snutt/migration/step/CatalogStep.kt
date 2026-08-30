@@ -37,6 +37,7 @@ class CatalogStep(
             "popup",
             "diary_question",
             "diary_daily_class_type",
+            "diary_question_target",
         )
 
     override fun run() {
@@ -235,6 +236,7 @@ class CatalogStep(
                     "created_at",
                     "updated_at",
                 ),
+                parent = out,
             ).use { targetOut ->
                 mongo.each("diaryQuestion") { doc ->
                     val id = questionIds.next()

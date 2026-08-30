@@ -80,12 +80,11 @@ class TimetableLectureService(
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
         resolveTimeConflict(timetable, classTimes, request.isForced, null)
 
-        val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
         val (colorIndex, color) =
             timetableThemeService.getNewColorIndexAndColor(
                 timetable.themeId,
-                remaining.map { it.color },
-                remaining.map { it.colorIndex },
+                existingLectures.map { it.color },
+                existingLectures.map { it.colorIndex },
             )
         timetableLectureRepository.save(
             TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, color = color, colorIndex = colorIndex),
@@ -103,7 +102,7 @@ class TimetableLectureService(
         val timetable =
             timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
-        if (ClassTimeUtils.timesOverlap(request.classPlaceAndTimes)) throw SnuttException(ErrorType.INVALID_TIME)
+        validateClassTimes(request.classPlaceAndTimes)
 
         resolveTimeConflict(timetable, request.classPlaceAndTimes, request.isForced, null)
 
@@ -140,15 +139,18 @@ class TimetableLectureService(
         timetableLectureId: Long,
         request: TimetableLectureModifyRequest,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetable =
+            timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         val existingDisplays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
 
+        val timesChanged = request.classPlaceAndTimes != null
         val newTimes =
             request.classPlaceAndTimes
                 ?: existingDisplays.first { it.id == timetableLecture.id }.classPlaceAndTimes
-        if (ClassTimeUtils.timesOverlap(newTimes)) throw SnuttException(ErrorType.INVALID_TIME)
-        resolveTimeConflict(timetable, newTimes, request.isForced, timetableLecture.id)
+        validateClassTimes(newTimes)
+        if (timesChanged) resolveTimeConflict(timetable, newTimes, request.isForced, timetableLecture.id)
 
         request.color?.let { timetableLecture.color = it }
         request.colorIndex?.let { timetableLecture.colorIndex = it }
@@ -167,7 +169,7 @@ class TimetableLectureService(
             )
         }
 
-        timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
+        if (timesChanged) timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         return displayAfterLectureChange(userId, timetable)
     }
 
@@ -178,7 +180,9 @@ class TimetableLectureService(
         timetableLectureId: Long,
         isForced: Boolean,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetable =
+            timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         if (timetableLecture.lectureId == null) throw SnuttException(ErrorType.CANNOT_RESET_CUSTOM_LECTURE)
         val lecture =
@@ -198,7 +202,9 @@ class TimetableLectureService(
         timetableId: Long,
         timetableLectureId: Long,
     ): TimetableDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        val timetable =
+            timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         timetableLectureRepository.delete(timetableLecture)
         return displayAfterLectureChange(userId, timetable)
@@ -219,6 +225,16 @@ class TimetableLectureService(
         timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
             ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
 
+    private fun validateClassTimes(times: List<ClassPlaceAndTime>) {
+        val hasInvalidRange =
+            times.any { time ->
+                time.startMinute !in 0 until MINUTES_PER_DAY ||
+                    time.endMinute !in 1..MINUTES_PER_DAY ||
+                    time.startMinute >= time.endMinute
+            }
+        if (hasInvalidRange || ClassTimeUtils.timesOverlap(times)) throw SnuttException(ErrorType.INVALID_TIME)
+    }
+
     private fun resolveTimeConflict(
         timetable: Timetable,
         newTimes: List<ClassPlaceAndTime>,
@@ -233,7 +249,7 @@ class TimetableLectureService(
         if (overlapping.isEmpty()) return
         if (!isForced) {
             val confirmMessage = makeOverwritingConfirmMessage(overlapping)
-            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, errorMessage = confirmMessage, displayMessage = confirmMessage)
+            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, displayMessage = confirmMessage)
         }
         val overlappingIds = overlapping.map { it.id }
         timetableLectureRepository.deleteAll(
@@ -245,5 +261,9 @@ class TimetableLectureService(
         val overlappingLectureTitles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
         val shortFormOfTitles = if (overlappingLectures.size < 3) "" else "외 ${overlappingLectures.size - 2}개의 "
         return "$overlappingLectureTitles ${shortFormOfTitles}강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?"
+    }
+
+    companion object {
+        private const val MINUTES_PER_DAY = 24 * 60
     }
 }

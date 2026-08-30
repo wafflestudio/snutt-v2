@@ -1,13 +1,17 @@
 package com.wafflestudio.snutt.core.domain.auth.client
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.UpstreamException
 import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcVerificationOptions
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClientException
+import org.springframework.web.client.RestClientResponseException
 
 private data class FacebookOAuth2UserResponse(
     val id: String,
@@ -20,8 +24,6 @@ class FacebookClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
     @param:Value("\${snutt.auth.oidc.facebook-app-id:}") private val facebookAppId: String,
 ) : OAuth2Client {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val restClient = TimedRestClients.restClient()
 
     companion object {
@@ -39,20 +41,24 @@ class FacebookClient(
 
     private fun getMeFromAccessToken(token: String): OAuth2UserResponse? {
         val response =
-            runCatching {
+            try {
                 restClient
                     .get()
                     .uri("$USER_INFO_URI?access_token={token}", token)
                     .retrieve()
                     .body(FacebookOAuth2UserResponse::class.java)
-            }.onFailure { log.warn("facebook getMe failed: {}", it.message) }
-                .getOrNull() ?: return null
+                    ?: throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+            } catch (e: RestClientException) {
+                if (e is RestClientResponseException && e.statusCode.is4xxClientError) {
+                    throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+                }
+                throw UpstreamException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE, "facebook", e)
+            }
 
         return OAuth2UserResponse(
             socialId = response.id,
             name = response.name,
             email = response.email,
-            isEmailVerified = true,
         )
     }
 
@@ -72,7 +78,6 @@ class FacebookClient(
             socialId = claims["sub"] as? String ?: return null,
             name = claims["name"] as? String,
             email = claims["email"] as? String,
-            isEmailVerified = claims["email_verified"] as? Boolean ?: true,
         )
     }
 }

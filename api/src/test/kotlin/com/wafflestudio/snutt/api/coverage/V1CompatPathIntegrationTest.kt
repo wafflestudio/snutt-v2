@@ -205,7 +205,6 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `팝업은 공개 오브젝트 URL과 구 필드명을 함께 준다`() {
         val response = getV1("/v1/popups")
         assertEquals(200, response.statusCode.value())
-        // 레거시 계약: ListResponse(content, totalCount) 래퍼로 감싸 반환된다
         val popups = body(response)["content"]
         assertEquals(1, popups.size())
         assertEquals(1, body(response)["totalCount"].asInt())

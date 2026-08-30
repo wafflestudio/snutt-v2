@@ -53,7 +53,6 @@ class MigrationRunner(
                 "lecture",
                 "theme",
                 "timetable",
-                "reminder",
                 "userdata",
                 "notification",
                 "evaluation",

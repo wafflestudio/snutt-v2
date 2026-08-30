@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -76,8 +77,9 @@ class CourseController(
         @RequestParam(required = false) category: List<String>?,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Int?,
-        @RequestParam(required = false, defaultValue = "0") page: Int,
-    ): List<CourseResponse> {
+        @RequestParam(required = false) cursor: String?,
+    ): CursorPage<CourseResponse> {
+        if ((year == null) != (semester == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val yearSemesters =
             if (year != null && semester != null) {
                 val parsed = Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
@@ -85,8 +87,8 @@ class CourseController(
             } else {
                 emptyList()
             }
-        return courseSearchService
-            .search(
+        val page =
+            courseSearchService.search(
                 CourseSearchCriteria(
                     query = query,
                     classification = classification.orEmpty(),
@@ -95,9 +97,10 @@ class CourseController(
                     credit = credit.orEmpty(),
                     category = category.orEmpty(),
                     yearSemesters = yearSemesters,
-                    page = page,
                 ),
-            ).map { it.toResponse() }
+                cursor,
+            )
+        return page.map { it.toResponse() }
     }
 
     @GetMapping("/{courseId}")

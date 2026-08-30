@@ -17,13 +17,15 @@ class V1CompatEvExceptionHandler {
         val evCode = EV_ERROR_CODE_MAP[e.error] ?: return e.toV1ErrorResponse()
         return ResponseEntity
             .status(e.error.httpStatus)
-            .body(mapOf("error" to mapOf("code" to evCode, "message" to e.errorMessage)))
+            .body(mapOf("error" to mapOf("code" to evCode, "message" to e.displayMessage)))
     }
 
     companion object {
         private val EV_ERROR_CODE_MAP =
             mapOf(
+                ErrorType.INVALID_CURSOR to 20001,
                 ErrorType.EVALUATION_CONTENT_BLANK to 20004,
+                ErrorType.INVALID_EVALUATION_SORT to 20005,
                 ErrorType.NOT_MY_EVALUATION to 23001,
                 ErrorType.LECTURE_NOT_FOUND to 24001,
                 ErrorType.EV_DATA_NOT_FOUND to 24001,

@@ -12,8 +12,6 @@ import com.wafflestudio.snutt.core.domain.user.service.EmailVerificationService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
-import com.wafflestudio.snutt.v1compat.snutt.dto.KST
-import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTime
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -23,14 +21,13 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.time.LocalDateTime
-import java.time.ZonedDateTime
+import java.time.Instant
 
 data class LegacyUserDto(
     val id: String,
     val isAdmin: Boolean,
-    val regDate: LocalDateTime,
-    val notificationCheckedAt: LocalDateTime,
+    val regDate: Instant,
+    val notificationCheckedAt: Instant,
     val email: String?,
     val localId: String?,
     val fbName: String?,
@@ -39,8 +36,8 @@ data class LegacyUserDto(
 
 data class LegacyUserInfoDto(
     val isAdmin: Boolean,
-    val regDate: ZonedDateTime,
-    val notificationCheckedAt: ZonedDateTime,
+    val regDate: Instant,
+    val notificationCheckedAt: Instant,
     val email: String?,
     @param:JsonProperty("local_id")
     val localId: String?,
@@ -226,8 +223,8 @@ internal fun User.toLegacyUserDto(fbName: String?) =
     LegacyUserDto(
         id = id!!.toString(),
         isAdmin = isAdmin,
-        regDate = checkNotNull(createdAt).toLegacyLocalDateTime(),
-        notificationCheckedAt = notificationCheckedAt.toLegacyLocalDateTime(),
+        regDate = checkNotNull(createdAt),
+        notificationCheckedAt = notificationCheckedAt,
         email = email,
         localId = localId,
         fbName = fbName,
@@ -237,8 +234,8 @@ internal fun User.toLegacyUserDto(fbName: String?) =
 internal fun User.toLegacyUserInfoDto(fbName: String?) =
     LegacyUserInfoDto(
         isAdmin = isAdmin,
-        regDate = checkNotNull(createdAt).atZone(KST),
-        notificationCheckedAt = notificationCheckedAt.atZone(KST),
+        regDate = checkNotNull(createdAt),
+        notificationCheckedAt = notificationCheckedAt,
         email = email,
         localId = localId,
         fbName = fbName,

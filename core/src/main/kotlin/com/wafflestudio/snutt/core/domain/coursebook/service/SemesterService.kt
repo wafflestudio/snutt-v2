@@ -11,7 +11,6 @@ data class YearAndSemester(
     val semester: Semester,
 )
 
-/** 학사일정 표는 SemesterCalendar의 단일 구현을 사용한다 */
 @Service
 class SemesterService {
     fun getCurrentYearAndSemester(currentTime: Instant): YearAndSemester? =

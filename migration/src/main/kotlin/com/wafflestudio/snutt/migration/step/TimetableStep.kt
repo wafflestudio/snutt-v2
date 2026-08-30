@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
@@ -31,7 +32,7 @@ class TimetableStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "timetable"
-    override val tables = listOf("timetable_lecture_reminder", "timetable_lecture", "timetable")
+    override val tables = listOf("timetable_lecture_reminder_schedule", "timetable_lecture_reminder", "timetable_lecture", "timetable")
 
     override fun run() {
         val timetableIds = IdSequence()
@@ -46,10 +47,11 @@ class TimetableStep(
                     val userId = context.userIds[doc.oid("user_id")]
                     if (userId == null) {
                         skipped++
-                        context.resolved("사용자가 없는 시간표를 제외")
+                        context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
                         return@each
                     }
                     val id = timetableIds.next()
+                    context.timetableIds[doc.id()] = id
                     val year = doc.int("year") ?: 0
                     val semester = doc.int("semester") ?: 1
                     val updatedAt = doc.instant("updated_at").orNow().toSqlTimestamp()
@@ -110,6 +112,7 @@ class TimetableStep(
                     "created_at",
                     "updated_at",
                 ),
+                parent = reminderOut,
             ).use { scheduleOut ->
                 mongo.each("timetableLectureReminder") { doc ->
                     val timetableLectureId =
@@ -180,8 +183,7 @@ class TimetableStep(
                 override(int("credit")) { it.credit }?.let { put("credit", it) }
                 override(str("remark")) { it.remark }?.let { put("remark", it) }
                 if (classTimeChanged) {
-                    val times = places.map { it.toClassPlaceAndTime() }
-                    if (times.isNotEmpty()) put("classPlaceAndTimes", times)
+                    put("classPlaceAndTimes", places.map { it.toClassPlaceAndTime() })
                 }
                 override(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
                 override(str("category")) { it.category }?.let { put("category", it) }

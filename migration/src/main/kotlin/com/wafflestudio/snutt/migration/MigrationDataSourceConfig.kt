@@ -23,10 +23,19 @@ class MigrationDataSourceConfig {
     ): DataSource =
         DataSourceBuilder
             .create()
-            .url(url)
+            .url(utcJdbcUrl(url))
             .username(username)
             .password(password)
             .build()
+
+    companion object {
+        fun utcJdbcUrl(url: String): String =
+            if (url.contains("connectionTimeZone") || url.contains("serverTimezone")) {
+                url
+            } else {
+                url + (if (url.contains('?')) "&" else "?") + "connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
+            }
+    }
 
     @Bean
     fun jdbcTemplate(dataSource: DataSource): JdbcTemplate = JdbcTemplate(dataSource)
@@ -73,7 +82,7 @@ class EvSource(
         JdbcTemplate(
             DataSourceBuilder
                 .create()
-                .url(url)
+                .url(MigrationDataSourceConfig.utcJdbcUrl(url))
                 .username(username)
                 .password(password)
                 .build(),

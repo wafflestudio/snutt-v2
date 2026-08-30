@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
@@ -113,7 +114,7 @@ fun LegacyTimetableLectureDto(
         colorIndex = display.colorIndex,
         lectureId = display.lectureId?.toString(),
         snuttEvLecture = evLectureId?.let { LegacyEvLectureIdDto(it) },
-        categoryPre2025 = display.categoryPre2025,
+        categoryPre2025 = display.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
     )
 
 data class LegacyEvLectureIdDto(

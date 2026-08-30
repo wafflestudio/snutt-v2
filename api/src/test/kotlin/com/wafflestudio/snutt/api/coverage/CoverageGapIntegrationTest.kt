@@ -249,9 +249,9 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             ),
         )
 
-        val response = get("/v2/themes/friends?page=0", userAToken)
+        val response = get("/v2/themes/friends", userAToken)
         assertEquals(200, response.statusCode.value())
-        val themes = body(response)
+        val themes = body(response)["content"]
         assertEquals(1, themes.size())
         assertEquals("친구가공유한테마", themes[0]["publishName"].asString())
     }

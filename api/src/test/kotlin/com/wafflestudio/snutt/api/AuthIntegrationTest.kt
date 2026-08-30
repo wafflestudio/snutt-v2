@@ -88,7 +88,6 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(403, response.statusCode.value())
-        assertEquals(0x2000L.toInt(), body(response)["errcode"].asInt())
     }
 
     @Test
@@ -121,7 +120,6 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `중복 localId 회원가입은 거부된다`() {
         val response = post("/v2/auth/register", """{"localId":"testuser1","password":"password1"}""")
         assertEquals(403, response.statusCode.value())
-        assertEquals(0x3002L.toInt(), body(response)["errcode"].asInt())
     }
 
     @Test

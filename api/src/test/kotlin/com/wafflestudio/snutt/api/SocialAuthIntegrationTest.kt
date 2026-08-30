@@ -92,7 +92,7 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `구글 소셜 로그인으로 가입하고 재로그인해도 같은 계정이다`() {
         Mockito
             .`when`(googleClient.getMe("google-token"))
-            .thenReturn(OAuth2UserResponse(socialId = "g-sub-1", name = null, email = "gsocial@snu.ac.kr", isEmailVerified = true))
+            .thenReturn(OAuth2UserResponse(socialId = "g-sub-1", name = null, email = "gsocial@snu.ac.kr"))
 
         val first = post("/v2/auth/login/google", """{"token":"google-token"}""")
         assertEquals(200, first.statusCode.value(), "body=${first.body}")
@@ -117,7 +117,7 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
         Mockito
             .`when`(googleClient.getMe("google-token"))
-            .thenReturn(OAuth2UserResponse(socialId = "g-sub-2", name = null, email = null, isEmailVerified = false))
+            .thenReturn(OAuth2UserResponse(socialId = "g-sub-2", name = null, email = null))
 
         val attach = post("/v2/users/me/social/google", """{"token":"google-token"}""", accessToken)
         assertEquals(200, attach.statusCode.value(), "body=${attach.body}")
@@ -132,7 +132,7 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `마지막 로그인 수단은 해제할 수 없다`() {
         Mockito
             .`when`(googleClient.getMe("google-token"))
-            .thenReturn(OAuth2UserResponse(socialId = "g-sub-3", name = null, email = "glast@snu.ac.kr", isEmailVerified = true))
+            .thenReturn(OAuth2UserResponse(socialId = "g-sub-3", name = null, email = "glast@snu.ac.kr"))
         val login = post("/v2/auth/login/google", """{"token":"google-token"}""")
         val accessToken = body(login)["accessToken"].asString()
 
@@ -149,7 +149,6 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
                     socialId = "apple-sub-1",
                     name = null,
                     email = "applesocial@snu.ac.kr",
-                    isEmailVerified = true,
                     transferInfo = "transfer-1",
                 ),
             )
@@ -157,7 +156,6 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, first.statusCode.value(), "body=${first.body}")
         val userId = body(first)["userId"].asLong()
 
-        // 애플이 sub를 갱신하면 transfer sub로 기존 계정을 찾아 연결 정보를 갱신한다
         Mockito
             .`when`(appleClient.getMe("apple-token-2"))
             .thenReturn(
@@ -165,14 +163,12 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
                     socialId = "apple-sub-2",
                     name = null,
                     email = "applesocial@snu.ac.kr",
-                    isEmailVerified = true,
                     transferInfo = "transfer-1",
                 ),
             )
         val relogin = post("/v2/auth/login/apple", """{"token":"apple-token-2"}""")
         assertEquals(userId, body(relogin)["userId"].asLong())
 
-        // 갱신된 sub로 직접 로그인 가능해야 한다
         val again = post("/v2/auth/login/apple", """{"token":"apple-token-2"}""")
         assertEquals(userId, body(again)["userId"].asLong())
     }

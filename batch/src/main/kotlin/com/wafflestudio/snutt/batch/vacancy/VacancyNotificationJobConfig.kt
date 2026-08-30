@@ -115,6 +115,7 @@ class VacancyNotificationJobConfig(
                     type = NotificationType.LECTURE_VACANCY,
                     preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
                     urlScheme = "snutt://vacancy",
+                    isUrgentOnAndroid = true,
                 )
             }
             Thread.sleep(DELAY_PER_CHUNK_MS)

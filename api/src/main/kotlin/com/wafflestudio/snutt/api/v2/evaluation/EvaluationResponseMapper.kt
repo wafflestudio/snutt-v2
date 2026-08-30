@@ -3,14 +3,7 @@ package com.wafflestudio.snutt.api.v2.evaluation
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
 
-internal fun CursorPage<EvaluationDisplay>.toEvaluationResponsePage(): CursorPage<EvaluationResponse> =
-    CursorPage(
-        content = content.toEvaluationResponses(),
-        cursor = cursor,
-        size = size,
-        last = last,
-        totalCount = totalCount,
-    )
+internal fun CursorPage<EvaluationDisplay>.toEvaluationResponsePage(): CursorPage<EvaluationResponse> = map { it.toEvaluationResponse() }
 
 internal fun List<EvaluationDisplay>.toEvaluationResponses(): List<EvaluationResponse> = map { it.toEvaluationResponse() }
 

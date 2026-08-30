@@ -2,23 +2,28 @@ package com.wafflestudio.snutt.v1compat.ev
 
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
+import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.PropertyNamingStrategies
+import tools.jackson.databind.annotation.JsonNaming
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
+    val totalCount: Int = content.size,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLectureDto(
     val id: Long?,
-    val semesterLectureId: String,
     val title: String,
     val instructor: String,
     val department: String?,
@@ -36,10 +41,9 @@ data class LegacyTakenLectureDto(
 class V1CompatTakenLectureController(
     private val takenLectureService: TakenLectureService,
 ) {
-    @RequestMapping(
-        value = ["/users/me/lectures/latest"],
-        method = [RequestMethod.GET, RequestMethod.POST],
-    )
+    // 구 백엔드는 클라이언트 요청을 가로채 서버 시간표에서 최근 2개 학기 강의를 조립해
+    // snutt-ev에 전달했다. 클라이언트는 snutt_lecture_info를 보내지 않는다.
+    @GetMapping("/users/me/lectures/latest")
     fun getMyLatestLectures(
         @V1CurrentUser user: User,
         @RequestParam(required = false) filter: String?,
@@ -48,34 +52,40 @@ class V1CompatTakenLectureController(
             content =
                 takenLectureService
                     .getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
-                    .map {
-                        LegacyTakenLectureDto(
-                            id = it.course.id,
-                            semesterLectureId = it.lectureId.toString(),
-                            title = it.course.title,
-                            instructor = it.course.instructor,
-                            department = it.course.department,
-                            courseNumber = it.course.courseNumber,
-                            credit = it.course.credit,
-                            academicYear = it.course.academicYear,
-                            category = it.course.category,
-                            classification = it.course.classification,
-                            takenYear = it.takenYear,
-                            takenSemester = it.takenSemester.value,
-                        )
-                    },
+                    .map { it.toLegacyTakenLecture() },
+        )
+
+    private fun LectureTakenByUser.toLegacyTakenLecture() =
+        LegacyTakenLectureDto(
+            id = course.id,
+            title = course.title,
+            instructor = course.instructor,
+            department = course.department,
+            courseNumber = course.courseNumber,
+            credit = course.credit,
+            academicYear = course.academicYear,
+            category = course.category,
+            classification = course.classification,
+            takenYear = takenYear,
+            takenSemester = takenSemester.value,
         )
 }
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacySearchTagGroupsResponse(
     val tagGroups: List<LegacyEvTagGroupDto>,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseSearchResponse(
     val content: List<LegacyCourseDto>,
+    val page: Int,
+    val size: Int,
+    val last: Boolean,
     val totalCount: Long,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseDto(
     val id: Long?,
     val title: String,
@@ -86,10 +96,16 @@ data class LegacyCourseDto(
     val academicYear: String?,
     val category: String?,
     val classification: String?,
-    val evaluationCount: Long,
-    val avgRating: Double?,
+    val evaluation: LegacyCourseEvaluationSummaryDto,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+data class LegacyCourseEvaluationSummaryDto(
+    val avgRating: Double?,
+    val evaluationCount: Long,
+)
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseWithSemestersResponse(
     val id: Long?,
     val title: String,
@@ -100,23 +116,30 @@ data class LegacyCourseWithSemestersResponse(
     val academicYear: String?,
     val category: String?,
     val classification: String?,
-    val evaluationCount: Long,
-    val avgRating: Double?,
     val semesterLectures: List<LegacySemesterLectureDto>,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacySemesterLectureDto(
-    val id: String,
+    val id: Long,
     val year: Int,
     val semester: Int,
+    val credit: Int,
+    val extraInfo: String,
+    val academicYear: String,
+    val category: String,
+    val classification: String,
     val myEvaluationExists: Boolean,
 )
+
+private const val LEGACY_COURSE_PAGE_SIZE = 20
 
 @RestController
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
+    private val lectureService: LectureService,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -127,10 +150,15 @@ class V1CompatCourseSearchController(
         @RequestParam(required = false, defaultValue = "0") page: Int,
         @RequestParam(required = false) tags: List<Long>?,
     ): LegacyCourseSearchResponse {
-        val criteria = legacySearchTagService.toCriteria(query, page, tags.orEmpty())
+        val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty())
+        val content = courseSearchService.searchPage(criteria, page, LEGACY_COURSE_PAGE_SIZE)
+        val totalCount = courseSearchService.count(criteria)
         return LegacyCourseSearchResponse(
-            content = courseSearchService.search(criteria).map { it.toLegacyCourse() },
-            totalCount = courseSearchService.count(criteria),
+            content = content.map { it.toLegacyCourse() },
+            page = page,
+            size = LEGACY_COURSE_PAGE_SIZE,
+            last = (page.toLong() + 1) * LEGACY_COURSE_PAGE_SIZE >= totalCount,
+            totalCount = totalCount,
         )
     }
 
@@ -141,6 +169,7 @@ class V1CompatCourseSearchController(
     ): LegacyCourseWithSemestersResponse {
         val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
         val course = result.course
+        val lecturesById = lectureService.getAllByIds(result.semesters.map { it.lectureId })
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = course.title,
@@ -151,14 +180,18 @@ class V1CompatCourseSearchController(
             academicYear = course.academicYear,
             category = course.category,
             classification = course.classification,
-            evaluationCount = course.evalCount,
-            avgRating = course.avgRating,
             semesterLectures =
                 result.semesters.map {
+                    val lecture = checkNotNull(lecturesById[it.lectureId])
                     LegacySemesterLectureDto(
-                        id = it.lectureId.toString(),
+                        id = it.lectureId,
                         year = it.year,
                         semester = it.semester.value,
+                        credit = lecture.credit,
+                        extraInfo = lecture.remark.orEmpty(),
+                        academicYear = lecture.academicYear.orEmpty(),
+                        category = lecture.category.orEmpty(),
+                        classification = lecture.classification.orEmpty(),
                         myEvaluationExists = it.myEvaluationExists,
                     )
                 },
@@ -177,6 +210,5 @@ private fun Course.toLegacyCourse(): LegacyCourseDto =
         academicYear = academicYear,
         category = category,
         classification = classification,
-        evaluationCount = evalCount,
-        avgRating = avgRating,
+        evaluation = LegacyCourseEvaluationSummaryDto(avgRating = avgRating, evaluationCount = evalCount),
     )

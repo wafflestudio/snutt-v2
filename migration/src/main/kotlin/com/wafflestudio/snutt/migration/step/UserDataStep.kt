@@ -34,6 +34,8 @@ class UserDataStep(
             "push_preference",
             "friend",
             "diary_submission",
+            "diary_submission_daily_class_type",
+            "diary_submission_answer",
         )
 
     override fun run() {
@@ -243,10 +245,12 @@ class UserDataStep(
             writer(
                 "diary_submission_daily_class_type",
                 listOf("id", "submission_id", "daily_class_type_id", "created_at", "updated_at"),
+                parent = out,
             ).use { dctOut ->
                 writer(
                     "diary_submission_answer",
                     listOf("id", "submission_id", "question_id", "answer_index", "created_at", "updated_at"),
+                    parent = out,
                 ).use { answerOut ->
                     mongo.each("diarySubmission") { doc ->
                         val userId = context.userIds[doc.oid("userId")] ?: return@each

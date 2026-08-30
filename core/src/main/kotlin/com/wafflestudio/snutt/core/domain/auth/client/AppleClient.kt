@@ -37,7 +37,6 @@ class AppleClient(
             socialId = claims.subject,
             name = null,
             email = claims["email"] as? String,
-            isEmailVerified = claims["email_verified"] as? Boolean ?: true,
             transferInfo = claims["transfer_sub"] as? String,
         )
     }

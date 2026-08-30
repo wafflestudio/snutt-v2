@@ -7,6 +7,7 @@ import com.google.firebase.messaging.AndroidConfig
 import com.google.firebase.messaging.AndroidNotification
 import com.google.firebase.messaging.ApnsConfig
 import com.google.firebase.messaging.Aps
+import com.google.firebase.messaging.ApsAlert
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service
 @Profile("!test")
 class FcmPushClient(
     @Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
+    @Value("\${snutt.fcm.ios-bundle-id:}") private val iosBundleId: String,
 ) : PushClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -71,54 +73,81 @@ class FcmPushClient(
         }.onFailure { log.error("글로벌 토픽 구독 해제 실패", it) }
     }
 
-    private fun TopicPushMessage.toFcmTopicMessage(): Message {
-        val builder =
-            Message
-                .builder()
-                .setTopic(topic)
-        return builder.buildNotification(title, body, urlScheme).build()
-    }
+    private fun TopicPushMessage.toFcmTopicMessage(): Message =
+        Message
+            .builder()
+            .setTopic(topic)
+            .buildMessage(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
+            .build()
 
     // setFid 전환은 클라이언트가 FID를 등록해야 가능하다. 저장된 값은 registration token이므로 setToken을 유지한다
     @Suppress("DEPRECATION")
-    private fun TargetedPushMessage.toFcmMessage(): Message {
-        val builder =
-            Message
-                .builder()
-                .setToken(fcmRegistrationId)
-        return builder.buildNotification(title, body, urlScheme).build()
-    }
+    private fun TargetedPushMessage.toFcmMessage(): Message =
+        Message
+            .builder()
+            .setToken(fcmRegistrationId)
+            .buildMessage(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
+            .build()
 
-    private fun Message.Builder.buildNotification(
+    private fun Message.Builder.buildMessage(
         title: String,
         body: String,
         urlScheme: String?,
+        isUrgentOnAndroid: Boolean,
+        shouldSendAsDataMessage: Boolean,
+        data: Map<String, String>,
     ): Message.Builder {
-        setNotification(
-            Notification
+        setAndroidConfig(
+            AndroidConfig
                 .builder()
-                .setTitle(title)
-                .setBody(body)
-                .build(),
+                .setPriority(
+                    if (isUrgentOnAndroid) AndroidConfig.Priority.HIGH else AndroidConfig.Priority.NORMAL,
+                ).apply {
+                    urlScheme?.let { scheme ->
+                        setNotification(AndroidNotification.builder().setClickAction(scheme).build())
+                    }
+                }.build(),
         )
-        urlScheme?.let { scheme ->
-            setAndroidConfig(
-                AndroidConfig
+        setApnsConfig(
+            ApnsConfig
+                .builder()
+                .putHeader("apns-push-type", "alert")
+                .putHeader("apns-priority", "5")
+                .apply { if (iosBundleId.isNotBlank()) putHeader("apns-topic", iosBundleId) }
+                .setAps(
+                    Aps
+                        .builder()
+                        .setAlert(
+                            ApsAlert
+                                .builder()
+                                .setTitle(title)
+                                .setBody(body)
+                                .build(),
+                        ).setContentAvailable(true)
+                        .build(),
+                ).build(),
+        )
+        if (shouldSendAsDataMessage) {
+            putData(TITLE_KEY, title)
+            putData(BODY_KEY, body)
+        } else {
+            setNotification(
+                Notification
                     .builder()
-                    .setNotification(AndroidNotification.builder().setClickAction(scheme).build())
-                    .build(),
-            )
-            setApnsConfig(
-                ApnsConfig
-                    .builder()
-                    .setAps(Aps.builder().setCategory(scheme).build())
+                    .setTitle(title)
+                    .setBody(body)
                     .build(),
             )
         }
+        urlScheme?.let { putData(URL_SCHEME_KEY, it) }
+        putAllData(data)
         return this
     }
 
     companion object {
         private const val FCM_MESSAGE_COUNT_LIMIT = 500
+        private const val TITLE_KEY = "title"
+        private const val BODY_KEY = "body"
+        private const val URL_SCHEME_KEY = "url_scheme"
     }
 }

@@ -10,5 +10,9 @@ data class CourseSearchCriteria(
     val department: List<String> = emptyList(),
     val category: List<String> = emptyList(),
     val yearSemesters: List<YearAndSemester> = emptyList(),
-    val page: Int = 0,
+)
+
+data class CourseSearchCursor(
+    val evalCount: Long,
+    val courseId: Long,
 )

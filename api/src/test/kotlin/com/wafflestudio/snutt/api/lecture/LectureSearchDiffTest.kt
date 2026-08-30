@@ -13,6 +13,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -53,6 +54,9 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var lectureSearchRepository: LectureSearchRepository
+
+    @Autowired
+    lateinit var lectureService: LectureService
 
     @LocalServerPort
     var port = 0
@@ -97,7 +101,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
     // 실 데이터: classification은 교과구분 약어, category는 교양영역(교양/교직 강의에만 값 존재)
     private val classifications = listOf("전선", "전필", "교양", "일선", "논문", "교직")
 
-    // 2025년 이후 신규 교양영역 (category)
     private val liberalAreas =
         listOf("수학과학컴퓨팅", "외국어", "글쓰기와 말하기", "예술과 체육", "지식의 세계", "역사적 탐구와 철학적 사유", "문화 해석과 상상", "자율과 창의", "교과교육", "학부생 세미나")
 
@@ -126,7 +129,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
     ): SeedLecture {
         val instructor = instructors[random.nextInt(instructors.size)]
         val classification = classifications[random.nextInt(classifications.size)]
-        // category(교양영역)는 교양/교직 강의에만 채워지고 전공·논문 등은 null이다
         val category =
             if (classification == "교양" || classification == "교직") {
                 liberalAreas[random.nextInt(liberalAreas.size)]
@@ -171,7 +173,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         }
         val explicit =
             listOf(
-                // 체육 특수어(keyword == "체육" -> category == "체육") 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -220,7 +221,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "ⓜⓞ",
                     listOf(ReferenceClassTime(DayOfWeek.WEDNESDAY, "302-102", 570, 660)),
                 ),
-                // post-2025 교양영역(category) + 권장과목 특수어 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -253,7 +253,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     null,
                     listOf(ReferenceClassTime(DayOfWeek.THURSDAY, "43-1-303", 780, 870)),
                 ),
-                // post-2025 category + pre2025 구 교양영역(categoryPre2025) 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -358,13 +357,24 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             }
     }
 
+    private data class SearchCase(
+        val criteria: LectureSearchCriteria,
+        val offset: Long,
+        val limit: Int,
+    )
+
     private fun assertSearch(
         name: String,
-        criteria: LectureSearchCriteria,
+        case: SearchCase,
         expectNonEmpty: Boolean = true,
     ) {
-        val reference = LectureSearchReference.search(referenceLectures, criteria).map { it.id }
-        val sql = lectureSearchRepository.search(criteria).map { checkNotNull(it.id) }
+        val reference =
+            LectureSearchReference.search(referenceLectures, case.criteria, case.offset, case.limit).map { it.id }
+        val sql =
+            lectureSearchRepository
+                .search(case.criteria, null, (case.offset + case.limit).toInt())
+                .drop(case.offset.toInt())
+                .map { checkNotNull(it.lecture.id) }
         if (expectNonEmpty) {
             assertEquals(true, reference.isNotEmpty(), "corpus[$name]: 참조 결과가 비어 있음 — 데이터셋 확인 필요")
         }
@@ -386,23 +396,26 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         offset: Long = 0,
         limit: Int = 20,
         sort: LectureSort = LectureSort.DEFAULT,
-    ) = LectureSearchCriteria(
-        year = 2026,
-        semester = Semester.AUTUMN,
-        query = query,
-        classification = classification,
-        credit = credit,
-        courseNumber = courseNumber,
-        academicYear = academicYear,
-        department = department,
-        category = category,
-        categoryPre2025 = categoryPre2025,
-        etcTags = etcTags,
-        times = times,
-        timesToExclude = timesToExclude,
+    ) = SearchCase(
+        criteria =
+            LectureSearchCriteria(
+                year = 2026,
+                semester = Semester.AUTUMN,
+                query = query,
+                classification = classification,
+                credit = credit,
+                courseNumber = courseNumber,
+                academicYear = academicYear,
+                department = department,
+                category = category,
+                categoryPre2025 = categoryPre2025,
+                etcTags = etcTags,
+                times = times,
+                timesToExclude = timesToExclude,
+                sort = sort,
+            ),
         offset = offset,
         limit = limit,
-        sort = sort,
     )
 
     @Test
@@ -479,6 +492,32 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
         assertEquals(200, response.statusCode())
         assertTrue(response.body().contains("courseTitle"))
+    }
+
+    @Test
+    fun `기본 및 평점 및 개수 정렬에서 커서 기반 페이지네이션이 연속된 결과를 올바르게 반환한다`() {
+        listOf(LectureSort.DEFAULT, LectureSort.RATING_DESC, LectureSort.COUNT_DESC).forEach { sort ->
+            val criteria =
+                LectureSearchCriteria(
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    sort = sort,
+                )
+            val fullResults = lectureService.search(criteria, null, limit = 50).content
+            val page1 = lectureService.search(criteria, null, limit = 5)
+            assertEquals(5, page1.content.size)
+            assertEquals(false, page1.last)
+            val cursor1 = page1.cursor
+
+            val page2 = lectureService.search(criteria, cursor1, limit = 5)
+            assertEquals(5, page2.content.size)
+            val page1Ids = page1.content.map { it.lecture.id }
+            val page2Ids = page2.content.map { it.lecture.id }
+            assertEquals(emptySet<Long?>(), page1Ids.intersect(page2Ids.toSet()))
+
+            assertEquals(fullResults.take(5).map { it.lecture.id }, page1Ids)
+            assertEquals(fullResults.drop(5).take(5).map { it.lecture.id }, page2Ids)
+        }
     }
 }
 

@@ -1,19 +1,22 @@
 package com.wafflestudio.snutt.api.error
 
+import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.UpstreamException
+import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.servlet.HandlerMapping
 import org.springframework.web.ErrorResponse as SpringErrorResponse
 
 data class ErrorResponse(
     val errcode: Long,
     val title: String,
-    val message: String,
     val displayMessage: String,
 )
 
@@ -29,10 +32,37 @@ class SnuttExceptionHandler {
                 ErrorResponse(
                     errcode = e.error.errorCode,
                     title = e.title,
-                    message = e.errorMessage,
                     displayMessage = e.displayMessage,
                 ),
             )
+
+    @ExceptionHandler(UpstreamException::class)
+    fun handleUpstreamException(
+        e: UpstreamException,
+        request: HttpServletRequest,
+    ): ResponseEntity<ErrorResponse> {
+        val userId = request.getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE) as? Long
+        val path = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)?.toString() ?: request.requestURI
+        log.error(
+            "upstream failure: {} {} provider={} -> {} userId={} query={}",
+            request.method,
+            path,
+            e.provider,
+            e.error.httpStatus.value(),
+            userId,
+            request.queryString,
+            e,
+        )
+        return ResponseEntity
+            .status(e.error.httpStatus)
+            .body(
+                ErrorResponse(
+                    errcode = e.error.errorCode,
+                    title = e.error.title,
+                    displayMessage = e.error.displayMessage,
+                ),
+            )
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(e: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
@@ -47,8 +77,7 @@ class SnuttExceptionHandler {
                 ErrorResponse(
                     errcode = error.errorCode,
                     title = error.title,
-                    message = "잘못된 값입니다. (request body: $fieldName)",
-                    displayMessage = error.displayMessage,
+                    displayMessage = "잘못된 값입니다. (request body: $fieldName)",
                 ),
             )
     }
@@ -63,22 +92,24 @@ class SnuttExceptionHandler {
                     ErrorResponse(
                         errcode = status * 100L,
                         title = "요청을 처리할 수 없습니다",
-                        message = "요청을 처리할 수 없습니다",
                         displayMessage = "요청을 처리할 수 없습니다",
                     ),
                 )
         }
         log.error("unhandled exception", e)
-        val error = ErrorType.DEFAULT_ERROR
         return ResponseEntity
             .status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(
                 ErrorResponse(
-                    errcode = error.errorCode,
-                    title = error.title,
-                    message = error.errorMessage,
-                    displayMessage = error.displayMessage,
+                    errcode = INTERNAL_ERROR_CODE,
+                    title = INTERNAL_ERROR_MESSAGE,
+                    displayMessage = INTERNAL_ERROR_MESSAGE,
                 ),
             )
+    }
+
+    companion object {
+        private const val INTERNAL_ERROR_CODE = 50000L
+        private const val INTERNAL_ERROR_MESSAGE = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요"
     }
 }

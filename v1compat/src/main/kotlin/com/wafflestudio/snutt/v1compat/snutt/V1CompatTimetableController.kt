@@ -5,10 +5,10 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 
 data class LegacyTimetableBriefDto(
     @param:JsonProperty("_id")
@@ -44,7 +45,7 @@ data class LegacyTimetableBriefDto(
     val title: String,
     val isPrimary: Boolean,
     @param:JsonProperty("updated_at")
-    val updatedAt: Long,
+    val updatedAt: Instant,
     @param:JsonProperty("total_credit")
     val totalCredit: Int,
 )
@@ -71,7 +72,6 @@ class V1CompatTimetableController(
     private val timetableLectureService: TimetableLectureService,
     private val timetableThemeService: TimetableThemeService,
     private val lectureService: LectureService,
-    private val evaluationService: EvaluationService,
 ) {
     @GetMapping("")
     fun getTimetableBriefs(
@@ -85,7 +85,7 @@ class V1CompatTimetableController(
                 semester = brief.semester,
                 title = brief.title,
                 isPrimary = brief.isPrimary,
-                updatedAt = brief.updatedAt.toEpochMilli(),
+                updatedAt = brief.updatedAt,
                 totalCredit = brief.totalCredit,
             )
         }
@@ -169,6 +169,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
         @RequestBody body: LegacyTimetableModifyThemeRequest,
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val themeId =
@@ -180,12 +181,7 @@ class V1CompatTimetableController(
                         ),
                     ).id!!
         val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeId)
-        return LegacyTimetableDto(
-            timetable = display.timetable,
-            userId = user.id!!.toString(),
-            display = display,
-            evLectureIds = emptyMap(),
-        )
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     @PostMapping("/{timetableId}/primary")
@@ -297,6 +293,10 @@ class V1CompatTimetableController(
                     remark = body.remark,
                     color = body.color?.toColorSet(),
                     colorIndex = body.colorIndex,
+                    academicYear = body.academicYear,
+                    category = body.category,
+                    classification = body.classification,
+                    categoryPre2025 = body.categoryPre2025?.let { LectureCategoryPre2025.toKorean(it) },
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
@@ -342,10 +342,10 @@ class V1CompatTimetableController(
 
     private fun fetchEvLectureIds(lectureIds: List<Long>): Map<String, Long> {
         if (lectureIds.isEmpty()) return emptyMap()
-        val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
-        return lectureIds
-            .filter { it in summaries }
-            .associate { it.toString() to it }
+        val lectures = lectureService.getAllByIds(lectureIds)
+        return lectures
+            .mapNotNull { (lectureId, lecture) -> lecture.courseId?.let { lectureId.toString() to it } }
+            .toMap()
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
@@ -398,6 +398,11 @@ data class LegacyCustomLectureRequest(
 data class LegacyModifyLectureRequest(
     @param:JsonProperty("course_title")
     val courseTitle: String? = null,
+    @param:JsonProperty("academic_year")
+    val academicYear: String? = null,
+    val category: String? = null,
+    val classification: String? = null,
+    val categoryPre2025: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
     @param:JsonProperty("class_time_json")

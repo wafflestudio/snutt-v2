@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.diary.model.QuestionAnswer
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
@@ -26,7 +27,6 @@ import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
-import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTime
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -38,7 +38,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.LocalDateTime
+import java.time.Instant
 
 data class LegacyThemeDto(
     val id: String?,
@@ -147,13 +147,14 @@ class V1CompatThemeController(
     fun getBestThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getBestThemes(page - 1, LEGACY_THEME_PAGE_SIZE))
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, legacyPage(page) { cursor -> timetableThemeService.getBestThemes(cursor) })
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.getFriendsThemes(user.id!!, page - 1, LEGACY_THEME_PAGE_SIZE))
+    ): LegacyPageResponse<LegacyThemeDto> =
+        wrap(user, legacyPage(page) { cursor -> timetableThemeService.getFriendsThemes(user.id!!, cursor) })
 
     @PostMapping("/search")
     fun searchThemes(
@@ -237,7 +238,7 @@ class V1CompatThemeController(
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
         // 구버전(3.5.0)과 동일하게 기본 테마를 직접 지정할 수 없으며 현재 기본값을 그대로 반환한다
-        BasicThemeType.fromValue(basicThemeTypeValue) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        basicThemeType(basicThemeTypeValue)
         return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.id!!.toString(), null)
     }
 
@@ -246,13 +247,36 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        val basicThemeType = BasicThemeType.fromValue(basicThemeTypeValue) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val basicThemeType = basicThemeType(basicThemeTypeValue)
         val current = timetableThemeService.getDefaultTheme(user.id!!)
         if (!current.isCustom && current.builtinType != basicThemeType.value) {
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
         }
         return current.toLegacy(user.id!!.toString(), null)
     }
+
+    private fun <T> legacyPage(
+        page: Int,
+        load: (String?) -> CursorPage<T>,
+    ): List<T> {
+        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val end = page * LEGACY_THEME_PAGE_SIZE
+        val all = mutableListOf<T>()
+        var cursor: String? = null
+        while (all.size < end) {
+            val result = load(cursor)
+            all += result.content
+            cursor = result.cursor ?: break
+        }
+        return all.drop((page - 1) * LEGACY_THEME_PAGE_SIZE).take(LEGACY_THEME_PAGE_SIZE)
+    }
+
+    private fun basicThemeType(value: Int): BasicThemeType =
+        try {
+            BasicThemeType.fromValue(value)
+        } catch (_: IllegalArgumentException) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
 
     private fun wrap(
         user: User,
@@ -312,7 +336,7 @@ data class LegacyDiarySemesterSubmissionsDto(
 data class LegacyDiarySubmissionDto(
     val id: String,
     val lectureId: Long?,
-    val date: LocalDateTime,
+    val date: Instant,
     val courseTitle: String,
     val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
     val comment: String,
@@ -399,7 +423,7 @@ class V1CompatDiaryController(
                             LegacyDiarySubmissionDto(
                                 id = submission.id!!.toString(),
                                 lectureId = submission.lectureId,
-                                date = checkNotNull(submission.createdAt).toLegacyLocalDateTime(),
+                                date = checkNotNull(submission.createdAt),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
                                     (replies[submission.id] ?: emptyList()).map {

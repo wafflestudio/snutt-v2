@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
@@ -38,7 +39,12 @@ class EvaluationStep(
     private fun loadAnchors(): Map<Long, Anchor> {
         val anchors = HashMap<Long, Anchor>(256_000)
         ev.jdbc.query("SELECT id, lecture_id, year, semester FROM semester_lecture") { rs ->
-            anchors[rs.getLong("id")] = Anchor(rs.getLong("lecture_id"), rs.getInt("year"), rs.getInt("semester"))
+            anchors[rs.getLong("id")] =
+                Anchor(
+                    courseId = rs.getLong("lecture_id"),
+                    year = rs.getInt("year"),
+                    semester = rs.getInt("semester"),
+                )
         }
         return anchors
     }
@@ -57,7 +63,7 @@ class EvaluationStep(
                 val id = rs.getLong("id")
                 val anchor = anchors[rs.getLong("semester_lecture_id")]
                 if (anchor == null) {
-                    context.resolved("개설을 찾을 수 없는 강의평을 제외")
+                    context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_ANCHOR_MISSING)
                     return@query
                 }
                 val userId = context.userIds[rs.getString("user_id")]
@@ -66,6 +72,7 @@ class EvaluationStep(
                     val key = "${anchor.courseId}\u0000${anchor.year}\u0000${anchor.semester}\u0000$userId"
                     val previous = authored.put(key, id)
                     if (previous != null) {
+                        out.flush()
                         jdbc.update("UPDATE evaluation SET is_hidden = TRUE WHERE id = ?", previous)
                         context.resolved("한 사용자가 같은 개설에 강의평을 여럿 남겨 이전 것을 숨김")
                     }

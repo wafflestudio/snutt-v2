@@ -18,6 +18,9 @@ data class TargetedPush(
     val title: String,
     val body: String,
     val urlScheme: String? = null,
+    val isUrgentOnAndroid: Boolean = false,
+    val shouldSendAsDataMessage: Boolean = false,
+    val data: Map<String, String> = emptyMap(),
 )
 
 @Service
@@ -33,6 +36,13 @@ class PushService(
         messagesByUserId: Map<Long, TargetedPush>,
         preferenceType: PushPreferenceType,
     ) {
+        sendToUsers(messagesByUserId, preferenceType)
+    }
+
+    private fun sendToUsers(
+        messagesByUserId: Map<Long, TargetedPush>,
+        preferenceType: PushPreferenceType,
+    ) {
         if (messagesByUserId.isEmpty()) return
         val disabledUserIds =
             pushPreferenceRepository
@@ -45,22 +55,34 @@ class PushService(
         sendToDevicesWithCleanup(
             devices.mapNotNull { device ->
                 targets[device.user.id]?.let {
-                    TargetedPushMessage(it.title, it.body, it.urlScheme, device.fcmRegistrationId)
+                    TargetedPushMessage(
+                        it.title,
+                        it.body,
+                        it.urlScheme,
+                        device.fcmRegistrationId,
+                        it.isUrgentOnAndroid,
+                        it.shouldSendAsDataMessage,
+                        it.data,
+                    )
                 }
             },
         )
     }
 
-    @Transactional
     fun sendGlobalPushAndNotification(
         title: String,
         body: String,
         type: NotificationType,
         urlScheme: String? = null,
+        isUrgentOnAndroid: Boolean = false,
+        shouldSendAsDataMessage: Boolean = false,
+        data: Map<String, String> = emptyMap(),
     ) {
-        pushClient.sendTopicMessage(TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC))
         notificationRepository.save(
             Notification(userId = null, title = title, message = body, type = type, deeplink = urlScheme),
+        )
+        pushClient.sendTopicMessage(
+            TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC, isUrgentOnAndroid, shouldSendAsDataMessage, data),
         )
     }
 
@@ -72,25 +94,16 @@ class PushService(
         type: NotificationType,
         preferenceType: PushPreferenceType,
         urlScheme: String? = null,
+        isUrgentOnAndroid: Boolean = false,
+        shouldSendAsDataMessage: Boolean = false,
+        data: Map<String, String> = emptyMap(),
     ) {
         if (userIds.isEmpty()) return
-        val disabledUserIds =
-            pushPreferenceRepository
-                .findByUserIdInAndTypeAndIsEnabledFalse(userIds, preferenceType)
-                .map { it.user.id!! }
-                .toSet()
-        val pushTargets = userIds.filter { it !in disabledUserIds }
-
-        val devices = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(pushTargets)
-        sendToDevicesWithCleanup(
-            devices.map { device ->
-                TargetedPushMessage(
-                    title = title,
-                    body = body,
-                    urlScheme = urlScheme,
-                    fcmRegistrationId = device.fcmRegistrationId,
-                )
+        sendToUsers(
+            userIds.associateWith {
+                TargetedPush(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
             },
+            preferenceType,
         )
         notificationRepository.saveAll(
             userIds.map { userId -> Notification(userId = userId, title = title, message = body, type = type, deeplink = urlScheme) },

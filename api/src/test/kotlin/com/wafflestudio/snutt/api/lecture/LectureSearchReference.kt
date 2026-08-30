@@ -39,6 +39,8 @@ object LectureSearchReference {
     fun search(
         lectures: List<ReferenceLecture>,
         criteria: LectureSearchCriteria,
+        offset: Long,
+        limit: Int,
     ): List<ReferenceLecture> {
         val filtered =
             lectures.filter {
@@ -53,7 +55,7 @@ object LectureSearchReference {
                 LectureSort.COUNT_DESC ->
                     filtered.sortedWith(compareByDescending<ReferenceLecture> { it.evalCount }.thenBy { it.id })
             }
-        return sorted.drop(criteria.offset.toInt()).take(criteria.limit)
+        return sorted.drop(offset.toInt()).take(limit)
     }
 
     private fun matches(

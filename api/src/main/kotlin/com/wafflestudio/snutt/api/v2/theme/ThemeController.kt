@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v2.theme
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
@@ -65,6 +66,8 @@ private fun TimetableThemeDisplay.toResponse() =
         authorNickname = authorNickname,
     )
 
+private fun CursorPage<TimetableThemeDisplay>.toResponsePage(): CursorPage<ThemeResponse> = map { it.toResponse() }
+
 @RestController
 @RequestMapping("/v2/themes")
 class ThemeController(
@@ -77,14 +80,14 @@ class ThemeController(
 
     @GetMapping("/best")
     fun getBestThemes(
-        @RequestParam page: Int,
-    ): List<ThemeResponse> = timetableThemeService.getBestThemes(page).map { it.toResponse() }
+        @RequestParam(required = false) cursor: String?,
+    ): CursorPage<ThemeResponse> = timetableThemeService.getBestThemes(cursor).toResponsePage()
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @CurrentUserId userId: Long,
-        @RequestParam page: Int,
-    ): List<ThemeResponse> = timetableThemeService.getFriendsThemes(userId, page).map { it.toResponse() }
+        @RequestParam(required = false) cursor: String?,
+    ): CursorPage<ThemeResponse> = timetableThemeService.getFriendsThemes(userId, cursor).toResponsePage()
 
     @PostMapping("/{themeId}/default")
     fun setDefault(

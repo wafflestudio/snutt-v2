@@ -1,0 +1,12 @@
+.git/
+.github/
+.gradle/
+.kotlin/
+.direnv/
+.idea/
+build/
+**/build/
+out/
+*.iml
+.env
+.env.*

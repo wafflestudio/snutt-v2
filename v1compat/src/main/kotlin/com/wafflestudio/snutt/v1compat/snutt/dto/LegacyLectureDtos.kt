@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.v1compat.snutt.dto
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
@@ -64,7 +65,7 @@ fun LegacyLectureDto(
         registrationCount = status?.registrationCount ?: 0,
         wasFull = status?.wasFull ?: false,
         snuttEvLecture = evaluationSummary,
-        categoryPre2025 = lecture.categoryPre2025,
+        categoryPre2025 = lecture.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
     )
 
 data class LegacyBookmarkLectureDto(
@@ -116,5 +117,5 @@ fun LegacyBookmarkLectureDto(
         courseNumber = lecture.courseNumber,
         courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
         snuttEvLecture = evaluationSummary,
-        categoryPre2025 = lecture.categoryPre2025,
+        categoryPre2025 = lecture.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
     )

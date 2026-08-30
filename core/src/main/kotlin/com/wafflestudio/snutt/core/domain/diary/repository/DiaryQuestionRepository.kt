@@ -5,6 +5,4 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface DiaryQuestionRepository : JpaRepository<DiaryQuestion, Long> {
     fun findAllByActiveTrue(): List<DiaryQuestion>
-
-    fun countByIdIn(ids: Collection<Long>): Long
 }

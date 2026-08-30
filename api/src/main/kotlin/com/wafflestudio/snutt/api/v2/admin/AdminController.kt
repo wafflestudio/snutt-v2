@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.storage.FileUploadUri
 import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
+import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
@@ -26,6 +27,8 @@ import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceTyp
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
+import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetDisplay
+import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -74,6 +77,18 @@ data class AdminUserSearchResponse(
     val nickname: String,
     val localId: String?,
     val isAdmin: Boolean,
+    val active: Boolean,
+    val regDate: Long,
+    val lastLoginTimestamp: Long,
+    val authProviders: List<AuthProvider>,
+    val socialAccounts: AdminSocialAccountsResponse,
+)
+
+data class AdminSocialAccountsResponse(
+    val googleEmail: String?,
+    val kakaoEmail: String?,
+    val appleEmail: String?,
+    val facebookName: String?,
 )
 
 data class AdminDiaryQuestionWriteRequest(
@@ -82,6 +97,19 @@ data class AdminDiaryQuestionWriteRequest(
     val answers: List<String>,
     val shortAnswers: List<String>,
     val targetDailyClassTypes: List<String>,
+)
+
+data class AdminApiTraceTargetRequest(
+    val userId: Long,
+    val memo: String? = null,
+)
+
+data class AdminApiTraceTargetResponse(
+    val userId: Long,
+    val nickname: String,
+    val email: String?,
+    val memo: String?,
+    val createdAt: Long,
 )
 
 @RestController
@@ -96,6 +124,7 @@ class AdminController(
     private val userService: UserService,
     private val diaryService: DiaryService,
     private val diaryScheduler: DiaryScheduler,
+    private val apiTraceTargetService: ApiTraceTargetService,
     private val uploadUriIssuer: UploadUriIssuer,
 ) {
     @PostMapping("/images/{source}/upload-uris")
@@ -228,16 +257,43 @@ class AdminController(
     fun searchUsersByEmail(
         @RequestParam email: String,
     ): List<AdminUserSearchResponse> =
-        userService.searchByEmail(email).map {
+        userService.searchByEmailWithAuthInfo(email).map { info ->
+            val user = info.user
             AdminUserSearchResponse(
-                id = it.id!!,
-                email = it.email,
-                nickname = it.nickname,
-                localId = it.localId,
-                isAdmin = it.isAdmin,
-                isEmailVerified = it.isEmailVerified,
+                id = user.id!!,
+                email = user.email,
+                nickname = user.nickname,
+                localId = user.localId,
+                isAdmin = user.isAdmin,
+                isEmailVerified = user.isEmailVerified,
+                active = user.active,
+                regDate = checkNotNull(user.createdAt).toEpochMilli(),
+                lastLoginTimestamp = user.lastLoginAt.toEpochMilli(),
+                authProviders = info.authProviders,
+                socialAccounts =
+                    AdminSocialAccountsResponse(
+                        googleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.GOOGLE }?.email,
+                        kakaoEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.KAKAO }?.email,
+                        appleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.APPLE }?.email,
+                        facebookName = info.socialAuths.firstOrNull { it.provider == AuthProvider.FACEBOOK }?.displayName,
+                    ),
             )
         }
+
+    @GetMapping("/trace-targets")
+    fun getApiTraceTargets(): List<AdminApiTraceTargetResponse> = apiTraceTargetService.getAll().map { it.toResponse() }
+
+    @PostMapping("/trace-targets")
+    fun addApiTraceTarget(
+        @RequestBody body: AdminApiTraceTargetRequest,
+    ): AdminApiTraceTargetResponse = apiTraceTargetService.add(body.userId, body.memo).toResponse()
+
+    @DeleteMapping("/trace-targets/{userId}")
+    fun removeApiTraceTarget(
+        @PathVariable userId: Long,
+    ) {
+        apiTraceTargetService.remove(userId)
+    }
 
     @GetMapping("/diary/daily-class-types")
     fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
@@ -286,6 +342,15 @@ class AdminController(
             maxIosVersion = maxIosVersion,
             minAndroidVersion = minAndroidVersion,
             maxAndroidVersion = maxAndroidVersion,
+        )
+
+    private fun ApiTraceTargetDisplay.toResponse() =
+        AdminApiTraceTargetResponse(
+            userId = target.userId,
+            nickname = user.nickname,
+            email = user.email,
+            memo = target.memo,
+            createdAt = checkNotNull(target.createdAt).toEpochMilli(),
         )
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

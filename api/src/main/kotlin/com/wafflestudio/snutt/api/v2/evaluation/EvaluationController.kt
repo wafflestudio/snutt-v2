@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -126,13 +127,19 @@ data class EvaluationTagResponse(
 @EmailVerifiedRequired
 class EvaluationController(
     private val evaluationService: EvaluationService,
+    private val lectureService: LectureService,
 ) {
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
         @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getEvaluationsOfLecture(userId, lectureId, cursor).toEvaluationResponsePage()
+    ): CursorPage<EvaluationResponse> {
+        val lecture = lectureService.get(lectureId)
+        return evaluationService
+            .getEvaluationsOfLecture(userId, lectureId, cursor, year = lecture.year, semester = lecture.semester)
+            .toEvaluationResponsePage()
+    }
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
@@ -154,11 +161,11 @@ class EvaluationController(
                 ),
             ).toEvaluationResponse()
 
-    @GetMapping("/v2/lectures/{lectureId}/evaluations/me")
-    fun getMyEvaluationsOfLecture(
+    @GetMapping("/v2/courses/{courseId}/evaluations/me")
+    fun getMyEvaluationsOfCourse(
         @CurrentUserId userId: Long,
-        @PathVariable lectureId: Long,
-    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfLecture(userId, lectureId).toEvaluationResponses()
+        @PathVariable courseId: Long,
+    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfCourse(userId, courseId).toEvaluationResponses()
 
     @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(

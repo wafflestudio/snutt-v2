@@ -2,6 +2,9 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -64,12 +67,25 @@ class V1CompatTagController(
             classification = vocabulary.classification,
             department = vocabulary.department,
             academicYear = vocabulary.academicYear,
-            credit = vocabulary.credit.map { "${it}학점" },
+            credit =
+                vocabulary.credit.map {
+                    if (clientInfo.language == Language.EN) {
+                        if (it == 1) "1 credit" else "$it credits"
+                    } else {
+                        "${it}학점"
+                    }
+                },
             instructor = vocabulary.instructor,
             category = vocabulary.category,
-            sortCriteria = LectureSort.entries.filter { it != LectureSort.DEFAULT }.map { it.fullName },
+            sortCriteria =
+                LectureSort.entries
+                    .filter { it != LectureSort.DEFAULT }
+                    .map { clientInfo.language.select(it.fullName, it.fullNameEn) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
-            categoryPre2025 = vocabulary.categoryPre2025,
+            categoryPre2025 =
+                vocabulary.categoryPre2025.map {
+                    LectureCategoryPre2025.localize(it, clientInfo.language)
+                },
         )
     }
 }

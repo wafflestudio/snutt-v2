@@ -66,16 +66,14 @@ class LegacySearchTagService(
 
     fun toCriteria(
         query: String,
-        page: Int,
         tagIds: List<Long>,
     ): CourseSearchCriteria {
-        if (tagIds.isEmpty()) return CourseSearchCriteria(query = query, page = page)
+        if (tagIds.isEmpty()) return CourseSearchCriteria(query = query)
         val byGroup = repository.findAllByIdIn(tagIds).groupBy { it.groupName }
 
         fun strings(group: String) = byGroup[group].orEmpty().mapNotNull { it.stringValue ?: it.name }
         return CourseSearchCriteria(
             query = query,
-            page = page,
             academicYear = strings(GROUP_ACADEMIC_YEAR),
             classification = strings(GROUP_CLASSIFICATION),
             department = strings(GROUP_DEPARTMENT),

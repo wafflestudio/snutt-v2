@@ -26,7 +26,6 @@ class CodeChallengeStore(
         private val jsonMapper: JsonMapper = JsonMapper.builder().findAndAddModules().build()
     }
 
-    /** 코드 발송 없이 발송 제한만 적용한다(아이디 찾기 등). */
     fun throttleSend(key: Any) {
         val firstInMinute =
             redisTemplate.opsForValue().setIfAbsent(sendMinutePrefix + key, "1", Duration.ofMinutes(1)) ?: false
