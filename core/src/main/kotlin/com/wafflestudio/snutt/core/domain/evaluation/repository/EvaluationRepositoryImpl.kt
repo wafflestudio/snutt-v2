@@ -18,6 +18,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
+import org.springframework.transaction.annotation.Transactional
 
 @Repository
 class EvaluationRepositoryImpl(
@@ -213,6 +214,7 @@ class EvaluationRepositoryImpl(
         }.filterNotNull()
     }
 
+    @Transactional
     override fun incrementLikeCount(id: Long): Int =
         update {
             jpql {
@@ -222,6 +224,7 @@ class EvaluationRepositoryImpl(
             }
         }
 
+    @Transactional
     override fun decrementLikeCount(id: Long): Int =
         update {
             jpql {

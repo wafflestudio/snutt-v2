@@ -13,6 +13,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -53,6 +54,9 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var lectureSearchRepository: LectureSearchRepository
+
+    @Autowired
+    lateinit var lectureService: LectureService
 
     @LocalServerPort
     var port = 0
@@ -493,6 +497,32 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
         assertEquals(200, response.statusCode())
         assertTrue(response.body().contains("courseTitle"))
+    }
+
+    @Test
+    fun `기본 및 평점 및 개수 정렬에서 커서 기반 페이지네이션이 연속된 결과를 올바르게 반환한다`() {
+        listOf(LectureSort.DEFAULT, LectureSort.RATING_DESC, LectureSort.COUNT_DESC).forEach { sort ->
+            val criteria =
+                LectureSearchCriteria(
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    sort = sort,
+                )
+            val fullResults = lectureService.search(criteria, null, limit = 50).content
+            val page1 = lectureService.search(criteria, null, limit = 5)
+            assertEquals(5, page1.content.size)
+            assertEquals(false, page1.last)
+            val cursor1 = page1.cursor
+
+            val page2 = lectureService.search(criteria, cursor1, limit = 5)
+            assertEquals(5, page2.content.size)
+            val page1Ids = page1.content.map { it.lecture.id }
+            val page2Ids = page2.content.map { it.lecture.id }
+            assertEquals(emptySet<Long?>(), page1Ids.intersect(page2Ids.toSet()))
+
+            assertEquals(fullResults.take(5).map { it.lecture.id }, page1Ids)
+            assertEquals(fullResults.drop(5).take(5).map { it.lecture.id }, page2Ids)
+        }
     }
 }
 

@@ -426,4 +426,77 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(7, updated.evalCount)
         assertEquals(ratings.average(), updated.avgRating)
     }
+
+    @Test
+    fun `태그별 강의평 조회가 해당 과목의 집계 조건에 부합하는 evaluation만 반환한다`() {
+        val user = userRepository.findByLocalIdAndActiveTrue("evaluser1")!!
+        val course1 =
+            courseRepository.save(
+                Course(
+                    courseNumber = "TAG.101",
+                    instructor = "교수A",
+                    title = "명강과목",
+                    classification = "전선",
+                ),
+            )
+        val course2 =
+            courseRepository.save(
+                Course(
+                    courseNumber = "TAG.102",
+                    instructor = "교수B",
+                    title = "보통과목",
+                    classification = "교양",
+                ),
+            )
+        // course1: high teachingSkill & gains (WELL_TAUGHT & RECOMMENDED)
+        evaluationRepository.save(
+            Evaluation(
+                courseId = course1.id!!,
+                userId = user.id,
+                year = 2026,
+                semester = Semester.AUTUMN,
+                content = "최고의 명강",
+                gradeSatisfaction = 5.0,
+                teachingSkill = 5.0,
+                gains = 5.0,
+                lifeBalance = 4.0,
+                rating = 5.0,
+            ),
+        )
+        // course2: low rating & low lifeBalance
+        evaluationRepository.save(
+            Evaluation(
+                courseId = course2.id!!,
+                userId = user.id,
+                year = 2026,
+                semester = Semester.AUTUMN,
+                content = "힘든 교양",
+                gradeSatisfaction = 2.0,
+                teachingSkill = 2.0,
+                gains = 2.0,
+                lifeBalance = 1.0,
+                rating = 2.0,
+            ),
+        )
+        val wellTaught = get("/v2/evaluations/tags/well-taught", verifiedToken)
+        assertEquals(200, wellTaught.statusCode.value())
+        val wellTaughtItems = body(wellTaught)["content"]
+        assertEquals(1, wellTaughtItems.size())
+        assertEquals("최고의 명강", wellTaughtItems[0]["content"].asString())
+
+        val liberalEducation = get("/v2/evaluations/tags/liberal-education", verifiedToken)
+        assertEquals(200, liberalEducation.statusCode.value())
+        val liberalItems = body(liberalEducation)["content"]
+        assertEquals(1, liberalItems.size())
+        assertEquals("힘든 교양", liberalItems[0]["content"].asString())
+    }
+
+    @Test
+    fun `likeCount는 0 미만으로 감소하지 않는다`() {
+        val create = post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
+        val evalId = body(create)["id"].asLong()
+        evaluationRepository.decrementLikeCount(evalId)
+        val eval = evaluationRepository.findById(evalId).get()
+        assertEquals(0L, eval.likeCount)
+    }
 }
