@@ -38,7 +38,12 @@ class EvaluationStep(
     private fun loadAnchors(): Map<Long, Anchor> {
         val anchors = HashMap<Long, Anchor>(256_000)
         ev.jdbc.query("SELECT id, lecture_id, year, semester FROM semester_lecture") { rs ->
-            anchors[rs.getLong("id")] = Anchor(rs.getLong("lecture_id"), rs.getInt("year"), rs.getInt("semester"))
+            anchors[rs.getLong("id")] =
+                Anchor(
+                    courseId = rs.getLong("lecture_id"),
+                    year = rs.getInt("year"),
+                    semester = rs.getInt("semester"),
+                )
         }
         return anchors
     }
@@ -66,6 +71,7 @@ class EvaluationStep(
                     val key = "${anchor.courseId}\u0000${anchor.year}\u0000${anchor.semester}\u0000$userId"
                     val previous = authored.put(key, id)
                     if (previous != null) {
+                        out.flush()
                         jdbc.update("UPDATE evaluation SET is_hidden = TRUE WHERE id = ?", previous)
                         context.resolved("한 사용자가 같은 개설에 강의평을 여럿 남겨 이전 것을 숨김")
                     }

@@ -13,7 +13,6 @@ import org.springframework.web.ErrorResponse as SpringErrorResponse
 data class ErrorResponse(
     val errcode: Long,
     val title: String,
-    val message: String,
     val displayMessage: String,
 )
 
@@ -29,7 +28,6 @@ class SnuttExceptionHandler {
                 ErrorResponse(
                     errcode = e.error.errorCode,
                     title = e.title,
-                    message = e.errorMessage,
                     displayMessage = e.displayMessage,
                 ),
             )
@@ -47,8 +45,7 @@ class SnuttExceptionHandler {
                 ErrorResponse(
                     errcode = error.errorCode,
                     title = error.title,
-                    message = "잘못된 값입니다. (request body: $fieldName)",
-                    displayMessage = error.displayMessage,
+                    displayMessage = "잘못된 값입니다. (request body: $fieldName)",
                 ),
             )
     }
@@ -63,7 +60,6 @@ class SnuttExceptionHandler {
                     ErrorResponse(
                         errcode = status * 100L,
                         title = "요청을 처리할 수 없습니다",
-                        message = "요청을 처리할 수 없습니다",
                         displayMessage = "요청을 처리할 수 없습니다",
                     ),
                 )
@@ -76,7 +72,6 @@ class SnuttExceptionHandler {
                 ErrorResponse(
                     errcode = error.errorCode,
                     title = error.title,
-                    message = error.errorMessage,
                     displayMessage = error.displayMessage,
                 ),
             )

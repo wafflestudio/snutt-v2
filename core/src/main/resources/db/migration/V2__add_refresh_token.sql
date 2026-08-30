@@ -1,5 +1,3 @@
-DROP TABLE user_session;
-
 CREATE TABLE refresh_token
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,

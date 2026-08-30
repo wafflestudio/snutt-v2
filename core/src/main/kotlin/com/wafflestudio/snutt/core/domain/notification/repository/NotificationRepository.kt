@@ -9,13 +9,17 @@ interface NotificationRepository : JpaRepository<Notification, Long> {
     @Query(
         value =
             "SELECT * FROM notification n WHERE (n.user_id = :userId OR n.user_id IS NULL) " +
-                "AND n.created_at > :registeredAt ORDER BY n.created_at DESC LIMIT :limit OFFSET :offset",
+                "AND n.created_at > :registeredAt " +
+                "AND (:cursorCreatedAt IS NULL OR n.created_at < :cursorCreatedAt " +
+                "OR (n.created_at = :cursorCreatedAt AND n.id < :cursorId)) " +
+                "ORDER BY n.created_at DESC, n.id DESC LIMIT :limit",
         nativeQuery = true,
     )
     fun findNotifications(
         userId: Long,
         registeredAt: Instant,
-        offset: Long,
+        cursorCreatedAt: Instant?,
+        cursorId: Long?,
         limit: Int,
     ): List<Notification>
 

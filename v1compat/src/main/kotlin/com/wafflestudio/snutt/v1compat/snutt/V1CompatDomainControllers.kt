@@ -2,6 +2,9 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.common.enums.BasicThemeType
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -18,6 +21,8 @@ import com.wafflestudio.snutt.core.domain.notification.service.NotificationServi
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceService
+import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.UserService
@@ -28,7 +33,6 @@ import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyTimetableDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTimeString
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyZonedDateTimeString
@@ -44,6 +48,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.time.Instant
 
 data class LegacyFriendRequest(
     val nickname: String,
@@ -83,6 +88,107 @@ data class LegacyFriendCoursebookDto(
     val year: Int,
     val semester: Int,
 )
+
+data class LegacyFriendTimetableDto(
+    val id: String?,
+    val userId: String,
+    val year: Int,
+    val semester: Semester,
+    val lectures: List<LegacyFriendTimetableLectureDto>,
+    val title: String,
+    val theme: BasicThemeType,
+    val themeId: String?,
+    val isPrimary: Boolean,
+    val updatedAt: Instant,
+)
+
+data class LegacyFriendTimetableLectureDto(
+    val id: String?,
+    val academicYear: String?,
+    val category: String?,
+    val classPlaceAndTimes: List<LegacyFriendClassPlaceAndTimeDto>,
+    val classification: String?,
+    val credit: Int?,
+    val department: String?,
+    val instructor: String?,
+    val lectureNumber: String?,
+    val quota: Int?,
+    val freshmanQuota: Int?,
+    val remark: String?,
+    val courseNumber: String?,
+    val courseTitle: String,
+    val color: ColorSet?,
+    val colorIndex: Int,
+    val lectureId: String?,
+    val snuttEvLecture: LegacyFriendEvLectureIdDto? = null,
+    val categoryPre2025: String?,
+)
+
+data class LegacyFriendClassPlaceAndTimeDto(
+    val day: DayOfWeek,
+    val place: String?,
+    val startMinute: Int,
+    val endMinute: Int,
+)
+
+data class LegacyFriendEvLectureIdDto(
+    val evLectureId: Long,
+)
+
+private fun TimetableDisplay.toLegacyFriendTimetable(
+    userId: Long,
+    clientInfo: ClientInfo,
+): LegacyFriendTimetableDto {
+    val language = clientInfo.language
+    val themeId = timetable.themeId
+    return LegacyFriendTimetableDto(
+        id = timetable.id?.toString(),
+        userId = userId.toString(),
+        year = timetable.year,
+        semester = timetable.semester,
+        lectures =
+            lectures.map { lecture ->
+                LegacyFriendTimetableLectureDto(
+                    id = lecture.id.toString(),
+                    academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
+                    category = language.select(lecture.category, lecture.categoryEn),
+                    classPlaceAndTimes =
+                        lecture.classPlaceAndTimes.map {
+                            LegacyFriendClassPlaceAndTimeDto(
+                                day = it.day,
+                                place = it.place,
+                                startMinute = it.startMinute,
+                                endMinute = it.endMinute,
+                            )
+                        },
+                    classification = language.select(lecture.classification, lecture.classificationEn),
+                    credit = lecture.credit,
+                    department = language.select(lecture.department, lecture.departmentEn),
+                    instructor = language.select(lecture.instructor, lecture.instructorEn),
+                    lectureNumber = lecture.lectureNumber,
+                    quota = lecture.quota,
+                    freshmanQuota = lecture.freshmanQuota,
+                    remark = language.select(lecture.remark, lecture.remarkEn),
+                    courseNumber = lecture.courseNumber,
+                    courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
+                    color = lecture.color,
+                    colorIndex = lecture.colorIndex,
+                    lectureId = lecture.lectureId?.toString(),
+                    categoryPre2025 = lecture.categoryPre2025,
+                )
+            },
+        title = timetable.title,
+        theme =
+            if (themeId in 1..6) {
+                BasicThemeType.fromValue((themeId - 1).toInt())
+            } else {
+                BasicThemeType.SNUTT
+            },
+        themeId = themeId.takeUnless { it in 1..6 }?.toString(),
+        isPrimary = timetable.isPrimary,
+        updatedAt = checkNotNull(timetable.updatedAt),
+    )
+}
 
 private fun legacyFriend(
     friend: Friend,
@@ -183,17 +289,12 @@ class V1CompatFriendController(
         @PathVariable friendId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Int,
-    ): LegacyTimetableDto {
+        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+    ): LegacyFriendTimetableDto {
         val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, Semester.fromValue(semester))
         val display = timetableService.getTimetableDisplay(partnerId, timetable.id!!)
-        val partnerExternalId = partnerId.toString()
-        return LegacyTimetableDto(
-            timetable = timetable,
-            userId = partnerExternalId,
-            display = display,
-            evLectureIds = emptyMap(),
-        )
+        return display.toLegacyFriendTimetable(partnerId, clientInfo)
     }
 
     @GetMapping("/{friendId}/coursebooks", "/{friendId}/registered-course-books")
@@ -246,7 +347,14 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): List<LegacyNotificationDto> {
-        val notifications = notificationService.getNotifications(user.id!!, offset, limit, explicit > 0)
+        if (offset < 0 || limit <= 0 || offset > Int.MAX_VALUE - limit) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
+        val notifications =
+            notificationService
+                .getNotifications(user.id!!, null, offset.toInt() + limit, explicit > 0)
+                .content
+                .drop(offset.toInt())
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(
@@ -401,12 +509,12 @@ data class LegacyPopupDto(
     val hiddenDaysSnake: Int?,
 )
 
-@V1Public
 data class LegacyListResponse<T>(
     val content: List<T>,
     val totalCount: Int,
 )
 
+@V1Public
 @RestController
 @RequestMapping("/v1/popups")
 class V1CompatPopupController(

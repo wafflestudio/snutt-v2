@@ -67,14 +67,12 @@ class TakenLectureService(
                     LectureTakenByUser(course, lecture.id!!, coursebook.year, coursebook.semester)
                 }.distinctBy { Triple(it.course.id, it.takenYear, it.takenSemester) }
 
-        if (!excludeEvaluated) return taken
-        return taken.filterNot { entry ->
-            evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
-                requireNotNull(entry.course.id),
-                entry.takenYear,
-                entry.takenSemester,
-                userId,
-            )
-        }
+        if (!excludeEvaluated || taken.isEmpty()) return taken
+        val evaluated =
+            evaluationRepository
+                .findEvaluatedCourseSemesters(userId, taken.map { it.course.id!! }.distinct())
+                .map { Triple(it.courseId, it.year, it.semester) }
+                .toSet()
+        return taken.filterNot { Triple(it.course.id, it.takenYear, it.takenSemester) in evaluated }
     }
 }

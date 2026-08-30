@@ -107,7 +107,8 @@ class DiaryService(
                 .mapNotNull { it.lectureId }
         val timetableLectures =
             timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.lectureId != null }
-        val candidates = timetableLectures.filter { it.lectureId !in recentlySubmittedIds && it.lectureId !in lectureIdsToExclude }
+        val eligible = timetableLectures.filter { it.lectureId !in lectureIdsToExclude }
+        val candidates = eligible.filter { it.lectureId !in recentlySubmittedIds }.ifEmpty { eligible }
         if (candidates.isEmpty()) return null
         val picked = candidates.random()
         return timetableService
@@ -130,20 +131,22 @@ class DiaryService(
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
-        val questionIds = request.questionAnswers.map { it.questionId }.distinct()
-        if (diaryQuestionRepository.countByIdIn(questionIds) != questionIds.size.toLong()) {
-            throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
-        }
-        // 선택지 범위를 벗어난 답변이 저장되지 않도록 검증한다
+        val questionIds = request.questionAnswers.map { it.questionId }
+        if (questionIds.size != questionIds.toSet().size) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
         val questionsById = diaryQuestionRepository.findAllById(questionIds).associateBy { it.id }
+        if (questionsById.size != questionIds.size) throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
+        if (questionsById.values.any { !it.active }) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
         request.questionAnswers.forEach { answer ->
             val question = questionsById[answer.questionId] ?: throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
             if (answer.answerIndex !in question.answerList.indices) {
                 throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
             }
         }
+        if (request.dailyClassTypes.size != request.dailyClassTypes.toSet().size) {
+            throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
+        }
         val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).mapNotNull { it.id }
-        if (dailyClassTypeIds.size != request.dailyClassTypes.toSet().size) {
+        if (dailyClassTypeIds.size != request.dailyClassTypes.size) {
             throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
         }
         val submission =
@@ -174,11 +177,18 @@ class DiaryService(
     )
 
     fun getSubmissionIdShortQuestionRepliesMap(submissions: List<DiarySubmission>): Map<Long, List<DiaryShortQuestionReply>> {
-        val questions = diaryQuestionRepository.findAllByActiveTrue().associateBy { it.id!! }
         val answersBySubmissionId =
             diarySubmissionAnswerRepository
                 .findBySubmissionIdIn(submissions.mapNotNull { it.id })
                 .groupBy { it.submissionId }
+        val questions =
+            diaryQuestionRepository
+                .findAllById(
+                    answersBySubmissionId.values
+                        .flatten()
+                        .map { it.questionId }
+                        .distinct(),
+                ).associateBy { it.id!! }
         return submissions.associate { submission ->
             submission.id!! to
                 answersBySubmissionId[submission.id].orEmpty().mapNotNull { answer ->

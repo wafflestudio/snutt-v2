@@ -16,7 +16,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureR
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
@@ -93,18 +92,35 @@ class TimetableLectureReminderService(
             val reminders = timetableLectureReminderRepository.findAllById(reminderIds.toSet())
             val schedulesByReminderId =
                 timetableLectureReminderScheduleRepository.findByReminderIdIn(reminderIds).groupBy { it.reminderId }
+            val batch = reminderBatch(reminders, current)
             reminders.forEach { reminder ->
                 collect(
                     reminder,
                     schedulesByReminderId[reminder.id].orEmpty(),
+                    batch,
                     now,
-                    current,
                     listOf(window),
                     lastNotifiedBefore,
                 )?.let { pushes += it }
             }
         }
         return pushes
+    }
+
+    private fun reminderBatch(
+        reminders: List<TimetableLectureReminder>,
+        current: SemesterCalendar.YearSemester,
+    ): ReminderBatch {
+        val timetableLecturesById =
+            timetableLectureRepository.findAllById(reminders.map { it.timetableLectureId }).associateBy { it.id!! }
+        // 구 노티파이어와 동일하게 대표 시간표의 리마인더만 보낸다
+        val timetablesById =
+            timetableRepository
+                .findAllById(timetableLecturesById.values.map { it.timetableId })
+                .filter { it.isPrimary && it.year == current.year && it.semester == current.semester }
+                .associateBy { it.id!! }
+        val displaysByTimetableId = timetableService.displaysOf(timetablesById.values.toList())
+        return ReminderBatch(timetableLecturesById, timetablesById, displaysByTimetableId)
     }
 
     private data class DueWindow(
@@ -114,6 +130,12 @@ class TimetableLectureReminderService(
     ) {
         fun contains(schedule: Schedule): Boolean = schedule.day.value == day && schedule.minute in startMinute..endMinute
     }
+
+    private data class ReminderBatch(
+        val timetableLecturesById: Map<Long, TimetableLecture>,
+        val timetablesById: Map<Long, Timetable>,
+        val displaysByTimetableId: Map<Long, List<TimetableLectureDisplay>>,
+    )
 
     private fun dueWindows(now: ZonedDateTime): List<DueWindow> {
         val end = Schedule.fromInstant(now.toInstant())
@@ -141,18 +163,13 @@ class TimetableLectureReminderService(
     private fun collect(
         reminder: TimetableLectureReminder,
         schedules: List<TimetableLectureReminderSchedule>,
+        batch: ReminderBatch,
         now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
         windows: List<DueWindow>,
         lastNotifiedBefore: Instant,
     ): DueReminderPush? {
-        val timetableLecture =
-            timetableLectureRepository.findByIdOrNull(reminder.timetableLectureId) ?: return null
-        val timetable =
-            timetableRepository.findByIdOrNull(timetableLecture.timetableId) ?: return null
-        if (timetable.year != current.year || timetable.semester != current.semester) return null
-        // 구 노티파이어와 동일하게 대표 시간표의 리마인더만 보낸다
-        if (!timetable.isPrimary) return null
+        val timetableLecture = batch.timetableLecturesById[reminder.timetableLectureId] ?: return null
+        val timetable = batch.timetablesById[timetableLecture.timetableId] ?: return null
 
         // 이번 윈도우에 해당하고 아직 알리지 않은 스케줄만 대상으로 한다(같은 강의의 연속 스케줄 누락 방지)
         val dueSchedules =
@@ -163,8 +180,7 @@ class TimetableLectureReminderService(
             }
         if (dueSchedules.isEmpty()) return null
         val courseTitle =
-            timetableService
-                .displaysOf(listOf(timetable))[timetable.id]
+            batch.displaysByTimetableId[timetable.id]
                 ?.firstOrNull { it.id == timetableLecture.id }
                 ?.courseTitle ?: return null
         val body =

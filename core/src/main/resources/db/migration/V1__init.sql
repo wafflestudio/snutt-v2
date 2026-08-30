@@ -59,23 +59,6 @@ CREATE TABLE user_device
     INDEX idx_user_device_fcm_registration_id (fcm_registration_id)
 );
 
-CREATE TABLE user_session
-(
-    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id            BIGINT      NOT NULL,
-    refresh_token_hash CHAR(64)    NOT NULL,
-    user_device_id     BIGINT      NULL,
-    expires_at         DATETIME(6) NOT NULL,
-    revoked_at         DATETIME(6) NULL,
-    last_used_at       DATETIME(6) NOT NULL,
-    created_at         DATETIME(6) NOT NULL,
-    updated_at         DATETIME(6) NOT NULL,
-    CONSTRAINT uk_user_session_refresh_token_hash UNIQUE (refresh_token_hash),
-    CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_session_user_device FOREIGN KEY (user_device_id) REFERENCES user_device (id) ON DELETE SET NULL,
-    INDEX idx_user_session_user (user_id)
-);
-
 CREATE TABLE push_preference
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -99,8 +82,8 @@ CREATE TABLE notification
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    INDEX idx_notification_user_created (user_id, created_at DESC),
-    INDEX idx_notification_created (created_at DESC)
+    INDEX idx_notification_user_created (user_id, created_at DESC, id DESC),
+    INDEX idx_notification_created (created_at DESC, id DESC)
 );
 
 CREATE TABLE course
@@ -119,7 +102,8 @@ CREATE TABLE course
     created_at     DATETIME(6)  NOT NULL,
     updated_at     DATETIME(6)  NOT NULL,
     CONSTRAINT uk_course_number_instructor UNIQUE (course_number, instructor),
-    INDEX idx_course_avg_rating (avg_rating DESC)
+    INDEX idx_course_avg_rating (avg_rating DESC),
+    INDEX idx_course_eval_count (eval_count DESC, id ASC)
 );
 
 CREATE TABLE lecture
@@ -152,7 +136,7 @@ CREATE TABLE lecture
     updated_at         DATETIME(6)  NOT NULL,
     CONSTRAINT uk_lecture_offering UNIQUE (year, semester, course_number, lecture_number),
     CONSTRAINT fk_lecture_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE SET NULL,
-    INDEX idx_lecture_year_semester (year, semester),
+    INDEX idx_lecture_year_semester (year, semester, id ASC),
     INDEX idx_lecture_course (course_id, year, semester),
     INDEX idx_lecture_course_lecture_number (course_number, lecture_number),
     INDEX idx_lecture_department (department),
@@ -306,7 +290,7 @@ CREATE TABLE published_theme
     updated_at       DATETIME(6)  NOT NULL,
     CONSTRAINT uk_published_theme_theme UNIQUE (theme_id),
     CONSTRAINT fk_published_theme_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE CASCADE,
-    INDEX idx_published_theme_download (download_count DESC)
+    INDEX idx_published_theme_download (download_count DESC, id DESC)
 );
 
 CREATE TABLE timetable

@@ -52,7 +52,7 @@ class EmailVerificationService(
         val email = store.verify(userId, code)
         user.email = email
         user.isEmailVerified = true
-        conflictAs(ErrorType.DUPLICATE_EMAIL) { userRepository.save(user) }
+        conflictAs(ErrorType.DUPLICATE_EMAIL) { userRepository.saveAndFlush(user) }
         store.clear(userId)
     }
 

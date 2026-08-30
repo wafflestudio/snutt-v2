@@ -34,7 +34,7 @@ class UserService(
     ): User {
         val user = get(userId)
         user.nickname = userNicknameService.appendNewTag(nickname)
-        return conflictAs(ErrorType.DUPLICATE_NICKNAME) { userRepository.save(user) }
+        return conflictAs(ErrorType.DUPLICATE_NICKNAME) { userRepository.saveAndFlush(user) }
     }
 
     @Transactional

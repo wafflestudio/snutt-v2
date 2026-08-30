@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
-import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import org.apache.poi.ss.usermodel.Row
+import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.slf4j.LoggerFactory
 import org.springframework.core.io.Resource
@@ -39,8 +39,6 @@ data class SugangLectureRow(
 class SugangSnuXlsxParser {
     private val log = LoggerFactory.getLogger(javaClass)
     private val quotaRegex = """(?<quota>\d+)(\s*\((?<quotaForCurrentStudent>\d+)\))?""".toRegex()
-    private val classTimeRegex =
-        """^(?<day>[월화수목금토일])\((?<startHour>\d{2}):(?<startMinute>\d{2})~(?<endHour>\d{2}):(?<endMinute>\d{2})\)$""".toRegex()
 
     data class SugangLectureRowEnglish(
         val courseNumber: String,
@@ -55,10 +53,7 @@ class SugangSnuXlsxParser {
 
     fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
         val sheet = WorkbookFactory.create(englishXlsx.inputStream).getSheetAt(0)
-        val headerIndex =
-            sheet
-                .getRow(2)
-                .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
+        val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
         return (3..sheet.lastRowNum)
             .mapNotNull { rowNum ->
                 val row = sheet.getRow(rowNum) ?: return@mapNotNull null
@@ -89,15 +84,25 @@ class SugangSnuXlsxParser {
 
     fun parse(koreanXlsx: Resource): List<SugangLectureRow> {
         val sheet = WorkbookFactory.create(koreanXlsx.inputStream).getSheetAt(0)
-        val headerIndex =
-            sheet
-                .getRow(2)
-                .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
+        val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
         val rows =
             (3..sheet.lastRowNum)
                 .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex) }
         log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
         return rows
+    }
+
+    private fun headerIndex(
+        sheet: Sheet,
+        requiredHeaders: Set<String>,
+    ): Map<String, Int> {
+        val headerIndex =
+            sheet
+                .getRow(2)
+                .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
+        val missing = requiredHeaders - headerIndex.keys
+        if (missing.isNotEmpty()) throw IllegalArgumentException("xlsx 필수 컬럼이 없다: ${missing.sorted()}")
+        return headerIndex
     }
 
     private fun convertRow(
@@ -156,55 +161,43 @@ class SugangSnuXlsxParser {
             quota = quota,
             freshmanQuota = freshmanQuota,
             registrationCount = registrationCount,
-            classPlaceAndTimes = convertClassTimes(classTimeTexts, locationTexts),
+            classPlaceAndTimes = SugangSnuClassTimeUtils.convertTextToClassTimeObject(classTimeTexts, locationTexts),
         )
     }
 
-    private fun convertClassTimes(
-        classTimesTexts: List<String>,
-        locationsTexts: List<String>,
-    ): List<ClassPlaceAndTime> =
-        runCatching {
-            val classTimes = classTimesTexts.filter { it.isNotBlank() }.mapNotNull { parseClassTime(it) }
-            val locations =
-                when (locationsTexts.size) {
-                    classTimes.size -> locationsTexts
-                    1 -> List(classTimes.size) { locationsTexts.first() }
-                    0 -> List(classTimes.size) { "" }
-                    else -> throw RuntimeException("locations does not match times")
-                }
-            classTimes
-                .zip(locations)
-                .groupBy({ it.first }, { it.second })
-                .map { (time, locationTexts) ->
-                    ClassPlaceAndTime(
-                        day = DayOfWeek.getByKoreanText(time.dayOfWeek)!!,
-                        place = locationTexts.joinToString("/"),
-                        startMinute = time.startHour * 60 + time.startMinute,
-                        endMinute = time.endHour * 60 + time.endMinute,
-                    )
-                }.sortedWith(compareBy({ it.day.value }, { it.startMinute }))
-        }.getOrElse {
-            log.error("classTime 변환 실패: {}", classTimesTexts, it)
-            emptyList()
-        }
-
-    private fun parseClassTime(text: String): ParsedClassTime? {
-        val match = classTimeRegex.find(text) ?: return null
-        return ParsedClassTime(
-            dayOfWeek = match.groups["day"]!!.value,
-            startHour = match.groups["startHour"]!!.value.toInt(),
-            startMinute = match.groups["startMinute"]!!.value.toInt(),
-            endHour = match.groups["endHour"]!!.value.toInt(),
-            endMinute = match.groups["endMinute"]!!.value.toInt(),
-        )
+    companion object {
+        private val REQUIRED_ENGLISH_HEADERS =
+            setOf(
+                "Course Number",
+                "Lecture Number",
+                "Course Title",
+                "Course Subtitle",
+                "College",
+                "Department",
+                "Degree Program",
+                "Academic Year",
+                "Course Classification",
+                "Instructor",
+                "Remark",
+            )
+        private val REQUIRED_KOREAN_HEADERS =
+            setOf(
+                "교과목번호",
+                "강좌번호",
+                "교과구분",
+                "개설대학",
+                "개설학과",
+                "이수과정",
+                "학년",
+                "교과목명",
+                "부제명",
+                "학점",
+                "수업교시",
+                "강의실(동-호)(#연건, *평창)",
+                "주담당교수",
+                "정원",
+                "비고",
+                "수강신청인원",
+            )
     }
-
-    private data class ParsedClassTime(
-        val dayOfWeek: String,
-        val startHour: Int,
-        val startMinute: Int,
-        val endHour: Int,
-        val endMinute: Int,
-    )
 }

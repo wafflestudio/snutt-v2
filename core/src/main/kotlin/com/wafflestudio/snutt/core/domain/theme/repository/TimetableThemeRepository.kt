@@ -34,21 +34,41 @@ interface PublishedThemeRepository : JpaRepository<PublishedTheme, Long> {
 
     fun findByPublishNameContainingIgnoreCase(publishName: String): List<PublishedTheme>
 
-    fun findAllByOrderByDownloadCountDesc(pageable: Pageable): List<PublishedTheme>
+    fun findAllByOrderByDownloadCountDescIdDesc(pageable: Pageable): List<PublishedTheme>
+
+    @Query(
+        "SELECT p FROM PublishedTheme p WHERE " +
+            "p.downloadCount < :downloadCount OR (p.downloadCount = :downloadCount AND p.id < :publishedThemeId) " +
+            "ORDER BY p.downloadCount DESC, p.id DESC",
+    )
+    fun findBestPublishedAfter(
+        downloadCount: Long,
+        publishedThemeId: Long,
+        pageable: Pageable,
+    ): List<PublishedTheme>
 
     @Query(
         """
         SELECT p FROM PublishedTheme p
-        WHERE p.themeId IN (SELECT t.id FROM TimetableTheme t WHERE t.userId IN :userIds)
-           OR p.themeId IN (
-               SELECT d.originThemeId FROM TimetableTheme d
-               WHERE d.userId IN :userIds AND d.originThemeId IS NOT NULL
-           )
-        ORDER BY p.downloadCount DESC
+        WHERE (
+            p.themeId IN (SELECT t.id FROM TimetableTheme t WHERE t.userId IN :userIds)
+            OR p.themeId IN (
+                SELECT d.originThemeId FROM TimetableTheme d
+                WHERE d.userId IN :userIds AND d.originThemeId IS NOT NULL
+            )
+        )
+          AND (
+              :downloadCount IS NULL
+              OR p.downloadCount < :downloadCount
+              OR (p.downloadCount = :downloadCount AND p.id < :publishedThemeId)
+          )
+        ORDER BY p.downloadCount DESC, p.id DESC
         """,
     )
     fun findFriendsPublished(
         userIds: Collection<Long>,
+        downloadCount: Long?,
+        publishedThemeId: Long?,
         pageable: Pageable,
     ): List<PublishedTheme>
 

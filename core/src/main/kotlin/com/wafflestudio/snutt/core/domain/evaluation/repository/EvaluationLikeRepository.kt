@@ -9,6 +9,11 @@ interface EvaluationLikeRepository : JpaRepository<EvaluationLike, Long> {
         userId: Long,
     ): Boolean
 
+    fun findByUserIdAndEvaluationIdIn(
+        userId: Long,
+        evaluationIds: Collection<Long>,
+    ): List<EvaluationLike>
+
     fun deleteByEvaluationIdAndUserId(
         evaluationId: Long,
         userId: Long,

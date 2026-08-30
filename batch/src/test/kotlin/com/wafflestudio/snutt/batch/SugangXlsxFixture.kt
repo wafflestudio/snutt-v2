@@ -34,6 +34,21 @@ object SugangXlsxFixture {
             "개설상태",
         )
 
+    private val ENGLISH_HEADERS =
+        listOf(
+            "Course Number",
+            "Lecture Number",
+            "Course Title",
+            "Course Subtitle",
+            "College",
+            "Department",
+            "Degree Program",
+            "Academic Year",
+            "Course Classification",
+            "Instructor",
+            "Remark",
+        )
+
     data class RowData(
         val classification: String = "전선",
         val department: String = "컴퓨터공학부",
@@ -50,6 +65,40 @@ object SugangXlsxFixture {
         val registrationCount: Int = 10,
         val remark: String = "",
     )
+
+    fun englishXlsx(rows: List<RowData>): ByteArrayResource {
+        val workbook = XSSFWorkbook()
+        val sheet = workbook.createSheet("Lectures")
+        sheet.createRow(0).createCell(0).setCellValue("description")
+        sheet.createRow(1).createCell(0).setCellValue("description2")
+        val headerRow = sheet.createRow(2)
+        ENGLISH_HEADERS.forEachIndexed { index, header -> headerRow.createCell(index).setCellValue(header) }
+        rows.forEachIndexed { i, row -> fillEnglishRow(sheet.createRow(3 + i), row) }
+        val bytes = ByteArrayOutputStream().also { workbook.write(it) }.toByteArray()
+        workbook.close()
+        return ByteArrayResource(bytes)
+    }
+
+    private fun fillEnglishRow(
+        row: Row,
+        data: RowData,
+    ) {
+        val values =
+            listOf(
+                data.courseNumber,
+                data.lectureNumber,
+                data.courseTitle,
+                data.subtitle,
+                "Engineering College",
+                data.department,
+                "Master",
+                data.academicYear,
+                "Elective",
+                data.instructor,
+                data.remark,
+            )
+        values.forEachIndexed { index, value -> row.createCell(index).setCellValue(value) }
+    }
 
     fun xlsx(rows: List<RowData>): ByteArrayResource {
         val workbook = XSSFWorkbook()

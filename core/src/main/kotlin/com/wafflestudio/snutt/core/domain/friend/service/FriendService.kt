@@ -13,6 +13,8 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 enum class FriendState {
     ACTIVE,
@@ -157,13 +159,19 @@ class FriendService(
         title: String,
         body: String,
     ) {
-        pushService.sendPushAndNotification(
-            userIds = listOf(userId),
-            title = title,
-            body = body,
-            type = NotificationType.FRIEND,
-            preferenceType = PushPreferenceType.NORMAL,
-            urlScheme = FRIEND_URL_SCHEME,
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    pushService.sendPushAndNotification(
+                        userIds = listOf(userId),
+                        title = title,
+                        body = body,
+                        type = NotificationType.FRIEND,
+                        preferenceType = PushPreferenceType.NORMAL,
+                        urlScheme = FRIEND_URL_SCHEME,
+                    )
+                }
+            },
         )
     }
 }

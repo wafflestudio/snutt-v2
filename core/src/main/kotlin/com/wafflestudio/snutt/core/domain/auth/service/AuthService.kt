@@ -267,6 +267,10 @@ class AuthService(
         provider: AuthProvider,
         response: OAuth2UserResponse,
     ): User {
+        if (response.email != null) {
+            val present = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
+            if (present != null) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
+        }
         val user =
             User(
                 email = response.email,

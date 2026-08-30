@@ -1,10 +1,13 @@
 package com.wafflestudio.snutt.core.domain.auth.oidc
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import io.jsonwebtoken.Claims
+import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClientException
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.module.kotlin.readValue
 import java.math.BigInteger
@@ -41,28 +44,31 @@ private data class OidcJwtHeader(
 class OidcJwtVerifier(
     private val objectMapper: ObjectMapper,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val restClient = TimedRestClients.restClient()
 
     fun verifyAndDecodeToken(
         token: String,
         options: OidcVerificationOptions,
-    ): Claims? =
-        runCatching {
-            val jwtHeader = extractJwtHeader(token) ?: return null
-            val oidcJwk = fetchJwk(jwtHeader, options.jwksUri) ?: return null
-            val publicKey = convertJwkToPublicKey(oidcJwk)
-            val claims = parseSignedClaims(token, publicKey)
-
-            if (!isValidIssuer(claims, options.expectedIssuer)) return null
-            if (!isValidAudience(claims, options.expectedAudience)) return null
-            if (!isNotExpired(claims)) return null
-
-            claims
-        }.onFailure {
-            log.warn("failed to verify oidc token: {}", it.message)
-        }.getOrNull()
+    ): Claims? {
+        val jwtHeader = runCatching { extractJwtHeader(token) }.getOrNull() ?: return null
+        val oidcJwk =
+            try {
+                fetchJwk(jwtHeader, options.jwksUri)
+            } catch (_: RestClientException) {
+                throw SnuttException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE)
+            } ?: return null
+        val publicKey = convertJwkToPublicKey(oidcJwk)
+        val claims =
+            try {
+                parseSignedClaims(token, publicKey)
+            } catch (_: JwtException) {
+                return null
+            }
+        if (!isValidIssuer(claims, options.expectedIssuer)) return null
+        if (!isValidAudience(claims, options.expectedAudience)) return null
+        if (!isNotExpired(claims)) return null
+        return claims
+    }
 
     fun looksLikeJwt(token: String): Boolean {
         val parts = token.split(".")

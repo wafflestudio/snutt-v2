@@ -10,7 +10,6 @@ import com.wafflestudio.snutt.migration.step.LectureStep
 import com.wafflestudio.snutt.migration.step.LegacySearchTagStep
 import com.wafflestudio.snutt.migration.step.LegacyTokenStep
 import com.wafflestudio.snutt.migration.step.NotificationStep
-import com.wafflestudio.snutt.migration.step.ReminderStep
 import com.wafflestudio.snutt.migration.step.ThemeStep
 import com.wafflestudio.snutt.migration.step.TimetableStep
 import com.wafflestudio.snutt.migration.step.UserDataStep
@@ -92,7 +91,6 @@ class MigrationIntegrationTest {
             LectureStep(jdbc, context, mongoSource),
             ThemeStep(jdbc, context, mongoSource),
             TimetableStep(jdbc, context, mongoSource),
-            ReminderStep(jdbc, context, mongoSource),
             UserDataStep(jdbc, context, mongoSource),
             NotificationStep(jdbc, context, mongoSource),
             EvaluationStep(jdbc, context, ev),

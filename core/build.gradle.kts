@@ -2,7 +2,6 @@ plugins {
     `java-library`
     kotlin("plugin.allopen")
     kotlin("plugin.noarg")
-    kotlin("kapt")
 }
 
 allOpen {
@@ -26,12 +25,13 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-mysql")
-    implementation("io.github.openfeign.querydsl:querydsl-jpa:7.5")
+    api("com.linecorp.kotlin-jdsl:jpql-dsl:3.9.0")
+    api("com.linecorp.kotlin-jdsl:jpql-render:3.9.0")
+    api("com.linecorp.kotlin-jdsl:spring-data-jpa-boot4-support:3.9.0")
     implementation("com.google.firebase:firebase-admin:9.10.0")
     // 팝업 이미지 업로드용 사전 인증 요청(PAR) 발급. 요청 서명이 필요해 SDK를 쓴다
     implementation("com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.94.1")
     implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3:3.94.1")
-    kapt("io.github.openfeign.querydsl:querydsl-apt:7.5:jakarta")
     // Hibernate 7.4 JSON 컬럼 매핑(Jackson 3 FormatMapper)과 @JsonValue/@JsonCreator 사용
     implementation("tools.jackson.core:jackson-databind")
 

@@ -18,6 +18,7 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import java.time.Instant
 
 @Component
 class ThemeStep(
@@ -26,7 +27,7 @@ class ThemeStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "theme"
-    override val tables = listOf("published_theme", "theme")
+    override val tables = listOf("user_preference", "published_theme", "theme")
 
     override fun run() {
         val themes = ArrayList<Document>()
@@ -62,6 +63,7 @@ class ThemeStep(
 
         linkOrigins(themes)
         val published = migratePublished(themes)
+        migrateDefaultThemes(themes)
         alignAutoIncrement("theme", ids.peek())
         log.info("테마 이관: {}건 (공개 {}건)", context.themeIds.size, published)
     }
@@ -122,6 +124,22 @@ class ThemeStep(
         }
         alignAutoIncrement("published_theme", ids.peek())
         return count
+    }
+
+    private fun migrateDefaultThemes(themes: List<Document>) {
+        val latestByUser = HashMap<Long, Pair<Long, Instant>>()
+        themes.forEach { doc ->
+            val themeId = context.themeIds[doc.id()] ?: return@forEach
+            val userId = context.userIds[doc.oid("userId")] ?: return@forEach
+            val updatedAt = doc.instant("updatedAt").orNow()
+            val previous = latestByUser[userId]
+            if (previous == null || updatedAt >= previous.second) {
+                latestByUser[userId] = themeId to updatedAt
+            }
+        }
+        writer("user_preference", listOf("user_id", "default_theme_id")).use { out ->
+            latestByUser.forEach { (userId, pair) -> out.add(userId, pair.first) }
+        }
     }
 
     private fun Document.toColorSet(): Map<String, String?> = mapOf("backgroundColor" to str("bg"), "foregroundColor" to str("fg"))

@@ -136,31 +136,31 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
     @Test
     fun `xlsx 파싱과 신규 강의 upsert`() {
-        val xlsx =
-            SugangXlsxFixture.xlsx(
-                listOf(
-                    SugangXlsxFixture.RowData(
-                        courseNumber = "400.320",
-                        lectureNumber = "002",
-                        courseTitle = "공학연구의 실습 1",
-                    ),
-                    SugangXlsxFixture.RowData(
-                        classification = "전필",
-                        department = "언론정보학과(연합전공 정보문화학)",
-                        academicYear = "4학년",
-                        courseNumber = "2114.408A",
-                        lectureNumber = "001",
-                        courseTitle = "HCI이론 및 실습",
-                        credit = 3,
-                        classTime = "화(14:00~16:50)",
-                        place = "83-601",
-                        instructor = "임하진",
-                        quota = 25,
-                    ),
+        val rows =
+            listOf(
+                SugangXlsxFixture.RowData(
+                    courseNumber = "400.320",
+                    lectureNumber = "002",
+                    courseTitle = "공학연구의 실습 1",
+                ),
+                SugangXlsxFixture.RowData(
+                    classification = "전필",
+                    department = "언론정보학과(연합전공 정보문화학)",
+                    academicYear = "4학년",
+                    courseNumber = "2114.408A",
+                    lectureNumber = "001",
+                    courseTitle = "HCI이론 및 실습",
+                    credit = 3,
+                    classTime = "화(14:00~16:50)",
+                    place = "83-601",
+                    instructor = "임하진",
+                    quota = 25,
                 ),
             )
+        val xlsx = SugangXlsxFixture.xlsx(rows)
+        val englishXlsx = SugangXlsxFixture.englishXlsx(rows)
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
-        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
+        Mockito.doReturn(englishXlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
         stubCurrentCoursebook()
         assertEquals(2, sugangSnuXlsxParser.parse(xlsx).size)
 
@@ -231,26 +231,26 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             TimetableLecture(timetableId = timetable.id!!, lectureId = oldLecture.id),
         )
 
-        val xlsx =
-            SugangXlsxFixture.xlsx(
-                listOf(
-                    SugangXlsxFixture.RowData(
-                        classification = "교양",
-                        department = "국어국문학과",
-                        academicYear = "1학년",
-                        courseNumber = "F27.301",
-                        lectureNumber = "001",
-                        courseTitle = "고급한국어",
-                        credit = 3,
-                        classTime = "월(09:30~10:45)",
-                        place = "3-106",
-                        instructor = "황현동",
-                        quota = 20,
-                    ),
+        val rows =
+            listOf(
+                SugangXlsxFixture.RowData(
+                    classification = "교양",
+                    department = "국어국문학과",
+                    academicYear = "1학년",
+                    courseNumber = "F27.301",
+                    lectureNumber = "001",
+                    courseTitle = "고급한국어",
+                    credit = 3,
+                    classTime = "월(09:30~10:45)",
+                    place = "3-106",
+                    instructor = "황현동",
+                    quota = 20,
                 ),
             )
+        val xlsx = SugangXlsxFixture.xlsx(rows)
+        val englishXlsx = SugangXlsxFixture.englishXlsx(rows)
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
-        Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
+        Mockito.doReturn(englishXlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
         stubCurrentCoursebook()
 
         assertEquals(BatchStatus.COMPLETED, runJob())
