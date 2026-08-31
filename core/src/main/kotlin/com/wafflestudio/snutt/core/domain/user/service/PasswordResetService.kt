@@ -41,7 +41,6 @@ class PasswordResetService(
         mailClient.sendCodeMail(MailType.VERIFICATION, email.trim(), accountInfo)
     }
 
-    /** 아이디 찾기 요청도 이메일 존재 여부를 응답으로 노출하지 않는다(v2). */
     @Transactional
     fun sendLocalIdToEmailQuietly(email: String) {
         val accountInfo = findIdAccountInfo(email) ?: return
@@ -95,7 +94,6 @@ class PasswordResetService(
         sendResetCode(user, email)
     }
 
-    /** 이메일 존재 여채를 응답으로 노출하지 않는다(v2). 없으면 아무 일도 하지 않는다. */
     @Transactional
     fun requestResetQuietly(email: String) {
         val user = findResetTargetUser(email) ?: return
@@ -140,7 +138,6 @@ class PasswordResetService(
         confirmReset(user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND), code, newPassword)
     }
 
-    /** 존재하지 않는 이메일과 코드 불일치를 구분하지 않는다(v2). */
     @Transactional
     fun confirmResetQuietly(
         email: String,

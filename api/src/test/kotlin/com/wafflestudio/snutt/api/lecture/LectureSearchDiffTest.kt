@@ -101,7 +101,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
     // 실 데이터: classification은 교과구분 약어, category는 교양영역(교양/교직 강의에만 값 존재)
     private val classifications = listOf("전선", "전필", "교양", "일선", "논문", "교직")
 
-    // 2025년 이후 신규 교양영역 (category)
     private val liberalAreas =
         listOf("수학과학컴퓨팅", "외국어", "글쓰기와 말하기", "예술과 체육", "지식의 세계", "역사적 탐구와 철학적 사유", "문화 해석과 상상", "자율과 창의", "교과교육", "학부생 세미나")
 
@@ -130,7 +129,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
     ): SeedLecture {
         val instructor = instructors[random.nextInt(instructors.size)]
         val classification = classifications[random.nextInt(classifications.size)]
-        // category(교양영역)는 교양/교직 강의에만 채워지고 전공·논문 등은 null이다
         val category =
             if (classification == "교양" || classification == "교직") {
                 liberalAreas[random.nextInt(liberalAreas.size)]
@@ -175,7 +173,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
         }
         val explicit =
             listOf(
-                // 체육 특수어(keyword == "체육" -> category == "체육") 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -224,7 +221,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     "ⓜⓞ",
                     listOf(ReferenceClassTime(DayOfWeek.WEDNESDAY, "302-102", 570, 660)),
                 ),
-                // post-2025 교양영역(category) + 권장과목 특수어 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,
@@ -257,7 +253,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                     null,
                     listOf(ReferenceClassTime(DayOfWeek.THURSDAY, "43-1-303", 780, 870)),
                 ),
-                // post-2025 category + pre2025 구 교양영역(categoryPre2025) 검증용
                 SeedLecture(
                     2026,
                     Semester.AUTUMN,

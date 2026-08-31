@@ -157,7 +157,6 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, first.statusCode.value(), "body=${first.body}")
         val userId = body(first)["userId"].asLong()
 
-        // 애플이 sub를 갱신하면 transfer sub로 기존 계정을 찾아 연결 정보를 갱신한다
         Mockito
             .`when`(appleClient.getMe("apple-token-2"))
             .thenReturn(
@@ -172,7 +171,6 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
         val relogin = post("/v2/auth/login/apple", """{"token":"apple-token-2"}""")
         assertEquals(userId, body(relogin)["userId"].asLong())
 
-        // 갱신된 sub로 직접 로그인 가능해야 한다
         val again = post("/v2/auth/login/apple", """{"token":"apple-token-2"}""")
         assertEquals(userId, body(again)["userId"].asLong())
     }

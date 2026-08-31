@@ -349,7 +349,6 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, member.statusCode.value())
         assertTrue(member.body!!.contains("<html"))
 
-        // 기본 HTTP 클라이언트는 301을 따라가므로 구 경로도 결국 페이지를 서빙한다
         val legacy =
             client()
                 .get()

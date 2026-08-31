@@ -4,7 +4,6 @@ spring:
   config:
     import: classpath:application-core.yml
   batch:
-    # 잡 선택은 JobRunner가 JOB_NAME으로 수행한다 (k8s CronJob, PLAN.md §4)
     job:
       enabled: false
     jdbc:

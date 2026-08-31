@@ -448,7 +448,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     classification = "교양",
                 ),
             )
-        // course1: high teachingSkill & gains (WELL_TAUGHT & RECOMMENDED)
         evaluationRepository.save(
             Evaluation(
                 courseId = course1.id!!,
@@ -463,7 +462,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 rating = 5.0,
             ),
         )
-        // course2: low rating & low lifeBalance
         evaluationRepository.save(
             Evaluation(
                 courseId = course2.id!!,

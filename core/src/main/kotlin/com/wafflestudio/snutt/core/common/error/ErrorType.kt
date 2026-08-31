@@ -2,17 +2,13 @@ package com.wafflestudio.snutt.core.common.error
 
 import org.springframework.http.HttpStatus
 
-/**
- * errcode는 HTTP 상태 코드 × 100 + 일련번호 체계(400xx, 401xx, 403xx, 404xx, 409xx, 500xx).
- * v1 클라이언트가 기대하는 구 errcode는 v1compat의 V1_ERROR_CODE_MAP이 유지한다.
- */
+/** Legacy v1 error codes are maintained by `V1_ERROR_CODE_MAP` in v1compat. */
 enum class ErrorType(
     val httpStatus: HttpStatus,
     val errorCode: Long,
     val displayMessage: String,
     val title: String = "요청 실패",
 ) {
-    // 400 BAD_REQUEST
     MISSING_PARAMETER(HttpStatus.BAD_REQUEST, 40000, "파라미터 누락"),
     INVALID_PARAMETER(HttpStatus.BAD_REQUEST, 40001, "파라미터 값 오류"),
     INVALID_BODY_FIELD_VALUE(HttpStatus.BAD_REQUEST, 40002, "요청 바디 값 오류"),
@@ -61,13 +57,11 @@ enum class ErrorType(
     INVALID_EVALUATION_SORT(HttpStatus.BAD_REQUEST, 40034, "sort는 latest 또는 recommended 여야 합니다"),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, 40035, "cursor 형식이 올바르지 않습니다"),
 
-    // 401 UNAUTHORIZED
     SOCIAL_CONNECT_FAIL(HttpStatus.UNAUTHORIZED, 40100, "소셜 로그인에 실패했습니다"),
     INVALID_APPLE_LOGIN_TOKEN(HttpStatus.UNAUTHORIZED, 40101, "소셜 로그인에 실패했습니다"),
     EXPIRED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, 40102, "다시 로그인해 주세요", "로그인 만료"),
     NO_USER_TOKEN(HttpStatus.UNAUTHORIZED, 40104, "앱을 완전히 종료한 뒤, 로그인을 다시 시도해 주시기 바랍니다", "로그인 실패"),
 
-    // 403 FORBIDDEN
     NOT_ALLOWED_IN_PROD(HttpStatus.FORBIDDEN, 40300, "프로덕션 환경에서는 사용할 수 없는 기능입니다"),
     NOT_MY_EVALUATION(HttpStatus.FORBIDDEN, 40301, "내 강의평이 아닙니다"),
     WRONG_API_KEY(HttpStatus.FORBIDDEN, 40302, "API 키가 잘못되었습니다", "로그인 실패"),
@@ -87,7 +81,6 @@ enum class ErrorType(
     INVALID_EMAIL(HttpStatus.FORBIDDEN, 40316, "이메일 형식이 올바르지 않습니다. 다시 입력해 주세요"),
     USER_EMAIL_IS_NOT_VERIFIED(HttpStatus.FORBIDDEN, 40317, "이메일 인증이 완료된 후 강의평을 확인할 수 있습니다", "이메일 인증 필요"),
 
-    // 404 NOT_FOUND
     TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, 40400, "존재하지 않는 시간표입니다"),
     PRIMARY_TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, 40401, "대표 시간표가 존재하지 않습니다"),
     NO_USER_FCM_KEY(HttpStatus.NOT_FOUND, 40402, "유저 FCM 키가 존재하지 않습니다"),
@@ -108,7 +101,6 @@ enum class ErrorType(
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, 40418, "해당 정보로 가입된 사용자가 없습니다"),
     TIMETABLE_LECTURE_NOT_FOUND(HttpStatus.NOT_FOUND, 40419, "시간표에 존재하지 않는 강좌입니다"),
 
-    // 409 CONFLICT
     DUPLICATE_VACANCY_NOTIFICATION(HttpStatus.CONFLICT, 40900, "이미 빈자리 알림을 받고 있는 강좌입니다"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, 40901, "이미 사용 중인 이메일입니다", "회원가입 실패"),
     DUPLICATE_FRIEND(HttpStatus.CONFLICT, 40902, "이미 친구 관계이거나 친구 요청을 보냈습니다"),
@@ -126,7 +118,6 @@ enum class ErrorType(
     EVALUATION_LECTURE_MISMATCH(HttpStatus.CONFLICT, 40915, "같은 과목의 다른 학기로만 옮길 수 있습니다"),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, 40916, "사용할 수 없는 닉네임입니다", "닉네임 변경 실패"),
 
-    // 500 INTERNAL_SERVER_ERROR
     DEFAULT_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 50000, "서버에 문제가 있으니, 잠시 후 다시 시도해주세요"),
     DYNAMIC_LINK_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 50001, "링크 생성에 실패했습니다. 잠시 후 다시 시도해주세요"),
     COURSEBOOK_RECENT_THAN_SUGANGSNU(
@@ -141,7 +132,6 @@ enum class ErrorType(
         "피드백을 전송하지 못했습니다. 잠시 후 다시 시도해 주세요",
     ),
 
-    // 502 BAD_GATEWAY
     SOCIAL_PROVIDER_UNAVAILABLE(
         HttpStatus.BAD_GATEWAY,
         50200,

@@ -7,12 +7,6 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Date
 
-/**
- * 친구 초대 링크용 stateless 토큰.
- * 토큰 하나를 여러 명이 사용할 수 있으므로(멀티 유즈) 상태를 저장하지 않고
- * 액세스 토큰과 같은 ES256 키로 서명한 JWT에 typ 클레임으로 용도를 구분해 담는다.
- * 무효화가 필요해지면 상태 저장 방식으로 되돌려야 한다.
- */
 @Component
 class FriendLinkTokenProvider(
     private val es256Keys: Es256Keys,
@@ -33,7 +27,6 @@ class FriendLinkTokenProvider(
             .compact()
     }
 
-    /** 서명·용도·만료가 유효하면 초대한 사용자 id, 아니면 null */
     fun parse(token: String): Long? =
         try {
             Jwts

@@ -28,7 +28,6 @@ class FeedbackService(
     ) {
         if (token.isBlank()) throw SnuttException(ErrorType.FEEDBACK_UPLOAD_FAILED)
         val platform = osVersion?.let { "$osType ($osVersion)" } ?: osType
-        // 구버전과 동일하게 제출 시각(KST)을 남겨 triage한다
         val currentSeoulTime =
             ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val body =
@@ -50,7 +49,6 @@ class FeedbackService(
                 mapOf(
                     "title" to "[SNUTT] $appVersion $osType 피드백",
                     "body" to body,
-                    // 구버전과 동일하게 OS별 분류를 위해 라벨을 붙인다
                     "labels" to listOf(osType.lowercase()),
                 ),
             ).retrieve()

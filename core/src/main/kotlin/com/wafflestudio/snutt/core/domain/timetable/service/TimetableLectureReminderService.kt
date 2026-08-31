@@ -72,7 +72,6 @@ class TimetableLectureReminderService(
         const val TIME_WINDOW_MINUTES = 10L
     }
 
-    /** 도래한 리마인더를 표시하고 발송 페이로드를 반환한다. 발송 자체는 호출부가 담당한다. */
     @Transactional
     fun processDueReminders(
         now: ZonedDateTime,
@@ -151,7 +150,6 @@ class TimetableLectureReminderService(
         now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
     ) {
-        // 현재 학기보다 이전 학기의 리마인더는 더 이상 울리지 않으므로 정리한다(시간당 1회면 충분)
         val last = lastCleanupAt
         if (last != null && now.toInstant().isBefore(last.plus(Duration.ofHours(1)))) return
         val deleted =
@@ -171,7 +169,6 @@ class TimetableLectureReminderService(
         val timetableLecture = batch.timetableLecturesById[reminder.timetableLectureId] ?: return null
         val timetable = batch.timetablesById[timetableLecture.timetableId] ?: return null
 
-        // 이번 윈도우에 해당하고 아직 알리지 않은 스케줄만 대상으로 한다(같은 강의의 연속 스케줄 누락 방지)
         val dueSchedules =
             schedules.filter { schedule ->
                 val lastNotified = schedule.recentNotifiedAt

@@ -14,7 +14,6 @@ noArg {
 }
 
 dependencies {
-    // ErrorType이 HttpStatus를, 소셜 클라이언트가 RestClient를 참조 (서블릿 스택 없이 spring-web 모듈만)
     api("org.springframework:spring-web")
     api("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
@@ -29,16 +28,13 @@ dependencies {
     api("com.linecorp.kotlin-jdsl:jpql-render:3.9.0")
     api("com.linecorp.kotlin-jdsl:spring-data-jpa-boot4-support:3.9.0")
     implementation("com.google.firebase:firebase-admin:9.10.0")
-    // 팝업 이미지 업로드용 사전 인증 요청(PAR) 발급. 요청 서명이 필요해 SDK를 쓴다
     implementation("com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.94.1")
     implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3:3.94.1")
-    // Hibernate 7.4 JSON 컬럼 매핑(Jackson 3 FormatMapper)과 @JsonValue/@JsonCreator 사용
     implementation("tools.jackson.core:jackson-databind")
 
     runtimeOnly("com.mysql:mysql-connector-j")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    // Testcontainers 2.x 아티팩트 명 (mysql/junit-jupiter → testcontainers-*)
     testImplementation("org.testcontainers:testcontainers-mysql")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 }

@@ -68,12 +68,10 @@ class SugangSnuSyncJobConfig(
         val condition = sugangSnuLectureApi.getCoursebookCondition()
         val latest = coursebookService.findLatestCoursebook()
         if (latest == null) {
-            // 최초 실행: DB에 수강편람이 없으면 수강사이트 기준으로 첫 편람을 만들고 동기화한다
             log.info("첫 수강편람 생성: {} {}", condition.latestYear, condition.latestSemester)
             coursebookRepository.save(Coursebook(year = condition.latestYear, semester = condition.latestSemester))
             extractRegistrationPeriod(condition.latestYear, condition.latestSemester)
             syncSemester(condition.latestYear, condition.latestSemester)
-            // 사용자가 없으므로 신규 편람 푸시는 생략한다
             return
         }
         if (condition.latestYear == latest.year && condition.latestSemester == latest.semester) {
