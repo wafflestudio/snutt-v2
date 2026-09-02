@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
+import com.wafflestudio.snutt.core.domain.auth.service.TokenPair
 import com.wafflestudio.snutt.core.domain.user.service.PasswordResetService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -29,6 +30,15 @@ data class SocialLoginRequest(
     @field:NotBlank val token: String,
 )
 
+data class RefreshRequest(
+    @field:NotBlank val refreshToken: String,
+)
+
+data class LogoutRequest(
+    @field:NotBlank val refreshToken: String,
+    val fcmRegistrationId: String? = null,
+)
+
 data class RequestPasswordResetRequest(
     @field:NotBlank val email: String,
 )
@@ -46,15 +56,15 @@ data class FindIdRequest(
 data class TokenResponse(
     val userId: Long,
     val accessToken: String,
+    val refreshToken: String,
 )
 
-private fun toResponse(
-    userId: Long,
-    accessToken: String,
-) = TokenResponse(
-    userId = userId,
-    accessToken = accessToken,
-)
+private fun TokenPair.toResponse(userId: Long) =
+    TokenResponse(
+        userId = userId,
+        accessToken = accessToken,
+        refreshToken = refreshToken,
+    )
 
 @RestController
 @RequestMapping("/v2/auth")
@@ -68,7 +78,7 @@ class AuthController(
         @Valid @RequestBody request: RegisterLocalRequest,
     ): TokenResponse {
         val user = authService.registerLocal(request.localId, request.password, request.email)
-        return toResponse(user.id!!, authService.issueToken(user))
+        return authService.issueTokens(user).toResponse(user.id!!)
     }
 
     @Public
@@ -77,7 +87,7 @@ class AuthController(
         @Valid @RequestBody request: LoginLocalRequest,
     ): TokenResponse {
         val user = authService.loginLocal(request.localId, request.password)
-        return toResponse(user.id!!, authService.issueToken(user))
+        return authService.issueTokens(user).toResponse(user.id!!)
     }
 
     @Public
@@ -90,7 +100,24 @@ class AuthController(
             AuthProvider.from(provider)?.takeIf { it != AuthProvider.LOCAL }
                 ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val user = authService.loginSocial(authProvider, request.token)
-        return toResponse(user.id!!, authService.issueToken(user))
+        return authService.issueTokens(user).toResponse(user.id!!)
+    }
+
+    @Public
+    @PostMapping("/refresh")
+    fun refresh(
+        @Valid @RequestBody request: RefreshRequest,
+    ): TokenResponse {
+        val (user, tokens) = authService.refresh(request.refreshToken)
+        return tokens.toResponse(user.id!!)
+    }
+
+    @Public
+    @PostMapping("/logout")
+    fun logout(
+        @Valid @RequestBody request: LogoutRequest,
+    ) {
+        authService.logout(request.refreshToken, request.fcmRegistrationId)
     }
 
     @Public

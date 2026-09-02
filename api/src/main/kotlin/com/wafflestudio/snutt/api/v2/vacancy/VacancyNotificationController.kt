@@ -1,10 +1,9 @@
 package com.wafflestudio.snutt.api.v2.vacancy
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyLectureDisplay
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -51,35 +50,35 @@ class VacancyNotificationController(
 ) {
     @GetMapping("/lectures")
     fun getVacancyNotificationLectures(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestAttribute clientInfo: ClientInfo,
     ): VacancyNotificationLecturesResponse =
         VacancyNotificationLecturesResponse(
             lectures =
                 vacancyNotificationService
-                    .getVacancyNotificationLectures(user.id!!)
+                    .getVacancyNotificationLectures(userId)
                     .map { it.toResponse(clientInfo.language) },
         )
 
     @GetMapping("/lectures/{lectureId}/state")
     fun existsVacancyNotification(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
-    ): Boolean = vacancyNotificationService.existsVacancyNotification(user.id!!, lectureId)
+    ): Boolean = vacancyNotificationService.existsVacancyNotification(userId, lectureId)
 
     @PostMapping("/lectures/{lectureId}")
     fun addVacancyNotification(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
     ) {
-        vacancyNotificationService.addVacancyNotification(user.id!!, lectureId)
+        vacancyNotificationService.addVacancyNotification(userId, lectureId)
     }
 
     @DeleteMapping("/lectures/{lectureId}")
     fun deleteVacancyNotification(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
     ) {
-        vacancyNotificationService.deleteVacancyNotification(user.id!!, lectureId)
+        vacancyNotificationService.deleteVacancyNotification(userId, lectureId)
     }
 }

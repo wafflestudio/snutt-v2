@@ -1,11 +1,10 @@
 package com.wafflestudio.snutt.api.v2.notification
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -32,12 +31,12 @@ class NotificationController(
 ) {
     @GetMapping("")
     fun getNotifications(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): CursorPage<NotificationResponse> {
-        val page = notificationService.getNotifications(user, cursor, limit, explicit > 0)
+        val page = notificationService.getNotifications(userId, cursor, limit, explicit > 0)
         return CursorPage(
             content = page.content.map { it.toResponse() },
             cursor = page.cursor,
@@ -49,8 +48,8 @@ class NotificationController(
 
     @GetMapping("/count")
     fun getUnreadCount(
-        @CurrentUser user: User,
-    ): NotificationCountResponse = NotificationCountResponse(notificationService.getUnreadCount(user))
+        @CurrentUserId userId: Long,
+    ): NotificationCountResponse = NotificationCountResponse(notificationService.getUnreadCount(userId))
 }
 
 private fun Notification.toResponse(): NotificationResponse =

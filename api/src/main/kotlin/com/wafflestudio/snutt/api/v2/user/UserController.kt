@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.user
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
@@ -53,20 +53,20 @@ class UserController(
 ) {
     @GetMapping("/me")
     fun getMe(
-        @CurrentUser user: User,
-    ): UserResponse = user.toResponse(authService.getAuthProviders(user))
+        @CurrentUserId userId: Long,
+    ): UserResponse = userService.get(userId).toResponse(authService.getAuthProviders(userId))
 
     @PatchMapping("/me")
     fun updateMe(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @Valid @RequestBody request: UpdateUserRequest,
-    ): UserResponse = userService.updateNickname(user, request.nickname).toResponse(authService.getAuthProviders(user))
+    ): UserResponse = userService.updateNickname(userId, request.nickname).toResponse(authService.getAuthProviders(userId))
 
     @DeleteMapping("/me")
     fun deleteMe(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
     ) {
-        userService.deactivate(user)
+        userService.deactivate(userId)
     }
 
     data class SendVerificationEmailRequest(
@@ -83,31 +83,31 @@ class UserController(
 
     @PostMapping("/me/email/verification")
     fun sendVerificationEmail(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: SendVerificationEmailRequest,
     ) {
-        emailVerificationService.sendVerificationCode(user, body.email)
+        emailVerificationService.sendVerificationCode(userId, body.email)
     }
 
     @GetMapping("/me/email/verification")
     fun getEmailVerification(
-        @CurrentUser user: User,
-    ): EmailVerificationResultResponse = EmailVerificationResultResponse(user.isEmailVerified)
+        @CurrentUserId userId: Long,
+    ): EmailVerificationResultResponse = EmailVerificationResultResponse(userService.get(userId).isEmailVerified)
 
     @DeleteMapping("/me/email/verification")
     fun resetEmailVerification(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
     ): EmailVerificationResultResponse {
-        emailVerificationService.resetEmailVerification(user)
+        emailVerificationService.resetEmailVerification(userId)
         return EmailVerificationResultResponse(false)
     }
 
     @PostMapping("/me/email/verification/code")
     fun confirmEmailVerification(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: VerificationCodeRequest,
     ): EmailVerificationResultResponse {
-        emailVerificationService.verifyEmail(user, body.code)
+        emailVerificationService.verifyEmail(userId, body.code)
         return EmailVerificationResultResponse(true)
     }
 
@@ -123,6 +123,7 @@ class UserController(
 
     data class ChangePasswordResponse(
         val accessToken: String,
+        val refreshToken: String,
     )
 
     data class SocialTokenRequest(
@@ -135,39 +136,39 @@ class UserController(
 
     @PostMapping("/me/password")
     fun attachLocal(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: AttachLocalRequest,
     ): AuthProvidersResponse {
-        authService.attachLocal(user, body.localId, body.password)
-        return AuthProvidersResponse(authService.getAuthProviders(user))
+        authService.attachLocal(userId, body.localId, body.password)
+        return AuthProvidersResponse(authService.getAuthProviders(userId))
     }
 
     @PatchMapping("/me/password")
     fun changePassword(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: ChangePasswordRequest,
     ): ChangePasswordResponse {
-        val accessToken = authService.changePassword(user, body.currentPassword, body.newPassword)
-        return ChangePasswordResponse(accessToken)
+        val tokens = authService.changePassword(userId, body.currentPassword, body.newPassword)
+        return ChangePasswordResponse(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
     }
 
     @PostMapping("/me/social/{provider}")
     fun attachSocial(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable provider: String,
         @RequestBody body: SocialTokenRequest,
     ): AuthProvidersResponse {
-        authService.attachSocial(user, parseSocialProvider(provider), body.token)
-        return AuthProvidersResponse(authService.getAuthProviders(user))
+        authService.attachSocial(userId, parseSocialProvider(provider), body.token)
+        return AuthProvidersResponse(authService.getAuthProviders(userId))
     }
 
     @DeleteMapping("/me/social/{provider}")
     fun detachSocial(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable provider: String,
     ): AuthProvidersResponse {
-        authService.detachSocial(user, parseSocialProvider(provider))
-        return AuthProvidersResponse(authService.getAuthProviders(user))
+        authService.detachSocial(userId, parseSocialProvider(provider))
+        return AuthProvidersResponse(authService.getAuthProviders(userId))
     }
 
     private fun parseSocialProvider(value: String): AuthProvider =

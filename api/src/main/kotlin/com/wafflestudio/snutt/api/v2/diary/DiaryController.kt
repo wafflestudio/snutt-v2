@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.diary
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
@@ -16,7 +16,6 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -122,26 +121,26 @@ class DiaryController(
 ) {
     @PostMapping("/questionnaire")
     fun getQuestionnaire(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: DiaryQuestionnaireRequestDto,
         @RequestAttribute clientInfo: ClientInfo,
     ): DiaryQuestionnaireResponse =
         diaryService
             .generateQuestionnaire(
-                user.id!!,
+                userId,
                 DiaryQuestionnaireRequest(lectureId = body.lectureId, dailyClassTypes = body.dailyClassTypes),
             ).toResponse(clientInfo.language)
 
     @GetMapping("/target")
     fun getRandomTargetLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Int,
         @RequestAttribute clientInfo: ClientInfo,
     ): DiaryTargetLectureResponse {
         val target =
             diaryService.getDiaryTargetLecture(
-                user.id!!,
+                userId,
                 year,
                 Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
                 emptyList(),
@@ -151,14 +150,14 @@ class DiaryController(
 
     @GetMapping("/daily-class-types")
     fun getDailyClassTypes(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
     ): List<DiaryDailyClassTypeResponse> = diaryService.getActiveDailyClassTypes().map { it.toResponse() }
 
     @GetMapping("/my")
     fun getMySubmissions(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
     ): List<DiarySubmissionsOfYearSemesterResponse> {
-        val submissions = diaryService.getMySubmissions(user.id!!)
+        val submissions = diaryService.getMySubmissions(userId)
         val repliesMap = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
         return submissions
             .groupBy { it.year to it.semester }
@@ -180,11 +179,11 @@ class DiaryController(
 
     @PostMapping("")
     fun submitDiary(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody body: DiarySubmissionRequestDto,
     ) {
         diaryService.submitDiary(
-            user.id!!,
+            userId,
             DiarySubmissionRequest(
                 lectureId = body.lectureId,
                 dailyClassTypes = body.dailyClassTypes,
@@ -196,10 +195,10 @@ class DiaryController(
 
     @DeleteMapping("/{submissionId}")
     fun removeDiarySubmission(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable submissionId: Long,
     ) {
-        diaryService.removeSubmission(submissionId, user.id!!)
+        diaryService.removeSubmission(submissionId, userId)
     }
 }
 

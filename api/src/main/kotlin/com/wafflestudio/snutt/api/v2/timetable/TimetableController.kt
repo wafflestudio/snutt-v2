@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.timetable
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
@@ -13,7 +13,6 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -146,38 +145,38 @@ class TimetableController(
 ) {
     @GetMapping("")
     fun getTimetableBriefs(
-        @CurrentUser user: User,
-    ): List<TimetableBriefResponse> = timetableService.toBriefs(timetableService.getTimetables(user.id!!)).map { it.toResponse() }
+        @CurrentUserId userId: Long,
+    ): List<TimetableBriefResponse> = timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
 
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableService
             .getTimetableDisplay(
-                user.id!!,
-                timetableService.getMostRecentlyUpdatedTimetable(user.id!!).id!!,
+                userId,
+                timetableService.getMostRecentlyUpdatedTimetable(userId).id!!,
             ).toResponse(clientInfo.language)
 
     @GetMapping("/{year}/{semester}")
     fun getTimetablesBySemester(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable year: Int,
         @PathVariable semester: Int,
         @RequestAttribute clientInfo: ClientInfo,
     ): List<TimetableResponse> =
         timetableService
-            .getTimetablesBySemester(user.id!!, year, parseSemester(semester))
-            .map { timetableService.getTimetableDisplay(user.id!!, it.id!!).toResponse(clientInfo.language) }
+            .getTimetablesBySemester(userId, year, parseSemester(semester))
+            .map { timetableService.getTimetableDisplay(userId, it.id!!).toResponse(clientInfo.language) }
 
     @PostMapping("")
     fun addTimetable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam(required = false) source: Long?,
         @Valid @RequestBody body: TimetableAddRequest,
     ): List<TimetableBriefResponse> {
-        val userId = user.id!!
+        val userId = userId
         if (source == null) {
             timetableService.addTimetable(userId, body.year, parseSemester(body.semester), body.title)
         } else {
@@ -188,63 +187,63 @@ class TimetableController(
 
     @GetMapping("/{timetableId}")
     fun getTimetable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @RequestAttribute clientInfo: ClientInfo,
-    ): TimetableResponse = timetableService.getTimetableDisplay(user.id!!, timetableId).toResponse(clientInfo.language)
+    ): TimetableResponse = timetableService.getTimetableDisplay(userId, timetableId).toResponse(clientInfo.language)
 
     @PatchMapping("/{timetableId}")
     fun modifyTimetable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @Valid @RequestBody body: TimetableModifyRequest,
     ): List<TimetableBriefResponse> {
-        val userId = user.id!!
+        val userId = userId
         timetableService.modifyTimetableTitle(userId, timetableId, body.title)
         return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
     }
 
     @DeleteMapping("/{timetableId}")
     fun deleteTimetable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
     ): List<TimetableBriefResponse> {
-        val userId = user.id!!
+        val userId = userId
         timetableService.deleteTimetable(userId, timetableId)
         return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
     }
 
     @PostMapping("/{timetableId}/copy")
     fun copyTimetable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
     ): List<TimetableBriefResponse> {
-        val userId = user.id!!
+        val userId = userId
         timetableService.copyTimetable(userId, timetableId)
         return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
     }
 
     @PutMapping("/{timetableId}/theme")
     fun modifyTimetableTheme(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @RequestBody body: TimetableModifyThemeRequest,
-    ): TimetableResponse = timetableService.modifyTimetableTheme(user.id!!, timetableId, body.themeId).toResponse()
+    ): TimetableResponse = timetableService.modifyTimetableTheme(userId, timetableId, body.themeId).toResponse()
 
     @PutMapping("/{timetableId}/primary")
     fun setPrimary(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
     ) {
-        timetableService.setPrimary(user.id!!, timetableId)
+        timetableService.setPrimary(userId, timetableId)
     }
 
     @DeleteMapping("/{timetableId}/primary")
     fun unsetPrimary(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
     ) {
-        timetableService.unsetPrimary(user.id!!, timetableId)
+        timetableService.unsetPrimary(userId, timetableId)
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

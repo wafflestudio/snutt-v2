@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
@@ -28,6 +29,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
         }
 
         var accessToken = ""
+        var refreshToken = ""
         var userId = ""
     }
 
@@ -90,12 +92,13 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     @Order(2)
-    fun `로컬 회원가입 시 토큰이 발급된다`() {
+    fun `로컬 회원가입 시 토큰 쌍이 발급된다`() {
         val response =
             post("/v2/auth/register", """{"localId":"testuser1","password":"password1","email":"test@snu.ac.kr"}""")
         assertEquals(200, response.statusCode.value())
         val node = body(response)
         accessToken = node["accessToken"].asString()
+        refreshToken = node["refreshToken"].asString()
         userId = node["userId"].asString()
         assertTrue(userId.toLong() > 0)
         assertTrue(accessToken.isNotBlank())
@@ -121,19 +124,59 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     @Order(5)
+    fun `refresh 회전 후 이전 refresh 토큰은 거부되고 현재 로그인은 유지된다`() {
+        val oldRefreshToken = refreshToken
+        val rotated = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
+        assertEquals(200, rotated.statusCode.value())
+        val newRefreshToken = body(rotated)["refreshToken"].asString()
+        assertNotEquals(oldRefreshToken, newRefreshToken)
+
+        // 회전으로 교체된 옛 토큰은 어느 행과도 일치하지 않는다.
+        val reuse = post("/v2/auth/refresh", """{"refreshToken":"$oldRefreshToken"}""")
+        assertEquals(401, reuse.statusCode.value())
+
+        // 재사용 탐지를 하지 않으므로 옛 토큰이 제시돼도 로그인 자체는 살아있다.
+        val afterReuse = post("/v2/auth/refresh", """{"refreshToken":"$newRefreshToken"}""")
+        assertEquals(200, afterReuse.statusCode.value())
+        refreshToken = body(afterReuse)["refreshToken"].asString()
+    }
+
+    @Test
+    @Order(6)
     fun `로그인이 다시 동작하고 me 조회가 성공한다`() {
         val login = post("/v2/auth/login", """{"localId":"testuser1","password":"password1"}""")
         assertEquals(200, login.statusCode.value())
-        accessToken = body(login)["accessToken"].asString()
+        val loginBody = body(login)
+        accessToken = loginBody["accessToken"].asString()
+        refreshToken = loginBody["refreshToken"].asString()
 
         val me = get("/v2/users/me", bearer = accessToken)
         assertEquals(200, me.statusCode.value())
     }
 
     @Test
-    @Order(6)
+    @Order(7)
     fun `잘못된 형식의 토큰은 거부된다`() {
         val response = get("/v2/users/me", bearer = "invalid.token.value")
         assertEquals(403, response.statusCode.value())
+    }
+
+    @Test
+    @Order(8)
+    fun `로그아웃하면 refresh token 이 만료된다`() {
+        val response = post("/v2/auth/logout", """{"refreshToken":"$refreshToken"}""")
+        assertEquals(200, response.statusCode.value())
+
+        val afterLogout = post("/v2/auth/refresh", """{"refreshToken":"$refreshToken"}""")
+        assertEquals(401, afterLogout.statusCode.value())
+    }
+
+    @Test
+    @Order(9)
+    fun `로그아웃해도 access token 은 만료 전까지 인증에 쓸 수 있다`() {
+        // access token 검증은 상태를 조회하지 않으므로 로그아웃이 즉시 무효화하지 못한다.
+        // 무효화는 access token TTL 만큼 지연되며, 이는 stateless 인증을 택한 대가다.
+        val me = get("/v2/users/me", bearer = accessToken)
+        assertEquals(200, me.statusCode.value())
     }
 }
