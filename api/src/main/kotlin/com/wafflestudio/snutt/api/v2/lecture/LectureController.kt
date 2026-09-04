@@ -147,20 +147,12 @@ class LectureController(
         val rows = page.content
         val lectures = rows.map { it.lecture }
         val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
-        val content =
-            rows.map { row ->
-                val classTimes = classTimesMap[row.lecture.id].orEmpty()
-                val evaluationSummary =
-                    LectureEvSummaryResponse(avgRating = row.avgRating, evalCount = row.evalCount)
-                row.lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
-            }
-        return CursorPage(
-            content = content,
-            cursor = page.cursor,
-            size = page.size,
-            last = page.last,
-            totalCount = page.totalCount,
-        )
+        return page.map { row ->
+            val classTimes = classTimesMap[row.lecture.id].orEmpty()
+            val evaluationSummary =
+                LectureEvSummaryResponse(avgRating = row.avgRating, evalCount = row.evalCount)
+            row.lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
+        }
     }
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

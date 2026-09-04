@@ -38,13 +38,7 @@ class NotificationController(
         @RequestParam(defaultValue = "0") explicit: Int,
     ): CursorPage<NotificationResponse> {
         val page = notificationService.getNotifications(user, cursor, limit, explicit > 0)
-        return CursorPage(
-            content = page.content.map { it.toResponse() },
-            cursor = page.cursor,
-            size = page.size,
-            last = page.last,
-            totalCount = page.totalCount,
-        )
+        return page.map { it.toResponse() }
     }
 
     @GetMapping("/count")

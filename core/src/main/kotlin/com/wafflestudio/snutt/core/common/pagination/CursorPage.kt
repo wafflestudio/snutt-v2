@@ -12,6 +12,15 @@ data class CursorPage<T>(
     val last: Boolean,
     val totalCount: Long? = null,
 ) {
+    fun <R> map(transform: (T) -> R): CursorPage<R> =
+        CursorPage(
+            content = content.map(transform),
+            cursor = cursor,
+            size = size,
+            last = last,
+            totalCount = totalCount,
+        )
+
     companion object {
         fun <T> of(
             content: List<T>,

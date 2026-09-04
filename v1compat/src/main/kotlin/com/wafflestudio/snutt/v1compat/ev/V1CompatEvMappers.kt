@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
@@ -126,11 +127,11 @@ internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
 
 internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = EvaluationTag.entries.firstOrNull { it.legacyId == tagId }
 
-internal fun EvaluationDisplay.toLegacyWithSemester(userExternalIds: Map<Long, String>): LegacyEvaluationWithSemesterDto {
+internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemesterDto {
     val e = evaluation
     return LegacyEvaluationWithSemesterDto(
         id = e.id,
-        userId = e.userId?.let(userExternalIds::get),
+        userId = e.userId?.toString(),
         content = e.content,
         gradeSatisfaction = e.gradeSatisfaction,
         teachingSkill = e.teachingSkill,
@@ -150,14 +151,11 @@ internal fun EvaluationDisplay.toLegacyWithSemester(userExternalIds: Map<Long, S
     )
 }
 
-internal fun EvaluationDisplay.toLegacyWithLecture(
-    userExternalIds: Map<Long, String>,
-    courseMap: Map<Long, Course>,
-): LegacyEvaluationWithLectureDto {
+internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, Course>): LegacyEvaluationWithLectureDto {
     val e = evaluation
     return LegacyEvaluationWithLectureDto(
         id = e.id,
-        userId = e.userId?.let(userExternalIds::get),
+        userId = e.userId?.toString(),
         content = e.content,
         gradeSatisfaction = e.gradeSatisfaction,
         teachingSkill = e.teachingSkill,
@@ -180,11 +178,11 @@ internal fun EvaluationDisplay.toLegacyWithLecture(
     )
 }
 
-internal fun EvaluationDisplay.toLegacyCreate(userExternalIds: Map<Long, String>): LegacyEvaluationCreateResponse {
+internal fun EvaluationDisplay.toLegacyCreate(): LegacyEvaluationCreateResponse {
     val e = evaluation
     return LegacyEvaluationCreateResponse(
         id = e.id,
-        userId = e.userId?.let(userExternalIds::get),
+        userId = e.userId?.toString(),
         content = e.content,
         gradeSatisfaction = e.gradeSatisfaction,
         teachingSkill = e.teachingSkill,
@@ -206,3 +204,12 @@ data class LegacyEvCursorPage<T>(
     val last: Boolean,
     val totalCount: Long? = null,
 )
+
+internal fun <T, R> CursorPage<T>.toLegacyEvPage(transform: (T) -> R): LegacyEvCursorPage<R> =
+    LegacyEvCursorPage(
+        content = content.map(transform),
+        cursor = cursor,
+        size = size,
+        last = last,
+        totalCount = totalCount,
+    )

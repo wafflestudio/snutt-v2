@@ -1,8 +1,5 @@
 package com.wafflestudio.snutt.v1compat.ev
 
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
@@ -154,7 +151,7 @@ class V1CompatCourseSearchController(
         @RequestParam(required = false) tags: List<Long>?,
     ): LegacyCourseSearchResponse {
         val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty())
-        val content = searchLegacyPage(criteria, page)
+        val content = courseSearchService.searchPage(criteria, page, LEGACY_COURSE_PAGE_SIZE)
         val totalCount = courseSearchService.count(criteria)
         return LegacyCourseSearchResponse(
             content = content.map { it.toLegacyCourse() },
@@ -199,18 +196,6 @@ class V1CompatCourseSearchController(
                     )
                 },
         )
-    }
-
-    private fun searchLegacyPage(
-        criteria: CourseSearchCriteria,
-        page: Int,
-    ): List<Course> {
-        if (page < 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        var cursor: String? = null
-        repeat(page) {
-            cursor = courseSearchService.search(criteria, cursor).cursor ?: return emptyList()
-        }
-        return courseSearchService.search(criteria, cursor).content
     }
 }
 

@@ -11,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateReq
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -95,7 +94,6 @@ data class LegacyEvaluationReportResponse(
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
-    private val userService: UserService,
     private val lectureService: LectureService,
 ) {
     @GetMapping("/lectures/{lectureId}/evaluations")
@@ -116,14 +114,7 @@ class V1CompatEvController(
                 year = year,
                 semester = semester?.let { Semester.getOfValue(it) ?: throw SnuttException(ErrorType.INVALID_PARAMETER) },
             )
-        val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
-        return LegacyEvCursorPage(
-            content = page.content.map { it.toLegacyWithSemester(userExternalIds) },
-            cursor = page.cursor,
-            size = page.size,
-            last = page.last,
-            totalCount = page.totalCount,
-        )
+        return page.toLegacyEvPage { it.toLegacyWithSemester() }
     }
 
     @PostMapping("/semester-lectures/{semesterLectureId}/evaluations")
@@ -148,7 +139,7 @@ class V1CompatEvController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).toLegacyCreate(userExternalIds(listOf(user.id!!)))
+            ).toLegacyCreate()
     }
 
     @GetMapping("/lectures/{lectureId}/evaluations/users/me")
@@ -157,8 +148,7 @@ class V1CompatEvController(
         @PathVariable lectureId: Long,
     ): LegacyMyLectureEvaluationsResponse {
         val evaluations = evaluationService.getMyEvaluationsOfCourse(user.id!!, lectureId)
-        val userExternalIds = userExternalIds(evaluations.mapNotNull { it.evaluation.userId })
-        return LegacyMyLectureEvaluationsResponse(evaluations = evaluations.map { it.toLegacyWithSemester(userExternalIds) })
+        return LegacyMyLectureEvaluationsResponse(evaluations = evaluations.map { it.toLegacyWithSemester() })
     }
 
     @GetMapping("/lectures/{lectureId}/evaluation-summary")
@@ -197,15 +187,8 @@ class V1CompatEvController(
         @RequestParam(required = false) cursor: String?,
     ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val page = evaluationService.getMyEvaluations(user.id!!, cursor)
-        val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
         val courseMap = courseMap(page.content.map { it.evaluation.courseId })
-        return LegacyEvCursorPage(
-            content = page.content.map { it.toLegacyWithLecture(userExternalIds, courseMap) },
-            cursor = page.cursor,
-            size = page.size,
-            last = page.last,
-            totalCount = page.totalCount,
-        )
+        return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
 
     @GetMapping("/evaluations/{evaluationId}")
@@ -214,7 +197,7 @@ class V1CompatEvController(
         @PathVariable evaluationId: Long,
     ): LegacyEvaluationWithSemesterDto {
         val display = evaluationService.getEvaluation(user.id!!, evaluationId)
-        return display.toLegacyWithSemester(userExternalIds(listOfNotNull(display.evaluation.userId)))
+        return display.toLegacyWithSemester()
     }
 
     @PatchMapping("/evaluations/{evaluationId}")
@@ -250,7 +233,7 @@ class V1CompatEvController(
                     lecture.semester,
                 )
             }
-        return display.toLegacyWithSemester(userExternalIds(listOfNotNull(display.evaluation.userId)))
+        return display.toLegacyWithSemester()
     }
 
     @DeleteMapping("/evaluations/{evaluationId}")
@@ -306,18 +289,9 @@ class V1CompatEvController(
     ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val tag = evaluationTagOfLegacyId(tagId) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val page = evaluationService.getEvaluationsByTag(user.id!!, tag, cursor)
-        val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
         val courseMap = courseMap(page.content.map { it.evaluation.courseId })
-        return LegacyEvCursorPage(
-            content = page.content.map { it.toLegacyWithLecture(userExternalIds, courseMap) },
-            cursor = page.cursor,
-            size = page.size,
-            last = page.last,
-            totalCount = page.totalCount,
-        )
+        return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
-
-    private fun userExternalIds(userIds: Collection<Long>): Map<Long, String> = userIds.associateWith { it.toString() }
 
     private fun courseMap(courseIds: Collection<Long>): Map<Long, Course> = evaluationService.getCourses(courseIds)
 }

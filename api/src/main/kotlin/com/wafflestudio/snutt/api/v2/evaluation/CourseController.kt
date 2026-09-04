@@ -101,13 +101,7 @@ class CourseController(
                 ),
                 cursor,
             )
-        return CursorPage(
-            content = page.content.map { it.toResponse() },
-            cursor = page.cursor,
-            size = page.size,
-            last = page.last,
-            totalCount = page.totalCount,
-        )
+        return page.map { it.toResponse() }
     }
 
     @GetMapping("/{courseId}")

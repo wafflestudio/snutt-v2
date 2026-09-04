@@ -33,8 +33,9 @@ class CourseSearchRepository(
         criteria: CourseSearchCriteria,
         cursor: CourseSearchCursor?,
         limit: Int,
+        offset: Int? = null,
     ): List<Course> =
-        findAll(offset = null, limit = limit) {
+        findAll(offset = offset, limit = limit) {
             jpql {
                 val predicates = mutableListOf<Predicate>()
                 predicates += criteriaPredicates(criteria)
