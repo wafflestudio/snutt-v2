@@ -278,7 +278,7 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         val notVerified =
             post(
                 "/v1/ev-service/v1/semester-lectures/$lectureId/evaluations",
-                """{"content":"평가","gradeSatisfaction":4.0,"teachingSkill":4.0,"gains":4.0,"lifeBalance":4.0,"rating":4.0}""",
+                """{"content":"평가","grade_satisfaction":4.0,"teaching_skill":4.0,"gains":4.0,"life_balance":4.0,"rating":4.0}""",
                 legacyToken,
             )
         assertEquals(403, notVerified.statusCode.value())

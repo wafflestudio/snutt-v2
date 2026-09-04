@@ -46,7 +46,6 @@ class GoogleClient : OAuth2Client {
         return OAuth2UserResponse(
             socialId = response.id,
             email = response.email,
-            isEmailVerified = true,
             name = null,
         )
     }

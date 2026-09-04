@@ -44,6 +44,16 @@ class CourseSearchService(
     fun count(criteria: CourseSearchCriteria): Long = courseSearchRepository.count(criteria)
 
     @Transactional(readOnly = true)
+    fun searchPage(
+        criteria: CourseSearchCriteria,
+        page: Int,
+        size: Int,
+    ): List<Course> {
+        if (size <= 0 || page < 0 || page > Int.MAX_VALUE / size) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        return courseSearchRepository.search(criteria, cursor = null, limit = size, offset = page * size)
+    }
+
+    @Transactional(readOnly = true)
     fun search(
         criteria: CourseSearchCriteria,
         cursor: String?,

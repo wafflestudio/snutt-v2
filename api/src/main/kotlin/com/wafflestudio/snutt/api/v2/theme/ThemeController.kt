@@ -67,14 +67,7 @@ private fun TimetableThemeDisplay.toResponse() =
         authorNickname = authorNickname,
     )
 
-private fun CursorPage<TimetableThemeDisplay>.toResponsePage(): CursorPage<ThemeResponse> =
-    CursorPage(
-        content = content.map { it.toResponse() },
-        cursor = cursor,
-        size = size,
-        last = last,
-        totalCount = totalCount,
-    )
+private fun CursorPage<TimetableThemeDisplay>.toResponsePage(): CursorPage<ThemeResponse> = map { it.toResponse() }
 
 @RestController
 @RequestMapping("/v2/themes")

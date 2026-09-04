@@ -19,8 +19,6 @@ private data class KakaoOAuth2UserResponse(
 
 private data class KakaoAccountDto(
     val email: String,
-    @param:JsonProperty("is_email_verified")
-    val isEmailVerified: Boolean,
 )
 
 @Component("KAKAO")
@@ -54,7 +52,6 @@ class KakaoClient : OAuth2Client {
         return OAuth2UserResponse(
             socialId = response.id.toString(),
             email = response.kakaoAccount.email,
-            isEmailVerified = response.kakaoAccount.isEmailVerified,
             name = null,
         )
     }

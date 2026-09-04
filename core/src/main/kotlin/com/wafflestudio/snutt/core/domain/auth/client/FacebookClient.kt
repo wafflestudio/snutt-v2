@@ -61,7 +61,6 @@ class FacebookClient(
             socialId = response.id,
             name = response.name,
             email = response.email,
-            isEmailVerified = true,
         )
     }
 
@@ -81,7 +80,6 @@ class FacebookClient(
             socialId = claims["sub"] as? String ?: return null,
             name = claims["name"] as? String,
             email = claims["email"] as? String,
-            isEmailVerified = claims["email_verified"] as? Boolean ?: true,
         )
     }
 }
