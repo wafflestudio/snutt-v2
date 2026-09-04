@@ -1,6 +1,10 @@
+FROM eclipse-temurin:25-jdk AS builder
+WORKDIR /workspace
+COPY . .
+RUN ./gradlew :api:bootJar
+
 FROM eclipse-temurin:25-jdk
 WORKDIR /app
-COPY . /app
-RUN ./gradlew :api:bootJar
+COPY --from=builder /workspace/api/build/libs/snutt-api.jar app.jar
 EXPOSE 8080
-ENTRYPOINT java $JAVA_OPTS -jar api/build/libs/snutt-api.jar
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

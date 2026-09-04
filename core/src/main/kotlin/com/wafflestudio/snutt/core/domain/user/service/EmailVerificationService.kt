@@ -12,6 +12,8 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 class EmailVerificationService(
@@ -38,7 +40,21 @@ class EmailVerificationService(
         }
         val code = VerificationCode.generate()
         store.store(user.id!!, code, payload = trimmed)
-        mailClient.sendCodeMail(MailType.VERIFICATION, trimmed, code)
+        sendMail(MailType.VERIFICATION, trimmed, code)
+    }
+
+    private fun sendMail(
+        type: MailType,
+        to: String,
+        code: String,
+    ) {
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    mailClient.sendCodeMail(type, to, code)
+                }
+            },
+        )
     }
 
     @Transactional
