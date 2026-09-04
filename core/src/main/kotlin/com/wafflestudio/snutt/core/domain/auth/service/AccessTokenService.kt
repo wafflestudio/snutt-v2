@@ -22,6 +22,8 @@ class AccessTokenService(
 ) {
     companion object {
         private const val ISSUER = "snutt"
+        private const val TYPE_CLAIM = "typ"
+        private const val TOKEN_TYPE = "access"
     }
 
     fun issue(payload: AccessTokenPayload): String {
@@ -30,6 +32,7 @@ class AccessTokenService(
             .builder()
             .issuer(ISSUER)
             .subject(payload.userId.toString())
+            .claim(TYPE_CLAIM, TOKEN_TYPE)
             .issuedAt(Date.from(now))
             .expiration(Date.from(now + accessTokenTtl))
             .signWith(es256Keys.privateKey, Jwts.SIG.ES256)
@@ -43,6 +46,7 @@ class AccessTokenService(
                     .parser()
                     .verifyWith(es256Keys.publicKey)
                     .requireIssuer(ISSUER)
+                    .require(TYPE_CLAIM, TOKEN_TYPE)
                     .build()
                     .parseSignedClaims(token)
                     .payload

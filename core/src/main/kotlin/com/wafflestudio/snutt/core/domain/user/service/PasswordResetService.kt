@@ -17,6 +17,8 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration
 
 @Service
@@ -38,14 +40,14 @@ class PasswordResetService(
     fun sendLocalIdToEmail(email: String) {
         val accountInfo = findIdAccountInfo(email) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         store.throttleSend(email.trim())
-        mailClient.sendCodeMail(MailType.VERIFICATION, email.trim(), accountInfo)
+        sendMail(MailType.VERIFICATION, email.trim(), accountInfo)
     }
 
     @Transactional
     fun sendLocalIdToEmailQuietly(email: String) {
         val accountInfo = findIdAccountInfo(email) ?: return
         store.throttleSend(email.trim())
-        mailClient.sendCodeMail(MailType.VERIFICATION, email.trim(), accountInfo)
+        sendMail(MailType.VERIFICATION, email.trim(), accountInfo)
     }
 
     private fun findIdAccountInfo(email: String): String? {
@@ -109,7 +111,21 @@ class PasswordResetService(
         val userId = requireNotNull(user.id) { "persisted user must have an id" }
         val code = VerificationCode.generate()
         store.store(userId, code)
-        mailClient.sendCodeMail(MailType.PASSWORD_RESET, email.trim(), code)
+        sendMail(MailType.PASSWORD_RESET, email.trim(), code)
+    }
+
+    private fun sendMail(
+        type: MailType,
+        to: String,
+        code: String,
+    ) {
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    mailClient.sendCodeMail(type, to, code)
+                }
+            },
+        )
     }
 
     @Transactional(readOnly = true)

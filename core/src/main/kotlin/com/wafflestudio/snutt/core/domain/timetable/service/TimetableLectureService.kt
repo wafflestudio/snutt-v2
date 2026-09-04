@@ -80,12 +80,11 @@ class TimetableLectureService(
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
         resolveTimeConflict(timetable, classTimes, request.isForced, null)
 
-        val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
         val (colorIndex, color) =
             timetableThemeService.getNewColorIndexAndColor(
                 timetable.themeId,
-                remaining.map { it.color },
-                remaining.map { it.colorIndex },
+                existingLectures.map { it.color },
+                existingLectures.map { it.colorIndex },
             )
         timetableLectureRepository.save(
             TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, color = color, colorIndex = colorIndex),
