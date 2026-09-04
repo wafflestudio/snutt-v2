@@ -203,7 +203,7 @@ class AuthService(
         val user =
             User(
                 email = response.email,
-                isEmailVerified = response.email != null && response.isEmailVerified,
+                isEmailVerified = false,
                 nickname = userNicknameService.generateUniqueRandomNickname(),
             )
         save(user, ErrorType.DUPLICATE_SOCIAL_ACCOUNT)

@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.v1compat.ev
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
@@ -24,7 +23,10 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.PropertyNamingStrategies
+import tools.jackson.databind.annotation.JsonNaming
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationWriteRequest(
     val content: String,
     val gradeSatisfaction: Double,
@@ -34,6 +36,7 @@ data class LegacyEvaluationWriteRequest(
     val rating: Double,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationUpdateRequest(
     val content: String? = null,
     val gradeSatisfaction: Double? = null,
@@ -44,14 +47,17 @@ data class LegacyEvaluationUpdateRequest(
     val semesterLectureId: String? = null,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationReportRequest(
     val content: String,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyMyLectureEvaluationsResponse(
     val evaluations: List<LegacyEvaluationWithSemesterDto>,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvLectureSummaryResponse(
     val id: Long?,
     val title: String,
@@ -65,6 +71,7 @@ data class LegacyEvLectureSummaryResponse(
     val evaluation: LegacyEvAveragesDto,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvAveragesDto(
     val avgGradeSatisfaction: Double?,
     val avgTeachingSkill: Double?,
@@ -74,6 +81,7 @@ data class LegacyEvAveragesDto(
     val evaluationCount: Long,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationReportResponse(
     val id: Long?,
     val lectureEvaluationId: Long,
@@ -98,7 +106,7 @@ class V1CompatEvController(
         @RequestParam(required = false) sort: String?,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Int?,
-    ): CursorPage<LegacyEvaluationWithSemesterDto> {
+    ): LegacyEvCursorPage<LegacyEvaluationWithSemesterDto> {
         val page =
             evaluationService.getEvaluationsOfCourse(
                 userId = user.id!!,
@@ -109,7 +117,7 @@ class V1CompatEvController(
                 semester = semester?.let { Semester.getOfValue(it) ?: throw SnuttException(ErrorType.INVALID_PARAMETER) },
             )
         val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
-        return CursorPage(
+        return LegacyEvCursorPage(
             content = page.content.map { it.toLegacyWithSemester(userExternalIds) },
             cursor = page.cursor,
             size = page.size,
@@ -187,11 +195,11 @@ class V1CompatEvController(
     fun getMyEvaluations(
         @V1CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<LegacyEvaluationWithLectureDto> {
+    ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val page = evaluationService.getMyEvaluations(user.id!!, cursor)
         val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
         val courseMap = courseMap(page.content.map { it.evaluation.courseId })
-        return CursorPage(
+        return LegacyEvCursorPage(
             content = page.content.map { it.toLegacyWithLecture(userExternalIds, courseMap) },
             cursor = page.cursor,
             size = page.size,
@@ -295,12 +303,12 @@ class V1CompatEvController(
         @V1CurrentUser user: User,
         @PathVariable tagId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<LegacyEvaluationWithLectureDto> {
+    ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val tag = evaluationTagOfLegacyId(tagId) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val page = evaluationService.getEvaluationsByTag(user.id!!, tag, cursor)
         val userExternalIds = userExternalIds(page.content.mapNotNull { it.evaluation.userId })
         val courseMap = courseMap(page.content.map { it.evaluation.courseId })
-        return CursorPage(
+        return LegacyEvCursorPage(
             content = page.content.map { it.toLegacyWithLecture(userExternalIds, courseMap) },
             cursor = page.cursor,
             size = page.size,

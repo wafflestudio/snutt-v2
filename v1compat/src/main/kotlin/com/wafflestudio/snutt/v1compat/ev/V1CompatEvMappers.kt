@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.v1compat.ev
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
+import tools.jackson.databind.PropertyNamingStrategies
+import tools.jackson.databind.annotation.JsonNaming
 
 private val EvaluationTag.legacyId: Long
     get() =
@@ -15,6 +17,7 @@ private val EvaluationTag.legacyId: Long
             EvaluationTag.HARD_BUT_WORTH -> 5L
         }
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvTagGroupDto(
     val id: Int,
     val name: String,
@@ -23,6 +26,7 @@ data class LegacyEvTagGroupDto(
     val tags: List<LegacyEvTagDto>,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvTagDto(
     val id: Long,
     val name: String,
@@ -30,6 +34,7 @@ data class LegacyEvTagDto(
     val ordering: Int,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationWithSemesterDto(
     val id: Long?,
     val userId: String?,
@@ -51,6 +56,7 @@ data class LegacyEvaluationWithSemesterDto(
     val isReportable: Boolean,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationWithLectureDto(
     val id: Long?,
     val userId: String?,
@@ -72,12 +78,14 @@ data class LegacyEvaluationWithLectureDto(
     val isReportable: Boolean,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationCourseDto(
     val id: Long?,
     val title: String,
     val instructor: String,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationCreateResponse(
     val id: Long?,
     val userId: String?,
@@ -189,3 +197,12 @@ internal fun EvaluationDisplay.toLegacyCreate(userExternalIds: Map<Long, String>
         fromSnuev = e.fromSnuev,
     )
 }
+
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
+data class LegacyEvCursorPage<T>(
+    val content: List<T>,
+    val cursor: String?,
+    val size: Int,
+    val last: Boolean,
+    val totalCount: Long? = null,
+)

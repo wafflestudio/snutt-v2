@@ -236,6 +236,7 @@ class CatalogStep(
                     "created_at",
                     "updated_at",
                 ),
+                parent = out,
             ).use { targetOut ->
                 mongo.each("diaryQuestion") { doc ->
                     val id = questionIds.next()

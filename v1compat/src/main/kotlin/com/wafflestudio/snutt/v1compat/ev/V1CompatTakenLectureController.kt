@@ -15,12 +15,16 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.PropertyNamingStrategies
+import tools.jackson.databind.annotation.JsonNaming
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
     val totalCount: Int = content.size,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLectureDto(
     val id: Long?,
     val title: String,
@@ -70,10 +74,12 @@ class V1CompatTakenLectureController(
         )
 }
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacySearchTagGroupsResponse(
     val tagGroups: List<LegacyEvTagGroupDto>,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseSearchResponse(
     val content: List<LegacyCourseDto>,
     val page: Int,
@@ -82,6 +88,7 @@ data class LegacyCourseSearchResponse(
     val totalCount: Long,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseDto(
     val id: Long?,
     val title: String,
@@ -95,11 +102,13 @@ data class LegacyCourseDto(
     val evaluation: LegacyCourseEvaluationSummaryDto,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseEvaluationSummaryDto(
     val avgRating: Double?,
     val evaluationCount: Long,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseWithSemestersResponse(
     val id: Long?,
     val title: String,
@@ -113,6 +122,7 @@ data class LegacyCourseWithSemestersResponse(
     val semesterLectures: List<LegacySemesterLectureDto>,
 )
 
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacySemesterLectureDto(
     val id: Long,
     val year: Int,

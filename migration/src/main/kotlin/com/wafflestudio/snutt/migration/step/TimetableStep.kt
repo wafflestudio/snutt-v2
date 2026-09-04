@@ -110,6 +110,7 @@ class TimetableStep(
                     "created_at",
                     "updated_at",
                 ),
+                parent = reminderOut,
             ).use { scheduleOut ->
                 mongo.each("timetableLectureReminder") { doc ->
                     val timetableLectureId =
