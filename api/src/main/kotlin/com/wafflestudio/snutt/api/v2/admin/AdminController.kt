@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.storage.FileUploadUri
 import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
+import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
@@ -76,6 +77,18 @@ data class AdminUserSearchResponse(
     val nickname: String,
     val localId: String?,
     val isAdmin: Boolean,
+    val active: Boolean,
+    val regDate: Long,
+    val lastLoginTimestamp: Long,
+    val authProviders: List<AuthProvider>,
+    val socialAccounts: AdminSocialAccountsResponse,
+)
+
+data class AdminSocialAccountsResponse(
+    val googleEmail: String?,
+    val kakaoEmail: String?,
+    val appleEmail: String?,
+    val facebookName: String?,
 )
 
 data class AdminDiaryQuestionWriteRequest(
@@ -244,14 +257,26 @@ class AdminController(
     fun searchUsersByEmail(
         @RequestParam email: String,
     ): List<AdminUserSearchResponse> =
-        userService.searchByEmail(email).map {
+        userService.searchByEmailWithAuthInfo(email).map { info ->
+            val user = info.user
             AdminUserSearchResponse(
-                id = it.id!!,
-                email = it.email,
-                nickname = it.nickname,
-                localId = it.localId,
-                isAdmin = it.isAdmin,
-                isEmailVerified = it.isEmailVerified,
+                id = user.id!!,
+                email = user.email,
+                nickname = user.nickname,
+                localId = user.localId,
+                isAdmin = user.isAdmin,
+                isEmailVerified = user.isEmailVerified,
+                active = user.active,
+                regDate = checkNotNull(user.createdAt).toEpochMilli(),
+                lastLoginTimestamp = user.lastLoginAt.toEpochMilli(),
+                authProviders = info.authProviders,
+                socialAccounts =
+                    AdminSocialAccountsResponse(
+                        googleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.GOOGLE }?.email,
+                        kakaoEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.KAKAO }?.email,
+                        appleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.APPLE }?.email,
+                        facebookName = info.socialAuths.firstOrNull { it.provider == AuthProvider.FACEBOOK }?.displayName,
+                    ),
             )
         }
 

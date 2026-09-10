@@ -15,6 +15,9 @@ data class TargetedPushMessage(
     val body: String,
     val urlScheme: String?,
     val fcmRegistrationId: String,
+    val isUrgentOnAndroid: Boolean = false,
+    val shouldSendAsDataMessage: Boolean = false,
+    val data: Map<String, String> = emptyMap(),
 )
 
 data class TopicPushMessage(
@@ -22,6 +25,9 @@ data class TopicPushMessage(
     val body: String,
     val urlScheme: String?,
     val topic: String,
+    val isUrgentOnAndroid: Boolean = false,
+    val shouldSendAsDataMessage: Boolean = false,
+    val data: Map<String, String> = emptyMap(),
 )
 
 data class PushSendResult(

@@ -27,6 +27,7 @@ interface MigrationStep {
 class MigrationContext {
     val userIds = HashMap<String, Long>(256_000)
     val lectureIds = HashMap<String, Long>(256_000)
+    val timetableIds = HashMap<String, Long>(512_000)
     val themeIds = HashMap<String, Long>()
     val diaryClassTypeIds = HashMap<String, Long>()
     val diaryQuestionIds = HashMap<String, Long>()
@@ -146,6 +147,11 @@ abstract class AbstractMigrationStep(
 
 object MigrationSupport {
     private val KST: ZoneId = ZoneId.of("Asia/Seoul")
+
+    object ResolutionReasons {
+        const val TIMETABLE_USER_MISSING = "사용자가 없는 시간표를 제외"
+        const val EVALUATION_ANCHOR_MISSING = "개설을 찾을 수 없는 강의평을 제외"
+    }
 
     fun truncate(
         jdbc: JdbcTemplate,

@@ -18,9 +18,11 @@ import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.timetable.service.ClassTimeUtils
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
@@ -62,6 +64,7 @@ class SugangSnuSyncService(
     private val notificationRepository: NotificationRepository,
     private val pushService: PushService,
     private val lectureBuildingSync: LectureBuildingSync,
+    private val timetableLectureReminderService: TimetableLectureReminderService,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -214,10 +217,10 @@ class SugangSnuSyncService(
         updated.filter { it.notifiable }.forEach { update ->
             val lecture = update.lecture
             val labels = update.changedLabels.joinToString()
-            forEachContainingTimetable(lecture) { timetable, entryId ->
+            forEachContainingTimetable(lecture) { timetable, entry ->
                 val counts = timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }
                 if (update.classTimesChanged && overlapsOtherLecture(timetable, lecture, update.input.classTimes)) {
-                    timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entryId)
+                    timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
                     counts.deleted += 1
                     notifications +=
                         timetableNotification(
@@ -226,13 +229,16 @@ class SugangSnuSyncService(
                             NotificationType.LECTURE_REMOVE,
                         )
                 } else {
+                    if (update.classTimesChanged && entry.overrides?.classPlaceAndTimes == null) {
+                        timetableLectureReminderService.recomputeForTimetableLecture(entry.id!!, update.input.classTimes)
+                    }
                     counts.updated += 1
                     notifications +=
                         timetableNotification(
                             timetable,
                             "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
                             NotificationType.LECTURE_UPDATE,
-                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.id}&lectureId=$entryId",
+                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.id}&lectureId=${entry.id}",
                         )
                 }
             }
@@ -248,8 +254,8 @@ class SugangSnuSyncService(
         }
 
         deleted.forEach { lecture ->
-            forEachContainingTimetable(lecture) { timetable, entryId ->
-                timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entryId)
+            forEachContainingTimetable(lecture) { timetable, entry ->
+                timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
                 timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
                 notifications +=
                     timetableNotification(
@@ -282,12 +288,12 @@ class SugangSnuSyncService(
 
     private fun forEachContainingTimetable(
         lecture: Lecture,
-        action: (Timetable, Long) -> Unit,
+        action: (Timetable, TimetableLecture) -> Unit,
     ) {
         val entries = timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!))
         if (entries.isEmpty()) return
         val timetables = timetableRepository.findAllById(entries.map { it.timetableId }.distinct()).associateBy { it.id!! }
-        entries.forEach { entry -> timetables[entry.timetableId]?.let { action(it, entry.id!!) } }
+        entries.forEach { entry -> timetables[entry.timetableId]?.let { action(it, entry) } }
     }
 
     private fun forEachContainingBookmark(
