@@ -36,13 +36,14 @@ class PushPreferenceService(
         val existing = pushPreferenceRepository.findAllByUserId(userId)
         val requestedTypes = dto.pushPreferences.map { it.type }
         pushPreferenceRepository.deleteAll(existing.filter { it.type.name !in requestedTypes })
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         dto.pushPreferences.forEach { item ->
             val type =
                 PushPreferenceType.entries.firstOrNull { it.name == item.type }
                     ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
             val preference =
                 existing.firstOrNull { it.type == type }
-                    ?: PushPreference(user = userRepository.getReferenceById(userId), type = type, isEnabled = item.isEnabled)
+                    ?: PushPreference(user = user, type = type, isEnabled = item.isEnabled)
             preference.isEnabled = item.isEnabled
             pushPreferenceRepository.save(preference)
         }

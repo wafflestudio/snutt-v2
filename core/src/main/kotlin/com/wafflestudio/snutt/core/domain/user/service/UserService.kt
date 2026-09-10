@@ -11,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.user.model.UserSocialAuth
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -23,7 +22,9 @@ class UserService(
     private val userNicknameService: UserNicknameService,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
-    fun get(userId: Long): User = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+    fun findActive(userId: Long): User? = userRepository.findByIdAndActiveTrue(userId)
+
+    fun get(userId: Long): User = findActive(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
     fun getAllByIds(userIds: Collection<Long>): Map<Long, User> = userRepository.findAllById(userIds.distinct()).associateBy { it.id!! }
 

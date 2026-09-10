@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -31,7 +30,7 @@ class NotificationService(
         explicit: Boolean,
     ): CursorPage<Notification> {
         if (limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val user = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val decoded =
             CursorCodec.decode<NotificationCursor>(cursor)?.also {
                 if (it.notificationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
@@ -56,7 +55,7 @@ class NotificationService(
     }
 
     fun getUnreadCount(userId: Long): Long {
-        val user = userRepository.findByIdOrNull(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         return notificationRepository.countUnread(userId, user.notificationCheckedAt)
     }
 

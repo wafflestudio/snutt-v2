@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.core.domain.device.service
 
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.push.PushClient
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
@@ -21,6 +23,7 @@ class DeviceService(
         registrationId: String,
         clientInfo: ClientInfo,
     ) {
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val deviceByRegistrationId = userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(registrationId)
         val deviceByDeviceId =
             clientInfo.deviceId?.let { userDeviceRepository.findByUserIdAndDeviceIdAndIsDeletedFalse(userId, it) }
@@ -35,7 +38,7 @@ class DeviceService(
                     deviceByRegistrationId.isDeleted = true
                     userDeviceRepository.flush()
                 }
-                deviceByDeviceId ?: UserDevice(user = userRepository.getReferenceById(userId), fcmRegistrationId = registrationId)
+                deviceByDeviceId ?: UserDevice(user = user, fcmRegistrationId = registrationId)
             }
         device.fcmRegistrationId = registrationId
         device.osType = clientInfo.osType
