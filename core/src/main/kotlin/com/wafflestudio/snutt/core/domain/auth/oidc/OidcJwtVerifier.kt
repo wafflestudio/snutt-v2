@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.auth.oidc
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.UpstreamException
 import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.JwtException
@@ -54,8 +54,8 @@ class OidcJwtVerifier(
         val oidcJwk =
             try {
                 fetchJwk(jwtHeader, options.jwksUri)
-            } catch (_: RestClientException) {
-                throw SnuttException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE)
+            } catch (e: RestClientException) {
+                throw UpstreamException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE, "oidc", e)
             } ?: return null
         val publicKey = convertJwkToPublicKey(oidcJwk)
         val claims =

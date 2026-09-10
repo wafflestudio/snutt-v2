@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -34,6 +35,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 
 data class LegacyTimetableBriefDto(
     @param:JsonProperty("_id")
@@ -43,7 +45,7 @@ data class LegacyTimetableBriefDto(
     val title: String,
     val isPrimary: Boolean,
     @param:JsonProperty("updated_at")
-    val updatedAt: Long,
+    val updatedAt: Instant,
     @param:JsonProperty("total_credit")
     val totalCredit: Int,
 )
@@ -83,7 +85,7 @@ class V1CompatTimetableController(
                 semester = brief.semester,
                 title = brief.title,
                 isPrimary = brief.isPrimary,
-                updatedAt = brief.updatedAt.toEpochMilli(),
+                updatedAt = brief.updatedAt,
                 totalCredit = brief.totalCredit,
             )
         }
@@ -291,6 +293,10 @@ class V1CompatTimetableController(
                     remark = body.remark,
                     color = body.color?.toColorSet(),
                     colorIndex = body.colorIndex,
+                    academicYear = body.academicYear,
+                    category = body.category,
+                    classification = body.classification,
+                    categoryPre2025 = body.categoryPre2025?.let { LectureCategoryPre2025.toKorean(it) },
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
@@ -392,6 +398,11 @@ data class LegacyCustomLectureRequest(
 data class LegacyModifyLectureRequest(
     @param:JsonProperty("course_title")
     val courseTitle: String? = null,
+    @param:JsonProperty("academic_year")
+    val academicYear: String? = null,
+    val category: String? = null,
+    val classification: String? = null,
+    val categoryPre2025: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
     @param:JsonProperty("class_time_json")

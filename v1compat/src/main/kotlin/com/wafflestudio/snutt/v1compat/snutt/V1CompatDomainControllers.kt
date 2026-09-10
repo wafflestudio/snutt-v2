@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -34,8 +35,6 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
-import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTimeString
-import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyZonedDateTimeString
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -72,7 +71,7 @@ data class LegacyFriendDto(
     val userId: String,
     val displayName: String?,
     val nickname: LegacyFriendNicknameDto,
-    val createdAt: String,
+    val createdAt: Instant,
 )
 
 data class LegacyFriendNicknameDto(
@@ -174,7 +173,7 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
                     color = lecture.color,
                     colorIndex = lecture.colorIndex,
                     lectureId = lecture.lectureId?.toString(),
-                    categoryPre2025 = lecture.categoryPre2025,
+                    categoryPre2025 = lecture.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
                 )
             },
         title = timetable.title,
@@ -203,7 +202,7 @@ private fun legacyFriend(
             nickname = partner.nicknameWithoutTag,
             tag = partner.nicknameTag,
         ),
-    createdAt = checkNotNull(friend.createdAt).toEpochMilli().toLegacyLocalDateTimeString(),
+    createdAt = checkNotNull(friend.createdAt),
 )
 
 @RestController
@@ -327,7 +326,7 @@ data class LegacyNotificationDto(
     val type: Int,
     val deeplink: String?,
     @param:JsonProperty("created_at")
-    val createdAt: String,
+    val createdAt: Instant,
 )
 
 data class LegacyNotificationCountResponse(
@@ -364,7 +363,7 @@ class V1CompatNotificationController(
                 message = it.message,
                 type = it.type.value,
                 deeplink = it.deeplink,
-                createdAt = checkNotNull(it.createdAt).toEpochMilli().toLegacyZonedDateTimeString(),
+                createdAt = checkNotNull(it.createdAt),
             )
         }
     }

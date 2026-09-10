@@ -3,6 +3,7 @@ spring:
     name: snutt-api
   jackson:
     default-property-inclusion: non_null
+    time-zone: UTC
   config:
     import: classpath:application-core.yml
 

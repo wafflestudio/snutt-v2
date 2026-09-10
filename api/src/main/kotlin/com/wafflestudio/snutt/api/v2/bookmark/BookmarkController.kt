@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -74,7 +75,7 @@ private fun Lecture.toResponse(
     id = id!!,
     academicYear = language.select(academicYear, academicYearEn),
     category = language.select(category, categoryEn),
-    categoryPre2025 = categoryPre2025,
+    categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
     classification = language.select(classification, classificationEn),
     courseNumber = courseNumber,
     lectureNumber = lectureNumber,

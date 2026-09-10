@@ -100,6 +100,7 @@ enum class ErrorType(
     LECTURE_NOT_FOUND(HttpStatus.NOT_FOUND, 40417, "수강편람에서 찾을 수 없는 강좌입니다"),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, 40418, "해당 정보로 가입된 사용자가 없습니다"),
     TIMETABLE_LECTURE_NOT_FOUND(HttpStatus.NOT_FOUND, 40419, "시간표에 존재하지 않는 강좌입니다"),
+    COURSEBOOK_NOT_FOUND(HttpStatus.NOT_FOUND, 40420, "수강편람이 아직 등록되지 않았습니다"),
 
     DUPLICATE_VACANCY_NOTIFICATION(HttpStatus.CONFLICT, 40900, "이미 빈자리 알림을 받고 있는 강좌입니다"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, 40901, "이미 사용 중인 이메일입니다", "회원가입 실패"),
@@ -118,23 +119,14 @@ enum class ErrorType(
     EVALUATION_LECTURE_MISMATCH(HttpStatus.CONFLICT, 40915, "같은 과목의 다른 학기로만 옮길 수 있습니다"),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, 40916, "사용할 수 없는 닉네임입니다", "닉네임 변경 실패"),
 
-    DEFAULT_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 50000, "서버에 문제가 있으니, 잠시 후 다시 시도해주세요"),
-    DYNAMIC_LINK_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, 50001, "링크 생성에 실패했습니다. 잠시 후 다시 시도해주세요"),
-    COURSEBOOK_RECENT_THAN_SUGANGSNU(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        50002,
-        "현재 Coursebook이 수강신청 사이트보다 최근입니다.",
-    ),
-    REGISTRATION_PERIOD_NOT_SET(HttpStatus.INTERNAL_SERVER_ERROR, 50003, "학기에 대한 수강신청 기간이 설정되지 않았습니다"),
-    FEEDBACK_UPLOAD_FAILED(
-        HttpStatus.INTERNAL_SERVER_ERROR,
-        50004,
-        "피드백을 전송하지 못했습니다. 잠시 후 다시 시도해 주세요",
-    ),
-
     SOCIAL_PROVIDER_UNAVAILABLE(
         HttpStatus.BAD_GATEWAY,
         50200,
         "소셜 로그인 서버에 문제가 있습니다. 잠시 후 다시 시도해 주세요",
+    ),
+    FEEDBACK_UPSTREAM_UNAVAILABLE(
+        HttpStatus.BAD_GATEWAY,
+        50201,
+        "피드백을 전송하지 못했습니다. 잠시 후 다시 시도해 주세요",
     ),
 }

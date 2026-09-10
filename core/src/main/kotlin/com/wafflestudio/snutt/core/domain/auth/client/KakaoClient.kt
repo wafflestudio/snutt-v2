@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.auth.client
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.UpstreamException
 import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
@@ -38,15 +39,12 @@ class KakaoClient : OAuth2Client {
                     .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
                     .retrieve()
                     .body(KakaoOAuth2UserResponse::class.java)
-                    ?: throw SnuttException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE)
+                    ?: throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
             } catch (e: RestClientException) {
-                throw SnuttException(
-                    if (e is RestClientResponseException && e.statusCode.is4xxClientError) {
-                        ErrorType.SOCIAL_CONNECT_FAIL
-                    } else {
-                        ErrorType.SOCIAL_PROVIDER_UNAVAILABLE
-                    },
-                )
+                if (e is RestClientResponseException && e.statusCode.is4xxClientError) {
+                    throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+                }
+                throw UpstreamException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE, "kakao", e)
             }
 
         return OAuth2UserResponse(

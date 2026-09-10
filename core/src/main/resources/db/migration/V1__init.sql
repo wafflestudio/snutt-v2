@@ -71,6 +71,17 @@ CREATE TABLE push_preference
     CONSTRAINT fk_push_preference_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
 );
 
+CREATE TABLE api_trace_target
+(
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT       NOT NULL,
+    memo       VARCHAR(255) NULL,
+    created_at DATETIME(6)  NOT NULL,
+    updated_at DATETIME(6)  NOT NULL,
+    CONSTRAINT uk_api_trace_target_user UNIQUE (user_id),
+    CONSTRAINT fk_api_trace_target_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
+);
+
 CREATE TABLE notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -203,6 +214,7 @@ CREATE TABLE evaluation
     CONSTRAINT fk_evaluation_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE SET NULL,
     CONSTRAINT uk_evaluation_author UNIQUE (course_id, year, semester, active_user_id),
     INDEX idx_evaluation_course_semester (course_id, year, semester, id DESC),
+    INDEX idx_evaluation_course_recommended (course_id, is_hidden, like_count, id),
     INDEX idx_evaluation_course_visible (course_id, is_hidden),
     INDEX idx_evaluation_user (user_id, id DESC)
 );

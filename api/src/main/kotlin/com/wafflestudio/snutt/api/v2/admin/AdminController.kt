@@ -26,6 +26,8 @@ import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceTyp
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
+import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetDisplay
+import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -84,6 +86,19 @@ data class AdminDiaryQuestionWriteRequest(
     val targetDailyClassTypes: List<String>,
 )
 
+data class AdminApiTraceTargetRequest(
+    val userId: Long,
+    val memo: String? = null,
+)
+
+data class AdminApiTraceTargetResponse(
+    val userId: Long,
+    val nickname: String,
+    val email: String?,
+    val memo: String?,
+    val createdAt: Long,
+)
+
 @RestController
 @AdminOnly
 @RequestMapping("/v2/admin")
@@ -96,6 +111,7 @@ class AdminController(
     private val userService: UserService,
     private val diaryService: DiaryService,
     private val diaryScheduler: DiaryScheduler,
+    private val apiTraceTargetService: ApiTraceTargetService,
     private val uploadUriIssuer: UploadUriIssuer,
 ) {
     @PostMapping("/images/{source}/upload-uris")
@@ -239,6 +255,21 @@ class AdminController(
             )
         }
 
+    @GetMapping("/trace-targets")
+    fun getApiTraceTargets(): List<AdminApiTraceTargetResponse> = apiTraceTargetService.getAll().map { it.toResponse() }
+
+    @PostMapping("/trace-targets")
+    fun addApiTraceTarget(
+        @RequestBody body: AdminApiTraceTargetRequest,
+    ): AdminApiTraceTargetResponse = apiTraceTargetService.add(body.userId, body.memo).toResponse()
+
+    @DeleteMapping("/trace-targets/{userId}")
+    fun removeApiTraceTarget(
+        @PathVariable userId: Long,
+    ) {
+        apiTraceTargetService.remove(userId)
+    }
+
     @GetMapping("/diary/daily-class-types")
     fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
 
@@ -286,6 +317,15 @@ class AdminController(
             maxIosVersion = maxIosVersion,
             minAndroidVersion = minAndroidVersion,
             maxAndroidVersion = maxAndroidVersion,
+        )
+
+    private fun ApiTraceTargetDisplay.toResponse() =
+        AdminApiTraceTargetResponse(
+            userId = target.userId,
+            nickname = user.nickname,
+            email = user.email,
+            memo = target.memo,
+            createdAt = checkNotNull(target.createdAt).toEpochMilli(),
         )
 
     private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)

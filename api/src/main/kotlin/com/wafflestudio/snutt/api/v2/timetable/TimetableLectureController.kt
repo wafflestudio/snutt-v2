@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v2.timetable
 import com.wafflestudio.snutt.api.auth.CurrentUser
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -137,7 +138,7 @@ class TimetableLectureController(
                     academicYear = body.academicYear,
                     category = body.category,
                     classification = body.classification,
-                    categoryPre2025 = body.categoryPre2025,
+                    categoryPre2025 = body.categoryPre2025?.let { LectureCategoryPre2025.toKorean(it) },
                     isForced = body.isForced,
                 ),
             ).toResponse(clientInfo.language)
