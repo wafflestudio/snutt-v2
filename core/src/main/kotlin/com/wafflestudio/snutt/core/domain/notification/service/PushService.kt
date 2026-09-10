@@ -18,6 +18,9 @@ data class TargetedPush(
     val title: String,
     val body: String,
     val urlScheme: String? = null,
+    val isUrgentOnAndroid: Boolean = false,
+    val shouldSendAsDataMessage: Boolean = false,
+    val data: Map<String, String> = emptyMap(),
 )
 
 @Service
@@ -52,7 +55,15 @@ class PushService(
         sendToDevicesWithCleanup(
             devices.mapNotNull { device ->
                 targets[device.user.id]?.let {
-                    TargetedPushMessage(it.title, it.body, it.urlScheme, device.fcmRegistrationId)
+                    TargetedPushMessage(
+                        it.title,
+                        it.body,
+                        it.urlScheme,
+                        device.fcmRegistrationId,
+                        it.isUrgentOnAndroid,
+                        it.shouldSendAsDataMessage,
+                        it.data,
+                    )
                 }
             },
         )
@@ -63,11 +74,16 @@ class PushService(
         body: String,
         type: NotificationType,
         urlScheme: String? = null,
+        isUrgentOnAndroid: Boolean = false,
+        shouldSendAsDataMessage: Boolean = false,
+        data: Map<String, String> = emptyMap(),
     ) {
         notificationRepository.save(
             Notification(userId = null, title = title, message = body, type = type, deeplink = urlScheme),
         )
-        pushClient.sendTopicMessage(TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC))
+        pushClient.sendTopicMessage(
+            TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC, isUrgentOnAndroid, shouldSendAsDataMessage, data),
+        )
     }
 
     @Transactional
@@ -78,10 +94,15 @@ class PushService(
         type: NotificationType,
         preferenceType: PushPreferenceType,
         urlScheme: String? = null,
+        isUrgentOnAndroid: Boolean = false,
+        shouldSendAsDataMessage: Boolean = false,
+        data: Map<String, String> = emptyMap(),
     ) {
         if (userIds.isEmpty()) return
         sendToUsers(
-            userIds.associateWith { TargetedPush(title, body, urlScheme) },
+            userIds.associateWith {
+                TargetedPush(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
+            },
             preferenceType,
         )
         notificationRepository.saveAll(

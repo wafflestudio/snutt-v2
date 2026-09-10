@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.storage.FileUploadUri
 import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
+import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
@@ -16,9 +17,11 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
+import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupWriteRequest
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
@@ -35,13 +38,17 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.time.Instant
 
 data class LegacyInsertNotificationRequest(
     val userId: String? = null,
     val title: String,
     @param:JsonAlias("body")
     val message: String,
+    val insertFcm: Boolean = false,
+    val shouldSendAsDataMessage: Boolean = false,
     val type: NotificationType = NotificationType.NORMAL,
+    val dataPayload: Map<String, String> = emptyMap(),
     val deeplink: String? = null,
 )
 
@@ -78,6 +85,18 @@ data class LegacyAdminUserSearchResponse(
     val nickname: String,
     val localId: String?,
     val isAdmin: Boolean,
+    val active: Boolean,
+    val regDate: Instant,
+    val lastLoginTimestamp: Long,
+    val authProviders: List<AuthProvider>,
+    val socialAccounts: LegacySocialAccounts,
+)
+
+data class LegacySocialAccounts(
+    val googleEmail: String?,
+    val kakaoEmail: String?,
+    val appleEmail: String?,
+    val facebookName: String?,
 )
 
 data class LegacyAdminDiaryQuestionWriteRequest(
@@ -93,6 +112,7 @@ data class LegacyAdminDiaryQuestionWriteRequest(
 @RequestMapping("/v1/admin", "/admin")
 class V1AdminController(
     private val notificationService: NotificationService,
+    private val pushService: PushService,
     private val configService: ClientConfigService,
     private val popupService: PopupService,
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
@@ -121,6 +141,37 @@ class V1AdminController(
         @RequestBody body: LegacyInsertNotificationRequest,
     ) {
         val userId = body.userId?.let { userService.get(it.toLong()).id }
+        if (body.insertFcm) {
+            val preferenceType =
+                when (body.type) {
+                    NotificationType.LECTURE_UPDATE -> PushPreferenceType.LECTURE_UPDATE
+                    NotificationType.LECTURE_VACANCY -> PushPreferenceType.VACANCY_NOTIFICATION
+                    NotificationType.DIARY -> PushPreferenceType.DIARY
+                    else -> PushPreferenceType.NORMAL
+                }
+            if (userId != null) {
+                pushService.sendPushAndNotification(
+                    userIds = listOf(userId),
+                    title = body.title,
+                    body = body.message,
+                    type = body.type,
+                    preferenceType = preferenceType,
+                    urlScheme = body.deeplink,
+                    shouldSendAsDataMessage = body.shouldSendAsDataMessage,
+                    data = body.dataPayload,
+                )
+            } else {
+                pushService.sendGlobalPushAndNotification(
+                    title = body.title,
+                    body = body.message,
+                    type = body.type,
+                    urlScheme = body.deeplink,
+                    shouldSendAsDataMessage = body.shouldSendAsDataMessage,
+                    data = body.dataPayload,
+                )
+            }
+            return
+        }
         notificationService.sendNotification(
             Notification(
                 userId = userId,
@@ -261,14 +312,26 @@ class V1AdminController(
     fun searchUsersByEmail(
         @RequestParam email: String,
     ): List<LegacyAdminUserSearchResponse> =
-        userService.searchByEmail(email).map {
+        userService.searchByEmailWithAuthInfo(email).map { info ->
+            val user = info.user
             LegacyAdminUserSearchResponse(
-                id = it.id!!.toString(),
-                email = it.email,
-                nickname = it.nickname,
-                localId = it.localId,
-                isAdmin = it.isAdmin,
-                isEmailVerified = it.isEmailVerified,
+                id = user.id!!.toString(),
+                email = user.email,
+                nickname = user.nickname,
+                localId = user.localId,
+                isAdmin = user.isAdmin,
+                isEmailVerified = user.isEmailVerified,
+                active = user.active,
+                regDate = checkNotNull(user.createdAt),
+                lastLoginTimestamp = user.lastLoginAt.toEpochMilli(),
+                authProviders = info.authProviders,
+                socialAccounts =
+                    LegacySocialAccounts(
+                        googleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.GOOGLE }?.email,
+                        kakaoEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.KAKAO }?.email,
+                        appleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.APPLE }?.email,
+                        facebookName = info.socialAuths.firstOrNull { it.provider == AuthProvider.FACEBOOK }?.displayName,
+                    ),
             )
         }
 

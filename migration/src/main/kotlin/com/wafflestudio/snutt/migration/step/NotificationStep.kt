@@ -43,7 +43,7 @@ class NotificationStep(
                     doc.str("title").orEmpty(),
                     doc.str("message") ?: doc.str("body").orEmpty(),
                     typeName(doc.int("type")),
-                    doc.str("deeplink") ?: doc.str("urlScheme"),
+                    rewriteDeeplink(doc.str("deeplink") ?: doc.str("urlScheme")),
                     createdAt,
                     createdAt,
                 )
@@ -55,7 +55,45 @@ class NotificationStep(
 
     private fun typeName(value: Int?): String = TYPE_NAMES[value] ?: "NORMAL"
 
+    private fun rewriteDeeplink(value: String?): String? {
+        val deeplink = value ?: return null
+        if (!OBJECT_ID.containsMatchIn(deeplink)) return deeplink
+        val scheme = if (deeplink.startsWith(DEV_SCHEME)) DEV_SCHEME else PROD_SCHEME
+        return when {
+            deeplink.contains("://timetable-lecture") -> {
+                val timetableId =
+                    TIMETABLE_ID
+                        .find(deeplink)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.let(context.timetableIds::get) ?: return null
+                val lectureId =
+                    LECTURE_ID
+                        .find(deeplink)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.let(context.timetableLectureIds::get) ?: return null
+                "${scheme}timetable-lecture?timetableId=$timetableId&lectureId=$lectureId"
+            }
+            deeplink.contains("://bookmarks") -> {
+                val lectureId =
+                    LECTURE_ID
+                        .find(deeplink)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.let(context.lectureIds::get) ?: return null
+                deeplink.replace(LECTURE_ID, "lectureId=$lectureId")
+            }
+            else -> null
+        }
+    }
+
     companion object {
+        private const val DEV_SCHEME = "snutt-dev://"
+        private const val PROD_SCHEME = "snutt://"
+        private val OBJECT_ID = Regex("[0-9a-fA-F]{24}")
+        private val TIMETABLE_ID = Regex("timetableId=([0-9a-fA-F]{24})")
+        private val LECTURE_ID = Regex("lectureId=([0-9a-fA-F]{24})")
         private val TYPE_NAMES =
             mapOf(
                 0 to "NORMAL",

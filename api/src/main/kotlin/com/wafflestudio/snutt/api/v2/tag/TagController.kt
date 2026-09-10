@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.v2.tag
 
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.select
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -63,8 +65,14 @@ class TagController(
             credit = vocabulary.credit,
             instructor = vocabulary.instructor,
             category = vocabulary.category,
-            categoryPre2025 = vocabulary.categoryPre2025,
-            sortCriteria = LectureSort.entries.filter { it != LectureSort.DEFAULT }.map { it.fullName },
+            categoryPre2025 =
+                vocabulary.categoryPre2025.map {
+                    LectureCategoryPre2025.localize(it, clientInfo.language)
+                },
+            sortCriteria =
+                LectureSort.entries
+                    .filter { it != LectureSort.DEFAULT }
+                    .map { clientInfo.language.select(it.fullName, it.fullNameEn) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )
     }
@@ -80,7 +88,10 @@ class TagController(
             academicYear = vocabulary.academicYear,
             credit = vocabulary.credit,
             category = vocabulary.category,
-            categoryPre2025 = vocabulary.categoryPre2025,
+            categoryPre2025 =
+                vocabulary.categoryPre2025.map {
+                    LectureCategoryPre2025.localize(it, clientInfo.language)
+                },
             semesters = coursebookService.getCoursebooks().map { SemesterResponse(it.year, it.semester) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )

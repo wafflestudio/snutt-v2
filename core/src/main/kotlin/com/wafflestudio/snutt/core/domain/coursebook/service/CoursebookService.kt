@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service
 class CoursebookService(
     private val coursebookRepository: CoursebookRepository,
 ) {
-    fun getLatestCoursebook(): Coursebook = findLatestCoursebook() ?: throw SnuttException(ErrorType.DEFAULT_ERROR)
+    fun getLatestCoursebook(): Coursebook = findLatestCoursebook() ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
 
     fun findLatestCoursebook(): Coursebook? = coursebookRepository.findFirstByOrderByYearDescSemesterDesc()
 

@@ -135,7 +135,7 @@ class LectureSearchRepositoryImpl(
                                             regexp(path(Lecture::courseTitle), regexEscape(intent.keyword)),
                                             regexp(path(Lecture::courseTitleEn), regexEscape(intent.keyword)),
                                             regexp(path(Lecture::instructor), regexEscape(intent.keyword)),
-                                            regexp(path(Lecture::instructorEn), regexEscape(intent.keyword)),
+                                            regexp(path(Lecture::instructorEn), instructorEnPattern(intent.keyword)),
                                             bineq(path(Lecture::courseNumber), intent.keyword),
                                             bineq(path(Lecture::lectureNumber), intent.keyword),
                                         ).toTypedArray(),
@@ -299,6 +299,15 @@ class LectureSearchRepositoryImpl(
                 )
             }
         }.filterNotNull()
+    }
+
+    // 영문 교수명 표기가 'Han, Chul-woong', 'Lee Ho Young', 'Park,  YoonJeong', 'AN/YOONGSOO'처럼 제각각이라
+    // 구분자(공백/쉼표/하이픈/슬래시)를 무시하고 매칭한다. 노이즈를 줄이기 위해 이름 단어 첫 글자부터 시작하는 매치만 허용한다
+    private fun instructorEnPattern(keyword: String): String {
+        val separator = "[^A-Za-z0-9가-힣]"
+        val letters = keyword.filter { it.isLetterOrDigit() }
+        if (letters.isEmpty()) return regexEscape(keyword)
+        return letters.toCharArray().joinToString("$separator*", prefix = "(?:^|$separator)") { regexEscape(it.toString()) }
     }
 
     private fun Jpql.hasClassTime(): Predicate =

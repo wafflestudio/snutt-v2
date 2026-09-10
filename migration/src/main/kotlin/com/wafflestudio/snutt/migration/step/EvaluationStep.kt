@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
@@ -62,7 +63,7 @@ class EvaluationStep(
                 val id = rs.getLong("id")
                 val anchor = anchors[rs.getLong("semester_lecture_id")]
                 if (anchor == null) {
-                    context.resolved("개설을 찾을 수 없는 강의평을 제외")
+                    context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_ANCHOR_MISSING)
                     return@query
                 }
                 val userId = context.userIds[rs.getString("user_id")]

@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
@@ -119,18 +120,20 @@ class ValidateStep(
         val failures = mutableListOf<String>()
 
         compare(failures, "user", mongo.count("users"), count("user"))
-        compare(failures, "timetable", mongo.count("timetables"), count("timetable"))
+        compare(
+            failures,
+            "timetable",
+            mongo.count("timetables"),
+            count("timetable"),
+            tolerated = context.resolutions[MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING] ?: 0L,
+        )
         if (ev.available) {
             compare(
                 failures,
                 "evaluation",
                 ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java) ?: 0L,
                 count("evaluation"),
-                tolerated =
-                    context.resolutions
-                        .filterKeys { it.contains("강의평") }
-                        .values
-                        .sum(),
+                tolerated = context.resolutions[MigrationSupport.ResolutionReasons.EVALUATION_ANCHOR_MISSING] ?: 0L,
             )
         }
 
@@ -163,6 +166,13 @@ class ValidateStep(
                 Long::class.java,
             ) ?: 0L
         if (aggregateMismatch > 0L) failures += "course 집계가 강의평과 어긋난다: ${aggregateMismatch}건"
+
+        val leakedObjectIds =
+            jdbc.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE deeplink REGEXP '[0-9a-fA-F]{24}'",
+                Long::class.java,
+            ) ?: 0L
+        if (leakedObjectIds > 0L) failures += "알림 deeplink에 구 ObjectId가 남아 있다: ${leakedObjectIds}건"
 
         if (context.resolutions.isNotEmpty()) {
             log.info("원본 정리 요약:")

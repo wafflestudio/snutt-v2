@@ -49,6 +49,8 @@ class ReminderScheduler(
                         type = NotificationType.NORMAL,
                         preferenceType = PushPreferenceType.NORMAL,
                         urlScheme = "snutt://timetable",
+                        isUrgentOnAndroid = true,
+                        shouldSendAsDataMessage = true,
                     )
                 }
         }
@@ -66,6 +68,8 @@ class ReminderScheduler(
                 type = NotificationType.NORMAL,
                 preferenceType = PushPreferenceType.NORMAL,
                 urlScheme = "snutt://timetable",
+                isUrgentOnAndroid = true,
+                shouldSendAsDataMessage = true,
             )
         }
     }

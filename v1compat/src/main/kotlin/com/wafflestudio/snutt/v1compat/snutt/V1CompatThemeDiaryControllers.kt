@@ -27,7 +27,6 @@ import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
-import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyLocalDateTime
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -39,7 +38,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.LocalDateTime
+import java.time.Instant
 
 data class LegacyThemeDto(
     val id: String?,
@@ -337,7 +336,7 @@ data class LegacyDiarySemesterSubmissionsDto(
 data class LegacyDiarySubmissionDto(
     val id: String,
     val lectureId: Long?,
-    val date: LocalDateTime,
+    val date: Instant,
     val courseTitle: String,
     val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
     val comment: String,
@@ -424,7 +423,7 @@ class V1CompatDiaryController(
                             LegacyDiarySubmissionDto(
                                 id = submission.id!!.toString(),
                                 lectureId = submission.lectureId,
-                                date = checkNotNull(submission.createdAt).toLegacyLocalDateTime(),
+                                date = checkNotNull(submission.createdAt),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
                                     (replies[submission.id] ?: emptyList()).map {

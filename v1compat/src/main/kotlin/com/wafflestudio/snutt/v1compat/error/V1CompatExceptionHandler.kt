@@ -2,6 +2,8 @@ package com.wafflestudio.snutt.v1compat.error
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.error.UpstreamException
+import org.slf4j.LoggerFactory
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.ResponseEntity
@@ -20,7 +22,6 @@ data class V1ErrorResponse(
  */
 private val V1_ERROR_CODE_MAP =
     mapOf(
-        ErrorType.DEFAULT_ERROR to 0L,
         ErrorType.INVALID_TIMETABLE_TITLE to 0x1007,
         ErrorType.INVALID_TIME to 0x100C,
         ErrorType.WRONG_API_KEY to 0x2000,
@@ -60,6 +61,17 @@ fun SnuttException.toV1ErrorResponse(): ResponseEntity<V1ErrorResponse> =
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
 class V1CompatExceptionHandler {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @ExceptionHandler(SnuttException::class)
     fun handleSnuttException(e: SnuttException): ResponseEntity<V1ErrorResponse> = e.toV1ErrorResponse()
+
+    @ExceptionHandler(UpstreamException::class)
+    fun handleUpstreamException(e: UpstreamException): ResponseEntity<V1ErrorResponse> {
+        log.error("upstream failure: provider={} error={}", e.provider, e.error, e)
+        val legacy = if (e.error == ErrorType.SOCIAL_PROVIDER_UNAVAILABLE) ErrorType.SOCIAL_CONNECT_FAIL else e.error
+        return ResponseEntity
+            .status(legacy.httpStatus)
+            .body(V1ErrorResponse(legacy.errorCode, legacy.title, legacy.displayMessage))
+    }
 }

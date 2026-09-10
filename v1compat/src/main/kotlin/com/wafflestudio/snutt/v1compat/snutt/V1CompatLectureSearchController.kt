@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -111,7 +112,7 @@ private fun Lecture.toLegacy(
     registrationCount = status?.registrationCount ?: 0,
     wasFull = status?.wasFull ?: false,
     snuttEvLecture = evaluationSummary,
-    categoryPre2025 = categoryPre2025,
+    categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
 )
 
 @RestController
@@ -139,7 +140,7 @@ class V1CompatLectureSearchController(
                 academicYear = query.academicYear,
                 department = query.department,
                 category = query.category,
-                categoryPre2025 = query.categoryPre2025,
+                categoryPre2025 = query.categoryPre2025?.map { LectureCategoryPre2025.toKorean(it) },
                 etcTags = query.etc,
                 times =
                     query.times?.map {

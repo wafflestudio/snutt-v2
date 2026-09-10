@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
@@ -46,10 +47,11 @@ class TimetableStep(
                     val userId = context.userIds[doc.oid("user_id")]
                     if (userId == null) {
                         skipped++
-                        context.resolved("사용자가 없는 시간표를 제외")
+                        context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
                         return@each
                     }
                     val id = timetableIds.next()
+                    context.timetableIds[doc.id()] = id
                     val year = doc.int("year") ?: 0
                     val semester = doc.int("semester") ?: 1
                     val updatedAt = doc.instant("updated_at").orNow().toSqlTimestamp()
