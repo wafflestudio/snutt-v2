@@ -21,8 +21,8 @@ class User(
     val nicknameWithoutTag: String
         get() = nickname.substringBeforeLast(NICKNAME_TAG_DELIMITER)
 
-    val nicknameTag: Int?
-        get() = nickname.substringAfterLast(NICKNAME_TAG_DELIMITER, "").toIntOrNull()
+    val nicknameTag: String?
+        get() = nickname.substringAfterLast(NICKNAME_TAG_DELIMITER, "").takeIf { it.isNotEmpty() }
 
     companion object {
         const val NICKNAME_TAG_DELIMITER = "#"

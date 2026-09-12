@@ -33,6 +33,7 @@ import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -76,7 +77,7 @@ data class LegacyFriendDto(
 
 data class LegacyFriendNicknameDto(
     val nickname: String,
-    val tag: Int?,
+    val tag: String?,
 )
 
 data class LegacyFriendLinkResponse(
@@ -590,7 +591,7 @@ class V1CompatFeedbackController(
     fun postFeedback(
         @RequestBody body: LegacyFeedbackRequest,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ) {
+    ): LegacyOkResponse {
         feedbackService.postFeedback(
             email = body.email.orEmpty(),
             message = body.message,
@@ -599,5 +600,6 @@ class V1CompatFeedbackController(
             appVersion = clientInfo.appVersion ?: "Unknown",
             deviceModel = clientInfo.deviceModel ?: "Unknown",
         )
+        return LegacyOkResponse()
     }
 }

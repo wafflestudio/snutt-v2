@@ -20,6 +20,7 @@ data class VacancyNotificationLecturesResponse(
 
 data class VacancyNotificationLectureResponse(
     val id: Long,
+    val courseId: Long?,
     val courseTitle: String,
     val courseNumber: String,
     val lectureNumber: String,
@@ -33,6 +34,7 @@ data class VacancyNotificationLectureResponse(
 private fun VacancyLectureDisplay.toResponse(language: Language) =
     VacancyNotificationLectureResponse(
         id = lecture.id!!,
+        courseId = lecture.courseId,
         courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
         courseNumber = lecture.courseNumber,
         lectureNumber = lecture.lectureNumber,

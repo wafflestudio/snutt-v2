@@ -36,6 +36,12 @@ class CourseSemesterService(
                     category = lecture.category
                     classification = lecture.classification
                     extraInfo = lecture.remark
+                    department = lecture.department
+                    departmentEn = lecture.departmentEn
+                    academicYearEn = lecture.academicYearEn
+                    categoryEn = lecture.categoryEn
+                    classificationEn = lecture.classificationEn
+                    categoryPre2025 = lecture.categoryPre2025
                 }
             },
         )

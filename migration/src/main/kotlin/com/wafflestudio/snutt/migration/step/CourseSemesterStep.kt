@@ -19,8 +19,9 @@ class CourseSemesterStep(
         if (ev.available) {
             writer("course_semester", COLUMNS).use { out ->
                 ev.jdbc.query(
-                    "SELECT id, lecture_id, year, semester, credit, academic_year, category, classification, " +
-                        "extra_info, created_at, updated_at FROM semester_lecture ORDER BY id",
+                    "SELECT s.id, s.lecture_id, s.year, s.semester, s.credit, s.academic_year, s.category, s.classification, " +
+                        "s.extra_info, s.created_at, s.updated_at, c.department FROM semester_lecture s " +
+                        "JOIN lecture c ON c.id = s.lecture_id ORDER BY s.id",
                 ) { rs ->
                     out.add(
                         rs.getLong("id"),
@@ -32,6 +33,7 @@ class CourseSemesterStep(
                         rs.getString("category"),
                         rs.getString("classification"),
                         rs.getString("extra_info"),
+                        rs.getString("department"),
                         rs.getTimestamp("created_at"),
                         rs.getTimestamp("updated_at"),
                     )
@@ -41,9 +43,9 @@ class CourseSemesterStep(
         jdbc.update(
             """
             INSERT INTO course_semester
-                (course_id, year, semester, credit, academic_year, category, classification, extra_info, created_at, updated_at)
+                (course_id, year, semester, credit, academic_year, category, classification, extra_info, department, created_at, updated_at)
             SELECT l.course_id, l.year, l.semester, l.credit, l.academic_year, l.category, l.classification,
-                   l.remark, l.created_at, l.updated_at
+                   l.remark, l.department, l.created_at, l.updated_at
             FROM lecture l
             JOIN (
                 SELECT MIN(id) AS id FROM lecture WHERE course_id IS NOT NULL GROUP BY course_id, year, semester
@@ -52,6 +54,20 @@ class CourseSemesterStep(
                 SELECT 1 FROM course_semester cs
                 WHERE cs.course_id = l.course_id AND cs.year = l.year AND cs.semester = l.semester
             )
+            """.trimIndent(),
+        )
+        jdbc.update(
+            """
+            UPDATE course_semester cs
+            JOIN (
+                SELECT course_id, year, semester, MIN(id) AS id FROM lecture
+                WHERE course_id IS NOT NULL GROUP BY course_id, year, semester
+            ) first_offering ON first_offering.course_id = cs.course_id
+                AND first_offering.year = cs.year AND first_offering.semester = cs.semester
+            JOIN lecture l ON l.id = first_offering.id
+            SET cs.department = l.department, cs.department_en = l.department_en,
+                cs.academic_year_en = l.academic_year_en, cs.category_en = l.category_en,
+                cs.classification_en = l.classification_en, cs.category_pre2025 = l.category_pre2025
             """.trimIndent(),
         )
         val count = jdbc.queryForObject("SELECT COUNT(*) FROM course_semester", Long::class.java)
@@ -70,6 +86,7 @@ class CourseSemesterStep(
                 "category",
                 "classification",
                 "extra_info",
+                "department",
                 "created_at",
                 "updated_at",
             )

@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.v1compat.ev
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseFilterScope
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -68,15 +69,16 @@ class LegacySearchTagService(
         query: String,
         tagIds: List<Long>,
     ): CourseSearchCriteria {
-        if (tagIds.isEmpty()) return CourseSearchCriteria(query = query)
+        if (tagIds.isEmpty()) return CourseSearchCriteria(query = query, filterScope = CourseFilterScope.COURSE)
         val byGroup = repository.findAllByIdIn(tagIds).groupBy { it.groupName }
 
         fun strings(group: String) = byGroup[group].orEmpty().mapNotNull { it.stringValue ?: it.name }
         return CourseSearchCriteria(
             query = query,
+            filterScope = if (byGroup[GROUP_SEMESTER].isNullOrEmpty()) CourseFilterScope.COURSE else CourseFilterScope.SEMESTER,
             academicYear = strings(GROUP_ACADEMIC_YEAR),
             classification = strings(GROUP_CLASSIFICATION),
-            department = strings(GROUP_DEPARTMENT),
+            courseDepartment = strings(GROUP_DEPARTMENT),
             category = strings(GROUP_CATEGORY),
             credit = byGroup[GROUP_CREDIT].orEmpty().mapNotNull { it.intValue },
             yearSemesters = byGroup[GROUP_SEMESTER].orEmpty().mapNotNull { it.stringValue?.toYearAndSemester() },

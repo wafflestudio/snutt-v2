@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.api.v2.admin
 
-import com.fasterxml.jackson.annotation.JsonAlias
 import com.wafflestudio.snutt.api.auth.AdminOnly
 import com.wafflestudio.snutt.api.scheduler.DiaryScheduler
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -10,22 +9,17 @@ import com.wafflestudio.snutt.core.common.storage.FileUploadUri
 import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
-import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
-import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
-import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
-import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupWriteRequest
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
-import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetDisplay
 import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetService
@@ -41,20 +35,20 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 
 data class InsertNotificationRequest(
     val userId: Long? = null,
     @field:NotBlank val title: String,
-    @field:NotBlank
-    @param:JsonAlias("body")
-    val message: String,
+    @field:NotBlank val message: String,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
     val sendPush: Boolean = false,
 )
 
 data class AdminConfigWriteRequest(
-    @field:NotBlank val value: String,
+    val value: JsonNode,
     val minIosVersion: String? = null,
     val maxIosVersion: String? = null,
     val minAndroidVersion: String? = null,
@@ -62,9 +56,7 @@ data class AdminConfigWriteRequest(
 )
 
 data class AdminPopupWriteRequest(
-    @field:NotBlank
-    @param:JsonAlias("key")
-    val popupKey: String,
+    @field:NotBlank val popupKey: String,
     @field:NotBlank val imageOriginUri: String,
     val linkUrl: String? = null,
     val hiddenDays: Int? = null,
@@ -78,9 +70,9 @@ data class AdminUserSearchResponse(
     val localId: String?,
     val isAdmin: Boolean,
     val active: Boolean,
-    val regDate: Long,
-    val lastLoginTimestamp: Long,
-    val authProviders: List<AuthProvider>,
+    val createdAt: Long,
+    val lastLoginAt: Long,
+    val authProviders: List<String>,
     val socialAccounts: AdminSocialAccountsResponse,
 )
 
@@ -126,6 +118,7 @@ class AdminController(
     private val diaryScheduler: DiaryScheduler,
     private val apiTraceTargetService: ApiTraceTargetService,
     private val uploadUriIssuer: UploadUriIssuer,
+    private val jsonMapper: JsonMapper,
 ) {
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
@@ -185,19 +178,19 @@ class AdminController(
     fun postConfig(
         @PathVariable name: String,
         @Valid @RequestBody body: AdminConfigWriteRequest,
-    ): ClientConfig = configService.postConfig(name, body.toWriteRequest())
+    ): AdminConfigResponse = configService.postConfig(name, body.toWriteRequest()).toResponse(jsonMapper)
 
     @GetMapping("/configs/{name}")
     fun getConfigs(
         @PathVariable name: String,
-    ): List<ClientConfig> = configService.getConfigsByName(name)
+    ): List<AdminConfigResponse> = configService.getConfigsByName(name).map { it.toResponse(jsonMapper) }
 
     @PatchMapping("/configs/{name}/{configId}")
     fun patchConfig(
         @PathVariable name: String,
         @PathVariable configId: Long,
         @Valid @RequestBody body: AdminConfigWriteRequest,
-    ): ClientConfig = configService.patchConfig(name, configId, body.toWriteRequest())
+    ): AdminConfigResponse = configService.patchConfig(name, configId, body.toWriteRequest()).toResponse(jsonMapper)
 
     @DeleteMapping("/configs/{name}/{configId}")
     fun deleteConfig(
@@ -210,15 +203,16 @@ class AdminController(
     @PostMapping("/popups")
     fun postPopup(
         @Valid @RequestBody body: AdminPopupWriteRequest,
-    ): Popup =
-        popupService.postPopup(
-            PopupWriteRequest(
-                popupKey = body.popupKey,
-                imageOriginUri = body.imageOriginUri,
-                linkUrl = body.linkUrl,
-                hiddenDays = body.hiddenDays,
-            ),
-        )
+    ): AdminPopupResponse =
+        popupService
+            .postPopup(
+                PopupWriteRequest(
+                    popupKey = body.popupKey,
+                    imageOriginUri = body.imageOriginUri,
+                    linkUrl = body.linkUrl,
+                    hiddenDays = body.hiddenDays,
+                ),
+            ).toResponse()
 
     @DeleteMapping("/popups/{popupId}")
     fun deletePopup(
@@ -228,13 +222,15 @@ class AdminController(
     }
 
     @GetMapping("/registration-periods")
-    fun getSemesterRegistrationPeriods(): List<SemesterRegistrationPeriod> = semesterRegistrationPeriodService.getAll()
+    fun getSemesterRegistrationPeriods(): List<AdminRegistrationPeriodResponse> =
+        semesterRegistrationPeriodService.getAll().map { it.toResponse() }
 
     @GetMapping("/registration-periods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Int,
-    ): SemesterRegistrationPeriod? = semesterRegistrationPeriodService.getByYearAndSemester(year, parseSemester(semester))
+    ): AdminRegistrationPeriodResponse? =
+        semesterRegistrationPeriodService.getByYearAndSemester(year, parseSemester(semester))?.toResponse()
 
     @PatchMapping("/registration-periods/{year}/{semester}")
     fun patchSemesterRegistrationPeriod(
@@ -267,9 +263,9 @@ class AdminController(
                 isAdmin = user.isAdmin,
                 isEmailVerified = user.isEmailVerified,
                 active = user.active,
-                regDate = checkNotNull(user.createdAt).toEpochMilli(),
-                lastLoginTimestamp = user.lastLoginAt.toEpochMilli(),
-                authProviders = info.authProviders,
+                createdAt = checkNotNull(user.createdAt).toEpochMilli(),
+                lastLoginAt = user.lastLoginAt.toEpochMilli(),
+                authProviders = info.authProviders.map { it.value },
                 socialAccounts =
                     AdminSocialAccountsResponse(
                         googleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.GOOGLE }?.email,
@@ -296,10 +292,10 @@ class AdminController(
     }
 
     @GetMapping("/diary/daily-class-types")
-    fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
+    fun getAllDiaryDailyClassTypes(): List<AdminDiaryDailyClassTypeResponse> = diaryService.getAllDailyClassTypes().map { it.toResponse() }
 
     @GetMapping("/diary/questions")
-    fun getDiaryQuestions(): List<DiaryQuestion> = diaryService.getActiveQuestions()
+    fun getDiaryQuestions(): List<AdminDiaryQuestionResponse> = diaryService.getActiveQuestions().map { it.toResponse() }
 
     @PostMapping("/diary/daily-class-types")
     fun insertDiaryDailyClassType(
@@ -337,7 +333,7 @@ class AdminController(
 
     private fun AdminConfigWriteRequest.toWriteRequest() =
         ClientConfigWriteRequest(
-            value = value,
+            value = jsonMapper.writeValueAsString(value),
             minIosVersion = minIosVersion,
             maxIosVersion = maxIosVersion,
             minAndroidVersion = minAndroidVersion,

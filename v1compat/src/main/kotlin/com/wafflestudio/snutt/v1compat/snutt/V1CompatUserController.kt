@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.core.domain.user.service.EmailVerificationService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -55,6 +56,7 @@ data class LegacyUpdateUserRequest(
 )
 
 data class LegacyAttachLocalRequest(
+    @param:JsonAlias("user_id")
     val id: String,
     val password: String,
 )
@@ -140,16 +142,18 @@ class V1CompatUserController(
     @DeleteMapping("/account")
     fun deleteAccount(
         @V1CurrentUser user: User,
-    ) {
+    ): LegacyOkResponse {
         userService.deactivate(user.id!!)
+        return LegacyOkResponse()
     }
 
     @PostMapping("/email/verification")
     fun sendVerificationEmail(
         @V1CurrentUser user: User,
         @RequestBody body: SendVerificationEmailRequest,
-    ) {
+    ): LegacyOkResponse {
         emailVerificationService.sendVerificationCode(user.id!!, body.email)
+        return LegacyOkResponse()
     }
 
     @GetMapping("/email/verification")
@@ -228,7 +232,7 @@ internal fun User.toLegacyUserDto(fbName: String?) =
         email = email,
         localId = localId,
         fbName = fbName,
-        nickname = LegacyNicknameDto(nickname = nicknameWithoutTag, tag = nicknameTag?.toString()),
+        nickname = LegacyNicknameDto(nickname = nicknameWithoutTag, tag = nicknameTag),
     )
 
 internal fun User.toLegacyUserInfoDto(fbName: String?) =

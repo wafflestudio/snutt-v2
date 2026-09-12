@@ -409,6 +409,7 @@ class TimetableThemeService(
         authorNickname: String? = null,
     ) = TimetableThemeDisplay(
         id = id!!,
+        userId = userId,
         name = name,
         colors = colors,
         isCustom = !isBuiltin,
@@ -417,15 +418,15 @@ class TimetableThemeService(
         status =
             when {
                 isBuiltin -> ThemeStatus.BASIC
-                originThemeId != null -> ThemeStatus.DOWNLOADED
                 published != null -> ThemeStatus.PUBLISHED
+                originThemeId != null -> ThemeStatus.DOWNLOADED
                 else -> ThemeStatus.PRIVATE
             },
         isDefault = isDefault,
         publishName = published?.publishName,
         authorAnonymous = published?.authorAnonymous,
         downloadCount = published?.downloadCount ?: 0,
-        authorNickname = authorNickname,
+        authorNickname = authorNickname.takeUnless { published?.authorAnonymous == true },
     )
 
     private fun validateColorCount(colors: List<ColorSet>) {

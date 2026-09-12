@@ -11,6 +11,7 @@ import java.time.Instant
 data class TimetableLectureDisplay(
     val id: Long,
     val lectureId: Long?,
+    val courseId: Long?,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -45,6 +46,7 @@ fun TimetableLectureDisplay(
     return TimetableLectureDisplay(
         id = checkNotNull(timetableLecture.id),
         lectureId = lecture?.id,
+        courseId = lecture?.courseId,
         academicYear = overrides?.academicYear ?: lecture?.academicYear,
         category = overrides?.category ?: lecture?.category,
         categoryPre2025 = overrides?.categoryPre2025 ?: lecture?.categoryPre2025,

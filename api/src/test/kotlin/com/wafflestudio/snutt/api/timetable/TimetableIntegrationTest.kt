@@ -21,7 +21,6 @@ import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
@@ -216,18 +215,6 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
             .retrieve()
             .toEntity(String::class.java)
 
-    private fun deleteWithBody(
-        uri: String,
-        body: String,
-    ): ResponseEntity<String> =
-        client()
-            .method(HttpMethod.DELETE)
-            .uri(uri)
-            .headers { it.setBearerAuth(accessToken) }
-            .body(body)
-            .retrieve()
-            .toEntity(String::class.java)
-
     private val jsonMapper = JsonMapper.builder().build()
 
     private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
@@ -381,7 +368,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `북마크 추가 조회 삭제`() {
-        val add = post("/v2/bookmarks/lecture", """{"lectureId":${lectureIds[0]}}""")
+        val add = post("/v2/bookmarks/lectures/${lectureIds[0]}", "{}")
         assertEquals(200, add.statusCode.value())
 
         val getBookmarks = get("/v2/bookmarks?year=2026&semester=3")
@@ -390,7 +377,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         val state = get("/v2/bookmarks/lectures/${lectureIds[0]}/state")
         assertEquals(true, body(state).asBoolean())
 
-        val remove = deleteWithBody("/v2/bookmarks/lecture", """{"lectureId":${lectureIds[0]}}""")
+        val remove = delete("/v2/bookmarks/lectures/${lectureIds[0]}")
         assertEquals(200, remove.statusCode.value())
         val afterRemove = get("/v2/bookmarks?year=2026&semester=3")
         assertEquals(0, body(afterRemove)["lectures"].size())

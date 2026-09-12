@@ -258,7 +258,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(200, submit.statusCode.value())
 
-        val my = get("/v2/diary/my")
+        val my = get("/v2/diary/me")
         assertEquals(200, my.statusCode.value())
         val groups = body(my)
         assertEquals(1, groups.size())
@@ -280,7 +280,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val submissionId = summary["id"].asString()
         assertEquals(200, delete("/v2/diary/$submissionId").statusCode.value())
-        assertEquals(0, body(get("/v2/diary/my")).size())
+        assertEquals(0, body(get("/v2/diary/me")).size())
     }
 
     @Test

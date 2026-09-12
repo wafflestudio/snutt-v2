@@ -39,7 +39,7 @@ data class LectureSearchRequest(
     val timesToExclude: List<SearchTimeRequest>? = null,
     val cursor: String? = null,
     val limit: Int = 20,
-    val sortBy: String? = null,
+    val sort: String? = null,
 )
 
 data class SearchTimeRequest(
@@ -50,6 +50,7 @@ data class SearchTimeRequest(
 
 data class LectureResponse(
     val id: Long,
+    val courseId: Long?,
     val year: Int,
     val semester: Semester,
     val courseNumber: String,
@@ -87,6 +88,7 @@ private fun Lecture.toResponse(
     evaluationSummary: LectureEvSummaryResponse? = null,
 ) = LectureResponse(
     id = id!!,
+    courseId = courseId,
     year = year,
     semester = semester,
     courseNumber = courseNumber,
@@ -142,7 +144,7 @@ class LectureController(
                 etcTags = request.etcTags,
                 times = request.times?.map { parseSearchTime(it) },
                 timesToExclude = request.timesToExclude?.map { parseSearchTime(it) },
-                sort = LectureSort.getOfName(request.sortBy) ?: LectureSort.DEFAULT,
+                sort = LectureSort.fromParameter(request.sort),
             )
         val page = lectureService.search(criteria, request.cursor, request.limit)
         val rows = page.content

@@ -103,8 +103,8 @@ class ThemeController(
 
     @GetMapping("/search")
     fun searchThemes(
-        @RequestParam keyword: String,
-    ): List<ThemeResponse> = timetableThemeService.searchThemes(keyword).map { it.toResponse() }
+        @RequestParam query: String,
+    ): List<ThemeResponse> = timetableThemeService.searchThemes(query).map { it.toResponse() }
 
     @GetMapping("/{themeId}")
     fun getTheme(
@@ -149,7 +149,7 @@ class ThemeController(
         @Valid @RequestBody body: ThemeDownloadRequest,
     ): ThemeResponse = timetableThemeService.downloadTheme(userId, themeId, body.name).toResponse()
 
-    @DeleteMapping("/{themeId}/published")
+    @DeleteMapping("/{themeId}/publish")
     fun deletePublishedTheme(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,

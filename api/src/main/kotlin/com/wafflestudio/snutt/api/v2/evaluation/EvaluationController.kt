@@ -67,6 +67,7 @@ internal fun LectureTakenByUser.toResponse() =
     )
 
 data class EvaluationUpdateRequestBody(
+    val courseSemesterId: Long? = null,
     val content: String? = null,
     val gradeSatisfaction: Double? = null,
     val teachingSkill: Double? = null,
@@ -115,6 +116,16 @@ data class LectureEvaluationSummaryResponse(
 )
 
 data class EvaluationAveragesResponse(
+    val avgGradeSatisfaction: Double?,
+    val avgTeachingSkill: Double?,
+    val avgGains: Double?,
+    val avgLifeBalance: Double?,
+    val avgRating: Double?,
+)
+
+data class CourseEvaluationDetailsResponse(
+    val courseId: Long,
+    val count: Long,
     val avgGradeSatisfaction: Double?,
     val avgTeachingSkill: Double?,
     val avgGains: Double?,
@@ -217,6 +228,23 @@ class EvaluationController(
         @PathVariable courseId: Long,
     ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfCourse(userId, courseId).let(evaluationResponseMapper::toResponse)
 
+    @GetMapping("/v2/courses/{courseId}/evaluation-summary")
+    fun getEvaluationSummaryOfCourse(
+        @CurrentUserId userId: Long,
+        @PathVariable courseId: Long,
+    ): CourseEvaluationDetailsResponse {
+        val display = evaluationService.getEvaluationSummaryOfCourse(courseId)
+        return CourseEvaluationDetailsResponse(
+            courseId = courseId,
+            count = display.course.evalCount,
+            avgGradeSatisfaction = display.averages?.avgGradeSatisfaction,
+            avgTeachingSkill = display.averages?.avgTeachingSkill,
+            avgGains = display.averages?.avgGains,
+            avgLifeBalance = display.averages?.avgLifeBalance,
+            avgRating = display.averages?.avgRating,
+        )
+    }
+
     @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
         @CurrentUserId userId: Long,
@@ -280,20 +308,32 @@ class EvaluationController(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
         @RequestBody body: EvaluationUpdateRequestBody,
-    ): EvaluationResponse =
-        evaluationService
-            .updateEvaluation(
-                userId,
-                evaluationId,
-                EvaluationUpdateRequest(
-                    content = body.content,
-                    gradeSatisfaction = body.gradeSatisfaction,
-                    teachingSkill = body.teachingSkill,
-                    gains = body.gains,
-                    lifeBalance = body.lifeBalance,
-                    rating = body.rating,
-                ),
-            ).let(evaluationResponseMapper::toResponse)
+    ): EvaluationResponse {
+        val request =
+            EvaluationUpdateRequest(
+                content = body.content,
+                gradeSatisfaction = body.gradeSatisfaction,
+                teachingSkill = body.teachingSkill,
+                gains = body.gains,
+                lifeBalance = body.lifeBalance,
+                rating = body.rating,
+            )
+        val offering = body.courseSemesterId?.let(courseSemesterService::get)
+        val display =
+            if (offering == null) {
+                evaluationService.updateEvaluation(userId, evaluationId, request)
+            } else {
+                evaluationService.updateEvaluationForCourseSemester(
+                    userId,
+                    evaluationId,
+                    request,
+                    offering.courseId,
+                    offering.year,
+                    offering.semester,
+                )
+            }
+        return evaluationResponseMapper.toResponse(display)
+    }
 
     @DeleteMapping("/v2/evaluations/{evaluationId}")
     fun deleteEvaluation(

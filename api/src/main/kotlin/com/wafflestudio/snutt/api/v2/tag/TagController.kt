@@ -6,9 +6,8 @@ import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseVocabularyRepository
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabulary
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -24,8 +23,13 @@ data class TagListResponse(
     val instructor: List<String>,
     val category: List<String>,
     val categoryPre2025: List<String>,
-    val sortCriteria: List<String>,
+    val sortCriteria: List<SortCriterionResponse>,
     val updatedAt: Long?,
+)
+
+data class SortCriterionResponse(
+    val value: String,
+    val label: String,
 )
 
 data class SemesterResponse(
@@ -48,7 +52,7 @@ data class CourseTagListResponse(
 @RequestMapping("/v2/tags")
 class TagController(
     private val lectureVocabularyService: LectureVocabularyService,
-    private val coursebookService: CoursebookService,
+    private val courseVocabularyRepository: CourseVocabularyRepository,
 ) {
     @GetMapping("/{year}/{semester}")
     fun getTagList(
@@ -72,7 +76,7 @@ class TagController(
             sortCriteria =
                 LectureSort.entries
                     .filter { it != LectureSort.DEFAULT }
-                    .map { clientInfo.language.select(it.fullName, it.fullNameEn) },
+                    .map { SortCriterionResponse(it.name.lowercase(), clientInfo.language.select(it.fullName, it.fullNameEn)) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )
     }
@@ -81,7 +85,7 @@ class TagController(
     fun getCourseTagList(
         @RequestAttribute clientInfo: ClientInfo,
     ): CourseTagListResponse {
-        val vocabulary: LectureVocabulary = lectureVocabularyService.getVocabulary(null, null, clientInfo.language)
+        val vocabulary = courseVocabularyRepository.getVocabulary(clientInfo.language)
         return CourseTagListResponse(
             classification = vocabulary.classification,
             department = vocabulary.department,
@@ -92,7 +96,7 @@ class TagController(
                 vocabulary.categoryPre2025.map {
                     LectureCategoryPre2025.localize(it, clientInfo.language)
                 },
-            semesters = coursebookService.getCoursebooks().map { SemesterResponse(it.year, it.semester) },
+            semesters = vocabulary.semesters.map { SemesterResponse(it.year, it.semester) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )
     }

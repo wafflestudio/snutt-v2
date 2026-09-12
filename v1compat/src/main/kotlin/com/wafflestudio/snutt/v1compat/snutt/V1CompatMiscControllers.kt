@@ -23,6 +23,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -197,16 +198,18 @@ class V1CompatDeviceController(
         @V1CurrentUser user: User,
         @PathVariable registrationId: String,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ) {
+    ): LegacyOkResponse {
         deviceService.addRegistrationId(user.id!!, registrationId, clientInfo)
+        return LegacyOkResponse()
     }
 
     @DeleteMapping("/{registrationId}")
     fun removeRegistrationId(
         @V1CurrentUser user: User,
         @PathVariable registrationId: String,
-    ) {
+    ): LegacyOkResponse {
         deviceService.removeRegistrationId(user.id!!, registrationId)
+        return LegacyOkResponse()
     }
 }
 

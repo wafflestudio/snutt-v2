@@ -291,7 +291,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         val config =
             post(
                 "/v2/admin/configs/notice",
-                """{"value":"{\"text\":\"공지\"}","minIosVersion":"3.0.0","maxIosVersion":"4.0.0"}""",
+                """{"value":{"text":"공지"},"minIosVersion":"3.0.0","maxIosVersion":"4.0.0"}""",
                 adminToken,
             )
         assertEquals(200, config.statusCode.value())

@@ -2,6 +2,8 @@ package com.wafflestudio.snutt.api.v2.evaluation
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -12,6 +14,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -76,9 +79,11 @@ class CourseController(
         @RequestParam(required = false) academicYear: List<String>?,
         @RequestParam(required = false) credit: List<Int>?,
         @RequestParam(required = false) category: List<String>?,
+        @RequestParam(required = false) categoryPre2025: List<String>?,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Int?,
         @RequestParam(required = false) cursor: String?,
+        @RequestAttribute clientInfo: ClientInfo,
     ): CursorPage<CourseResponse> {
         if ((year == null) != (semester == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val yearSemesters =
@@ -92,11 +97,13 @@ class CourseController(
             courseSearchService.search(
                 CourseSearchCriteria(
                     query = query,
+                    language = clientInfo.language,
                     classification = classification.orEmpty(),
                     department = department.orEmpty(),
                     academicYear = academicYear.orEmpty(),
                     credit = credit.orEmpty(),
                     category = category.orEmpty(),
+                    categoryPre2025 = categoryPre2025.orEmpty().map(LectureCategoryPre2025::toKorean),
                     yearSemesters = yearSemesters,
                 ),
                 cursor,

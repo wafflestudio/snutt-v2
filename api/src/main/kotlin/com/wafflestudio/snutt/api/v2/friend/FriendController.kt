@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v2.friend
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.v2.timetable.TimetableResponse
 import com.wafflestudio.snutt.api.v2.timetable.toResponse
+import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -29,7 +31,7 @@ data class FriendResponse(
     val userId: Long,
     val displayName: String?,
     val nickname: String,
-    val nicknameTag: Int?,
+    val nicknameTag: String?,
     val createdAt: Long,
 )
 
@@ -146,11 +148,12 @@ class FriendController(
         @PathVariable friendId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Int,
+        @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse {
         val friend = getAcceptedFriend(userId, friendId)
         val partnerId = friend.getPartnerUserId(userId)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, parseSemester(semester))
-        return timetableService.getTimetableDisplay(partnerId, timetable.id!!).toResponse()
+        return timetableService.getTimetableDisplay(partnerId, timetable.id!!).toResponse(clientInfo.language)
     }
 
     @GetMapping("/{friendId}/coursebooks")

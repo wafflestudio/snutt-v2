@@ -179,8 +179,8 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `테마 검색은 POST 본문으로 받는다`() {
-        val response = postV1("/v1/themes/search", """{"keyword":"없는테마"}""")
+    fun `테마 검색은 POST query parameter로 받는다`() {
+        val response = postV1("/v1/themes/search?query=없는테마")
         assertEquals(200, response.statusCode.value())
         assertTrue(body(response).hasNonNull("content"))
     }

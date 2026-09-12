@@ -9,6 +9,7 @@ import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpql
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseFilterScope
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -67,43 +68,66 @@ class CourseSearchRepository(
 
     private fun Jpql.criteriaPredicates(criteria: CourseSearchCriteria): List<Predicate> {
         val builder = mutableListOf<Predicate>()
-        criteria.credit.takeIf { it.isNotEmpty() }?.let { builder += path(Course::credit).`in`(it) }
-        criteria.academicYear.takeIf { it.isNotEmpty() }?.let { builder += path(Course::academicYear).`in`(it) }
-        criteria.classification.takeIf { it.isNotEmpty() }?.let { builder += path(Course::classification).`in`(it) }
-        criteria.department.takeIf { it.isNotEmpty() }?.let { builder += path(Course::department).`in`(it) }
-        criteria.category.takeIf { it.isNotEmpty() }?.let { builder += path(Course::category).`in`(it) }
-        queryPredicate(criteria.query)?.let { builder += it }
-
-        if (criteria.yearSemesters.isNotEmpty()) {
-            val semesterBuilder = mutableListOf<Predicate>()
-            criteria.yearSemesters.forEach { (year, semester) ->
-                semesterBuilder +=
-                    and(
-                        path(CourseSemester::year).equal(year),
-                        path(CourseSemester::semester).equal(semester),
-                    )
+        queryPredicate(criteria.query, criteria.language)?.let { builder += it }
+        criteria.courseDepartment.takeIf { it.isNotEmpty() }?.let { builder += path(Course::department).`in`(it) }
+        val semesterPredicates = mutableListOf<Predicate>()
+        if (criteria.filterScope == CourseFilterScope.COURSE) {
+            criteria.credit.takeIf { it.isNotEmpty() }?.let { builder += path(Course::credit).`in`(it) }
+            criteria.academicYear.takeIf { it.isNotEmpty() }?.let { builder += path(Course::academicYear).`in`(it) }
+            criteria.classification.takeIf { it.isNotEmpty() }?.let { builder += path(Course::classification).`in`(it) }
+            criteria.department.takeIf { it.isNotEmpty() }?.let { builder += path(Course::department).`in`(it) }
+            criteria.category.takeIf { it.isNotEmpty() }?.let { builder += path(Course::category).`in`(it) }
+        } else {
+            val english = criteria.language == Language.EN
+            criteria.credit.takeIf { it.isNotEmpty() }?.let { semesterPredicates += path(CourseSemester::credit).`in`(it) }
+            criteria.academicYear.takeIf { it.isNotEmpty() }?.let {
+                semesterPredicates += path(if (english) CourseSemester::academicYearEn else CourseSemester::academicYear).`in`(it)
             }
+            criteria.classification.takeIf { it.isNotEmpty() }?.let {
+                semesterPredicates += path(if (english) CourseSemester::classificationEn else CourseSemester::classification).`in`(it)
+            }
+            criteria.department.takeIf { it.isNotEmpty() }?.let {
+                semesterPredicates += path(if (english) CourseSemester::departmentEn else CourseSemester::department).`in`(it)
+            }
+            criteria.category.takeIf { it.isNotEmpty() }?.let {
+                semesterPredicates += path(if (english) CourseSemester::categoryEn else CourseSemester::category).`in`(it)
+            }
+        }
+        criteria.categoryPre2025.takeIf { it.isNotEmpty() }?.let {
+            semesterPredicates += path(CourseSemester::categoryPre2025).`in`(it)
+        }
+        if (criteria.yearSemesters.isNotEmpty()) {
+            semesterPredicates +=
+                or(
+                    *criteria.yearSemesters
+                        .map { (year, semester) ->
+                            and(path(CourseSemester::year).equal(year), path(CourseSemester::semester).equal(semester))
+                        }.toTypedArray(),
+                )
+        }
+        if (semesterPredicates.isNotEmpty()) {
             builder +=
-                and(
-                    path(Course::id).`in`(
-                        jpql {
-                            select(path(CourseSemester::courseId))
-                                .from(entity(CourseSemester::class))
-                                .where(or(*semesterBuilder.toTypedArray()))
-                        }.asSubquery(),
-                    ),
+                path(Course::id).`in`(
+                    jpql {
+                        select(path(CourseSemester::courseId))
+                            .from(entity(CourseSemester::class))
+                            .where(and(*semesterPredicates.toTypedArray()))
+                    }.asSubquery(),
                 )
         }
 
         return builder
     }
 
-    private fun Jpql.queryPredicate(query: String?): Predicate? {
+    private fun Jpql.queryPredicate(
+        query: String?,
+        language: Language,
+    ): Predicate? {
         if (query.isNullOrBlank()) return null
         val builder = mutableListOf<Predicate>()
         query.split(' ').filter { it.isNotBlank() }.forEach { keyword ->
             val or = mutableListOf<Predicate>()
-            when (val intent = classifier.classify(keyword, Language.KO)) {
+            when (val intent = classifier.classify(keyword, language)) {
                 KeywordIntent.Empty -> {}
                 KeywordIntent.Major -> or += path(Course::classification).`in`(listOf("전선", "전필"))
                 KeywordIntent.Graduate -> or += path(Course::academicYear).`in`(GRADUATE_YEARS)

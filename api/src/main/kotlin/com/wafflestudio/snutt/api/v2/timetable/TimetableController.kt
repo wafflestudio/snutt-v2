@@ -66,6 +66,7 @@ data class TimetableResponse(
 data class TimetableLectureResponse(
     val id: Long,
     val lectureId: Long?,
+    val courseId: Long?,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -118,6 +119,7 @@ internal fun TimetableLectureDisplay.toResponse(language: Language = Language.KO
     TimetableLectureResponse(
         id = id,
         lectureId = lectureId,
+        courseId = courseId,
         academicYear = language.select(academicYear, academicYearEn),
         category = language.select(category, categoryEn),
         categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },

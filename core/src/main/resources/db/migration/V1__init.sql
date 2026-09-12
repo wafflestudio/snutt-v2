@@ -21,6 +21,18 @@ CREATE TABLE `user`
     INDEX idx_user_email (email)
 );
 
+CREATE TABLE refresh_token
+(
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT      NOT NULL,
+    token_hash CHAR(64)    NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    CONSTRAINT uk_refresh_token_token_hash UNIQUE (token_hash),
+    CONSTRAINT fk_refresh_token_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
+);
+
 CREATE TABLE user_social_auth
 (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -115,6 +127,29 @@ CREATE TABLE course
     CONSTRAINT uk_course_number_instructor UNIQUE (course_number, instructor),
     INDEX idx_course_avg_rating (avg_rating DESC),
     INDEX idx_course_eval_count (eval_count DESC, id ASC)
+);
+
+CREATE TABLE course_semester
+(
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    course_id         BIGINT NOT NULL,
+    year              INT NOT NULL,
+    semester          TINYINT NOT NULL,
+    credit            INT NOT NULL,
+    academic_year     VARCHAR(255) NULL,
+    category          VARCHAR(255) NULL,
+    classification    VARCHAR(255) NULL,
+    extra_info        LONGTEXT NULL,
+    department        VARCHAR(255) NULL,
+    department_en     VARCHAR(256) NULL,
+    academic_year_en  VARCHAR(255) NULL,
+    category_en       VARCHAR(255) NULL,
+    classification_en VARCHAR(255) NULL,
+    category_pre2025  VARCHAR(255) NULL,
+    created_at        DATETIME(6) NOT NULL,
+    updated_at        DATETIME(6) NOT NULL,
+    CONSTRAINT uk_course_semester UNIQUE (course_id, year, semester),
+    CONSTRAINT fk_course_semester_course FOREIGN KEY (course_id) REFERENCES course (id) ON DELETE CASCADE
 );
 
 CREATE TABLE lecture

@@ -71,7 +71,7 @@ private fun TimetableThemeDisplay.toLegacy(
     origin: LegacyThemeOriginDto?,
 ) = LegacyThemeDto(
     id = id.toString(),
-    userId = userExternalId,
+    userId = if (isBuiltin) userExternalId else checkNotNull(userId).toString(),
     theme = builtinType ?: BasicThemeType.SNUTT.value,
     name = name,
     colors = colors,
@@ -83,14 +83,10 @@ private fun TimetableThemeDisplay.toLegacy(
         publishName?.let {
             LegacyThemePublishInfoDto(
                 publishName = it,
-                authorName = authorNickname,
+                authorName = if (authorAnonymous == true) "익명" else authorNickname,
                 downloads = downloadCount,
             )
         },
-)
-
-data class LegacyThemeSearchRequest(
-    val keyword: String,
 )
 
 data class LegacyThemePublishRequest(
@@ -119,10 +115,10 @@ class V1CompatThemeController(
     private val timetableThemeRepository: TimetableThemeRepository,
 ) {
     private fun originMap(displays: List<TimetableThemeDisplay>): Map<String, LegacyThemeOriginDto> {
-        val downloaded = displays.filter { it.status == ThemeStatus.DOWNLOADED }
-        if (downloaded.isEmpty()) return emptyMap()
+        val customThemes = displays.filter { it.isCustom }
+        if (customThemes.isEmpty()) return emptyMap()
         return timetableThemeRepository
-            .findAllById(downloaded.map { it.id })
+            .findAllById(customThemes.map { it.id })
             .mapNotNull { theme ->
                 theme.originThemeId?.let { originThemeId ->
                     theme.id!!.toString() to
@@ -159,8 +155,8 @@ class V1CompatThemeController(
     @PostMapping("/search")
     fun searchThemes(
         @V1CurrentUser user: User,
-        @RequestBody body: LegacyThemeSearchRequest,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.searchThemes(body.keyword))
+        @RequestParam query: String,
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(user, timetableThemeService.searchThemes(query))
 
     @GetMapping("/{themeId}")
     fun getTheme(
@@ -403,7 +399,7 @@ class V1CompatDiaryController(
         @V1CurrentUser user: User,
     ): List<LegacyDiaryDailyClassTypeDto> =
         diaryService
-            .getAllDailyClassTypes()
+            .getActiveDailyClassTypes()
             .map { LegacyDiaryDailyClassTypeDto(id = it.id!!.toString(), name = it.name) }
 
     @GetMapping("/my")
@@ -440,7 +436,7 @@ class V1CompatDiaryController(
     fun submitDiary(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyDiarySubmissionRequest,
-    ) {
+    ): LegacyOkResponse {
         diaryService.submitDiary(
             user.id!!,
             DiarySubmissionRequest(
@@ -450,14 +446,16 @@ class V1CompatDiaryController(
                 comment = body.comment,
             ),
         )
+        return LegacyOkResponse()
     }
 
     @DeleteMapping("/{submissionId}")
     fun removeDiarySubmission(
         @V1CurrentUser user: User,
         @PathVariable submissionId: Long,
-    ) {
+    ): LegacyOkResponse {
         diaryService.removeSubmission(submissionId, user.id!!)
+        return LegacyOkResponse()
     }
 }
 

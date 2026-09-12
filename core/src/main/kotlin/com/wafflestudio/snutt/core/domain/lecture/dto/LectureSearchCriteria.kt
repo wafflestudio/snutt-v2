@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.core.domain.lecture.dto
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 
 enum class LectureSort(
     val fullName: String,
@@ -18,6 +20,14 @@ enum class LectureSort(
         private val nameMap = entries.flatMap { listOf(it.fullName to it, it.fullNameEn to it) }.toMap()
 
         fun getOfName(name: String?): LectureSort? = nameMap[name]
+
+        fun fromParameter(value: String?): LectureSort =
+            if (value == null) {
+                DEFAULT
+            } else {
+                entries.find { it.name.equals(value, ignoreCase = true) }
+                    ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+            }
     }
 }
 

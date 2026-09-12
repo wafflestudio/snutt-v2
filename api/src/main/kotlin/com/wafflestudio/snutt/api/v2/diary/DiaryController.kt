@@ -53,7 +53,7 @@ data class DiaryQuestionResponse(
 )
 
 data class DiaryTargetLectureResponse(
-    val id: Long,
+    val lectureId: Long,
     val courseTitle: String,
     val instructor: String?,
     val credit: Int?,
@@ -67,6 +67,7 @@ data class DiaryDailyClassTypeResponse(
 
 data class DiarySubmissionSummaryResponse(
     val id: Long,
+    val lectureId: Long?,
     val year: Int,
     val semester: Semester,
     val courseTitle: String,
@@ -105,7 +106,7 @@ private fun DiaryQuestionnaireDisplay.toResponse(language: Language) =
 
 private fun TimetableLectureDisplay.toResponse(language: Language) =
     DiaryTargetLectureResponse(
-        id = id,
+        lectureId = checkNotNull(lectureId),
         courseTitle = language.select(courseTitle, courseTitleEn),
         instructor = language.select(instructor, instructorEn),
         credit = credit,
@@ -153,7 +154,7 @@ class DiaryController(
         @CurrentUserId userId: Long,
     ): List<DiaryDailyClassTypeResponse> = diaryService.getActiveDailyClassTypes().map { it.toResponse() }
 
-    @GetMapping("/my")
+    @GetMapping("/me")
     fun getMySubmissions(
         @CurrentUserId userId: Long,
     ): List<DiarySubmissionsOfYearSemesterResponse> {
@@ -205,6 +206,7 @@ class DiaryController(
 private fun DiarySubmission.toSummary(replies: List<DiaryShortQuestionReplyResponse>): DiarySubmissionSummaryResponse =
     DiarySubmissionSummaryResponse(
         id = id!!,
+        lectureId = lectureId,
         year = year,
         semester = semester,
         courseTitle = courseTitle,

@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
@@ -65,6 +66,9 @@ class V1CompatExceptionHandler {
 
     @ExceptionHandler(SnuttException::class)
     fun handleSnuttException(e: SnuttException): ResponseEntity<V1ErrorResponse> = e.toV1ErrorResponse()
+
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleUnreadableBody(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE).toV1ErrorResponse()
 
     @ExceptionHandler(UpstreamException::class)
     fun handleUpstreamException(e: UpstreamException): ResponseEntity<V1ErrorResponse> {

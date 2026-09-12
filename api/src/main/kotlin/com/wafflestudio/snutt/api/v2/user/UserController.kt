@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController
 data class UserResponse(
     val id: Long,
     val nickname: String,
-    val nicknameTag: Int?,
+    val nicknameTag: String?,
     val email: String?,
     val isEmailVerified: Boolean,
     val authProviders: List<String>,
@@ -131,7 +131,7 @@ class UserController(
     )
 
     data class AuthProvidersResponse(
-        val authProviders: List<AuthProvider>,
+        val authProviders: List<String>,
     )
 
     @PostMapping("/me/password")
@@ -140,7 +140,7 @@ class UserController(
         @RequestBody body: AttachLocalRequest,
     ): AuthProvidersResponse {
         authService.attachLocal(userId, body.localId, body.password)
-        return AuthProvidersResponse(authService.getAuthProviders(userId))
+        return AuthProvidersResponse(authService.getAuthProviders(userId).map { it.value })
     }
 
     @PatchMapping("/me/password")
@@ -159,7 +159,7 @@ class UserController(
         @RequestBody body: SocialTokenRequest,
     ): AuthProvidersResponse {
         authService.attachSocial(userId, parseSocialProvider(provider), body.token)
-        return AuthProvidersResponse(authService.getAuthProviders(userId))
+        return AuthProvidersResponse(authService.getAuthProviders(userId).map { it.value })
     }
 
     @DeleteMapping("/me/social/{provider}")
@@ -168,7 +168,7 @@ class UserController(
         @PathVariable provider: String,
     ): AuthProvidersResponse {
         authService.detachSocial(userId, parseSocialProvider(provider))
-        return AuthProvidersResponse(authService.getAuthProviders(userId))
+        return AuthProvidersResponse(authService.getAuthProviders(userId).map { it.value })
     }
 
     private fun parseSocialProvider(value: String): AuthProvider =

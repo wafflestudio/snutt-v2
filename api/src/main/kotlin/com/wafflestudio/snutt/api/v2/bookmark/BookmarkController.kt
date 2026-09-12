@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestAttribute
-import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -31,6 +30,7 @@ data class BookmarkResponse(
 
 data class BookmarkLectureResponse(
     val id: Long,
+    val courseId: Long?,
     val academicYear: String?,
     val category: String?,
     val categoryPre2025: String?,
@@ -54,10 +54,6 @@ data class BookmarkClassPlaceAndTimeResponse(
     val endMinute: Int,
 )
 
-data class BookmarkLectureModifyRequest(
-    val lectureId: Long,
-)
-
 private fun BookmarkDisplay.toResponse(
     classTimesMap: Map<Long, List<ClassPlaceAndTime>>,
     language: Language,
@@ -72,6 +68,7 @@ private fun Lecture.toResponse(
     language: Language,
 ) = BookmarkLectureResponse(
     id = id!!,
+    courseId = courseId,
     academicYear = language.select(academicYear, academicYearEn),
     category = language.select(category, categoryEn),
     categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
@@ -116,19 +113,19 @@ class BookmarkController(
         @PathVariable lectureId: Long,
     ): Boolean = bookmarkService.existsBookmarkLecture(userId, lectureId)
 
-    @PostMapping("/lecture")
+    @PostMapping("/lectures/{lectureId}")
     fun addLecture(
         @CurrentUserId userId: Long,
-        @RequestBody body: BookmarkLectureModifyRequest,
+        @PathVariable lectureId: Long,
     ) {
-        bookmarkService.addLecture(userId, body.lectureId)
+        bookmarkService.addLecture(userId, lectureId)
     }
 
-    @DeleteMapping("/lecture")
+    @DeleteMapping("/lectures/{lectureId}")
     fun deleteLecture(
         @CurrentUserId userId: Long,
-        @RequestBody body: BookmarkLectureModifyRequest,
+        @PathVariable lectureId: Long,
     ) {
-        bookmarkService.deleteLecture(userId, body.lectureId)
+        bookmarkService.deleteLecture(userId, lectureId)
     }
 }
