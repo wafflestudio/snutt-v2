@@ -67,6 +67,7 @@ data class AdminUserSearchResponse(
     val email: String?,
     val isEmailVerified: Boolean,
     val nickname: String,
+    val nicknameTag: String,
     val localId: String?,
     val isAdmin: Boolean,
     val active: Boolean,
@@ -99,6 +100,7 @@ data class AdminApiTraceTargetRequest(
 data class AdminApiTraceTargetResponse(
     val userId: Long,
     val nickname: String,
+    val nicknameTag: String,
     val email: String?,
     val memo: String?,
     val createdAt: Long,
@@ -259,6 +261,7 @@ class AdminController(
                 id = user.id!!,
                 email = user.email,
                 nickname = user.nickname,
+                nicknameTag = user.nicknameTag,
                 localId = user.localId,
                 isAdmin = user.isAdmin,
                 isEmailVerified = user.isEmailVerified,
@@ -344,6 +347,7 @@ class AdminController(
         AdminApiTraceTargetResponse(
             userId = target.userId,
             nickname = user.nickname,
+            nicknameTag = user.nicknameTag,
             email = user.email,
             memo = target.memo,
             createdAt = checkNotNull(target.createdAt).toEpochMilli(),

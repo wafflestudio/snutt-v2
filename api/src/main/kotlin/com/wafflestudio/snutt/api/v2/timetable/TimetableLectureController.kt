@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.timetable.model.LectureOverrideField
 import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectureAddRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureModifyRequest
@@ -34,19 +35,20 @@ data class CustomTimetableLectureAddRequestBody(
     val credit: Int? = null,
     val classPlaceAndTimes: List<ClassPlaceAndTimeRequestBody> = emptyList(),
     val remark: String? = null,
-    val color: ColorSet? = null,
-    val colorIndex: Int? = null,
+    val customColor: ColorSet? = null,
+    val paletteIndex: Int? = null,
     val isForced: Boolean = false,
 )
 
 data class TimetableLectureModifyRequestBody(
+    val resetFields: Set<LectureOverrideField> = emptySet(),
     val courseTitle: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
     val classPlaceAndTimes: List<ClassPlaceAndTimeRequestBody>? = null,
     val remark: String? = null,
-    val color: ColorSet? = null,
-    val colorIndex: Int? = null,
+    val customColor: ColorSet? = null,
+    val paletteIndex: Int? = null,
     val academicYear: String? = null,
     val category: String? = null,
     val classification: String? = null,
@@ -107,8 +109,8 @@ class TimetableLectureController(
                     credit = body.credit,
                     classPlaceAndTimes = body.classPlaceAndTimes.map { parseClassPlaceAndTime(it) },
                     remark = body.remark,
-                    color = body.color,
-                    colorIndex = body.colorIndex,
+                    customColor = body.customColor,
+                    paletteIndex = body.paletteIndex,
                     isForced = body.isForced,
                 ),
             ).toResponse(clientInfo.language)
@@ -127,13 +129,14 @@ class TimetableLectureController(
                 timetableId,
                 timetableLectureId,
                 TimetableLectureModifyRequest(
+                    resetFields = body.resetFields,
                     courseTitle = body.courseTitle,
                     instructor = body.instructor,
                     credit = body.credit,
                     classPlaceAndTimes = body.classPlaceAndTimes?.map { parseClassPlaceAndTime(it) },
                     remark = body.remark,
-                    color = body.color,
-                    colorIndex = body.colorIndex,
+                    customColor = body.customColor,
+                    paletteIndex = body.paletteIndex,
                     academicYear = body.academicYear,
                     category = body.category,
                     classification = body.classification,

@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.core.io.Resource
 import org.springframework.core.io.ResourceLoader
@@ -35,14 +35,14 @@ class UserNicknameService(
             .map { it.trimEnd('\r') }
             .filter { it.isNotBlank() }
 
-    fun generateUniqueRandomNickname(): String = appendNewTag(nicknames.random())
+    fun generateUniqueRandomNickname(): Nickname = generate(nicknames.random())
 
-    fun appendNewTag(nickname: String): String {
+    fun generate(nickname: String): Nickname {
         if (!isValidNickname(nickname)) throw SnuttException(ErrorType.INVALID_NICKNAME)
 
         val existingTags =
             userRepository
-                .findAllByNicknameStartingWithAndActiveTrue(nickname)
+                .findAllByNicknameAndActiveTrue(nickname)
                 .mapNotNull { it.nicknameTag }
                 .toSet()
         val newTag =
@@ -50,7 +50,7 @@ class UserNicknameService(
                 .filter { it !in existingTags }
                 .first()
 
-        return "$nickname${User.NICKNAME_TAG_DELIMITER}$newTag"
+        return Nickname(nickname, newTag)
     }
 
     private fun isValidNickname(nickname: String): Boolean =

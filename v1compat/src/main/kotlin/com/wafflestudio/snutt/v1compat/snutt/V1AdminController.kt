@@ -317,7 +317,7 @@ class V1AdminController(
             LegacyAdminUserSearchResponse(
                 id = user.id!!.toString(),
                 email = user.email,
-                nickname = user.nickname,
+                nickname = user.fullNickname,
                 localId = user.localId,
                 isAdmin = user.isAdmin,
                 isEmailVerified = user.isEmailVerified,

@@ -15,7 +15,10 @@ interface UserRepository : JpaRepository<User, Long> {
 
     fun findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email: String): User?
 
-    fun findByNicknameAndActiveTrue(nickname: String): User?
+    fun findByNicknameAndNicknameTagAndActiveTrue(
+        nickname: String,
+        nicknameTag: String,
+    ): User?
 
     fun findByIdAndActiveTrue(id: Long): User?
 
@@ -23,7 +26,7 @@ interface UserRepository : JpaRepository<User, Long> {
 
     fun findByEmailContainingIgnoreCaseAndActiveTrue(email: String): List<User>
 
-    fun findAllByNicknameStartingWithAndActiveTrue(nickname: String): List<User>
+    fun findAllByNicknameAndActiveTrue(nickname: String): List<User>
 
     fun findAllByEmailAndActiveTrue(email: String): List<User>
 

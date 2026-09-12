@@ -104,6 +104,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     email = "reminder@snu.ac.kr",
                     isEmailVerified = true,
                     nickname = "reminderuser",
+                    nicknameTag = "0000",
                     localId = "reminderuser",
                 ),
             )
@@ -137,7 +138,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         val timetableLecture =
             timetableLectureRepository.save(
-                TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, colorIndex = 1),
+                TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, paletteIndex = 0),
             )
         val timetableLectureId = timetableLecture.id!!
 
@@ -182,6 +183,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                     email = "diarysched@snu.ac.kr",
                     isEmailVerified = true,
                     nickname = "diarysched",
+                    nicknameTag = "0000",
                     localId = "diarysched",
                 ),
             )
@@ -246,7 +248,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
                 ),
             ).map(lectureRepository::save)
         (listOf(lecture) + more).forEach {
-            timetableLectureRepository.save(TimetableLecture(timetableId = timetable.id!!, lectureId = it.id, colorIndex = 1))
+            timetableLectureRepository.save(TimetableLecture(timetableId = timetable.id!!, lectureId = it.id, paletteIndex = 0))
         }
 
         diaryScheduler.sendDiaryNotifications()

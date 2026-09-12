@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.timetable.model
 
+import com.fasterxml.jackson.annotation.JsonValue
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -8,10 +9,20 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
-/**
- * 강좌 원본(Lecture)을 덮어쓸 때만 채워지는 오버라이드 값들.
- * 미지정 필드는 null. 커스텀 강좌(lectureId=null)는 courseTitle을 필수로 가진다.
- */
+enum class LectureOverrideField(
+    @get:JsonValue val fieldName: String,
+) {
+    COURSE_TITLE("courseTitle"),
+    INSTRUCTOR("instructor"),
+    CREDIT("credit"),
+    REMARK("remark"),
+    CLASS_PLACE_AND_TIMES("classPlaceAndTimes"),
+    ACADEMIC_YEAR("academicYear"),
+    CATEGORY("category"),
+    CLASSIFICATION("classification"),
+    CATEGORY_PRE2025("categoryPre2025"),
+}
+
 data class LectureOverrides(
     val courseTitle: String? = null,
     val instructor: String? = null,
@@ -22,7 +33,20 @@ data class LectureOverrides(
     val category: String? = null,
     val classification: String? = null,
     val categoryPre2025: String? = null,
-)
+) {
+    fun without(fields: Set<LectureOverrideField>): LectureOverrides =
+        copy(
+            courseTitle = courseTitle.takeUnless { LectureOverrideField.COURSE_TITLE in fields },
+            instructor = instructor.takeUnless { LectureOverrideField.INSTRUCTOR in fields },
+            credit = credit.takeUnless { LectureOverrideField.CREDIT in fields },
+            remark = remark.takeUnless { LectureOverrideField.REMARK in fields },
+            classPlaceAndTimes = classPlaceAndTimes.takeUnless { LectureOverrideField.CLASS_PLACE_AND_TIMES in fields },
+            academicYear = academicYear.takeUnless { LectureOverrideField.ACADEMIC_YEAR in fields },
+            category = category.takeUnless { LectureOverrideField.CATEGORY in fields },
+            classification = classification.takeUnless { LectureOverrideField.CLASSIFICATION in fields },
+            categoryPre2025 = categoryPre2025.takeUnless { LectureOverrideField.CATEGORY_PRE2025 in fields },
+        )
+}
 
 @Entity
 @Table(name = "timetable_lecture")
@@ -32,16 +56,16 @@ class TimetableLecture(
     @JdbcTypeCode(SqlTypes.JSON)
     var overrides: LectureOverrides? = null,
     @JdbcTypeCode(SqlTypes.JSON)
-    var color: ColorSet? = null,
-    var colorIndex: Int = 0,
+    var customColor: ColorSet? = null,
+    var paletteIndex: Int = 0,
 ) : BaseEntity() {
     fun copyFor(targetTimetableId: Long) =
         TimetableLecture(
             timetableId = targetTimetableId,
             lectureId = lectureId,
             overrides = overrides,
-            color = color,
-            colorIndex = colorIndex,
+            customColor = customColor,
+            paletteIndex = paletteIndex,
         )
 
     fun clearOverrides() {

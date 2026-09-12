@@ -22,9 +22,9 @@ import com.wafflestudio.snutt.core.domain.notification.service.NotificationServi
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceService
-import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
+import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
@@ -32,9 +32,12 @@ import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
+import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColor
+import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColorIndex
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -117,7 +120,7 @@ data class LegacyFriendTimetableLectureDto(
     val remark: String?,
     val courseNumber: String?,
     val courseTitle: String,
-    val color: ColorSet?,
+    val color: LegacyColorSetDto?,
     val colorIndex: Int,
     val lectureId: String?,
     val snuttEvLecture: LegacyFriendEvLectureIdDto? = null,
@@ -171,8 +174,8 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
                     remark = language.select(lecture.remark, lecture.remarkEn),
                     courseNumber = lecture.courseNumber,
                     courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
-                    color = lecture.color,
-                    colorIndex = lecture.colorIndex,
+                    color = lecture.legacyColor,
+                    colorIndex = lecture.legacyColorIndex,
                     lectureId = lecture.lectureId?.toString(),
                     categoryPre2025 = lecture.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
                 )
@@ -200,7 +203,7 @@ private fun legacyFriend(
     displayName = friend.getPartnerDisplayName(myUserId),
     nickname =
         LegacyFriendNicknameDto(
-            nickname = partner.nicknameWithoutTag,
+            nickname = partner.nickname,
             tag = partner.nicknameTag,
         ),
     createdAt = checkNotNull(friend.createdAt),
@@ -233,7 +236,10 @@ class V1CompatFriendController(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyFriendRequest,
     ) {
-        friendService.requestFriend(user.id!!, body.nickname)
+        val separator = body.nickname.lastIndexOf('#')
+        val tag = body.nickname.substring(separator + 1)
+        if (separator <= 0 || !tag.matches(Regex("[0-9]{4}"))) throw SnuttException(ErrorType.USER_NOT_FOUND_BY_NICKNAME)
+        friendService.requestFriend(user.id!!, Nickname(body.nickname.substring(0, separator), tag))
     }
 
     @PostMapping("/{friendId}/accept")

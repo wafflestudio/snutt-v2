@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRe
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
+import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
@@ -58,10 +59,10 @@ class FriendService(
     @Transactional
     fun requestFriend(
         fromUserId: Long,
-        toUserNickname: String,
+        toUserNickname: Nickname,
     ) {
         val toUser =
-            userRepository.findByNicknameAndActiveTrue(toUserNickname)
+            userRepository.findByNicknameAndNicknameTagAndActiveTrue(toUserNickname.name, toUserNickname.tag)
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND_BY_NICKNAME)
         val toUserId = toUser.id!!
         if (fromUserId == toUserId) throw SnuttException(ErrorType.INVALID_FRIEND)
@@ -75,7 +76,7 @@ class FriendService(
         notify(
             userId = toUserId,
             title = "친구 요청",
-            body = "'${fromUser.nicknameWithoutTag}'님의 친구 요청을 수락하고 서로의 대표 시간표를 확인해보세요!",
+            body = "'${fromUser.nickname}'님의 친구 요청을 수락하고 서로의 대표 시간표를 확인해보세요!",
         )
     }
 
@@ -91,7 +92,7 @@ class FriendService(
         notify(
             userId = friend.fromUserId,
             title = "친구 요청 수락",
-            body = "'${toUser.nicknameWithoutTag}'님과 친구가 되었어요.",
+            body = "'${toUser.nickname}'님과 친구가 되었어요.",
         )
     }
 
@@ -153,7 +154,7 @@ class FriendService(
         notify(
             userId = fromUserId,
             title = "친구 요청 수락",
-            body = "'${toUser.nicknameWithoutTag}'님과 친구가 되었어요.",
+            body = "'${toUser.nickname}'님과 친구가 되었어요.",
         )
         return friend to fromUser
     }

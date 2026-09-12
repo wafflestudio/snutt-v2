@@ -197,6 +197,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
                     email = "sync@snu.ac.kr",
                     isEmailVerified = true,
                     nickname = "syncuser",
+                    nicknameTag = "0000",
                     localId = "syncuser",
                 ),
             )

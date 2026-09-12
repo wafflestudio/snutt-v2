@@ -173,7 +173,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
             timetableRepository.findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, 2026, Semester.AUTUMN)!!
         lectureRepository.findAll().forEach { lecture ->
             timetableLectureRepository.save(
-                TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, colorIndex = 1),
+                TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, paletteIndex = 0),
             )
         }
     }

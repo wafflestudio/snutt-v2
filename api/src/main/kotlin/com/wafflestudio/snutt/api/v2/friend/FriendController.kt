@@ -11,9 +11,11 @@ import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
+import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -31,12 +33,13 @@ data class FriendResponse(
     val userId: Long,
     val displayName: String?,
     val nickname: String,
-    val nicknameTag: String?,
+    val nicknameTag: String,
     val createdAt: Long,
 )
 
 data class FriendRequest(
     @field:NotBlank val nickname: String,
+    @field:Pattern(regexp = "[0-9]{4}") val nicknameTag: String,
 )
 
 data class UpdateFriendDisplayNameRequest(
@@ -63,7 +66,7 @@ private fun FriendResponse(
         id = friend.id!!,
         userId = user.id!!,
         displayName = displayName,
-        nickname = user.nicknameWithoutTag,
+        nickname = user.nickname,
         nicknameTag = user.nicknameTag,
         createdAt = checkNotNull(friend.createdAt).toEpochMilli(),
     )
@@ -92,7 +95,7 @@ class FriendController(
         @CurrentUserId userId: Long,
         @Valid @RequestBody body: FriendRequest,
     ) {
-        friendService.requestFriend(userId, body.nickname)
+        friendService.requestFriend(userId, Nickname(body.nickname, body.nicknameTag))
     }
 
     @PostMapping("/{friendId}/accept")

@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
+import com.wafflestudio.snutt.core.domain.timetable.model.LectureOverrideField
 import com.wafflestudio.snutt.core.domain.timetable.model.LectureOverrides
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
@@ -30,19 +31,20 @@ data class CustomTimetableLectureAddRequest(
     val credit: Int? = null,
     val classPlaceAndTimes: List<ClassPlaceAndTime> = emptyList(),
     val remark: String? = null,
-    val color: ColorSet? = null,
-    val colorIndex: Int? = null,
+    val customColor: ColorSet? = null,
+    val paletteIndex: Int? = null,
     val isForced: Boolean = false,
 )
 
 data class TimetableLectureModifyRequest(
+    val resetFields: Set<LectureOverrideField> = emptySet(),
     val courseTitle: String? = null,
     val instructor: String? = null,
     val credit: Int? = null,
     val classPlaceAndTimes: List<ClassPlaceAndTime>? = null,
     val remark: String? = null,
-    val color: ColorSet? = null,
-    val colorIndex: Int? = null,
+    val customColor: ColorSet? = null,
+    val paletteIndex: Int? = null,
     val academicYear: String? = null,
     val category: String? = null,
     val classification: String? = null,
@@ -81,14 +83,9 @@ class TimetableLectureService(
         val classTimes = lectureService.classTimesByLectureId(listOf(lecture.id!!))[lecture.id!!].orEmpty()
         resolveTimeConflict(timetable, classTimes, request.isForced, null)
 
-        val (colorIndex, color) =
-            timetableThemeService.getNewColorIndexAndColor(
-                timetable.themeId,
-                existingLectures.map { it.color },
-                existingLectures.map { it.colorIndex },
-            )
+        val paletteIndex = timetableThemeService.newPaletteIndex(timetable.themeId, existingLectures.map { it.paletteIndex })
         timetableLectureRepository.save(
-            TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, color = color, colorIndex = colorIndex),
+            TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, paletteIndex = paletteIndex),
         )
         return displayAfterLectureChange(userId, timetable)
     }
@@ -103,23 +100,22 @@ class TimetableLectureService(
         val timetable =
             timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
+        if (request.courseTitle.isBlank()) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
         validateClassTimes(request.classPlaceAndTimes)
 
         resolveTimeConflict(timetable, request.classPlaceAndTimes, request.isForced, null)
 
         val remaining = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        val (colorIndex, color) =
-            timetableThemeService.getNewColorIndexAndColor(
-                timetable.themeId,
-                remaining.map { it.color },
-                remaining.map { it.colorIndex },
-            )
+        if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        val paletteIndex =
+            request.paletteIndex ?: timetableThemeService.newPaletteIndex(timetable.themeId, remaining.map { it.paletteIndex })
+        timetableThemeService.validatePaletteIndex(timetable.themeId, paletteIndex)
         timetableLectureRepository.save(
             TimetableLecture(
                 timetableId = timetable.id!!,
                 lectureId = null,
-                color = request.color ?: color,
-                colorIndex = request.colorIndex ?: colorIndex,
+                customColor = request.customColor,
+                paletteIndex = paletteIndex,
                 overrides =
                     LectureOverrides(
                         courseTitle = request.courseTitle,
@@ -146,17 +142,28 @@ class TimetableLectureService(
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         val existingDisplays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
 
-        val timesChanged = request.classPlaceAndTimes != null
+        val timesReset = LectureOverrideField.CLASS_PLACE_AND_TIMES in request.resetFields
+        val timesChanged = request.classPlaceAndTimes != null || timesReset
         val newTimes =
             request.classPlaceAndTimes
-                ?: existingDisplays.first { it.id == timetableLecture.id }.classPlaceAndTimes
+                ?: if (timesReset) {
+                    timetableLecture.lectureId?.let { lectureService.classTimesByLectureId(listOf(it))[it] }.orEmpty()
+                } else {
+                    existingDisplays.first { it.id == timetableLecture.id }.classPlaceAndTimes
+                }
         validateClassTimes(newTimes)
         if (timesChanged) resolveTimeConflict(timetable, newTimes, request.isForced, timetableLecture.id)
 
-        request.color?.let { timetableLecture.color = it }
-        request.colorIndex?.let { timetableLecture.colorIndex = it }
+        if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        request.paletteIndex?.let {
+            timetableThemeService.validatePaletteIndex(timetable.themeId, it)
+            timetableLecture.paletteIndex = it
+            timetableLecture.customColor = null
+        }
+        request.customColor?.let { timetableLecture.customColor = it }
 
-        timetableLecture.updateOverrides { o ->
+        timetableLecture.updateOverrides { previous ->
+            val o = previous.without(request.resetFields)
             o.copy(
                 courseTitle = request.courseTitle ?: o.courseTitle,
                 instructor = request.instructor ?: o.instructor,
@@ -170,6 +177,10 @@ class TimetableLectureService(
             )
         }
 
+        if (timetableLecture.lectureId == null && timetableLecture.overrides?.courseTitle.isNullOrBlank()) {
+            throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        }
+        if (request.courseTitle?.isBlank() == true) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
         if (timesChanged) timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         return displayAfterLectureChange(userId, timetable)
     }

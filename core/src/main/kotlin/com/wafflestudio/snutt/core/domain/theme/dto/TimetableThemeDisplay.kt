@@ -1,20 +1,27 @@
 package com.wafflestudio.snutt.core.domain.theme.dto
 
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
-import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
+import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 
 data class TimetableThemeDisplay(
     val id: Long,
     val userId: Long?,
     val name: String,
-    val colors: List<ColorSet>?,
-    val isCustom: Boolean,
-    val isBuiltin: Boolean,
-    val builtinType: Int?,
-    val status: ThemeStatus,
+    val colors: List<ColorSet>,
+    val kind: ThemeKind,
+    val builtinCode: String?,
+    val publicationId: Long?,
     val isDefault: Boolean,
-    val publishName: String?,
-    val authorAnonymous: Boolean?,
-    val downloadCount: Long,
+)
+
+data class ThemePublicationDisplay(
+    val id: Long,
+    val sourceThemeId: Long?,
+    val authorId: Long?,
+    val name: String,
+    val colors: List<ColorSet>,
+    val authorAnonymous: Boolean,
     val authorNickname: String?,
+    val listed: Boolean,
+    val downloadCount: Long,
 )

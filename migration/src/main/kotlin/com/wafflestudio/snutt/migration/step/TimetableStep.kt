@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
@@ -74,7 +75,7 @@ class TimetableStep(
                     doc.docs("lecture_list").forEach { item ->
                         val lectureId = lectureIds.next()
                         context.timetableLectureIds[item.id()] = lectureId
-                        lectures.add(*item.toRow(lectureId, id, updatedAt))
+                        lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
                         lectureCount++
                     }
                 }
@@ -165,6 +166,7 @@ class TimetableStep(
         id: Long,
         timetableId: Long,
         updatedAt: Timestamp,
+        palette: List<ColorSet>,
     ): Array<Any?> {
         val lectureId = oid("lecture_id")?.let(context.lectureIds::get)
         val snapshot = lectureId?.let(context.lectureSnapshots::get)
@@ -190,12 +192,26 @@ class TimetableStep(
                 override(str("classification")) { it.classification }?.let { put("classification", it) }
                 override(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
             }
+        val color =
+            doc("color")?.takeIf { it.isNotEmpty() }?.let {
+                ColorSet(checkNotNull(it.str("bg")), checkNotNull(it.str("fg")))
+            }
+        val matchedIndex =
+            color?.let { old ->
+                palette.indices
+                    .filter {
+                        palette[it].backgroundColor.equals(old.backgroundColor, true) &&
+                            palette[it].foregroundColor.equals(old.foregroundColor, true)
+                    }.singleOrNull()
+            }
+        val oldIndex = ((int("colorIndex") ?: 1) - 1).coerceAtLeast(0)
+        if (matchedIndex == null && oldIndex >= palette.size) context.resolved("범위 밖의 구 팔레트 번호를 정규화")
         return arrayOf(
             id,
             timetableId,
             lectureId,
-            doc("color")?.let { Json.write(mapOf("backgroundColor" to it.str("bg"), "foregroundColor" to it.str("fg"))) },
-            int("colorIndex") ?: 0,
+            color?.takeIf { matchedIndex == null }?.let(Json::writeRequired),
+            matchedIndex ?: (oldIndex % palette.size),
             if (overrides.isEmpty()) null else Json.write(overrides),
             updatedAt,
             updatedAt,
@@ -243,8 +259,8 @@ class TimetableStep(
                 "id",
                 "timetable_id",
                 "lecture_id",
-                "color",
-                "color_index",
+                "custom_color",
+                "palette_index",
                 "overrides",
                 "created_at",
                 "updated_at",

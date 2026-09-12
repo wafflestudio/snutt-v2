@@ -43,7 +43,9 @@ class UserService(
         nickname: String,
     ): User {
         val user = get(userId)
-        user.nickname = userNicknameService.appendNewTag(nickname)
+        val generated = userNicknameService.generate(nickname)
+        user.nickname = generated.name
+        user.nicknameTag = generated.tag
         return conflictAs(ErrorType.DUPLICATE_NICKNAME) { userRepository.saveAndFlush(user) }
     }
 

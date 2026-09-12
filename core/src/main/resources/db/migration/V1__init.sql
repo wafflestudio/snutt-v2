@@ -4,6 +4,7 @@ CREATE TABLE `user`
     email                   VARCHAR(255) NULL,
     is_email_verified       BOOLEAN      NOT NULL DEFAULT FALSE,
     nickname                VARCHAR(64)  NOT NULL,
+    nickname_tag            VARCHAR(4)   NOT NULL,
     local_id                VARCHAR(64)  NULL,
     local_pw                VARCHAR(255) NULL,
     active                  BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -15,7 +16,8 @@ CREATE TABLE `user`
     active_nickname         VARCHAR(64) GENERATED ALWAYS AS (IF(active, nickname, NULL)) VIRTUAL,
     active_local_id         VARCHAR(64) GENERATED ALWAYS AS (IF(active, local_id, NULL)) VIRTUAL,
     active_email            VARCHAR(255) GENERATED ALWAYS AS (IF(active AND is_email_verified, LOWER(email), NULL)) VIRTUAL,
-    CONSTRAINT uk_user_active_nickname UNIQUE (active_nickname),
+    CONSTRAINT uk_user_active_nickname UNIQUE (active_nickname, nickname_tag),
+    CONSTRAINT ck_user_nickname_tag CHECK (nickname_tag REGEXP '^[0-9]{4}$'),
     CONSTRAINT uk_user_active_local_id UNIQUE (active_local_id),
     CONSTRAINT uk_user_active_email UNIQUE (active_email),
     INDEX idx_user_email (email)
@@ -284,17 +286,24 @@ CREATE TABLE theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id          BIGINT       NULL,
-    builtin_type     INT          NULL,
-    name             VARCHAR(128) NOT NULL,
-    colors       JSON         NOT NULL,
-    origin_theme_id  BIGINT       NULL,
-    origin_author_id BIGINT       NULL,
+    builtin_code     VARCHAR(32)  NULL,
+    name             VARCHAR(128) NULL,
+    colors           JSON         NULL,
+    publication_id   BIGINT       NULL,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_theme_builtin_type UNIQUE (builtin_type),
+    CONSTRAINT uk_theme_builtin_code UNIQUE (builtin_code),
+    CONSTRAINT uk_theme_download UNIQUE (user_id, publication_id),
     CONSTRAINT fk_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_theme_origin_theme FOREIGN KEY (origin_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
-    CONSTRAINT fk_theme_origin_author FOREIGN KEY (origin_author_id) REFERENCES `user` (id) ON DELETE SET NULL,
+    CONSTRAINT ck_theme_owner CHECK (
+        (builtin_code IS NOT NULL AND user_id IS NULL AND publication_id IS NULL)
+        OR (builtin_code IS NULL AND user_id IS NOT NULL)
+    ),
+    CONSTRAINT ck_theme_content CHECK (
+        (publication_id IS NULL AND name IS NOT NULL AND colors IS NOT NULL)
+        OR (publication_id IS NOT NULL AND name IS NULL AND colors IS NULL)
+    ),
+    CONSTRAINT ck_theme_palette CHECK (colors IS NULL OR (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9)),
     INDEX idx_theme_user_updated (user_id, updated_at DESC)
 );
 
@@ -306,39 +315,46 @@ CREATE TABLE user_preference
     CONSTRAINT fk_user_preference_theme FOREIGN KEY (default_theme_id) REFERENCES theme (id) ON DELETE RESTRICT
 );
 
-INSERT INTO theme (id, user_id, builtin_type, name, colors, created_at, updated_at) VALUES
-    (1, NULL, 0, 'SNUTT',
+INSERT INTO theme (id, user_id, builtin_code, name, colors, created_at, updated_at) VALUES
+    (1, NULL, 'snutt', 'SNUTT',
      '[{"backgroundColor":"#E54459","foregroundColor":"#ffffff"},{"backgroundColor":"#F58D3D","foregroundColor":"#ffffff"},{"backgroundColor":"#FAC42D","foregroundColor":"#ffffff"},{"backgroundColor":"#A6D930","foregroundColor":"#ffffff"},{"backgroundColor":"#2BC267","foregroundColor":"#ffffff"},{"backgroundColor":"#1BD0C8","foregroundColor":"#ffffff"},{"backgroundColor":"#1D99E8","foregroundColor":"#ffffff"},{"backgroundColor":"#4F48C4","foregroundColor":"#ffffff"},{"backgroundColor":"#AF56B3","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (2, NULL, 1, '가을',
+    (2, NULL, 'fall', '가을',
      '[{"backgroundColor":"#B82E31","foregroundColor":"#ffffff"},{"backgroundColor":"#DB701C","foregroundColor":"#ffffff"},{"backgroundColor":"#EAA32A","foregroundColor":"#ffffff"},{"backgroundColor":"#C6C013","foregroundColor":"#ffffff"},{"backgroundColor":"#3A856E","foregroundColor":"#ffffff"},{"backgroundColor":"#19B2AC","foregroundColor":"#ffffff"},{"backgroundColor":"#3994CE","foregroundColor":"#ffffff"},{"backgroundColor":"#3F3A9C","foregroundColor":"#ffffff"},{"backgroundColor":"#924396","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (3, NULL, 2, '모던',
+    (3, NULL, 'modern', '모던',
      '[{"backgroundColor":"#F0652A","foregroundColor":"#ffffff"},{"backgroundColor":"#F5AD3E","foregroundColor":"#ffffff"},{"backgroundColor":"#998F36","foregroundColor":"#ffffff"},{"backgroundColor":"#89C291","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#13808F","foregroundColor":"#ffffff"},{"backgroundColor":"#366689","foregroundColor":"#ffffff"},{"backgroundColor":"#432920","foregroundColor":"#ffffff"},{"backgroundColor":"#D82F3D","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (4, NULL, 3, '벚꽃',
+    (4, NULL, 'blossom', '벚꽃',
      '[{"backgroundColor":"#FD79A8","foregroundColor":"#ffffff"},{"backgroundColor":"#FEC9DD","foregroundColor":"#ffffff"},{"backgroundColor":"#FEB0CC","foregroundColor":"#ffffff"},{"backgroundColor":"#FE93BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E9B1D0","foregroundColor":"#ffffff"},{"backgroundColor":"#C67D97","foregroundColor":"#ffffff"},{"backgroundColor":"#BB8EA7","foregroundColor":"#ffffff"},{"backgroundColor":"#BDB4BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E16597","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (5, NULL, 4, '얼음',
+    (5, NULL, 'ice', '얼음',
      '[{"backgroundColor":"#AABDCF","foregroundColor":"#ffffff"},{"backgroundColor":"#C0E9E8","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#015F95","foregroundColor":"#ffffff"},{"backgroundColor":"#A8D0DB","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#62A9D1","foregroundColor":"#ffffff"},{"backgroundColor":"#20363D","foregroundColor":"#ffffff"},{"backgroundColor":"#6D8A96","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (6, NULL, 5, '잔디',
+    (6, NULL, 'lawn', '잔디',
      '[{"backgroundColor":"#4FBEAA","foregroundColor":"#ffffff"},{"backgroundColor":"#9FC1A4","foregroundColor":"#ffffff"},{"backgroundColor":"#5A8173","foregroundColor":"#ffffff"},{"backgroundColor":"#84AEB1","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#D0E0C4","foregroundColor":"#ffffff"},{"backgroundColor":"#59886D","foregroundColor":"#ffffff"},{"backgroundColor":"#476060","foregroundColor":"#ffffff"},{"backgroundColor":"#3D7068","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6));
 
 CREATE TABLE published_theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
-    theme_id         BIGINT       NOT NULL,
-    publish_name     VARCHAR(128) NOT NULL,
+    author_id        BIGINT       NULL,
+    source_theme_id  BIGINT       NULL,
+    name             VARCHAR(128) NOT NULL,
+    colors           JSON         NOT NULL,
     author_anonymous BOOLEAN      NOT NULL DEFAULT FALSE,
+    listed           BOOLEAN      NOT NULL DEFAULT TRUE,
     download_count   BIGINT       NOT NULL DEFAULT 0,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_published_theme_theme UNIQUE (theme_id),
-    CONSTRAINT fk_published_theme_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE CASCADE,
-    INDEX idx_published_theme_download (download_count DESC, id DESC)
+    CONSTRAINT fk_published_theme_source FOREIGN KEY (source_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
+    CONSTRAINT fk_published_theme_author FOREIGN KEY (author_id) REFERENCES `user` (id) ON DELETE SET NULL,
+    CONSTRAINT ck_published_theme_palette CHECK (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9),
+    INDEX idx_published_theme_download (listed, download_count DESC, id DESC),
+    INDEX idx_published_theme_source (source_theme_id, listed)
 );
+
+ALTER TABLE theme ADD CONSTRAINT fk_theme_publication FOREIGN KEY (publication_id) REFERENCES published_theme (id) ON DELETE RESTRICT;
 
 CREATE TABLE timetable
 (
@@ -362,8 +378,9 @@ CREATE TABLE timetable_lecture
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     timetable_id  BIGINT NOT NULL,
     lecture_id    BIGINT NULL,
-    color         JSON   NULL,
-    color_index   INT    NOT NULL DEFAULT 0,
+    custom_color  JSON   NULL,
+    palette_index INT    NOT NULL DEFAULT 0,
+    CONSTRAINT ck_timetable_lecture_palette_index CHECK (palette_index BETWEEN 0 AND 8),
     overrides     JSON   NULL,
     created_at    DATETIME(6) NOT NULL,
     updated_at    DATETIME(6) NOT NULL,

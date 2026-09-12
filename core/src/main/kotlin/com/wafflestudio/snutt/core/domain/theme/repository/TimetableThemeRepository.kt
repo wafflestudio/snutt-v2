@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
+    @Query("SELECT t FROM TimetableTheme t WHERE t.userId = :userId OR t.builtinCode IS NOT NULL ORDER BY t.id")
+    fun findAvailableThemes(userId: Long): List<TimetableTheme>
+
     fun findByUserIdOrderByUpdatedAtDesc(userId: Long): List<TimetableTheme>
 
     fun findByIdAndUserId(
@@ -15,11 +18,11 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
         userId: Long,
     ): TimetableTheme?
 
-    fun findByUserIdIsNull(): List<TimetableTheme>
+    fun findByBuiltinCode(builtinCode: String): TimetableTheme?
 
-    fun existsByOriginThemeIdAndUserId(
-        originThemeId: Long,
+    fun existsByUserIdAndPublicationId(
         userId: Long,
+        publicationId: Long,
     ): Boolean
 }
 
@@ -28,49 +31,43 @@ interface PublishedThemeRepository : JpaRepository<PublishedTheme, Long> {
     @Query("UPDATE PublishedTheme p SET p.downloadCount = p.downloadCount + 1 WHERE p.id = :id")
     fun incrementDownloadCount(id: Long)
 
-    fun findByThemeId(themeId: Long): PublishedTheme?
+    fun findBySourceThemeIdInAndListedTrue(sourceThemeIds: Collection<Long>): List<PublishedTheme>
 
-    fun findByThemeIdIn(themeIds: Collection<Long>): List<PublishedTheme>
-
-    fun findByPublishNameContainingIgnoreCase(publishName: String): List<PublishedTheme>
-
-    fun findAllByOrderByDownloadCountDescIdDesc(pageable: Pageable): List<PublishedTheme>
+    fun findByAuthorIdOrderByIdDesc(authorId: Long): List<PublishedTheme>
 
     @Query(
-        "SELECT p FROM PublishedTheme p WHERE " +
-            "p.downloadCount < :downloadCount OR (p.downloadCount = :downloadCount AND p.id < :publishedThemeId) " +
-            "ORDER BY p.downloadCount DESC, p.id DESC",
+        """
+        SELECT p FROM PublishedTheme p
+        WHERE p.listed = true
+          AND (:query IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')))
+          AND (:downloadCount IS NULL OR p.downloadCount < :downloadCount
+            OR (p.downloadCount = :downloadCount AND p.id < :publicationId))
+        ORDER BY p.downloadCount DESC, p.id DESC
+        """,
     )
-    fun findBestPublishedAfter(
-        downloadCount: Long,
-        publishedThemeId: Long,
+    fun findListed(
+        query: String?,
+        downloadCount: Long?,
+        publicationId: Long?,
         pageable: Pageable,
     ): List<PublishedTheme>
 
     @Query(
         """
         SELECT p FROM PublishedTheme p
-        WHERE (
-            p.themeId IN (SELECT t.id FROM TimetableTheme t WHERE t.userId IN :userIds)
-            OR p.themeId IN (
-                SELECT d.originThemeId FROM TimetableTheme d
-                WHERE d.userId IN :userIds AND d.originThemeId IS NOT NULL
-            )
+        WHERE p.listed = true AND (
+            p.authorId IN :userIds
+            OR p.id IN (SELECT t.publicationId FROM TimetableTheme t WHERE t.userId IN :userIds)
         )
-          AND (
-              :downloadCount IS NULL
-              OR p.downloadCount < :downloadCount
-              OR (p.downloadCount = :downloadCount AND p.id < :publishedThemeId)
-          )
+          AND (:downloadCount IS NULL OR p.downloadCount < :downloadCount
+            OR (p.downloadCount = :downloadCount AND p.id < :publicationId))
         ORDER BY p.downloadCount DESC, p.id DESC
         """,
     )
     fun findFriendsPublished(
         userIds: Collection<Long>,
         downloadCount: Long?,
-        publishedThemeId: Long?,
+        publicationId: Long?,
         pageable: Pageable,
     ): List<PublishedTheme>
-
-    fun existsByThemeId(themeId: Long): Boolean
 }

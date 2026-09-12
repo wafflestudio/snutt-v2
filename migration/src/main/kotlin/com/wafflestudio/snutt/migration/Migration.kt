@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.migration
 
+import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import org.bson.Document
 import org.bson.types.ObjectId
 import org.slf4j.Logger
@@ -30,6 +31,7 @@ class MigrationContext {
     val lectureIds = HashMap<String, Long>(256_000)
     val timetableIds = HashMap<String, Long>(512_000)
     val themeIds = HashMap<String, Long>()
+    val themePalettes = HashMap<Long, List<ColorSet>>()
     val diaryClassTypeIds = HashMap<String, Long>()
     val diaryQuestionIds = HashMap<String, Long>()
     val timetableLectureIds = HashMap<String, Long>(1_024_000)

@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController
 data class UserResponse(
     val id: Long,
     val nickname: String,
-    val nicknameTag: String?,
+    val nicknameTag: String,
     val email: String?,
     val isEmailVerified: Boolean,
     val authProviders: List<String>,
@@ -36,7 +36,7 @@ data class UpdateUserRequest(
 private fun User.toResponse(authProviders: List<AuthProvider>) =
     UserResponse(
         id = id!!,
-        nickname = nicknameWithoutTag,
+        nickname = nickname,
         nicknameTag = nicknameTag,
         email = email,
         isEmailVerified = isEmailVerified,

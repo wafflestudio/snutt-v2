@@ -30,12 +30,12 @@ class TimetableLectureTest {
 
     @Test
     fun copyForRetargetsAndCarriesOverrides() {
-        val lecture = TimetableLecture(timetableId = 1L, lectureId = 5L, colorIndex = 3)
+        val lecture = TimetableLecture(timetableId = 1L, lectureId = 5L, paletteIndex = 3)
         lecture.updateOverrides { it.copy(courseTitle = "수정된 이름") }
         val copied = lecture.copyFor(99L)
         assertThat(copied.timetableId).isEqualTo(99L)
         assertThat(copied.lectureId).isEqualTo(5L)
         assertThat(copied.overrides).isEqualTo(LectureOverrides(courseTitle = "수정된 이름"))
-        assertThat(copied.colorIndex).isEqualTo(3)
+        assertThat(copied.paletteIndex).isEqualTo(3)
     }
 }

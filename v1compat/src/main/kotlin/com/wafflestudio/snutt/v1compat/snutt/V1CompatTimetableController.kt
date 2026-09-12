@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.v1compat.snutt
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -173,13 +172,7 @@ class V1CompatTimetableController(
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val themeId =
-            body.themeId
-                ?: timetableThemeService
-                    .findThemeById(
-                        timetableThemeService.builtinThemeId(
-                            BasicThemeType.fromValue(body.theme!!) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
-                        ),
-                    ).id!!
+            body.themeId ?: timetableThemeService.builtinThemeId(legacyBuiltinCode(body.theme!!))
         val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeId)
         return toLegacy(user, display.timetable, display, clientInfo.language)
     }
@@ -209,6 +202,7 @@ class V1CompatTimetableController(
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
+        val (paletteIndex, customColor) = colorSelection(user.id!!, timetable, body.color, body.colorIndex)
         val display =
             timetableLectureService.addCustomLecture(
                 user.id!!,
@@ -219,8 +213,8 @@ class V1CompatTimetableController(
                     credit = body.credit,
                     classPlaceAndTimes = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() }.orEmpty(),
                     remark = body.remark,
-                    color = body.color?.toColorSet(),
-                    colorIndex = body.colorIndex,
+                    customColor = customColor,
+                    paletteIndex = paletteIndex,
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
@@ -280,6 +274,7 @@ class V1CompatTimetableController(
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
+        val (paletteIndex, customColor) = colorSelection(user.id!!, timetable, body.color, body.colorIndex)
         val display =
             timetableLectureService.modifyLecture(
                 user.id!!,
@@ -291,8 +286,8 @@ class V1CompatTimetableController(
                     credit = body.credit,
                     classPlaceAndTimes = body.classPlaceAndTimes?.map { it.toClassPlaceAndTime() },
                     remark = body.remark,
-                    color = body.color?.toColorSet(),
-                    colorIndex = body.colorIndex,
+                    customColor = customColor,
+                    paletteIndex = paletteIndex,
                     academicYear = body.academicYear,
                     category = body.category,
                     classification = body.classification,
@@ -301,6 +296,27 @@ class V1CompatTimetableController(
                 ),
             )
         return toLegacy(user, timetable, display, clientInfo.language)
+    }
+
+    private fun colorSelection(
+        userId: Long,
+        timetable: Timetable,
+        color: LegacyColorRequest?,
+        colorIndex: Int?,
+    ): Pair<Int?, ColorSet?> {
+        val value = color?.toColorSet()
+        if (value != null) {
+            val palette = timetableThemeService.getTheme(userId, timetable.themeId).colors
+            val index =
+                palette.indices
+                    .filter {
+                        palette[it].backgroundColor.equals(value.backgroundColor, true) &&
+                            palette[it].foregroundColor.equals(value.foregroundColor, true)
+                    }.singleOrNull()
+            return if (index == null) null to value else index to null
+        }
+        if (colorIndex != null && colorIndex < 0) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        return colorIndex?.takeIf { it > 0 }?.minus(1) to null
     }
 
     @DeleteMapping("/{timetableId}/lecture/{timetableLectureId}")
@@ -361,7 +377,15 @@ data class LegacyColorRequest(
     val fg: String? = null,
 )
 
-fun LegacyColorRequest.toColorSet() = ColorSet(backgroundColor = bg, foregroundColor = fg)
+fun LegacyColorRequest.toColorSet(): ColorSet? {
+    if (bg == null && fg == null) return null
+    return ColorSet(
+        backgroundColor = bg ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE),
+        foregroundColor = fg ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE),
+    )
+}
+
+fun LegacyColorRequest.requireColorSet(): ColorSet = toColorSet() ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
 
 data class LegacyClassTimeRequest(
     val day: Int,

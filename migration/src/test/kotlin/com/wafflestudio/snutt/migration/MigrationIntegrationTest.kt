@@ -188,14 +188,15 @@ class MigrationIntegrationTest {
     fun `테마는 색상과 공개 정보와 원본 참조를 유지한다`() {
         val copy =
             jdbc.queryForMap(
-                "SELECT colors, origin_theme_id FROM theme WHERE id = ?",
+                "SELECT t.publication_id, p.colors, p.listed FROM theme t JOIN published_theme p ON p.id=t.publication_id WHERE t.id = ?",
                 context.themeIds[themeCopy.toHexString()],
             )
         assertTrue((copy["colors"] as String).contains("backgroundColor"))
-        assertEquals(context.themeIds[themeOrigin.toHexString()], copy["origin_theme_id"])
+        assertNotNull(copy["publication_id"])
+        assertEquals(false, copy["listed"])
         assertEquals(
             "공개된 테마",
-            jdbc.queryForObject("SELECT publish_name FROM published_theme", String::class.java),
+            jdbc.queryForObject("SELECT name FROM published_theme WHERE listed=TRUE", String::class.java),
         )
     }
 
@@ -282,12 +283,14 @@ class MigrationIntegrationTest {
                 Document("_id", themeOrigin)
                     .append("userId", userWithBoth)
                     .append("name", "원본 테마")
+                    .append("status", "PUBLISHED")
                     .append("isCustom", true)
                     .append("colors", listOf(Document("bg", "#111111").append("fg", "#FFFFFF")))
                     .append("publishInfo", Document("publishName", "공개된 테마").append("authorAnonymous", true).append("downloads", 7)),
                 Document("_id", themeCopy)
                     .append("userId", userWithBoth)
                     .append("name", "받아온 테마")
+                    .append("status", "DOWNLOADED")
                     .append("isCustom", true)
                     .append("colors", listOf(Document("bg", "#222222").append("fg", "#000000")))
                     .append("origin", Document("originId", themeOrigin.toHexString()).append("authorId", userWithBoth.toHexString())),

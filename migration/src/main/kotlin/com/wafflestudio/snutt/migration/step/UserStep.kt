@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
@@ -78,11 +79,13 @@ class UserStep(
                 }
 
                 val registeredAt = doc.instant("regDate").orNow()
+                val nickname = uniqueNickname(doc.str("nickname"), takenNicknames)
                 out.add(
                     id,
                     email,
                     isEmailVerified,
-                    uniqueNickname(doc.str("nickname"), takenNicknames),
+                    nickname.name,
+                    nickname.tag,
                     localId,
                     localPw,
                     active,
@@ -182,15 +185,15 @@ class UserStep(
     private fun uniqueNickname(
         nickname: String?,
         taken: HashSet<String>,
-    ): String {
-        val candidate = nickname?.takeIf { it.isNotBlank() } ?: "스누티" + Random.nextInt(TAG_BOUND).toString().padStart(4, '0')
-        if (taken.add(candidate)) return candidate
-        val base = candidate.substringBeforeLast(TAG_DELIMITER)
+    ): Nickname {
+        val base = nickname?.substringBeforeLast(TAG_DELIMITER)?.takeIf { it.isNotBlank() } ?: "스누티"
+        val tag = nickname?.substringAfterLast(TAG_DELIMITER, "")?.takeIf { it.matches(Regex("[0-9]{4}")) }
+        if (tag != null && taken.add("$base$TAG_DELIMITER$tag")) return Nickname(base, tag)
         while (true) {
-            val retagged = "$base$TAG_DELIMITER%04d".format(Random.nextInt(TAG_BOUND))
-            if (taken.add(retagged)) {
-                context.resolved("닉네임이 중복되어 태그를 재배정")
-                return retagged
+            val replacement = Random.nextInt(TAG_BOUND).toString().padStart(4, '0')
+            if (taken.add("$base$TAG_DELIMITER$replacement")) {
+                context.resolved("누락되었거나 중복된 닉네임 태그를 재배정")
+                return Nickname(base, replacement)
             }
         }
     }
@@ -204,6 +207,7 @@ class UserStep(
                 "email",
                 "is_email_verified",
                 "nickname",
+                "nickname_tag",
                 "local_id",
                 "local_pw",
                 "active",

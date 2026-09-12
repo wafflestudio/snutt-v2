@@ -1,46 +1,45 @@
 package com.wafflestudio.snutt.core.domain.theme.model
 
 import com.wafflestudio.snutt.core.common.model.BaseEntity
-import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
-enum class ThemeStatus {
-    BASIC,
+enum class ThemeKind {
+    BUILTIN,
+    CUSTOM,
     DOWNLOADED,
-    PUBLISHED,
-    PRIVATE,
 }
 
 @Entity
 @Table(name = "theme")
 class TimetableTheme(
     val userId: Long?,
-    @Column(name = "builtin_type")
-    val builtinType: Int? = null,
-    var name: String,
+    val builtinCode: String? = null,
+    var name: String? = null,
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
-    var colors: List<ColorSet>,
-    @Column(name = "origin_theme_id")
-    var originThemeId: Long? = null,
-    @Column(name = "origin_author_id")
-    var originAuthorId: Long? = null,
+    var colors: List<ColorSet>? = null,
+    val publicationId: Long? = null,
 ) : BaseEntity() {
-    val isBuiltin: Boolean get() = builtinType != null
+    val kind: ThemeKind
+        get() =
+            when {
+                builtinCode != null -> ThemeKind.BUILTIN
+                publicationId != null -> ThemeKind.DOWNLOADED
+                else -> ThemeKind.CUSTOM
+            }
 }
 
 @Entity
 @Table(name = "published_theme")
 class PublishedTheme(
-    @Column(name = "theme_id", nullable = false)
-    var themeId: Long,
-    @Column(name = "publish_name", nullable = false)
-    var publishName: String,
-    @Column(name = "author_anonymous", nullable = false)
-    var authorAnonymous: Boolean = false,
-    @Column(name = "download_count", nullable = false)
+    val authorId: Long?,
+    val sourceThemeId: Long?,
+    val name: String,
+    @JdbcTypeCode(SqlTypes.JSON)
+    val colors: List<ColorSet>,
+    val authorAnonymous: Boolean = false,
+    var listed: Boolean = true,
     var downloadCount: Long = 0,
 ) : BaseEntity()

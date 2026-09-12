@@ -195,14 +195,14 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `친구 요청 수락과 표시 이름`() {
-        val request = post("/v2/friends", """{"nickname":"${getNickname("miscuserB")}"}""", userAToken)
+        val request = post("/v2/friends", nicknameRequest("miscuserB"), userAToken)
         assertEquals(200, request.statusCode.value())
 
         val requested = body(get("/v2/friends?state=REQUESTED", userBToken))
         assertEquals(1, requested.size())
         val friendId = requested[0]["id"].asString()
 
-        val duplicate = post("/v2/friends", """{"nickname":"${getNickname("miscuserB")}"}""", userAToken)
+        val duplicate = post("/v2/friends", nicknameRequest("miscuserB"), userAToken)
         assertEquals(409, duplicate.statusCode.value())
 
         assertEquals(200, post("/v2/friends/$friendId/accept", """{}""", userBToken).statusCode.value())
@@ -359,5 +359,8 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         assertTrue(legacy.body!!.contains("<html"))
     }
 
-    private fun getNickname(localId: String): String = userRepository.findByLocalIdAndActiveTrue(localId)!!.nickname
+    private fun nicknameRequest(localId: String): String {
+        val user = userRepository.findByLocalIdAndActiveTrue(localId)!!
+        return """{"nickname":"${user.nickname}","nicknameTag":"${user.nicknameTag}"}"""
+    }
 }

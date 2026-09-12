@@ -3,7 +3,9 @@ package com.wafflestudio.snutt.core.domain.timetable.dto
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import java.time.Instant
@@ -26,8 +28,10 @@ data class TimetableLectureDisplay(
     val credit: Int?,
     val remark: String?,
     val classPlaceAndTimes: List<ClassPlaceAndTime>,
-    val color: ColorSet?,
-    val colorIndex: Int,
+    val color: ColorSet,
+    val customColor: ColorSet?,
+    val paletteIndex: Int,
+    val themeKind: ThemeKind,
     val courseTitleEn: String?,
     val instructorEn: String?,
     val departmentEn: String?,
@@ -41,6 +45,7 @@ fun TimetableLectureDisplay(
     timetableLecture: TimetableLecture,
     lecture: Lecture?,
     classTimes: List<ClassPlaceAndTime>,
+    theme: TimetableThemeDisplay,
 ): TimetableLectureDisplay {
     val overrides = timetableLecture.overrides
     return TimetableLectureDisplay(
@@ -61,15 +66,17 @@ fun TimetableLectureDisplay(
         credit = overrides?.credit ?: lecture?.credit,
         remark = overrides?.remark ?: lecture?.remark,
         classPlaceAndTimes = overrides?.classPlaceAndTimes ?: classTimes,
-        color = timetableLecture.color,
-        colorIndex = timetableLecture.colorIndex,
-        courseTitleEn = lecture?.courseTitleEn,
-        instructorEn = lecture?.instructorEn,
+        color = timetableLecture.customColor ?: theme.colors[timetableLecture.paletteIndex],
+        customColor = timetableLecture.customColor,
+        paletteIndex = timetableLecture.paletteIndex,
+        themeKind = theme.kind,
+        courseTitleEn = lecture?.courseTitleEn.takeIf { overrides?.courseTitle == null },
+        instructorEn = lecture?.instructorEn.takeIf { overrides?.instructor == null },
         departmentEn = lecture?.departmentEn,
-        academicYearEn = lecture?.academicYearEn,
-        categoryEn = lecture?.categoryEn,
-        classificationEn = lecture?.classificationEn,
-        remarkEn = lecture?.remarkEn,
+        academicYearEn = lecture?.academicYearEn.takeIf { overrides?.academicYear == null },
+        categoryEn = lecture?.categoryEn.takeIf { overrides?.category == null },
+        classificationEn = lecture?.classificationEn.takeIf { overrides?.classification == null },
+        remarkEn = lecture?.remarkEn.takeIf { overrides?.remark == null },
     )
 }
 

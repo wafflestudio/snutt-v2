@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.core.domain.timetable.service
 
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -64,6 +63,8 @@ class TimetableService(
 
     fun displaysOf(timetables: List<Timetable>): Map<Long, List<TimetableLectureDisplay>> {
         val timetableIds = timetables.mapNotNull { it.id }
+        val themes = timetableThemeService.getThemesByIds(timetables.map { it.themeId })
+        val themeByTimetable = timetables.associate { it.id!! to themes.getValue(it.themeId) }
         val lectures = timetableLectureRepository.findByTimetableIdIn(timetableIds)
         val lectureMap =
             lectureRepository.findAllById(lectures.mapNotNull { it.lectureId }).associateBy { it.id!! }
@@ -72,7 +73,14 @@ class TimetableService(
         return lectures
             .groupBy { it.timetableId }
             .mapValues { (_, lectureList) ->
-                lectureList.map { TimetableLectureDisplay(it, lectureMap[it.lectureId], classTimesMap[it.lectureId].orEmpty()) }
+                lectureList.map {
+                    TimetableLectureDisplay(
+                        it,
+                        lectureMap[it.lectureId],
+                        classTimesMap[it.lectureId].orEmpty(),
+                        themeByTimetable.getValue(it.timetableId),
+                    )
+                }
             }
     }
 
@@ -167,17 +175,10 @@ class TimetableService(
         timetable.themeId = theme.id!!
 
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        if (theme.isBuiltin) {
-            lectures.forEachIndexed { index, timetableLecture ->
-                timetableLecture.color = null
-                timetableLecture.colorIndex = (index % BasicThemeType.COLOR_COUNT) + 1
-            }
-        } else {
-            val colors = theme.colors
-            lectures.forEachIndexed { index, timetableLecture ->
-                timetableLecture.color = colors[index % colors.size]
-                timetableLecture.colorIndex = 0
-            }
+        val palette = timetableThemeService.getTheme(userId, themeId).colors
+        lectures.forEachIndexed { index, timetableLecture ->
+            timetableLecture.paletteIndex = index % palette.size
+            timetableLecture.customColor = null
         }
         return displayOf(timetable)
     }

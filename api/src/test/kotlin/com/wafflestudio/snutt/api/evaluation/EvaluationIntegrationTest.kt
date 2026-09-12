@@ -337,6 +337,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                         email = "evalbulk$i@snu.ac.kr",
                         isEmailVerified = true,
                         nickname = "evalbulk$i",
+                        nicknameTag = "0000",
                         localId = "evalbulk$i",
                     ),
                 )
@@ -377,6 +378,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                         email = "evalprop$i@snu.ac.kr",
                         isEmailVerified = true,
                         nickname = "evalprop$i",
+                        nicknameTag = "0000",
                         localId = "evalprop$i",
                     ),
                 )

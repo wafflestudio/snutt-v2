@@ -150,6 +150,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     email = "vacancy@snu.ac.kr",
                     isEmailVerified = true,
                     nickname = "vacancyuser",
+                    nicknameTag = "0000",
                     localId = "vacancyuser",
                 ),
             )
@@ -196,6 +197,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     email = "vacancyoff@snu.ac.kr",
                     isEmailVerified = true,
                     nickname = "vacancyoff",
+                    nicknameTag = "0000",
                     localId = "vacancyoff",
                 ),
             )

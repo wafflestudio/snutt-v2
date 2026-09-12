@@ -65,10 +65,12 @@ class AuthService(
             email?.trim()?.also { if (!it.matches(emailRegex)) throw SnuttException(ErrorType.INVALID_EMAIL) }
         if (userRepository.existsByLocalIdAndActiveTrue(localId)) throw SnuttException(ErrorType.DUPLICATE_LOCAL_ID)
 
+        val nickname = userNicknameService.generateUniqueRandomNickname()
         val user =
             User(
                 email = normalizedEmail,
-                nickname = userNicknameService.generateUniqueRandomNickname(),
+                nickname = nickname.name,
+                nicknameTag = nickname.tag,
                 localId = localId,
                 localPw = passwordEncoder.encode(password),
             )
@@ -271,11 +273,13 @@ class AuthService(
             val present = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
             if (present != null) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
+        val nickname = userNicknameService.generateUniqueRandomNickname()
         val user =
             User(
                 email = response.email,
                 isEmailVerified = false,
-                nickname = userNicknameService.generateUniqueRandomNickname(),
+                nickname = nickname.name,
+                nicknameTag = nickname.tag,
             )
         save(user, ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
         insertSocialAuth(user.id!!, provider, response)

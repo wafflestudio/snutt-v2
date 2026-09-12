@@ -106,7 +106,7 @@ class V1CompatUsersController(
         @RequestBody body: LegacyUpdateUserRequest,
     ): LegacyUserDto {
         val nickname = body.nickname?.trim().orEmpty()
-        if (nickname.isEmpty() || nickname == user.nicknameWithoutTag) return user.toLegacyUserDto(legacyFbName(user.id!!))
+        if (nickname.isEmpty() || nickname == user.nickname) return user.toLegacyUserDto(legacyFbName(user.id!!))
         return userService.updateNickname(user.id!!, nickname).toLegacyUserDto(legacyFbName(user.id!!))
     }
 
@@ -232,7 +232,7 @@ internal fun User.toLegacyUserDto(fbName: String?) =
         email = email,
         localId = localId,
         fbName = fbName,
-        nickname = LegacyNicknameDto(nickname = nicknameWithoutTag, tag = nicknameTag),
+        nickname = LegacyNicknameDto(nickname = nickname, tag = nicknameTag),
     )
 
 internal fun User.toLegacyUserInfoDto(fbName: String?) =

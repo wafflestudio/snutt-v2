@@ -243,17 +243,19 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         publishedThemeRepository.save(
             PublishedTheme(
-                themeId = published.id!!,
-                publishName = "친구가공유한테마",
+                authorId = userB.id!!,
+                sourceThemeId = published.id!!,
+                name = "친구가공유한테마",
+                colors = checkNotNull(published.colors),
                 downloadCount = 7,
             ),
         )
 
-        val response = get("/v2/themes/friends", userAToken)
+        val response = get("/v2/theme-publications/friends", userAToken)
         assertEquals(200, response.statusCode.value())
         val themes = body(response)["content"]
         assertEquals(1, themes.size())
-        assertEquals("친구가공유한테마", themes[0]["publishName"].asString())
+        assertEquals("친구가공유한테마", themes[0]["name"].asString())
     }
 
     @Autowired

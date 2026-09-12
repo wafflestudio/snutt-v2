@@ -2,9 +2,10 @@ package com.wafflestudio.snutt.api.v2.theme
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
-import com.wafflestudio.snutt.core.domain.theme.model.ThemeStatus
+import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -21,15 +22,22 @@ import org.springframework.web.bind.annotation.RestController
 data class ThemeResponse(
     val id: Long,
     val name: String,
-    val colors: List<ColorSet>?,
-    val isCustom: Boolean,
-    val isBuiltin: Boolean,
-    val status: ThemeStatus,
+    val colors: List<ColorSet>,
+    val kind: ThemeKind,
+    val builtinCode: String?,
+    val publicationId: Long?,
     val isDefault: Boolean,
-    val publishName: String?,
-    val authorAnonymous: Boolean?,
-    val downloadCount: Long,
+)
+
+data class ThemePublicationResponse(
+    val id: Long,
+    val name: String,
+    val colors: List<ColorSet>,
+    val authorId: Long?,
     val authorNickname: String?,
+    val authorAnonymous: Boolean,
+    val listed: Boolean,
+    val downloadCount: Long,
 )
 
 data class ThemeAddRequest(
@@ -43,30 +51,23 @@ data class ThemeModifyRequest(
 )
 
 data class ThemePublishRequest(
-    @field:NotBlank val publishName: String,
+    @field:NotBlank val name: String,
     val authorAnonymous: Boolean,
 )
 
-data class ThemeDownloadRequest(
-    @field:NotBlank val name: String,
-)
+private fun TimetableThemeDisplay.toResponse() = ThemeResponse(id, name, colors, kind, builtinCode, publicationId, isDefault)
 
-private fun TimetableThemeDisplay.toResponse() =
-    ThemeResponse(
-        id = id,
-        name = name,
-        colors = colors,
-        isCustom = isCustom,
-        isBuiltin = isBuiltin,
-        status = status,
-        isDefault = isDefault,
-        publishName = publishName,
-        authorAnonymous = authorAnonymous,
-        downloadCount = downloadCount,
-        authorNickname = authorNickname,
+private fun ThemePublicationDisplay.toResponse() =
+    ThemePublicationResponse(
+        id,
+        name,
+        colors,
+        authorId.takeUnless { authorAnonymous },
+        authorNickname,
+        authorAnonymous,
+        listed,
+        downloadCount,
     )
-
-private fun CursorPage<TimetableThemeDisplay>.toResponsePage(): CursorPage<ThemeResponse> = map { it.toResponse() }
 
 @RestController
 @RequestMapping("/v2/themes")
@@ -77,34 +78,6 @@ class ThemeController(
     fun getThemes(
         @CurrentUserId userId: Long,
     ): List<ThemeResponse> = timetableThemeService.getThemes(userId).map { it.toResponse() }
-
-    @GetMapping("/best")
-    fun getBestThemes(
-        @RequestParam(required = false) cursor: String?,
-    ): CursorPage<ThemeResponse> = timetableThemeService.getBestThemes(cursor).toResponsePage()
-
-    @GetMapping("/friends")
-    fun getFriendsThemes(
-        @CurrentUserId userId: Long,
-        @RequestParam(required = false) cursor: String?,
-    ): CursorPage<ThemeResponse> = timetableThemeService.getFriendsThemes(userId, cursor).toResponsePage()
-
-    @PostMapping("/{themeId}/default")
-    fun setDefault(
-        @CurrentUserId userId: Long,
-        @PathVariable themeId: Long,
-    ): ThemeResponse = timetableThemeService.setDefault(userId, themeId).toResponse()
-
-    @DeleteMapping("/{themeId}/default")
-    fun unsetDefault(
-        @CurrentUserId userId: Long,
-        @PathVariable themeId: Long,
-    ): ThemeResponse = timetableThemeService.unsetDefault(userId, themeId).toResponse()
-
-    @GetMapping("/search")
-    fun searchThemes(
-        @RequestParam query: String,
-    ): List<ThemeResponse> = timetableThemeService.searchThemes(query).map { it.toResponse() }
 
     @GetMapping("/{themeId}")
     fun getTheme(
@@ -129,37 +102,71 @@ class ThemeController(
     fun deleteTheme(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
-    ) {
-        timetableThemeService.deleteTheme(userId, themeId)
-    }
-
-    @PostMapping("/{themeId}/publish")
-    fun publishTheme(
-        @CurrentUserId userId: Long,
-        @PathVariable themeId: Long,
-        @Valid @RequestBody body: ThemePublishRequest,
-    ) {
-        timetableThemeService.publishTheme(userId, themeId, body.publishName, body.authorAnonymous)
-    }
-
-    @PostMapping("/{themeId}/download")
-    fun downloadTheme(
-        @CurrentUserId userId: Long,
-        @PathVariable themeId: Long,
-        @Valid @RequestBody body: ThemeDownloadRequest,
-    ): ThemeResponse = timetableThemeService.downloadTheme(userId, themeId, body.name).toResponse()
-
-    @DeleteMapping("/{themeId}/publish")
-    fun deletePublishedTheme(
-        @CurrentUserId userId: Long,
-        @PathVariable themeId: Long,
-    ) {
-        timetableThemeService.deletePublishedTheme(userId, themeId)
-    }
+    ) = timetableThemeService.deleteTheme(userId, themeId)
 
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
     ): ThemeResponse = timetableThemeService.copyTheme(userId, themeId).toResponse()
+
+    @PostMapping("/{themeId}/default")
+    fun setDefault(
+        @CurrentUserId userId: Long,
+        @PathVariable themeId: Long,
+    ): ThemeResponse = timetableThemeService.setDefault(userId, themeId).toResponse()
+
+    @DeleteMapping("/{themeId}/default")
+    fun unsetDefault(
+        @CurrentUserId userId: Long,
+        @PathVariable themeId: Long,
+    ): ThemeResponse = timetableThemeService.unsetDefault(userId, themeId).toResponse()
+
+    @PostMapping("/{themeId}/publish")
+    fun publishTheme(
+        @CurrentUserId userId: Long,
+        @PathVariable themeId: Long,
+        @Valid @RequestBody body: ThemePublishRequest,
+    ): ThemePublicationResponse = timetableThemeService.publishTheme(userId, themeId, body.name, body.authorAnonymous).toResponse()
+}
+
+@RestController
+@RequestMapping("/v2/theme-publications")
+class ThemePublicationController(
+    private val timetableThemeService: TimetableThemeService,
+) {
+    @GetMapping("")
+    fun getPublications(
+        @RequestParam(required = false) cursor: String?,
+        @RequestParam(required = false) query: String?,
+    ): CursorPage<ThemePublicationResponse> = timetableThemeService.getPublications(cursor, query).map { it.toResponse() }
+
+    @GetMapping("/friends")
+    fun getFriendsPublications(
+        @CurrentUserId userId: Long,
+        @RequestParam(required = false) cursor: String?,
+    ): CursorPage<ThemePublicationResponse> = timetableThemeService.getFriendsPublications(userId, cursor).map { it.toResponse() }
+
+    @GetMapping("/me")
+    fun getMyPublications(
+        @CurrentUserId userId: Long,
+    ): List<ThemePublicationResponse> = timetableThemeService.getMyPublications(userId).map { it.toResponse() }
+
+    @GetMapping("/{publicationId}")
+    fun getPublication(
+        @CurrentUserId userId: Long,
+        @PathVariable publicationId: Long,
+    ): ThemePublicationResponse = timetableThemeService.getPublication(userId, publicationId).toResponse()
+
+    @PostMapping("/{publicationId}/download")
+    fun downloadTheme(
+        @CurrentUserId userId: Long,
+        @PathVariable publicationId: Long,
+    ): ThemeResponse = timetableThemeService.downloadTheme(userId, publicationId).toResponse()
+
+    @DeleteMapping("/{publicationId}")
+    fun unpublishTheme(
+        @CurrentUserId userId: Long,
+        @PathVariable publicationId: Long,
+    ) = timetableThemeService.unpublishTheme(userId, publicationId)
 }
