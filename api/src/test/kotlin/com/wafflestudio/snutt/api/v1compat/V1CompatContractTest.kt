@@ -74,8 +74,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "F27.301",
                     instructor = "황현동",
                     title = "고급한국어",
-                    department = "국어국문학과",
-                    classification = "교양",
                 ),
             )
         lectureId =

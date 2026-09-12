@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.v1compat.ev
 
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
 import tools.jackson.databind.PropertyNamingStrategies
@@ -151,7 +150,7 @@ internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemes
     )
 }
 
-internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, Course>): LegacyEvaluationWithLectureDto {
+internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, LegacyCourseMetadata>): LegacyEvaluationWithLectureDto {
     val e = evaluation
     return LegacyEvaluationWithLectureDto(
         id = e.id,

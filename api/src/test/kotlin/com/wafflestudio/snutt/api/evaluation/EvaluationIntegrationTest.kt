@@ -77,8 +77,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "M1522.004700",
                     instructor = "Chenglin Fan",
                     title = "계산이론연구 (Theoretical Foundation of AI)",
-                    department = "컴퓨터공학부",
-                    classification = "전선",
                 ),
             )
         val lecture =
@@ -111,8 +109,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "2114.408A",
                     instructor = "임하진",
                     title = "HCI이론 및 실습",
-                    department = "언론정보학과(연합전공 정보문화학)",
-                    classification = "전필",
                 ),
             )
         cursorLectureId =
@@ -389,8 +385,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "F31.113",
                     instructor = "안명숙",
                     title = "경영학을 위한 수학",
-                    department = "수리과학부",
-                    classification = "교양",
                 ),
             )
         val lecture =
@@ -438,7 +432,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "TAG.101",
                     instructor = "교수A",
                     title = "명강과목",
-                    classification = "전선",
                 ),
             )
         val course2 =
@@ -447,7 +440,6 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "TAG.102",
                     instructor = "교수B",
                     title = "보통과목",
-                    classification = "교양",
                 ),
             )
         evaluationRepository.save(
@@ -476,6 +468,18 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 gains = 2.0,
                 lifeBalance = 1.0,
                 rating = 2.0,
+            ),
+        )
+        lectureRepository.save(
+            Lecture(
+                year = 2026,
+                semester = Semester.AUTUMN,
+                courseNumber = course2.courseNumber,
+                lectureNumber = "001",
+                courseTitle = course2.title,
+                instructor = course2.instructor,
+                classification = "교양",
+                courseId = course2.id,
             ),
         )
         val wellTaught = get("/v2/evaluations/tags/well-taught", verifiedToken)

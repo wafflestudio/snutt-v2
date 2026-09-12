@@ -84,8 +84,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                     courseNumber = "M2174.001600",
                     instructor = "박지수",
                     title = "생활과학신입생세미나",
-                    department = "생활과학대학",
-                    classification = "전필",
                 ),
             )
         lectureId =
@@ -104,7 +102,9 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                     classification = "전필",
                     credit = 1,
                     quota = 150,
-                ).also { it.courseId = course.id },
+                ).also {
+                    it.courseId = course.id
+                },
                 listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "222-701", 1020, 1070)),
             ).id!!
 

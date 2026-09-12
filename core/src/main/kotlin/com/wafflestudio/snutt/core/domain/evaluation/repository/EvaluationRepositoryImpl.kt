@@ -280,11 +280,11 @@ class EvaluationRepositoryImpl(
                 exists(
                     jpql {
                         select(value(1))
-                            .from(entity(Course::class))
+                            .from(entity(Lecture::class))
                             .where(
                                 and(
-                                    path(Course::id).equal(path(Evaluation::courseId)),
-                                    path(Course::classification).equal("교양"),
+                                    path(Lecture::courseId).equal(path(Evaluation::courseId)),
+                                    path(Lecture::classification).equal("교양"),
                                 ),
                             )
                     }.asSubquery(),

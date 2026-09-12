@@ -25,6 +25,7 @@ import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 data class EvaluationWriteRequest(
@@ -70,7 +71,7 @@ class EvaluationService(
         private const val DEFAULT_PAGE_SIZE = 20
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun createEvaluation(
         userId: Long,
         lectureId: Long,
@@ -86,8 +87,7 @@ class EvaluationService(
         )
     }
 
-    @Transactional
-    fun createEvaluation(
+    private fun createEvaluation(
         userId: Long,
         courseId: Long,
         year: Int,
@@ -95,7 +95,7 @@ class EvaluationService(
         request: EvaluationWriteRequest,
     ): EvaluationDisplay {
         if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
-        if (!courseRepository.existsById(courseId)) throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        courseRepository.findByIdForUpdate(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         if (evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(courseId, year, semester, userId)) {
             throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
@@ -218,7 +218,7 @@ class EvaluationService(
         (evaluationRepository.findByIdAndIsHiddenFalse(evaluationId) ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND))
             .toDisplay(userId)
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun updateEvaluation(
         userId: Long,
         evaluationId: Long,
@@ -235,16 +235,6 @@ class EvaluationService(
         )
     }
 
-    @Transactional
-    fun updateEvaluationForCourseSemester(
-        userId: Long,
-        evaluationId: Long,
-        request: EvaluationUpdateRequest,
-        courseId: Long,
-        year: Int,
-        semester: Semester,
-    ): EvaluationDisplay = updateEvaluation(userId, evaluationId, request, courseId, year, semester)
-
     private fun updateEvaluation(
         userId: Long,
         evaluationId: Long,
@@ -254,9 +244,10 @@ class EvaluationService(
         moveToSemester: Semester?,
     ): EvaluationDisplay {
         val evaluation =
-            evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
+            evaluationRepository.findForUpdate(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         if (evaluation.userId != userId) throw SnuttException(ErrorType.NOT_MY_EVALUATION)
+        courseRepository.findByIdForUpdate(evaluation.courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
 
         if (isUpdatingAny(evaluation, request, moveToCourseId, moveToYear, moveToSemester)) {
@@ -288,25 +279,34 @@ class EvaluationService(
     ) {
         if (courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
         if (year == evaluation.year && semester == evaluation.semester) return
+        if (evaluationRepository.existsByCourseIdAndYearAndSemesterAndUserIdAndIsHiddenFalse(
+                courseId,
+                year,
+                semester,
+                checkNotNull(evaluation.userId),
+            )
+        ) {
+            throw SnuttException(ErrorType.DUPLICATE_EVALUATION)
+        }
         evaluation.year = year
         evaluation.semester = semester
         conflictAs(ErrorType.DUPLICATE_EVALUATION) { evaluationRepository.flush() }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun deleteEvaluation(
         userId: Long,
         evaluationId: Long,
     ) {
         val evaluation =
-            evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
+            evaluationRepository.findForUpdate(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         if (evaluation.userId != userId) throw SnuttException(ErrorType.NOT_MY_EVALUATION)
         evaluation.isHidden = true
         courseAggregateUpdater.update(evaluation.courseId)
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun reportEvaluation(
         userId: Long,
         evaluationId: Long,
@@ -314,7 +314,7 @@ class EvaluationService(
     ): EvaluationReport {
         if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_REPORT_CONTENT_BLANK)
         val evaluation =
-            evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
+            evaluationRepository.findForUpdate(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         if (evaluation.userId == userId) throw SnuttException(ErrorType.MY_EVALUATION_REPORT)
         if (evaluationReportRepository.existsByEvaluationIdAndUserId(evaluationId, userId)) {
@@ -327,13 +327,13 @@ class EvaluationService(
     fun getCourses(courseIds: Collection<Long>): Map<Long, Course> =
         courseRepository.findAllById(courseIds.distinct()).associateBy { it.id!! }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun likeEvaluation(
         userId: Long,
         evaluationId: Long,
     ) {
         val evaluation =
-            evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
+            evaluationRepository.findForUpdate(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         conflictAs(ErrorType.DUPLICATE_EVALUATION_LIKE) {
             evaluationLikeRepository.save(EvaluationLike(evaluationId = evaluationId, userId = userId))
@@ -341,13 +341,13 @@ class EvaluationService(
         evaluationRepository.incrementLikeCount(evaluationId)
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     fun cancelLikeEvaluation(
         userId: Long,
         evaluationId: Long,
     ) {
         val evaluation =
-            evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
+            evaluationRepository.findForUpdate(evaluationId)
                 ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         val deleted = evaluationLikeRepository.deleteByEvaluationIdAndUserId(evaluationId, userId)
         if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_LIKE_NOT_FOUND)

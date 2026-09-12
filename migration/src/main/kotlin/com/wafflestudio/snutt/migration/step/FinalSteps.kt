@@ -26,6 +26,15 @@ class AggregateStep(
     override val tables = emptyList<String>()
 
     override fun run() {
+        jdbc.update(
+            """
+            UPDATE course c JOIN (
+                SELECT course_id, course_title, ROW_NUMBER() OVER (
+                    PARTITION BY course_id ORDER BY year DESC, semester DESC, updated_at DESC, id DESC
+                ) AS rank_index FROM lecture WHERE course_id IS NOT NULL
+            ) latest ON latest.course_id=c.id AND latest.rank_index=1 SET c.title=latest.course_title
+            """.trimIndent(),
+        )
         val updated =
             jdbc.update(
                 """
@@ -130,16 +139,9 @@ class ValidateStep(
         if (ev.available) {
             compare(
                 failures,
-                "course_semester",
-                ev.jdbc.queryForObject("SELECT COUNT(*) FROM semester_lecture", Long::class.java) ?: 0L,
-                count("course_semester"),
-            )
-            compare(
-                failures,
                 "evaluation",
                 ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java) ?: 0L,
                 count("evaluation"),
-                tolerated = context.resolutions[MigrationSupport.ResolutionReasons.EVALUATION_ANCHOR_MISSING] ?: 0L,
             )
         }
 
@@ -158,13 +160,6 @@ class ValidateStep(
             failures,
             "evaluation",
             "SELECT COUNT(*) FROM evaluation e LEFT JOIN course c ON c.id = e.course_id WHERE c.id IS NULL",
-        )
-
-        orphans(
-            failures,
-            "evaluation course_semester",
-            "SELECT COUNT(*) FROM evaluation e LEFT JOIN course_semester cs " +
-                "ON cs.course_id = e.course_id AND cs.year = e.year AND cs.semester = e.semester WHERE cs.id IS NULL",
         )
 
         val aggregateMismatch =

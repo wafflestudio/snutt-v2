@@ -13,7 +13,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.HandlerMapping
-import org.springframework.web.ErrorResponse as SpringErrorResponse
 
 data class ErrorResponse(
     val errcode: Long,
@@ -88,7 +87,7 @@ class SnuttExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(e: Exception): ResponseEntity<ErrorResponse> {
-        if (e is SpringErrorResponse) {
+        if (e is org.springframework.web.ErrorResponse) {
             val status = e.statusCode.value()
             return ResponseEntity
                 .status(status)

@@ -4,7 +4,6 @@ import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.wafflestudio.snutt.migration.step.AggregateStep
 import com.wafflestudio.snutt.migration.step.CatalogStep
-import com.wafflestudio.snutt.migration.step.CourseSemesterStep
 import com.wafflestudio.snutt.migration.step.CourseStep
 import com.wafflestudio.snutt.migration.step.EvaluationStep
 import com.wafflestudio.snutt.migration.step.LectureStep
@@ -90,7 +89,6 @@ class MigrationIntegrationTest {
             UserStep(jdbc, context, mongoSource),
             CourseStep(jdbc, context, mongoSource, ev),
             LectureStep(jdbc, context, mongoSource),
-            CourseSemesterStep(jdbc, context, ev),
             ThemeStep(jdbc, context, mongoSource),
             TimetableStep(jdbc, context, mongoSource),
             UserDataStep(jdbc, context, mongoSource),

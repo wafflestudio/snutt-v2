@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
-import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
@@ -42,8 +41,7 @@ class CourseStep(
         var count = 0
         writer("course", COLUMNS).use { out ->
             ev.jdbc.query(
-                "SELECT id, course_number, instructor, title, department, credit, academic_year, category, classification, " +
-                    "created_at, updated_at FROM lecture",
+                "SELECT id, course_number, instructor, title, created_at, updated_at FROM lecture",
             ) { rs ->
                 val id = rs.getLong("id")
                 val courseNumber = rs.getString("course_number").orEmpty()
@@ -54,11 +52,6 @@ class CourseStep(
                     courseNumber,
                     instructor,
                     rs.getString("title").orEmpty(),
-                    rs.getString("department"),
-                    rs.getInt("credit"),
-                    rs.getString("academic_year"),
-                    rs.getString("category"),
-                    rs.getString("classification"),
                     rs.getTimestamp("created_at"),
                     rs.getTimestamp("updated_at"),
                 )
@@ -81,11 +74,6 @@ class CourseStep(
                     courseNumber,
                     instructor,
                     doc.str("course_title").orEmpty(),
-                    doc.str("department"),
-                    doc.int("credit") ?: 0,
-                    doc.str("academic_year"),
-                    doc.str("category"),
-                    doc.str("classification"),
                 )
         }
         if (pending.isEmpty()) return 0
@@ -110,11 +98,6 @@ class CourseStep(
                 "course_number",
                 "instructor",
                 "title",
-                "department",
-                "credit",
-                "academic_year",
-                "category",
-                "classification",
                 "created_at",
                 "updated_at",
             )

@@ -4,8 +4,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
-import com.wafflestudio.snutt.core.domain.evaluation.model.Course
-import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSemesterService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
@@ -63,7 +61,7 @@ data class LegacyEvLectureSummaryResponse(
     val instructor: String?,
     val department: String?,
     val courseNumber: String,
-    val credit: Int,
+    val credit: Int?,
     val academicYear: String?,
     val category: String?,
     val classification: String?,
@@ -94,7 +92,7 @@ data class LegacyEvaluationReportResponse(
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
-    private val courseSemesterService: CourseSemesterService,
+    private val legacyCourseRepository: LegacyCourseRepository,
 ) {
     @GetMapping("/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
@@ -122,15 +120,11 @@ class V1CompatEvController(
         @V1CurrentUser user: User,
         @PathVariable semesterLectureId: Long,
         @RequestBody body: LegacyEvaluationWriteRequest,
-    ): LegacyEvaluationCreateResponse {
-        val lecture = courseSemesterService.get(semesterLectureId)
-        val courseId = lecture.courseId
-        return evaluationService
+    ): LegacyEvaluationCreateResponse =
+        evaluationService
             .createEvaluation(
                 user.id!!,
-                courseId,
-                lecture.year,
-                lecture.semester,
+                semesterLectureId,
                 EvaluationWriteRequest(
                     content = body.content,
                     gradeSatisfaction = body.gradeSatisfaction,
@@ -140,7 +134,6 @@ class V1CompatEvController(
                     rating = body.rating,
                 ),
             ).toLegacyCreate()
-    }
 
     @GetMapping("/lectures/{lectureId}/evaluations/users/me")
     fun getMyEvaluationsOfLecture(
@@ -157,7 +150,7 @@ class V1CompatEvController(
         @PathVariable lectureId: Long,
     ): LegacyEvLectureSummaryResponse {
         val display = evaluationService.getEvaluationSummaryOfCourse(lectureId)
-        val course = display.course
+        val course = legacyCourseRepository.get(lectureId)
         val averages = display.averages
         return LegacyEvLectureSummaryResponse(
             id = course.id!!,
@@ -165,7 +158,7 @@ class V1CompatEvController(
             instructor = course.instructor,
             department = course.department,
             courseNumber = course.courseNumber,
-            credit = course.credit ?: 0,
+            credit = course.credit,
             academicYear = course.academicYear,
             category = course.category,
             classification = course.classification,
@@ -208,6 +201,7 @@ class V1CompatEvController(
     ): LegacyEvaluationWithSemesterDto {
         val request =
             EvaluationUpdateRequest(
+                moveToLectureId = body.semesterLectureId?.let { it.toLongOrNull() ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND) },
                 content = body.content,
                 gradeSatisfaction = body.gradeSatisfaction,
                 teachingSkill = body.teachingSkill,
@@ -215,24 +209,7 @@ class V1CompatEvController(
                 lifeBalance = body.lifeBalance,
                 rating = body.rating,
             )
-        val semesterLectureId = body.semesterLectureId?.toLongOrNull()
-        val display =
-            if (body.semesterLectureId == null) {
-                evaluationService.updateEvaluation(user.id!!, evaluationId, request)
-            } else {
-                val lecture =
-                    semesterLectureId?.let(courseSemesterService::get)
-                        ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-                val courseId = lecture.courseId
-                evaluationService.updateEvaluationForCourseSemester(
-                    user.id!!,
-                    evaluationId,
-                    request,
-                    courseId,
-                    lecture.year,
-                    lecture.semester,
-                )
-            }
+        val display = evaluationService.updateEvaluation(user.id!!, evaluationId, request)
         return display.toLegacyWithSemester()
     }
 
@@ -293,5 +270,5 @@ class V1CompatEvController(
         return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
 
-    private fun courseMap(courseIds: Collection<Long>): Map<Long, Course> = evaluationService.getCourses(courseIds)
+    private fun courseMap(courseIds: Collection<Long>): Map<Long, LegacyCourseMetadata> = legacyCourseRepository.getByIds(courseIds)
 }

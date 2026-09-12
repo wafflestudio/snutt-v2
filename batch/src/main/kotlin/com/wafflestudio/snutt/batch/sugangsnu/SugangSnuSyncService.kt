@@ -4,7 +4,7 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
-import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSemesterService
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
@@ -59,7 +59,7 @@ class SugangSnuSyncService(
     private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val courseRepository: CourseRepository,
-    private val courseSemesterService: CourseSemesterService,
+    private val courseSearchRepository: CourseSearchRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableRepository: TimetableRepository,
     private val bookmarkLectureRepository: BookmarkLectureRepository,
@@ -112,10 +112,15 @@ class SugangSnuSyncService(
             upsertLectures(created, updated)
             val lectureByKey =
                 oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
-            courseSemesterService.sync(lectureByKey.filterKeys { it in newKeys }.values)
             syncRegistrationCounts(year, semester, rows, lectureByKey)
             timetableChangeCounts = syncUserLectures(updated, deleted)
             deleted.forEach(lectureRepository::delete)
+            lectureRepository.flush()
+            val affectedCourses = (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId }.distinct()
+            val latest = courseSearchRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
+            courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
+                course.title = latest.getValue(course.id!!).courseTitle
+            }
         }
 
         runCatching {
@@ -189,11 +194,6 @@ class SugangSnuSyncService(
                         courseNumber = lecture.courseNumber,
                         instructor = instructor,
                         title = lecture.courseTitle,
-                        department = lecture.department,
-                        credit = lecture.credit,
-                        academicYear = lecture.academicYear,
-                        category = lecture.category,
-                        classification = lecture.classification,
                     ),
                 )
         return course.id

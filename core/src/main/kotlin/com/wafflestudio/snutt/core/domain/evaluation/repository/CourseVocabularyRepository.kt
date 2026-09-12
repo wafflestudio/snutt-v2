@@ -6,7 +6,7 @@ import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpql
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutorImpl
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
-import com.wafflestudio.snutt.core.domain.evaluation.model.CourseSemester
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
 import java.time.Instant
@@ -31,43 +31,45 @@ class CourseVocabularyRepository(
     fun getVocabulary(language: Language): CourseVocabulary {
         val english = language == Language.EN
         return CourseVocabulary(
-            classification = distinctStrings(if (english) CourseSemester::classificationEn else CourseSemester::classification),
-            department = distinctStrings(if (english) CourseSemester::departmentEn else CourseSemester::department),
-            academicYear = distinctStrings(if (english) CourseSemester::academicYearEn else CourseSemester::academicYear),
+            classification = distinctStrings(if (english) Lecture::classificationEn else Lecture::classification),
+            department = distinctStrings(if (english) Lecture::departmentEn else Lecture::department),
+            academicYear = distinctStrings(if (english) Lecture::academicYearEn else Lecture::academicYear),
             credit =
                 findAll {
                     jpql {
-                        selectDistinct(path(CourseSemester::credit))
-                            .from(entity(CourseSemester::class))
-                            .orderBy(path(CourseSemester::credit).asc())
+                        selectDistinct(path(Lecture::credit))
+                            .from(entity(Lecture::class))
+                            .where(path(Lecture::courseId).isNotNull())
+                            .orderBy(path(Lecture::credit).asc())
                     }
                 }.filterNotNull(),
-            category = distinctStrings(if (english) CourseSemester::categoryEn else CourseSemester::category),
-            categoryPre2025 = distinctStrings(CourseSemester::categoryPre2025),
+            category = distinctStrings(if (english) Lecture::categoryEn else Lecture::category),
+            categoryPre2025 = distinctStrings(Lecture::categoryPre2025),
             semesters =
                 findAll {
                     jpql {
-                        selectNew<YearAndSemester>(path(CourseSemester::year), path(CourseSemester::semester))
-                            .from(entity(CourseSemester::class))
-                            .groupBy(path(CourseSemester::year), path(CourseSemester::semester))
-                            .orderBy(path(CourseSemester::year).desc(), path(CourseSemester::semester).desc())
+                        selectNew<YearAndSemester>(path(Lecture::year), path(Lecture::semester))
+                            .from(entity(Lecture::class))
+                            .where(path(Lecture::courseId).isNotNull())
+                            .groupBy(path(Lecture::year), path(Lecture::semester))
+                            .orderBy(path(Lecture::year).desc(), path(Lecture::semester).desc())
                     }
                 }.filterNotNull(),
             updatedAt =
                 findAll {
                     jpql {
-                        select(max(path(CourseSemester::updatedAt))).from(entity(CourseSemester::class))
+                        select(max(path(Lecture::updatedAt))).from(entity(Lecture::class)).where(path(Lecture::courseId).isNotNull())
                     }
                 }.firstOrNull(),
         )
     }
 
-    private fun distinctStrings(property: KProperty1<CourseSemester, String?>): List<String> =
+    private fun distinctStrings(property: KProperty1<Lecture, String?>): List<String> =
         findAll {
             jpql {
                 selectDistinct(path(property))
-                    .from(entity(CourseSemester::class))
-                    .where(and(path(property).isNotNull(), path(property).notEqual("")))
+                    .from(entity(Lecture::class))
+                    .where(and(path(Lecture::courseId).isNotNull(), path(property).isNotNull(), path(property).notEqual("")))
                     .orderBy(path(property).asc())
             }
         }.filterNotNull()

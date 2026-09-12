@@ -302,11 +302,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
                                 courseNumber = seed.courseNumber,
                                 instructor = seed.instructor,
                                 title = seed.courseTitle,
-                                department = seed.department,
-                                credit = seed.credit,
-                                academicYear = seed.academicYear,
-                                category = seed.category,
-                                classification = seed.classification,
                                 avgRating = (10 + random.nextInt(40)) / 10.0,
                                 evalCount = random.nextInt(50).toLong(),
                             )
@@ -318,7 +313,10 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             }
 
         courseRepository.saveAll(courses.values)
-        val lectures = lectureRepository.saveAll(linkedSeeds.map { it.toLecture() })
+        val lectures =
+            lectureRepository.saveAll(
+                linkedSeeds.map { it.toLecture() },
+            )
         val classTimes =
             linkedSeeds.flatMapIndexed { i, seed ->
                 seed.classPlaceAndTimes.map { time ->

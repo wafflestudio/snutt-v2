@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookReposi
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
@@ -13,10 +14,12 @@ import org.springframework.transaction.annotation.Transactional
 
 data class LectureTakenByUser(
     val course: Course,
-    val lectureId: Long,
+    val lecture: Lecture,
     val takenYear: Int,
     val takenSemester: Semester,
-)
+) {
+    val lectureId: Long get() = checkNotNull(lecture.id)
+}
 
 @Service
 class TakenLectureService(
@@ -64,7 +67,7 @@ class TakenLectureService(
                     val coursebook = timetableSemester[timetableLecture.timetableId] ?: return@mapNotNull null
                     val lecture = timetableLecture.lectureId?.let { lecturesById[it] } ?: return@mapNotNull null
                     val course = lecture.courseId?.let { coursesById[it] } ?: return@mapNotNull null
-                    LectureTakenByUser(course, lecture.id!!, coursebook.year, coursebook.semester)
+                    LectureTakenByUser(course, lecture, coursebook.year, coursebook.semester)
                 }.distinctBy { Triple(it.course.id, it.takenYear, it.takenSemester) }
 
         if (!excludeEvaluated || taken.isEmpty()) return taken

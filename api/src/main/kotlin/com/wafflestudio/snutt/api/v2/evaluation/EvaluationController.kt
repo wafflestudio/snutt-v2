@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
-import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSemesterService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
@@ -57,17 +56,17 @@ internal fun LectureTakenByUser.toResponse() =
         title = course.title,
         instructor = course.instructor,
         courseNumber = course.courseNumber,
-        department = course.department,
-        credit = course.credit,
-        academicYear = course.academicYear,
-        category = course.category,
-        classification = course.classification,
+        department = lecture.department,
+        credit = lecture.credit,
+        academicYear = lecture.academicYear,
+        category = lecture.category,
+        classification = lecture.classification,
         takenYear = takenYear,
         takenSemester = takenSemester,
     )
 
 data class EvaluationUpdateRequestBody(
-    val courseSemesterId: Long? = null,
+    val lectureId: Long? = null,
     val content: String? = null,
     val gradeSatisfaction: Double? = null,
     val teachingSkill: Double? = null,
@@ -144,7 +143,6 @@ data class EvaluationTagResponse(
 class EvaluationController(
     private val evaluationService: EvaluationService,
     private val lectureService: LectureService,
-    private val courseSemesterService: CourseSemesterService,
     private val evaluationResponseMapper: EvaluationResponseMapper,
 ) {
     @GetMapping("/v2/courses/{courseId}/evaluations")
@@ -165,30 +163,6 @@ class EvaluationController(
                 year,
                 semester?.let { Semester.getOfValue(it) ?: throw SnuttException(ErrorType.INVALID_PARAMETER) },
             ).let(evaluationResponseMapper::toResponse)
-
-    @PostMapping("/v2/course-semesters/{courseSemesterId}/evaluations")
-    fun createEvaluationForCourseSemester(
-        @CurrentUserId userId: Long,
-        @PathVariable courseSemesterId: Long,
-        @Valid @RequestBody body: EvaluationWriteRequestBody,
-    ): EvaluationResponse {
-        val offering = courseSemesterService.get(courseSemesterId)
-        return evaluationService
-            .createEvaluation(
-                userId,
-                offering.courseId,
-                offering.year,
-                offering.semester,
-                EvaluationWriteRequest(
-                    content = body.content,
-                    gradeSatisfaction = body.gradeSatisfaction,
-                    teachingSkill = body.teachingSkill,
-                    gains = body.gains,
-                    lifeBalance = body.lifeBalance,
-                    rating = body.rating,
-                ),
-            ).let(evaluationResponseMapper::toResponse)
-    }
 
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
@@ -311,6 +285,7 @@ class EvaluationController(
     ): EvaluationResponse {
         val request =
             EvaluationUpdateRequest(
+                moveToLectureId = body.lectureId,
                 content = body.content,
                 gradeSatisfaction = body.gradeSatisfaction,
                 teachingSkill = body.teachingSkill,
@@ -318,21 +293,7 @@ class EvaluationController(
                 lifeBalance = body.lifeBalance,
                 rating = body.rating,
             )
-        val offering = body.courseSemesterId?.let(courseSemesterService::get)
-        val display =
-            if (offering == null) {
-                evaluationService.updateEvaluation(userId, evaluationId, request)
-            } else {
-                evaluationService.updateEvaluationForCourseSemester(
-                    userId,
-                    evaluationId,
-                    request,
-                    offering.courseId,
-                    offering.year,
-                    offering.semester,
-                )
-            }
-        return evaluationResponseMapper.toResponse(display)
+        return evaluationResponseMapper.toResponse(evaluationService.updateEvaluation(userId, evaluationId, request))
     }
 
     @DeleteMapping("/v2/evaluations/{evaluationId}")

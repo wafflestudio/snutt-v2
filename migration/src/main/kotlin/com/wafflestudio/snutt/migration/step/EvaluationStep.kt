@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.MigrationContext
-import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
@@ -51,7 +50,6 @@ class EvaluationStep(
 
     private fun migrateEvaluations(anchors: Map<Long, Anchor>): Set<Long> {
         val migrated = HashSet<Long>(64_000)
-        val authored = HashMap<String, Long>(64_000)
         var maxId = 0L
         var count = 0L
         writer("evaluation", COLUMNS).use { out ->
@@ -61,22 +59,11 @@ class EvaluationStep(
                     "FROM lecture_evaluation ORDER BY id",
             ) { rs ->
                 val id = rs.getLong("id")
-                val anchor = anchors[rs.getLong("semester_lecture_id")]
-                if (anchor == null) {
-                    context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_ANCHOR_MISSING)
-                    return@query
-                }
+                val anchor =
+                    anchors[rs.getLong("semester_lecture_id")]
+                        ?: error("강의평 $id 의 과목·학기를 원본 DB에서 찾을 수 없다")
                 val userId = context.userIds[rs.getString("user_id")]
-                var hidden = rs.getBoolean("is_hidden")
-                if (!hidden && userId != null) {
-                    val key = "${anchor.courseId}\u0000${anchor.year}\u0000${anchor.semester}\u0000$userId"
-                    val previous = authored.put(key, id)
-                    if (previous != null) {
-                        out.flush()
-                        jdbc.update("UPDATE evaluation SET is_hidden = TRUE WHERE id = ?", previous)
-                        context.resolved("한 사용자가 같은 개설에 강의평을 여럿 남겨 이전 것을 숨김")
-                    }
-                }
+                val hidden = rs.getBoolean("is_hidden")
                 maxId = maxOf(maxId, id)
                 migrated.add(id)
                 count++

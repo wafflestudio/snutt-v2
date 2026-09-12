@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.v1compat.ev
 
-import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
@@ -39,6 +38,7 @@ data class LegacyTakenLectureDto(
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatTakenLectureController(
     private val takenLectureService: TakenLectureService,
+    private val legacyCourseRepository: LegacyCourseRepository,
 ) {
     // 구 백엔드는 클라이언트 요청을 가로채 서버 시간표에서 최근 2개 학기 강의를 조립해
     // snutt-ev에 전달했다. 클라이언트는 snutt_lecture_info를 보내지 않는다.
@@ -46,25 +46,23 @@ class V1CompatTakenLectureController(
     fun getMyLatestLectures(
         @V1CurrentUser user: User,
         @RequestParam(required = false) filter: String?,
-    ): LegacyTakenLecturesResponse =
-        LegacyTakenLecturesResponse(
-            content =
-                takenLectureService
-                    .getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
-                    .map { it.toLegacyTakenLecture() },
-        )
+    ): LegacyTakenLecturesResponse {
+        val taken = takenLectureService.getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
+        val metadata = legacyCourseRepository.getByIds(taken.map { it.course.id!! })
+        return LegacyTakenLecturesResponse(taken.map { it.toLegacyTakenLecture(metadata.getValue(it.course.id!!)) })
+    }
 
-    private fun LectureTakenByUser.toLegacyTakenLecture() =
+    private fun LectureTakenByUser.toLegacyTakenLecture(metadata: LegacyCourseMetadata) =
         LegacyTakenLectureDto(
             id = course.id,
             title = course.title,
             instructor = course.instructor,
-            department = course.department,
+            department = metadata.department,
             courseNumber = course.courseNumber,
-            credit = course.credit,
-            academicYear = course.academicYear,
-            category = course.category,
-            classification = course.classification,
+            credit = metadata.credit,
+            academicYear = metadata.academicYear,
+            category = metadata.category,
+            classification = metadata.classification,
             takenYear = takenYear,
             takenSemester = takenSemester.value,
         )
@@ -138,6 +136,7 @@ private const val LEGACY_COURSE_PAGE_SIZE = 20
 class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
+    private val legacyCourseRepository: LegacyCourseRepository,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -149,8 +148,8 @@ class V1CompatCourseSearchController(
         @RequestParam(required = false) tags: List<Long>?,
     ): LegacyCourseSearchResponse {
         val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty())
-        val content = courseSearchService.searchPage(criteria, page, LEGACY_COURSE_PAGE_SIZE)
-        val totalCount = courseSearchService.count(criteria)
+        val content = legacyCourseRepository.search(criteria, page, LEGACY_COURSE_PAGE_SIZE)
+        val totalCount = legacyCourseRepository.count(criteria)
         return LegacyCourseSearchResponse(
             content = content.map { it.toLegacyCourse() },
             page = page,
@@ -165,8 +164,8 @@ class V1CompatCourseSearchController(
         @V1CurrentUser user: User,
         @PathVariable courseId: Long,
     ): LegacyCourseWithSemestersResponse {
-        val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
-        val course = result.course
+        val result = courseSearchService.getCourseWithLectures(courseId, user.id!!)
+        val course = legacyCourseRepository.get(courseId)
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = course.title,
@@ -178,24 +177,26 @@ class V1CompatCourseSearchController(
             category = course.category,
             classification = course.classification,
             semesterLectures =
-                result.semesters.map {
+                result.lectures.groupBy { it.lecture.year to it.lecture.semester }.values.map { group ->
+                    val display = group.minBy { it.lecture.id!! }
+                    val lecture = display.lecture
                     LegacySemesterLectureDto(
-                        id = it.id,
-                        year = it.year,
-                        semester = it.semester.value,
-                        credit = it.credit,
-                        extraInfo = it.extraInfo.orEmpty(),
-                        academicYear = it.academicYear.orEmpty(),
-                        category = it.category.orEmpty(),
-                        classification = it.classification.orEmpty(),
-                        myEvaluationExists = it.myEvaluationExists,
+                        id = lecture.id!!,
+                        year = lecture.year,
+                        semester = lecture.semester.value,
+                        credit = lecture.credit,
+                        extraInfo = lecture.remark.orEmpty(),
+                        academicYear = lecture.academicYear.orEmpty(),
+                        category = lecture.category.orEmpty(),
+                        classification = lecture.classification.orEmpty(),
+                        myEvaluationExists = display.myEvaluationExists,
                     )
                 },
         )
     }
 }
 
-private fun Course.toLegacyCourse(): LegacyCourseDto =
+private fun LegacyCourseMetadata.toLegacyCourse(): LegacyCourseDto =
     LegacyCourseDto(
         id = id,
         title = title,

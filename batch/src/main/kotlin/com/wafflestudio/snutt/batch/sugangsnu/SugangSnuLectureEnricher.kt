@@ -57,14 +57,14 @@ class SugangSnuLectureEnricher(
                 ?: row.academicYearEn
         return row.copy(
             courseTitle = courseTitle,
-            instructor = sub.professorName?.substringBeforeLast(" (") ?: row.instructor,
+            instructor = (sub.professorName ?: row.instructor).substringBeforeLast(" ("),
             category = sub.category ?: row.category,
             department = department,
             academicYear = academicYear,
             quota = sub.quota ?: row.quota,
             remark = sub.remark ?: row.remark,
             courseTitleEn = courseTitleEn,
-            instructorEn = sub.professorNameEng?.substringBeforeLast(" (") ?: row.instructorEn,
+            instructorEn = sub.professorNameEng?.substringBeforeLast(" (")?.takeIf { it.isNotBlank() } ?: row.instructorEn,
             categoryEn = sub.categoryEng ?: row.categoryEn,
             departmentEn = departmentEn,
             academicYearEn = academicYearEn,

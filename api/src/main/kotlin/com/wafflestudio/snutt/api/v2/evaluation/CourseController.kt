@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v2.evaluation
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -23,12 +24,7 @@ data class CourseResponse(
     val id: Long,
     val title: String,
     val instructor: String,
-    val department: String?,
     val courseNumber: String,
-    val credit: Int?,
-    val academicYear: String?,
-    val category: String?,
-    val classification: String?,
     val evaluation: CourseEvaluationSummaryResponse,
 )
 
@@ -37,9 +33,15 @@ data class CourseEvaluationSummaryResponse(
     val count: Long,
 )
 
-data class CourseSemesterResponse(
+data class CourseLectureResponse(
     val id: Long,
-    val lectureId: Long?,
+    val lectureNumber: String,
+    val courseTitle: String,
+    val credit: Int,
+    val academicYear: String?,
+    val classification: String?,
+    val category: String?,
+    val department: String?,
     val year: Int,
     val semester: Semester,
     val myEvaluationExists: Boolean,
@@ -47,7 +49,7 @@ data class CourseSemesterResponse(
 
 data class CourseDetailResponse(
     val course: CourseResponse,
-    val semesters: List<CourseSemesterResponse>,
+    val lectures: List<CourseLectureResponse>,
 )
 
 private fun Course.toResponse() =
@@ -55,12 +57,7 @@ private fun Course.toResponse() =
         id = id!!,
         title = title,
         instructor = instructor,
-        department = department,
         courseNumber = courseNumber,
-        credit = credit,
-        academicYear = academicYear,
-        category = category,
-        classification = classification,
         evaluation = CourseEvaluationSummaryResponse(avgRating = avgRating, count = evalCount),
     )
 
@@ -115,18 +112,27 @@ class CourseController(
     fun getCourse(
         @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
+        @RequestAttribute clientInfo: ClientInfo,
     ): CourseDetailResponse {
-        val result = courseSearchService.getCourseWithSemesters(courseId, userId)
+        val result = courseSearchService.getCourseWithLectures(courseId, userId)
         return CourseDetailResponse(
             course = result.course.toResponse(),
-            semesters =
-                result.semesters.map {
-                    CourseSemesterResponse(
-                        id = it.id,
-                        lectureId = it.lectureId,
-                        year = it.year,
-                        semester = it.semester,
-                        myEvaluationExists = it.myEvaluationExists,
+            lectures =
+                result.lectures.map { display ->
+                    val lecture = display.lecture
+                    val language = clientInfo.language
+                    CourseLectureResponse(
+                        id = lecture.id!!,
+                        lectureNumber = lecture.lectureNumber,
+                        courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
+                        credit = lecture.credit,
+                        academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
+                        classification = language.select(lecture.classification, lecture.classificationEn),
+                        category = language.select(lecture.category, lecture.categoryEn),
+                        department = language.select(lecture.department, lecture.departmentEn),
+                        year = lecture.year,
+                        semester = lecture.semester,
+                        myEvaluationExists = display.myEvaluationExists,
                     )
                 },
         )
