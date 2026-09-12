@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.timetable
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
@@ -12,7 +12,6 @@ import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectu
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureModifyRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -79,28 +78,28 @@ class TimetableLectureController(
 ) {
     @PostMapping("")
     fun addLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @RequestBody body: TimetableLectureAddRequestBody,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableLectureService
             .addLecture(
-                user.id!!,
+                userId,
                 timetableId,
                 TimetableLectureAddRequest(lectureId = body.lectureId, isForced = body.isForced),
             ).toResponse(clientInfo.language)
 
     @PostMapping("/custom")
     fun addCustomLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @Valid @RequestBody body: CustomTimetableLectureAddRequestBody,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableLectureService
             .addCustomLecture(
-                user.id!!,
+                userId,
                 timetableId,
                 CustomTimetableLectureAddRequest(
                     courseTitle = body.courseTitle,
@@ -116,7 +115,7 @@ class TimetableLectureController(
 
     @PatchMapping("/{timetableLectureId}")
     fun modifyLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @PathVariable timetableLectureId: Long,
         @RequestBody body: TimetableLectureModifyRequestBody,
@@ -124,7 +123,7 @@ class TimetableLectureController(
     ): TimetableResponse =
         timetableLectureService
             .modifyLecture(
-                user.id!!,
+                userId,
                 timetableId,
                 timetableLectureId,
                 TimetableLectureModifyRequest(
@@ -145,24 +144,24 @@ class TimetableLectureController(
 
     @PostMapping("/{timetableLectureId}/reset")
     fun resetLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @PathVariable timetableLectureId: Long,
         @RequestBody(required = false) body: ResetLectureRequestBody?,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableLectureService
-            .resetLecture(user.id!!, timetableId, timetableLectureId, body?.isForced ?: false)
+            .resetLecture(userId, timetableId, timetableLectureId, body?.isForced ?: false)
             .toResponse(clientInfo.language)
 
     @DeleteMapping("/{timetableLectureId}")
     fun deleteLecture(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @PathVariable timetableLectureId: Long,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableLectureService
-            .deleteLecture(user.id!!, timetableId, timetableLectureId)
+            .deleteLecture(userId, timetableId, timetableLectureId)
             .toResponse(clientInfo.language)
 }

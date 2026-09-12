@@ -5,7 +5,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreference
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
-import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -21,21 +21,22 @@ data class PushPreferenceItem(
 @Service
 class PushPreferenceService(
     private val pushPreferenceRepository: PushPreferenceRepository,
+    private val userRepository: UserRepository,
 ) {
-    fun getPushPreferences(user: User): PushPreferenceDto =
+    fun getPushPreferences(userId: Long): PushPreferenceDto =
         PushPreferenceDto(
-            pushPreferences = pushPreferenceRepository.findAllByUserId(user.id!!).map { it.toItem() },
+            pushPreferences = pushPreferenceRepository.findAllByUserId(userId).map { it.toItem() },
         )
 
     @Transactional
     fun savePushPreferences(
-        user: User,
+        userId: Long,
         dto: PushPreferenceDto,
     ) {
-        val userId = user.id!!
         val existing = pushPreferenceRepository.findAllByUserId(userId)
         val requestedTypes = dto.pushPreferences.map { it.type }
         pushPreferenceRepository.deleteAll(existing.filter { it.type.name !in requestedTypes })
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         dto.pushPreferences.forEach { item ->
             val type =
                 PushPreferenceType.entries.firstOrNull { it.name == item.type }

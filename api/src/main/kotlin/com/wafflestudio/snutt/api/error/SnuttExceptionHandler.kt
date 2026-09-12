@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.UpstreamException
-import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -42,7 +41,7 @@ class SnuttExceptionHandler {
         e: UpstreamException,
         request: HttpServletRequest,
     ): ResponseEntity<ErrorResponse> {
-        val user = request.getAttribute(UserAuthInterceptor.USER_ATTRIBUTE) as? User
+        val userId = request.getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE) as? Long
         val path = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)?.toString() ?: request.requestURI
         log.error(
             "upstream failure: {} {} provider={} -> {} userId={} query={}",
@@ -50,7 +49,7 @@ class SnuttExceptionHandler {
             path,
             e.provider,
             e.error.httpStatus.value(),
-            user?.id,
+            userId,
             request.queryString,
             e,
         )

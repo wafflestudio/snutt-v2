@@ -1,9 +1,8 @@
 package com.wafflestudio.snutt.api.v2.pushpreference
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -17,15 +16,15 @@ class PushPreferenceController(
 ) {
     @GetMapping("")
     fun getPushPreferences(
-        @CurrentUser user: User,
-    ): PushPreferenceDto = pushPreferenceService.getPushPreferences(user)
+        @CurrentUserId userId: Long,
+    ): PushPreferenceDto = pushPreferenceService.getPushPreferences(userId)
 
     @PostMapping("")
     fun savePushPreferences(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestBody dto: PushPreferenceDto,
     ): PushPreferenceDto {
-        pushPreferenceService.savePushPreferences(user, dto)
-        return pushPreferenceService.getPushPreferences(user)
+        pushPreferenceService.savePushPreferences(userId, dto)
+        return pushPreferenceService.getPushPreferences(userId)
     }
 }

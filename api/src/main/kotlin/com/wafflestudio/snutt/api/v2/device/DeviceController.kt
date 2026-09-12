@@ -1,11 +1,10 @@
 package com.wafflestudio.snutt.api.v2.device
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
-import com.wafflestudio.snutt.core.domain.user.model.User
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -20,20 +19,20 @@ class DeviceController(
 ) {
     @PostMapping("/{registrationId}")
     fun addRegistrationId(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable registrationId: String,
         @RequestAttribute clientInfo: ClientInfo,
     ) {
         if (registrationId.isBlank()) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        deviceService.addRegistrationId(user, registrationId, clientInfo)
+        deviceService.addRegistrationId(userId, registrationId, clientInfo)
     }
 
     @DeleteMapping("/{registrationId}")
     fun removeRegistrationId(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable registrationId: String,
     ) {
         if (registrationId.isBlank()) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        deviceService.removeRegistrationId(user, registrationId)
+        deviceService.removeRegistrationId(userId, registrationId)
     }
 }

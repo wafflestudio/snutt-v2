@@ -105,7 +105,7 @@ class V1CompatUsersController(
     ): LegacyUserDto {
         val nickname = body.nickname?.trim().orEmpty()
         if (nickname.isEmpty() || nickname == user.nicknameWithoutTag) return user.toLegacyUserDto(legacyFbName(user.id!!))
-        return userService.updateNickname(user, nickname).toLegacyUserDto(legacyFbName(user.id!!))
+        return userService.updateNickname(user.id!!, nickname).toLegacyUserDto(legacyFbName(user.id!!))
     }
 
     @GetMapping("/me/social_providers", "/me/auth-providers")
@@ -141,7 +141,7 @@ class V1CompatUserController(
     fun deleteAccount(
         @V1CurrentUser user: User,
     ) {
-        userService.deactivate(user)
+        userService.deactivate(user.id!!)
     }
 
     @PostMapping("/email/verification")
@@ -149,7 +149,7 @@ class V1CompatUserController(
         @V1CurrentUser user: User,
         @RequestBody body: SendVerificationEmailRequest,
     ) {
-        emailVerificationService.sendVerificationCode(user, body.email)
+        emailVerificationService.sendVerificationCode(user.id!!, body.email)
     }
 
     @GetMapping("/email/verification")
@@ -161,7 +161,7 @@ class V1CompatUserController(
     fun resetEmailVerification(
         @V1CurrentUser user: User,
     ): LegacyEmailVerificationResponse {
-        emailVerificationService.resetEmailVerification(user)
+        emailVerificationService.resetEmailVerification(user.id!!)
         return LegacyEmailVerificationResponse(isEmailVerified = false)
     }
 
@@ -170,7 +170,7 @@ class V1CompatUserController(
         @V1CurrentUser user: User,
         @RequestBody body: VerificationCodeRequest,
     ): LegacyEmailVerificationResponse {
-        emailVerificationService.verifyEmail(user, body.code)
+        emailVerificationService.verifyEmail(user.id!!, body.code)
         return LegacyEmailVerificationResponse(isEmailVerified = true)
     }
 
@@ -179,7 +179,7 @@ class V1CompatUserController(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyAttachLocalRequest,
     ): LegacyTokenResponse {
-        authService.attachLocal(user, body.id, body.password)
+        authService.attachLocal(user.id!!, body.id, body.password)
         return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
@@ -188,7 +188,7 @@ class V1CompatUserController(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyChangePasswordRequest,
     ): LegacyTokenResponse {
-        authService.changePassword(user, body.currentPassword, body.newPassword)
+        authService.changePassword(user.id!!, body.currentPassword, body.newPassword)
         return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
@@ -198,7 +198,7 @@ class V1CompatUserController(
         @PathVariable provider: String,
         @RequestBody body: LegacySocialTokenRequest,
     ): LegacyTokenResponse {
-        authService.attachSocial(user, socialProvider(provider), body.token)
+        authService.attachSocial(user.id!!, socialProvider(provider), body.token)
         return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
@@ -207,7 +207,7 @@ class V1CompatUserController(
         @V1CurrentUser user: User,
         @PathVariable provider: String,
     ): LegacyTokenResponse {
-        authService.detachSocial(user, socialProvider(provider))
+        authService.detachSocial(user.id!!, socialProvider(provider))
         return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 

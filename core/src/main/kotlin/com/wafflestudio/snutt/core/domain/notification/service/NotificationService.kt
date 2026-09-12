@@ -7,7 +7,6 @@ import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
-import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -25,19 +24,20 @@ class NotificationService(
 ) {
     @Transactional
     fun getNotifications(
-        user: User,
+        userId: Long,
         cursor: String?,
         limit: Int,
         explicit: Boolean,
     ): CursorPage<Notification> {
         if (limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val decoded =
             CursorCodec.decode<NotificationCursor>(cursor)?.also {
                 if (it.notificationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
             }
         val results =
             notificationRepository.findNotifications(
-                userId = user.id!!,
+                userId = userId,
                 registeredAt = checkNotNull(user.createdAt),
                 cursorCreatedAt = decoded?.createdAt,
                 cursorId = decoded?.notificationId,
@@ -54,7 +54,10 @@ class NotificationService(
         )
     }
 
-    fun getUnreadCount(user: User): Long = notificationRepository.countUnread(user.id!!, user.notificationCheckedAt)
+    fun getUnreadCount(userId: Long): Long {
+        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        return notificationRepository.countUnread(userId, user.notificationCheckedAt)
+    }
 
     @Transactional
     fun sendNotification(notification: Notification) {

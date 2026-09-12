@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v2.friend
 
-import com.wafflestudio.snutt.api.auth.CurrentUser
+import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.v2.timetable.TimetableResponse
 import com.wafflestudio.snutt.api.v2.timetable.toResponse
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -74,93 +74,93 @@ class FriendController(
 ) {
     @GetMapping("")
     fun getFriends(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @RequestParam state: String,
     ): List<FriendResponse> {
         val friendState =
             FriendState.entries.firstOrNull { it.name == state.uppercase() }
                 ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return friendService.getMyFriends(user.id!!, friendState).map { (friend, partner) ->
-            FriendResponse(friend, partner, friend.getPartnerDisplayName(user.id!!))
+        return friendService.getMyFriends(userId, friendState).map { (friend, partner) ->
+            FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
         }
     }
 
     @PostMapping("")
     fun requestFriend(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @Valid @RequestBody body: FriendRequest,
     ) {
-        friendService.requestFriend(user.id!!, body.nickname)
+        friendService.requestFriend(userId, body.nickname)
     }
 
     @PostMapping("/{friendId}/accept")
     fun acceptFriend(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
     ) {
-        friendService.acceptFriend(friendId, user.id!!)
+        friendService.acceptFriend(friendId, userId)
     }
 
     @PostMapping("/{friendId}/decline")
     fun declineFriend(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
     ) {
-        friendService.declineFriend(friendId, user.id!!)
+        friendService.declineFriend(friendId, userId)
     }
 
     @PatchMapping("/{friendId}/display-name")
     fun updateFriendDisplayName(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
         @Valid @RequestBody body: UpdateFriendDisplayNameRequest,
     ) {
-        friendService.updateFriendDisplayName(user.id!!, friendId, body.displayName)
+        friendService.updateFriendDisplayName(userId, friendId, body.displayName)
     }
 
     @DeleteMapping("/{friendId}")
     fun breakFriend(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
     ) {
-        friendService.breakFriend(friendId, user.id!!)
+        friendService.breakFriend(friendId, userId)
     }
 
     @GetMapping("/generate-link")
     fun generateFriendLink(
-        @CurrentUser user: User,
-    ): FriendRequestLinkResponse = FriendRequestLinkResponse(requestToken = friendService.generateFriendRequestLink(user.id!!))
+        @CurrentUserId userId: Long,
+    ): FriendRequestLinkResponse = FriendRequestLinkResponse(requestToken = friendService.generateFriendRequestLink(userId))
 
     @PostMapping("/accept-link/{requestToken}")
     fun acceptFriendByLink(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable requestToken: String,
     ): FriendResponse {
-        val (friend, partner) = friendService.acceptFriendByLink(user.id!!, requestToken)
-        return FriendResponse(friend, partner, friend.getPartnerDisplayName(user.id!!))
+        val (friend, partner) = friendService.acceptFriendByLink(userId, requestToken)
+        return FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
     }
 
     @GetMapping("/{friendId}/primary-table")
     fun getPrimaryTable(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Int,
     ): TimetableResponse {
-        val friend = getAcceptedFriend(user.id!!, friendId)
-        val partnerId = friend.getPartnerUserId(user.id!!)
+        val friend = getAcceptedFriend(userId, friendId)
+        val partnerId = friend.getPartnerUserId(userId)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, parseSemester(semester))
         return timetableService.getTimetableDisplay(partnerId, timetable.id!!).toResponse()
     }
 
     @GetMapping("/{friendId}/coursebooks")
     fun getCoursebooks(
-        @CurrentUser user: User,
+        @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
     ): List<FriendCoursebookResponse> {
-        val friend = getAcceptedFriend(user.id!!, friendId)
+        val friend = getAcceptedFriend(userId, friendId)
         return timetableService
-            .getCoursebooksWithPrimaryTable(friend.getPartnerUserId(user.id!!))
+            .getCoursebooksWithPrimaryTable(friend.getPartnerUserId(userId))
             .map { FriendCoursebookResponse(year = it.first, semester = it.second.value) }
     }
 

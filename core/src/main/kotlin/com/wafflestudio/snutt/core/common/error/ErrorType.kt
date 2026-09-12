@@ -60,6 +60,7 @@ enum class ErrorType(
     SOCIAL_CONNECT_FAIL(HttpStatus.UNAUTHORIZED, 40100, "소셜 로그인에 실패했습니다"),
     INVALID_APPLE_LOGIN_TOKEN(HttpStatus.UNAUTHORIZED, 40101, "소셜 로그인에 실패했습니다"),
     EXPIRED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, 40102, "다시 로그인해 주세요", "로그인 만료"),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, 40103, "다시 로그인해 주세요", "로그인 만료"),
     NO_USER_TOKEN(HttpStatus.UNAUTHORIZED, 40104, "앱을 완전히 종료한 뒤, 로그인을 다시 시도해 주시기 바랍니다", "로그인 실패"),
 
     NOT_ALLOWED_IN_PROD(HttpStatus.FORBIDDEN, 40300, "프로덕션 환경에서는 사용할 수 없는 기능입니다"),

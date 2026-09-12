@@ -37,8 +37,7 @@ class ApiTraceInterceptor(
         ex: Exception?,
     ) {
         val startedAt = request.getAttribute(STARTED_AT_ATTRIBUTE) as? Long ?: return
-        val user = request.currentUser() ?: return
-        val userId = user.id ?: return
+        val userId = request.userId() ?: return
 
         val clientInfo =
             request.getAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) as? ClientInfo
@@ -60,11 +59,9 @@ class ApiTraceInterceptor(
         )
     }
 
-    private fun HttpServletRequest.userId(): Long? = currentUser()?.id
-
-    private fun HttpServletRequest.currentUser(): User? =
-        getAttribute(UserAuthInterceptor.USER_ATTRIBUTE) as? User
-            ?: getAttribute(V1UserAuthInterceptor.USER_ATTRIBUTE) as? User
+    private fun HttpServletRequest.userId(): Long? =
+        getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE) as? Long
+            ?: (getAttribute(V1UserAuthInterceptor.USER_ATTRIBUTE) as? User)?.id
 
     companion object {
         const val API_TRACE_LOGGER = "snutt.api.trace"

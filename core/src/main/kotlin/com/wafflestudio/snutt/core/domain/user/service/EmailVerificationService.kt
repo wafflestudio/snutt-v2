@@ -29,9 +29,10 @@ class EmailVerificationService(
 
     @Transactional
     fun sendVerificationCode(
-        user: User,
+        userId: Long,
         email: String,
     ) {
+        val user = getUser(userId)
         val trimmed = email.trim()
         if (user.isEmailVerified) throw SnuttException(ErrorType.EMAIL_ALREADY_VERIFIED)
         if (!snuMailRegex.matches(trimmed)) throw SnuttException(ErrorType.INVALID_EMAIL)
@@ -39,7 +40,7 @@ class EmailVerificationService(
             throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
         val code = VerificationCode.generate()
-        store.store(user.id!!, code, payload = trimmed)
+        store.store(userId, code, payload = trimmed)
         sendMail(MailType.VERIFICATION, trimmed, code)
     }
 
@@ -59,19 +60,23 @@ class EmailVerificationService(
 
     @Transactional
     fun verifyEmail(
-        user: User,
+        userId: Long,
         code: String,
     ) {
-        val email = store.verify(user.id!!, code)
+        val user = getUser(userId)
+        val email = store.verify(userId, code)
         user.email = email
         user.isEmailVerified = true
         conflictAs(ErrorType.DUPLICATE_EMAIL) { userRepository.saveAndFlush(user) }
-        store.clear(user.id!!)
+        store.clear(userId)
     }
 
     @Transactional
-    fun resetEmailVerification(user: User) {
+    fun resetEmailVerification(userId: Long) {
+        val user = getUser(userId)
         user.isEmailVerified = false
         userRepository.save(user)
     }
+
+    private fun getUser(userId: Long): User = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 }
