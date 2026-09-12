@@ -5,6 +5,7 @@ import org.bson.types.ObjectId
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.BatchPreparedStatementSetter
+import org.springframework.jdbc.core.ConnectionCallback
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
@@ -157,12 +158,23 @@ object MigrationSupport {
         jdbc: JdbcTemplate,
         tables: List<String>,
     ) {
-        jdbc.execute("SET FOREIGN_KEY_CHECKS = 0")
-        try {
-            tables.forEach { jdbc.execute("TRUNCATE TABLE `$it`") }
-        } finally {
-            jdbc.execute("SET FOREIGN_KEY_CHECKS = 1")
-        }
+        jdbc.execute(
+            ConnectionCallback { connection ->
+                connection.createStatement().use { statement ->
+                    val foreignKeyChecks =
+                        statement.executeQuery("SELECT @@SESSION.FOREIGN_KEY_CHECKS").use { result ->
+                            check(result.next())
+                            result.getInt(1)
+                        }
+                    statement.execute("SET FOREIGN_KEY_CHECKS = 0")
+                    try {
+                        tables.forEach { statement.execute("TRUNCATE TABLE `$it`") }
+                    } finally {
+                        statement.execute("SET FOREIGN_KEY_CHECKS = $foreignKeyChecks")
+                    }
+                }
+            },
+        )
     }
 
     fun requireEmpty(

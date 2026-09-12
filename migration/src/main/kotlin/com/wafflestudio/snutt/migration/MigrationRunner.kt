@@ -16,23 +16,31 @@ class MigrationRunner(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        val truncate = args.containsOption("truncate")
-        val requested = args.nonOptionArgs.filterNot { it == "all" }
-        val byName = steps.associateBy { it.name }
-        val selected =
-            (if (requested.isEmpty()) ORDER else requested).map { name ->
-                byName[name] ?: error("알 수 없는 단계: $name (가능한 값: ${ORDER.joinToString()})")
+        require(args.nonOptionArgs.isEmpty() || args.nonOptionArgs == listOf("all")) {
+            "ID mapping은 실행 중에만 유지되므로 부분 이관은 지원하지 않는다. 인자 없이 또는 all로 전체 이관을 실행한다"
+        }
+        val truncateValues = args.getOptionValues("truncate").orEmpty()
+        require(truncateValues.size <= 1) { "--truncate는 한 번만 지정한다" }
+        val truncate =
+            if (!args.containsOption("truncate")) {
+                false
+            } else {
+                truncateValues.singleOrNull()?.toBooleanStrictOrNull()
+                    ?: if (truncateValues.isEmpty()) true else error("--truncate 값은 true 또는 false여야 한다")
             }
+        val byName = steps.associateBy { it.name }
+        val selected = ORDER.map { name -> checkNotNull(byName[name]) { "이관 단계가 없다: $name" } }
+        val tables = selected.flatMap { it.tables }.distinct()
+        if (truncate) {
+            MigrationSupport.truncate(jdbc, tables.reversed())
+        } else {
+            MigrationSupport.requireEmpty(jdbc, tables)
+        }
 
         log.info("이관 시작: {} (truncate={})", selected.joinToString { it.name }, truncate)
         val total =
             measureTimeMillis {
                 selected.forEach { step ->
-                    if (truncate) {
-                        MigrationSupport.truncate(jdbc, step.tables.reversed())
-                    } else {
-                        MigrationSupport.requireEmpty(jdbc, step.tables)
-                    }
                     val elapsed = measureTimeMillis { step.run() }
                     log.info("[{}] 완료 ({} ms)", step.name, elapsed)
                 }
@@ -51,6 +59,7 @@ class MigrationRunner(
                 "user",
                 "course",
                 "lecture",
+                "coursesemester",
                 "theme",
                 "timetable",
                 "userdata",

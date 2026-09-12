@@ -11,28 +11,35 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSemesterRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-data class CourseSemester(
+data class CourseSemesterDisplay(
+    val id: Long,
     val year: Int,
     val semester: Semester,
-    val lectureId: Long,
+    val lectureId: Long?,
+    val credit: Int,
+    val academicYear: String?,
+    val category: String?,
+    val classification: String?,
+    val extraInfo: String?,
     val myEvaluationExists: Boolean,
 )
 
 data class CourseWithSemesters(
     val course: Course,
-    val semesters: List<CourseSemester>,
+    val semesters: List<CourseSemesterDisplay>,
 )
 
 @Service
 class CourseSearchService(
     private val courseSearchRepository: CourseSearchRepository,
     private val courseRepository: CourseRepository,
+    private val courseSemesterRepository: CourseSemesterRepository,
     private val lectureRepository: LectureRepository,
     private val evaluationRepository: EvaluationRepository,
 ) {
@@ -78,13 +85,12 @@ class CourseSearchService(
         userId: Long,
     ): CourseWithSemesters {
         val course = courseRepository.findById(courseId).orElseThrow { SnuttException(ErrorType.COURSE_NOT_FOUND) }
-        val lectures =
+        val semesters = courseSemesterRepository.findByCourseIdOrderByYearDescSemesterDesc(courseId)
+        val lecturesBySemester =
             lectureRepository
                 .findByCourseIdOrderByYearDescSemesterDesc(courseId)
                 .groupBy { it.year to it.semester }
-                .values
-                .map { offerings -> offerings.minBy { it.id!! } }
-                .sortedWith(compareByDescending<Lecture> { it.year }.thenByDescending { it.semester.value })
+                .mapValues { (_, offerings) -> offerings.minOf { it.id!! } }
         val evaluated =
             evaluationRepository
                 .findEvaluatedCourseSemesters(userId, listOf(courseId))
@@ -93,11 +99,17 @@ class CourseSearchService(
         return CourseWithSemesters(
             course = course,
             semesters =
-                lectures.map {
-                    CourseSemester(
+                semesters.map {
+                    CourseSemesterDisplay(
+                        id = it.id!!,
                         year = it.year,
                         semester = it.semester,
-                        lectureId = it.id!!,
+                        lectureId = lecturesBySemester[it.year to it.semester],
+                        credit = it.credit,
+                        academicYear = it.academicYear,
+                        category = it.category,
+                        classification = it.classification,
+                        extraInfo = it.extraInfo,
                         myEvaluationExists = (it.year to it.semester) in evaluated,
                     )
                 },

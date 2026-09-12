@@ -12,7 +12,7 @@ import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.evaluation.model.CourseSemester
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Repository
 
@@ -79,22 +79,17 @@ class CourseSearchRepository(
             criteria.yearSemesters.forEach { (year, semester) ->
                 semesterBuilder +=
                     and(
-                        path(Lecture::year).equal(year),
-                        path(Lecture::semester).equal(semester),
+                        path(CourseSemester::year).equal(year),
+                        path(CourseSemester::semester).equal(semester),
                     )
             }
             builder +=
                 and(
                     path(Course::id).`in`(
                         jpql {
-                            select(path(Lecture::courseId))
-                                .from(entity(Lecture::class))
-                                .where(
-                                    and(
-                                        or(*semesterBuilder.toTypedArray()),
-                                        path(Lecture::courseId).isNotNull(),
-                                    ),
-                                )
+                            select(path(CourseSemester::courseId))
+                                .from(entity(CourseSemester::class))
+                                .where(or(*semesterBuilder.toTypedArray()))
                         }.asSubquery(),
                     ),
                 )

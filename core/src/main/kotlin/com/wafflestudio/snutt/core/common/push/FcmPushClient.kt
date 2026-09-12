@@ -45,7 +45,7 @@ class FcmPushClient(
                     response.responses.forEachIndexed { index, sendResponse ->
                         if (sendResponse.isSuccessful) return@forEachIndexed
                         when (sendResponse.exception?.messagingErrorCode) {
-                            MessagingErrorCode.UNREGISTERED, MessagingErrorCode.INVALID_ARGUMENT ->
+                            MessagingErrorCode.UNREGISTERED ->
                                 invalidRegistrationIds += chunk[index].fcmRegistrationId
                             else -> Unit
                         }

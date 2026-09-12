@@ -25,7 +25,7 @@ class UserStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "user"
-    override val tables = listOf("user_social_auth", "user")
+    override val tables = listOf("refresh_token", "user_social_auth", "user")
 
     private data class SocialCredential(
         val provider: String,

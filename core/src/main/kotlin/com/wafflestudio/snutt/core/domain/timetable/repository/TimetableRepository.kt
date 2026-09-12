@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import java.time.Instant
 
 interface TimetableRepository : JpaRepository<Timetable, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -41,9 +42,12 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
 
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): Timetable?
 
-    @Modifying
-    @Query("UPDATE Timetable t SET t.updatedAt = CURRENT_TIMESTAMP WHERE t.id = :timetableId")
-    fun touchUpdatedAt(timetableId: Long)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Timetable t SET t.updatedAt = :updatedAt WHERE t.id = :timetableId")
+    fun touchUpdatedAt(
+        timetableId: Long,
+        updatedAt: Instant,
+    )
 
     fun findByUserIdAndYearAndSemesterAndTitle(
         userId: Long,

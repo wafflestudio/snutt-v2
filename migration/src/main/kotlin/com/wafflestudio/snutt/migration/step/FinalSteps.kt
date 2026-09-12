@@ -130,6 +130,12 @@ class ValidateStep(
         if (ev.available) {
             compare(
                 failures,
+                "course_semester",
+                ev.jdbc.queryForObject("SELECT COUNT(*) FROM semester_lecture", Long::class.java) ?: 0L,
+                count("course_semester"),
+            )
+            compare(
+                failures,
                 "evaluation",
                 ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java) ?: 0L,
                 count("evaluation"),
@@ -152,6 +158,13 @@ class ValidateStep(
             failures,
             "evaluation",
             "SELECT COUNT(*) FROM evaluation e LEFT JOIN course c ON c.id = e.course_id WHERE c.id IS NULL",
+        )
+
+        orphans(
+            failures,
+            "evaluation course_semester",
+            "SELECT COUNT(*) FROM evaluation e LEFT JOIN course_semester cs " +
+                "ON cs.course_id = e.course_id AND cs.year = e.year AND cs.semester = e.semester WHERE cs.id IS NULL",
         )
 
         val aggregateMismatch =

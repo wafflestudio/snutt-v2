@@ -17,6 +17,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 data class TimetableLectureAddRequest(
     val lectureId: Long,
@@ -214,7 +215,7 @@ class TimetableLectureService(
         userId: Long,
         timetable: Timetable,
     ): TimetableDisplay {
-        timetableRepository.touchUpdatedAt(timetable.id!!)
+        timetableRepository.touchUpdatedAt(timetable.id!!, Instant.now())
         return timetableService.getTimetableDisplay(userId, timetable.id!!)
     }
 

@@ -38,15 +38,32 @@ import org.springframework.batch.core.job.parameters.JobParametersBuilder
 import org.springframework.batch.core.launch.JobOperator
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
+import java.time.Clock
+import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @SpringBootTest
+@Import(VacancyNotificationJobTest.ClockConfig::class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
+    @TestConfiguration(proxyBeanMethods = false)
+    class ClockConfig {
+        @Bean
+        @Primary
+        fun fixedClock(): Clock = Clock.fixed(Instant.parse("2026-09-12T02:30:00Z"), ZoneId.of("Asia/Seoul"))
+    }
+
+    @Autowired
+    lateinit var clock: Clock
+
     @MockitoBean
     lateinit var crawler: SugangSnuRegistrationStatusCrawler
 
@@ -106,15 +123,19 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         if (!coursebookRepository.existsByYearAndSemester(2026, Semester.AUTUMN)) {
             coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         }
-        val now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"))
-        val currentMinute = now.hour * 60 + now.minute
+        val now = ZonedDateTime.now(clock)
         semesterRegistrationPeriodService.upsert(
             2026,
             Semester.AUTUMN,
             listOf(
                 RegistrationDate(
                     date = now.toLocalDate(),
-                    vacantSeatRegistrationTimes = listOf(RegistrationTimeSlot(currentMinute, currentMinute + 1)),
+                    vacantSeatRegistrationTimes =
+                        listOf(
+                            RegistrationTimeSlot(10 * 60, 11 * 60),
+                            RegistrationTimeSlot(13 * 60, 14 * 60),
+                            RegistrationTimeSlot(17 * 60, 18 * 60),
+                        ),
                     phase = RegistrationPhase.COURSE_CHANGE,
                 ),
             ),

@@ -5,11 +5,11 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
+import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSemesterService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
@@ -94,7 +94,7 @@ data class LegacyEvaluationReportResponse(
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
-    private val lectureService: LectureService,
+    private val courseSemesterService: CourseSemesterService,
 ) {
     @GetMapping("/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
@@ -123,8 +123,8 @@ class V1CompatEvController(
         @PathVariable semesterLectureId: Long,
         @RequestBody body: LegacyEvaluationWriteRequest,
     ): LegacyEvaluationCreateResponse {
-        val lecture = lectureService.get(semesterLectureId)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+        val lecture = courseSemesterService.get(semesterLectureId)
+        val courseId = lecture.courseId
         return evaluationService
             .createEvaluation(
                 user.id!!,
@@ -221,9 +221,9 @@ class V1CompatEvController(
                 evaluationService.updateEvaluation(user.id!!, evaluationId, request)
             } else {
                 val lecture =
-                    semesterLectureId?.let(lectureService::get)
+                    semesterLectureId?.let(courseSemesterService::get)
                         ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-                val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+                val courseId = lecture.courseId
                 evaluationService.updateEvaluationForCourseSemester(
                     user.id!!,
                     evaluationId,

@@ -257,14 +257,16 @@ class TimetableThemeService(
     ): TimetableThemeDisplay {
         if (!theme.isBuiltin && theme.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
         val baseName = theme.name.replace(copyNumberRegex, "")
+        val numberedCopy = Regex("^${Regex.escape(baseName)} \\((\\d+)\\)$")
         val lastCopiedNumber =
             timetableThemeRepository
                 .findByUserIdOrderByUpdatedAtDesc(userId)
                 .mapNotNull {
-                    it.name
-                        .replace(baseName, "")
-                        .filter(Char::isDigit)
-                        .toIntOrNull()
+                    numberedCopy
+                        .matchEntire(it.name)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toIntOrNull()
                 }.maxOrNull() ?: 0
         return timetableThemeRepository
             .save(

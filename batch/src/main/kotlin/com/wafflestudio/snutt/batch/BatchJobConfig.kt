@@ -11,10 +11,14 @@ import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
+import java.time.Clock
 import kotlin.system.exitProcess
 
 @Configuration
 class BatchJobConfig {
+    @Bean
+    fun clock(): Clock = Clock.systemUTC()
+
     @Bean
     fun jobRegistry(): JobRegistry = MapJobRegistry()
 }

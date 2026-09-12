@@ -143,7 +143,7 @@ class EvaluationService(
         semester: Semester? = null,
     ): CursorPage<EvaluationDisplay> {
         courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
-        val totalCount = evaluationRepository.countByCourseIdAndIsHiddenFalse(courseId, year, semester)
+        val totalCount = evaluationRepository.countOthersByCourseIdAndIsHiddenFalse(courseId, userId, year, semester)
         return getEvaluationPage(userId, courseId, cursor, sort, year, semester, totalCount)
     }
 

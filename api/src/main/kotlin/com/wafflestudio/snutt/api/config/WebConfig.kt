@@ -20,6 +20,7 @@ class WebConfig(
         registry
             .addInterceptor(platformKeyInterceptor)
             .addPathPatterns("/v2/**")
+            .excludePathPatterns("/v2/static/member", "/v2/static/privacy-policy", "/v2/static/terms-of-service")
             .order(1)
         registry
             .addInterceptor(userAuthInterceptor)

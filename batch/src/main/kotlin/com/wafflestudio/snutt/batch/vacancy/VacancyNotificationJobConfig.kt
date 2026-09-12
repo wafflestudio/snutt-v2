@@ -9,7 +9,6 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
-import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationPhase
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationTimeSlot
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
@@ -28,6 +27,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Clock
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -42,6 +42,7 @@ class VacancyNotificationJobConfig(
     private val coursebookService: CoursebookService,
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val crawler: SugangSnuRegistrationStatusCrawler,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -75,7 +76,7 @@ class VacancyNotificationJobConfig(
     ) {
         val window = currentRegistrationWindow(year, semester)
         if (window == null) {
-            log.info("빈자리 조회 시간대가 아니므로 건너뛴다: {} {}", year, semester)
+            log.info("빈자리 조회 대상 등록일이 아니거나 18시 이후이므로 건너뛴다: {} {}", year, semester)
             return
         }
         val pageCount =
@@ -159,7 +160,7 @@ class VacancyNotificationJobConfig(
                 }
         lectureRegistrationStatusRepository.saveAll(updated)
 
-        val targetTimeString = window.nextOpenTimeString()
+        val targetTimeString = window.nextOpenTimeString(ZonedDateTime.now(clock).withZoneSameInstant(KST))
         return notiTargets.map { lecture ->
             val userIds = vacancyNotificationRepository.findByLectureId(lecture.id!!).map { it.userId }
             log.info("빈자리 감지: {} ({}-{})", lecture.courseTitle, lecture.courseNumber, lecture.lectureNumber)
@@ -177,12 +178,10 @@ class VacancyNotificationJobConfig(
         val phase: RegistrationPhase,
         val vacantSeatRegistrationTimes: List<RegistrationTimeSlot>,
     ) {
-        fun nextOpenTimeString(): String {
-            val now = ZonedDateTime.now(KST)
+        fun nextOpenTimeString(now: ZonedDateTime): String {
             val currentMinute = now.hour * 60 + now.minute
-            // 아직 시작하지 않은 가장 가까운 슬롯의 시작 시각을 안내한다(이미 지난 슬롯 표기 방지)
             vacantSeatRegistrationTimes
-                .filter { it.startMinute > currentMinute }
+                .filter { it.endMinute > currentMinute }
                 .minOfOrNull { it.startMinute }
                 ?.let { return "%02d:%02d".format(it / 60, it % 60) }
             return "다음 수강신청 일자"
@@ -196,15 +195,12 @@ class VacancyNotificationJobConfig(
         val periods =
             semesterRegistrationPeriodService.getByYearAndSemester(year, semester)?.registrationPeriodList
                 ?: return null
-        val now = ZonedDateTime.now(KST)
-        val currentMinute = now.hour * 60 + now.minute
+        val now = ZonedDateTime.now(clock).withZoneSameInstant(KST)
+        if (now.hour >= 18) return null
         return periods
-            .firstOrNull { it.date == now.toLocalDate() && it.isOpenAt(currentMinute) }
+            .firstOrNull { it.date == now.toLocalDate() }
             ?.let { RegistrationWindow(it.phase, it.vacantSeatRegistrationTimes) }
     }
-
-    private fun RegistrationDate.isOpenAt(minute: Int): Boolean =
-        vacantSeatRegistrationTimes.any { minute >= it.startMinute && minute < it.endMinute }
 
     // 1학기 재학생 선착순 기간에는 신입생 몫이 정원에서 빠져 있다
     private fun Lecture.effectiveQuota(phase: RegistrationPhase): Int =

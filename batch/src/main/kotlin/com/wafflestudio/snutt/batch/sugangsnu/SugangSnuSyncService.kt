@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
+import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSemesterService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
@@ -58,6 +59,7 @@ class SugangSnuSyncService(
     private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val courseRepository: CourseRepository,
+    private val courseSemesterService: CourseSemesterService,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableRepository: TimetableRepository,
     private val bookmarkLectureRepository: BookmarkLectureRepository,
@@ -110,6 +112,7 @@ class SugangSnuSyncService(
             upsertLectures(created, updated)
             val lectureByKey =
                 oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
+            courseSemesterService.sync(lectureByKey.filterKeys { it in newKeys }.values)
             syncRegistrationCounts(year, semester, rows, lectureByKey)
             timetableChangeCounts = syncUserLectures(updated, deleted)
             deleted.forEach(lectureRepository::delete)

@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import org.springframework.web.bind.annotation.GetMapping
@@ -139,7 +138,6 @@ private const val LEGACY_COURSE_PAGE_SIZE = 20
 class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
-    private val lectureService: LectureService,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -169,7 +167,6 @@ class V1CompatCourseSearchController(
     ): LegacyCourseWithSemestersResponse {
         val result = courseSearchService.getCourseWithSemesters(courseId, user.id!!)
         val course = result.course
-        val lecturesById = lectureService.getAllByIds(result.semesters.map { it.lectureId })
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = course.title,
@@ -182,16 +179,15 @@ class V1CompatCourseSearchController(
             classification = course.classification,
             semesterLectures =
                 result.semesters.map {
-                    val lecture = checkNotNull(lecturesById[it.lectureId])
                     LegacySemesterLectureDto(
-                        id = it.lectureId,
+                        id = it.id,
                         year = it.year,
                         semester = it.semester.value,
-                        credit = lecture.credit,
-                        extraInfo = lecture.remark.orEmpty(),
-                        academicYear = lecture.academicYear.orEmpty(),
-                        category = lecture.category.orEmpty(),
-                        classification = lecture.classification.orEmpty(),
+                        credit = it.credit,
+                        extraInfo = it.extraInfo.orEmpty(),
+                        academicYear = it.academicYear.orEmpty(),
+                        category = it.category.orEmpty(),
+                        classification = it.classification.orEmpty(),
                         myEvaluationExists = it.myEvaluationExists,
                     )
                 },
