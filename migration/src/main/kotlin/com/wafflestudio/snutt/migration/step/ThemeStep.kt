@@ -27,7 +27,7 @@ class ThemeStep(
     private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "theme"
-    override val tables = listOf("user_preference", "published_theme", "theme")
+    override val tables = listOf("user_preference", "published_theme", "timetable_theme")
 
     private data class SourceTheme(
         val document: Document,
@@ -62,7 +62,7 @@ class ThemeStep(
             context.themeIds[doc.id()] = id
             themes += SourceTheme(doc, id, userId, doc.str("name").orEmpty(), palette)
         }
-        writer("theme", THEME_COLUMNS).use { out ->
+        writer("timetable_theme", THEME_COLUMNS).use { out ->
             themes.filterNot { it.downloaded }.forEach { source ->
                 val d = source.document
                 out.add(
@@ -101,7 +101,7 @@ class ThemeStep(
             }
             val archives = mutableMapOf<String, Publication>()
             val downloadsByUser = mutableMapOf<Pair<Long, Long>, Long>()
-            writer("theme", THEME_COLUMNS, parent = publications).use { downloads ->
+            writer("timetable_theme", THEME_COLUMNS, parent = publications).use { downloads ->
                 themes.filter { it.downloaded }.forEach { source ->
                     val d = source.document
                     val origin = d.doc("origin")
@@ -161,7 +161,7 @@ class ThemeStep(
         writer("user_preference", listOf("user_id", "default_theme_id")).use { out ->
             defaults.values.forEach { out.add(it.userId, context.themeIds.getValue(it.document.id())) }
         }
-        alignAutoIncrement("theme", ids.peek())
+        alignAutoIncrement("timetable_theme", ids.peek())
         alignAutoIncrement("published_theme", publicationIds.peek())
         log.info("테마 이관: {}건, 온라인 스냅샷 {}건", context.themeIds.size, publicationIds.peek() - 1)
     }
@@ -170,7 +170,7 @@ class ThemeStep(
         BUILTINS.forEachIndexed { index, builtin ->
             val palette = builtin.third.map { ColorSet(it, "#ffffff") }
             jdbc.update(
-                "INSERT INTO theme (id,user_id,builtin_code,name,colors,created_at,updated_at) " +
+                "INSERT INTO timetable_theme (id,user_id,builtin_code,name,colors,created_at,updated_at) " +
                     "VALUES (?,NULL,?,?,?,NOW(6),NOW(6)) ON DUPLICATE KEY UPDATE id=id",
                 index + 1L,
                 builtin.first,

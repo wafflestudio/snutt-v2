@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
@@ -31,7 +30,6 @@ enum class NotificationType(
 }
 
 @Entity
-@Table(name = "notification")
 class Notification(
     var userId: Long? = null,
     var title: String,

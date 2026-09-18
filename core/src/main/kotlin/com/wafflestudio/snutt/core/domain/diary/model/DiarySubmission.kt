@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.core.domain.diary.model
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
@@ -13,7 +12,6 @@ data class QuestionAnswer(
 )
 
 @Entity
-@Table(name = "diary_submission")
 class DiarySubmission(
     var userId: Long,
     var year: Int,

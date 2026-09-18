@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.core.domain.timetable.model
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.time.Instant
@@ -42,14 +41,12 @@ data class Schedule(
 }
 
 @Entity
-@Table(name = "timetable_lecture_reminder")
 class TimetableLectureReminder(
     var timetableLectureId: Long,
     var offsetMinutes: Int,
 ) : BaseEntity()
 
 @Entity
-@Table(name = "timetable_lecture_reminder_schedule")
 class TimetableLectureReminderSchedule(
     var reminderId: Long,
     @JdbcTypeCode(SqlTypes.TINYINT)

@@ -253,7 +253,7 @@ CREATE TABLE evaluation_report
     CONSTRAINT fk_evaluation_report_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
 );
 
-CREATE TABLE theme
+CREATE TABLE timetable_theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id          BIGINT       NULL,
@@ -263,19 +263,19 @@ CREATE TABLE theme
     publication_id   BIGINT       NULL,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_theme_builtin_code UNIQUE (builtin_code),
-    CONSTRAINT uk_theme_download UNIQUE (user_id, publication_id),
-    CONSTRAINT fk_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT ck_theme_owner CHECK (
+    CONSTRAINT uk_timetable_theme_builtin_code UNIQUE (builtin_code),
+    CONSTRAINT uk_timetable_theme_download UNIQUE (user_id, publication_id),
+    CONSTRAINT fk_timetable_theme_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
+    CONSTRAINT ck_timetable_theme_owner CHECK (
         (builtin_code IS NOT NULL AND user_id IS NULL AND publication_id IS NULL)
         OR (builtin_code IS NULL AND user_id IS NOT NULL)
     ),
-    CONSTRAINT ck_theme_content CHECK (
+    CONSTRAINT ck_timetable_theme_content CHECK (
         (publication_id IS NULL AND name IS NOT NULL AND colors IS NOT NULL)
         OR (publication_id IS NOT NULL AND name IS NULL AND colors IS NULL)
     ),
-    CONSTRAINT ck_theme_palette CHECK (colors IS NULL OR (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9)),
-    INDEX idx_theme_user_updated (user_id, updated_at DESC)
+    CONSTRAINT ck_timetable_theme_palette CHECK (colors IS NULL OR (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9)),
+    INDEX idx_timetable_theme_user_updated (user_id, updated_at DESC)
 );
 
 CREATE TABLE user_preference
@@ -283,10 +283,10 @@ CREATE TABLE user_preference
     user_id          BIGINT NOT NULL PRIMARY KEY,
     default_theme_id BIGINT NOT NULL,
     CONSTRAINT fk_user_preference_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_user_preference_theme FOREIGN KEY (default_theme_id) REFERENCES theme (id) ON DELETE RESTRICT
+    CONSTRAINT fk_user_preference_theme FOREIGN KEY (default_theme_id) REFERENCES timetable_theme (id) ON DELETE RESTRICT
 );
 
-INSERT INTO theme (id, user_id, builtin_code, name, colors, created_at, updated_at) VALUES
+INSERT INTO timetable_theme (id, user_id, builtin_code, name, colors, created_at, updated_at) VALUES
     (1, NULL, 'snutt', 'SNUTT',
      '[{"backgroundColor":"#E54459","foregroundColor":"#ffffff"},{"backgroundColor":"#F58D3D","foregroundColor":"#ffffff"},{"backgroundColor":"#FAC42D","foregroundColor":"#ffffff"},{"backgroundColor":"#A6D930","foregroundColor":"#ffffff"},{"backgroundColor":"#2BC267","foregroundColor":"#ffffff"},{"backgroundColor":"#1BD0C8","foregroundColor":"#ffffff"},{"backgroundColor":"#1D99E8","foregroundColor":"#ffffff"},{"backgroundColor":"#4F48C4","foregroundColor":"#ffffff"},{"backgroundColor":"#AF56B3","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
@@ -318,14 +318,14 @@ CREATE TABLE published_theme
     download_count   BIGINT       NOT NULL DEFAULT 0,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT fk_published_theme_source FOREIGN KEY (source_theme_id) REFERENCES theme (id) ON DELETE SET NULL,
+    CONSTRAINT fk_published_theme_source FOREIGN KEY (source_theme_id) REFERENCES timetable_theme (id) ON DELETE SET NULL,
     CONSTRAINT fk_published_theme_author FOREIGN KEY (author_id) REFERENCES `user` (id) ON DELETE SET NULL,
     CONSTRAINT ck_published_theme_palette CHECK (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9),
     INDEX idx_published_theme_download (listed, download_count DESC, id DESC),
     INDEX idx_published_theme_source (source_theme_id, listed)
 );
 
-ALTER TABLE theme ADD CONSTRAINT fk_theme_publication FOREIGN KEY (publication_id) REFERENCES published_theme (id) ON DELETE RESTRICT;
+ALTER TABLE timetable_theme ADD CONSTRAINT fk_timetable_theme_publication FOREIGN KEY (publication_id) REFERENCES published_theme (id) ON DELETE RESTRICT;
 
 CREATE TABLE timetable
 (
@@ -340,7 +340,7 @@ CREATE TABLE timetable
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT uk_timetable_title UNIQUE (user_id, year, semester, title),
     CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES theme (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES timetable_theme (id) ON DELETE RESTRICT,
     INDEX idx_timetable_user_semester (user_id, year, semester)
 );
 

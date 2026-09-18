@@ -186,7 +186,7 @@ class MigrationIntegrationTest {
     fun `테마는 색상과 공개 정보와 원본 참조를 유지한다`() {
         val copy =
             jdbc.queryForMap(
-                "SELECT t.publication_id, p.colors, p.listed FROM theme t JOIN published_theme p ON p.id=t.publication_id WHERE t.id = ?",
+                "SELECT t.publication_id, p.colors, p.listed FROM timetable_theme t JOIN published_theme p ON p.id=t.publication_id WHERE t.id = ?",
                 context.themeIds[themeCopy.toHexString()],
             )
         assertTrue((copy["colors"] as String).contains("backgroundColor"))

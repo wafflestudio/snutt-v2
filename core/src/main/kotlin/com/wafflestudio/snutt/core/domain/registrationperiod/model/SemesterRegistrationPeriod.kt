@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.core.domain.registrationperiod.model
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 import java.time.LocalDate
@@ -26,7 +25,6 @@ data class RegistrationDate(
 )
 
 @Entity
-@Table(name = "semester_registration_period")
 class SemesterRegistrationPeriod(
     var year: Int,
     @JdbcTypeCode(SqlTypes.TINYINT)

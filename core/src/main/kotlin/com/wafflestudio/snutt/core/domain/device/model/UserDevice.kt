@@ -5,15 +5,11 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
-import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.Table
 
 @Entity
-@Table(name = "user_device")
 class UserDevice(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
     val user: User,
     var osType: String? = null,
     var osVersion: String? = null,

@@ -2,10 +2,8 @@ package com.wafflestudio.snutt.core.domain.friend.model
 
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 
 @Entity
-@Table(name = "friend")
 class Friend(
     var fromUserId: Long,
     var toUserId: Long,

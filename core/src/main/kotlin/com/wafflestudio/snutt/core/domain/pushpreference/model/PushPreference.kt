@@ -7,9 +7,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
-import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.Table
 
 enum class PushPreferenceType {
     NORMAL,
@@ -19,10 +17,8 @@ enum class PushPreferenceType {
 }
 
 @Entity
-@Table(name = "push_preference")
 class PushPreference(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
     val user: User,
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

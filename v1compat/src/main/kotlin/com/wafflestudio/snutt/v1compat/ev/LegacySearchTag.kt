@@ -2,31 +2,21 @@ package com.wafflestudio.snutt.v1compat.ev
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
-import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
-import jakarta.persistence.Table
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Service
 
 @Entity
-@Table(name = "legacy_search_tag")
 class LegacySearchTag(
     @Id
     val id: Long,
-    @Column(name = "group_name", nullable = false)
     val groupName: String,
-    @Column(name = "group_ordering", nullable = false)
     val groupOrdering: Int,
-    @Column(name = "group_color")
     val groupColor: String? = null,
-    @Column(nullable = false)
     val name: String,
-    @Column(nullable = false)
     val ordering: Int,
-    @Column(name = "int_value")
     val intValue: Int? = null,
-    @Column(name = "string_value")
     val stringValue: String? = null,
 )
 

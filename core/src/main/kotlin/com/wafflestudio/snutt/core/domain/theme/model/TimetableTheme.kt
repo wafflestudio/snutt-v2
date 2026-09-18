@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.domain.theme.model
 
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
@@ -13,7 +12,6 @@ enum class ThemeKind {
 }
 
 @Entity
-@Table(name = "theme")
 class TimetableTheme(
     val userId: Long?,
     val builtinCode: String? = null,
@@ -32,7 +30,6 @@ class TimetableTheme(
 }
 
 @Entity
-@Table(name = "published_theme")
 class PublishedTheme(
     val authorId: Long?,
     val sourceThemeId: Long?,
