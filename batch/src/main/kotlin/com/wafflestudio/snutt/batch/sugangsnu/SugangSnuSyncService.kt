@@ -83,7 +83,7 @@ class SugangSnuSyncService(
         val oldClassTimesMap =
             lectureClassTimeRepository
                 .findAllByLectureIdInOrderById(oldLectures.mapNotNull { it.id })
-                .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
+                .groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
 
         val created =
             rows
@@ -107,6 +107,7 @@ class SugangSnuSyncService(
         val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
 
         // DB 변경은 하나의 짧은 트랜잭션으로 묶고, 푸시는 커밋된 뒤에 보낸다(롤백 시 유령 알림 방지)
+        val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
         var timetableChangeCounts: Map<Long, TimetableChangeCount> = emptyMap()
         transactionTemplate.executeWithoutResult {
             upsertLectures(created, updated)
@@ -116,7 +117,8 @@ class SugangSnuSyncService(
             timetableChangeCounts = syncUserLectures(updated, deleted)
             deleted.forEach(lectureRepository::delete)
             lectureRepository.flush()
-            val affectedCourses = (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId }.distinct()
+            val affectedCourses =
+                (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId }).distinct()
             val latest = courseSearchRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
             courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
                 course.title = latest.getValue(course.id!!).courseTitle
@@ -205,7 +207,13 @@ class SugangSnuSyncService(
     ) {
         lectureClassTimeRepository.saveAll(
             classTimes.map {
-                LectureClassTime(lecture = lecture, day = it.day, place = it.place, startMinute = it.startMinute, endMinute = it.endMinute)
+                LectureClassTime(
+                    lectureId = lecture.id!!,
+                    day = it.day,
+                    place = it.place,
+                    startMinute = it.startMinute,
+                    endMinute = it.endMinute,
+                )
             },
         )
     }
@@ -214,16 +222,32 @@ class SugangSnuSyncService(
         updated: List<LectureUpdate>,
         deleted: List<Lecture>,
     ): Map<Long, TimetableChangeCount> {
+        val notifiableUpdates = updated.filter { it.notifiable }
+        val affectedLectureIds = notifiableUpdates.map { it.lecture.id!! } + deleted.map { it.id!! }
+        if (affectedLectureIds.isEmpty()) return emptyMap()
+
+        val affected = loadAffectedTimetables(affectedLectureIds)
+        val bookmarkUserIds =
+            bookmarkLectureRepository
+                .findByLectureIdIn(affectedLectureIds)
+                .groupBy({ it.lectureId }, { it.userId })
+                .mapValues { (_, userIds) -> userIds.distinct() }
+
         val notifications = mutableListOf<Notification>()
         val timetableChangeCounts = mutableMapOf<Long, TimetableChangeCount>()
+        val removedEntryIds = mutableSetOf<Long>()
 
-        updated.filter { it.notifiable }.forEach { update ->
+        notifiableUpdates.forEach { update ->
             val lecture = update.lecture
             val labels = update.changedLabels.joinToString()
-            forEachContainingTimetable(lecture) { timetable, entry ->
+            affected.forEachEntry(lecture.id!!) { timetable, entry ->
                 val counts = timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }
-                if (update.classTimesChanged && overlapsOtherLecture(timetable, lecture, update.input.classTimes)) {
+                val overwritten =
+                    update.classTimesChanged &&
+                        affected.overlapsOtherLecture(timetable.id!!, lecture.id!!, update.input.classTimes, removedEntryIds)
+                if (overwritten) {
                     timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
+                    removedEntryIds += entry.id!!
                     counts.deleted += 1
                     notifications +=
                         timetableNotification(
@@ -245,7 +269,7 @@ class SugangSnuSyncService(
                         )
                 }
             }
-            forEachContainingBookmark(lecture) { userId ->
+            bookmarkUserIds[lecture.id].orEmpty().forEach { userId ->
                 notifications +=
                     bookmarkNotification(
                         userId,
@@ -257,8 +281,9 @@ class SugangSnuSyncService(
         }
 
         deleted.forEach { lecture ->
-            forEachContainingTimetable(lecture) { timetable, entry ->
+            affected.forEachEntry(lecture.id!!) { timetable, entry ->
                 timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
+                removedEntryIds += entry.id!!
                 timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
                 notifications +=
                     timetableNotification(
@@ -267,7 +292,7 @@ class SugangSnuSyncService(
                         NotificationType.LECTURE_REMOVE,
                     )
             }
-            forEachContainingBookmark(lecture) { userId ->
+            bookmarkUserIds[lecture.id].orEmpty().forEach { userId ->
                 notifications +=
                     bookmarkNotification(userId, lecture, "'${lecture.courseTitle}' 강의가 폐강되어 삭제되었습니다.", NotificationType.LECTURE_REMOVE)
             }
@@ -275,6 +300,58 @@ class SugangSnuSyncService(
 
         notificationRepository.saveAll(notifications)
         return timetableChangeCounts.toMap()
+    }
+
+    private fun loadAffectedTimetables(lectureIds: List<Long>): AffectedTimetables {
+        val affectedEntries = timetableLectureRepository.findByLectureIdIn(lectureIds)
+        val timetablesById =
+            timetableRepository.findAllById(affectedEntries.map { it.timetableId }.distinct()).associateBy { it.id!! }
+        val entriesByTimetableId =
+            timetableLectureRepository.findByTimetableIdIn(timetablesById.keys).groupBy { it.timetableId }
+        val classTimesByLectureId =
+            lectureClassTimeRepository
+                .findAllByLectureIdInOrderById(
+                    entriesByTimetableId.values
+                        .flatten()
+                        .mapNotNull { it.lectureId }
+                        .distinct(),
+                ).groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
+        return AffectedTimetables(
+            timetablesById = timetablesById,
+            entriesByLectureId = affectedEntries.filter { it.timetableId in timetablesById }.groupBy { it.lectureId!! },
+            entriesByTimetableId = entriesByTimetableId,
+            classTimesByLectureId = classTimesByLectureId,
+        )
+    }
+
+    private class AffectedTimetables(
+        private val timetablesById: Map<Long, Timetable>,
+        private val entriesByLectureId: Map<Long, List<TimetableLecture>>,
+        private val entriesByTimetableId: Map<Long, List<TimetableLecture>>,
+        private val classTimesByLectureId: Map<Long, List<ClassPlaceAndTime>>,
+    ) {
+        fun forEachEntry(
+            lectureId: Long,
+            action: (Timetable, TimetableLecture) -> Unit,
+        ) {
+            entriesByLectureId[lectureId].orEmpty().forEach { entry ->
+                timetablesById[entry.timetableId]?.let { action(it, entry) }
+            }
+        }
+
+        fun overlapsOtherLecture(
+            timetableId: Long,
+            lectureId: Long,
+            newTimes: List<ClassPlaceAndTime>,
+            removedEntryIds: Set<Long>,
+        ): Boolean {
+            val entries = entriesByTimetableId[timetableId].orEmpty().filter { it.id !in removedEntryIds }
+            if (entries.any { it.lectureId == lectureId && it.overrides?.classPlaceAndTimes != null }) return false
+            return entries.filter { it.lectureId != lectureId }.any { entry ->
+                val times = entry.overrides?.classPlaceAndTimes ?: entry.lectureId?.let { classTimesByLectureId[it] }.orEmpty()
+                ClassTimeUtils.timesOverlap(times, newTimes)
+            }
+        }
     }
 
     private class TimetableChangeCount(
@@ -287,46 +364,6 @@ class SugangSnuSyncService(
                 updated > 0 -> "강의 ${updated}개가 변경되었습니다. 알림함에서 자세히 확인하세요."
                 else -> "강의 ${deleted}개가 삭제되었습니다. 알림함에서 자세히 확인하세요."
             }
-    }
-
-    private fun forEachContainingTimetable(
-        lecture: Lecture,
-        action: (Timetable, TimetableLecture) -> Unit,
-    ) {
-        val entries = timetableLectureRepository.findByLectureIdIn(listOf(lecture.id!!))
-        if (entries.isEmpty()) return
-        val timetables = timetableRepository.findAllById(entries.map { it.timetableId }.distinct()).associateBy { it.id!! }
-        entries.forEach { entry -> timetables[entry.timetableId]?.let { action(it, entry) } }
-    }
-
-    private fun forEachContainingBookmark(
-        lecture: Lecture,
-        action: (userId: Long) -> Unit,
-    ) {
-        bookmarkLectureRepository
-            .findByLectureIdIn(listOf(lecture.id!!))
-            .asSequence()
-            .map { it.userId }
-            .distinct()
-            .forEach(action)
-    }
-
-    private fun overlapsOtherLecture(
-        timetable: Timetable,
-        lecture: Lecture,
-        newTimes: List<ClassPlaceAndTime>,
-    ): Boolean {
-        val entries = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        if (entries.any { it.lectureId == lecture.id && it.overrides?.classPlaceAndTimes != null }) return false
-        val otherEntries = entries.filter { it.lectureId != lecture.id }
-        val otherLectureTimes =
-            lectureClassTimeRepository
-                .findAllByLectureIdInOrderById(otherEntries.mapNotNull { it.lectureId })
-                .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
-        return otherEntries.any { entry ->
-            val times = entry.overrides?.classPlaceAndTimes ?: entry.lectureId?.let { otherLectureTimes[it] }.orEmpty()
-            ClassTimeUtils.timesOverlap(times, newTimes)
-        }
     }
 
     private fun timetableNotification(

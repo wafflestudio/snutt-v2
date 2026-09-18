@@ -13,7 +13,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -109,13 +108,21 @@ class DiaryScheduler(
                 .findByYearAndSemesterAndIsPrimaryTrue(target.year, target.semester)
                 .shuffled()
                 .let { it.take((it.size * sampleRate).toInt().coerceAtLeast(if (it.isEmpty()) 0 else 1)) }
+        val entriesByTimetableId =
+            timetableLectureRepository
+                .findByTimetableIdIn(primaries.mapNotNull { it.id })
+                .filter { it.lectureId != null }
+                .groupBy { it.timetableId }
+        val picked =
+            primaries.mapNotNull { timetable ->
+                val entries = entriesByTimetableId[timetable.id].orEmpty()
+                if (entries.size <= 2) null else timetable to entries.random().lectureId!!
+            }
+        val lecturesById = lectureRepository.findAllById(picked.map { it.second }).associateBy { it.id!! }
         val messages =
-            primaries
-                .mapNotNull { timetable ->
-                    val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.lectureId != null }
-                    if (lectures.size <= 2) return@mapNotNull null
-                    val target = lectures.random()
-                    val lecture = lectureRepository.findByIdOrNull(target.lectureId!!) ?: return@mapNotNull null
+            picked
+                .mapNotNull { (timetable, lectureId) ->
+                    val lecture = lecturesById[lectureId] ?: return@mapNotNull null
                     timetable.userId to
                         TargetedPush(
                             title = "이번주 강의일기를 작성해보세요.",

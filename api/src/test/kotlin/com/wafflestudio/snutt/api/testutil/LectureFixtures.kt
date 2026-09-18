@@ -16,7 +16,7 @@ fun saveLectureWithTimes(
     classTimeRepository.saveAll(
         times.map {
             LectureClassTime(
-                lecture = saved,
+                lectureId = saved.id!!,
                 day = it.day,
                 place = it.place,
                 startMinute = it.startMinute,

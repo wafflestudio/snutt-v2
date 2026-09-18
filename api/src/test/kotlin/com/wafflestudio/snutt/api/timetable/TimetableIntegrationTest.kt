@@ -132,7 +132,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
             lectureSeeds.flatMap { seed ->
                 seed.times.map {
                     LectureClassTime(
-                        lecture = seed.lecture,
+                        lectureId = seed.lecture.id!!,
                         day = it.day,
                         place = it.place,
                         startMinute = it.startMinute,
