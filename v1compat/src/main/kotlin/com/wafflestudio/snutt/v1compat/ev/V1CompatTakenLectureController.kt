@@ -1,11 +1,16 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -130,6 +135,13 @@ data class LegacySemesterLectureDto(
     val myEvaluationExists: Boolean,
 )
 
+/** 구 ev 의 lecture 는 학기 구분이 없는 과목 단위였다. v2 의 course 가 그것이고 id 도 그대로 이어받았다. */
+data class LegacyLectureIdResponse(
+    val id: Long,
+    val snuttId: String? = null,
+    val evLectureId: Long = id,
+)
+
 private const val LEGACY_COURSE_PAGE_SIZE = 20
 
 @RestController
@@ -139,9 +151,35 @@ class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
     private val legacyCourseRepository: LegacyCourseRepository,
+    private val courseRepository: CourseRepository,
+    private val lectureRepository: LectureRepository,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
+
+    @GetMapping("/lectures/id", params = ["course_number", "instructor"])
+    fun getCourseIdByCourseNumber(
+        @RequestParam("course_number") courseNumber: String,
+        @RequestParam instructor: String,
+    ): LegacyLectureIdResponse {
+        val course =
+            courseRepository.findByCourseNumberAndInstructor(courseNumber, instructor)
+                ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        return LegacyLectureIdResponse(id = course.id!!)
+    }
+
+    @GetMapping("/lectures/id", params = ["semesterLectureSnuttId"])
+    fun getCourseIdByLectureId(
+        @RequestParam semesterLectureSnuttId: String,
+    ): LegacyLectureIdResponse {
+        val courseId =
+            semesterLectureSnuttId
+                .toLongOrNull()
+                ?.let { lectureRepository.findByIdOrNull(it) }
+                ?.courseId
+                ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        return LegacyLectureIdResponse(id = courseId, snuttId = semesterLectureSnuttId)
+    }
 
     @GetMapping("/lectures")
     fun searchLectures(
