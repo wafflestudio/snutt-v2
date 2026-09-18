@@ -82,6 +82,7 @@ fun TimetableLectureDisplay(
 
 data class TimetableDisplay(
     val timetable: Timetable,
+    val theme: TimetableThemeDisplay,
     val lectures: List<TimetableLectureDisplay>,
 )
 

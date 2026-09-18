@@ -50,6 +50,11 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableThemeDisplay = displays(listOf(findThemeAvailableToUser(userId, themeId)), getDefaultThemeId(userId)).getValue(themeId)
 
+    fun getAvailableTheme(
+        userId: Long,
+        themeId: Long,
+    ): TimetableThemeDisplay = displays(listOf(findThemeAvailableToUser(userId, themeId))).getValue(themeId)
+
     fun getThemesByIds(themeIds: Collection<Long>): Map<Long, TimetableThemeDisplay> =
         displays(timetableThemeRepository.findAllById(themeIds.distinct()))
 
@@ -116,19 +121,19 @@ class TimetableThemeService(
         val theme =
             timetableThemeRepository.findByIdAndUserId(themeId, userId)
                 ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
-        val defaultId = builtinThemeId("snutt")
+        val fallback = builtinTheme("snutt")
+        val fallbackId = fallback.id!!
         userPreferenceRepository.findByUserId(userId)?.let { preference ->
             if (preference.defaultThemeId == themeId) {
-                preference.defaultThemeId = defaultId
+                preference.defaultThemeId = fallbackId
                 userPreferenceRepository.saveAndFlush(preference)
             }
         }
-        timetableRepository.findByUserIdAndThemeId(userId, themeId).forEach { timetable ->
-            timetable.themeId = defaultId
-            timetableLectureRepository.findByTimetableId(timetable.id!!).forEach { lecture ->
-                lecture.paletteIndex = 0
-                lecture.customColor = null
-            }
+        val timetables = timetableRepository.findByUserIdAndThemeId(userId, themeId)
+        timetables.forEach { it.themeId = fallbackId }
+        val paletteSize = checkNotNull(fallback.colors).size
+        timetableLectureRepository.findByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
+            if (lecture.paletteIndex >= paletteSize) lecture.paletteIndex %= paletteSize
         }
         timetableRepository.flush()
         timetableThemeRepository.delete(theme)
@@ -150,17 +155,19 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableThemeDisplay {
         if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
-        val defaultId = builtinThemeId("snutt")
-        userPreferenceRepository.save(UserPreference(userId, defaultId))
-        return getTheme(userId, defaultId)
+        val fallbackId = builtinThemeId("snutt")
+        userPreferenceRepository.save(UserPreference(userId, fallbackId))
+        return getTheme(userId, fallbackId)
     }
 
     fun getDefaultTheme(userId: Long): TimetableThemeDisplay = getTheme(userId, getDefaultThemeId(userId))
 
     fun getDefaultThemeId(userId: Long): Long = userPreferenceRepository.findByUserId(userId)?.defaultThemeId ?: builtinThemeId("snutt")
 
-    fun builtinThemeId(code: String): Long =
-        timetableThemeRepository.findByBuiltinCode(code)?.id ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
+    fun builtinThemeId(code: String): Long = builtinTheme(code).id!!
+
+    private fun builtinTheme(code: String): TimetableTheme =
+        timetableThemeRepository.findByBuiltinCode(code) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
     fun findThemeAvailableToUser(
         userId: Long,

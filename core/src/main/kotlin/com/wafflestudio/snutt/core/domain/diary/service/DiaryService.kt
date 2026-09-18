@@ -112,8 +112,9 @@ class DiaryService(
         if (candidates.isEmpty()) return null
         val picked = candidates.random()
         return timetableService
-            .displaysOf(listOf(timetable))[timetable.id]
-            ?.first { it.id == picked.id }
+            .displayOf(timetable)
+            .lectures
+            .first { it.id == picked.id }
     }
 
     fun getActiveDailyClassTypes(): List<DiaryDailyClassType> = diaryDailyClassTypeRepository.findAllByActiveTrueOrderByNameAsc()

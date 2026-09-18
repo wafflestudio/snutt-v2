@@ -29,6 +29,8 @@ import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
+import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
+import com.wafflestudio.snutt.v1compat.snutt.dto.legacyThemeValue
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -44,12 +46,6 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 
 enum class LegacyThemeStatus { BASIC, PRIVATE, PUBLISHED, DOWNLOADED }
-
-private val LEGACY_BUILTIN_CODES = listOf("snutt", "fall", "modern", "blossom", "ice", "lawn")
-
-internal fun legacyBuiltinCode(value: Int): String =
-    LEGACY_BUILTIN_CODES.getOrNull(value)
-        ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 
 private fun ColorSet.toLegacyColor() = LegacyColorSetDto(backgroundColor, foregroundColor)
 
@@ -86,7 +82,7 @@ private fun TimetableThemeDisplay.toLegacy(
 ) = LegacyThemeDto(
     id = if (kind == ThemeKind.BUILTIN) null else id.toString(),
     userId = if (kind == ThemeKind.BUILTIN) userExternalId else checkNotNull(userId).toString(),
-    theme = if (kind == ThemeKind.BUILTIN) LEGACY_BUILTIN_CODES.indexOf(checkNotNull(builtinCode)) else 0,
+    theme = if (kind == ThemeKind.BUILTIN) legacyThemeValue(checkNotNull(builtinCode)) else 0,
     name = name,
     colors = colors.takeUnless { kind == ThemeKind.BUILTIN }?.map { it.toLegacyColor() },
     isDefault = isDefault,
