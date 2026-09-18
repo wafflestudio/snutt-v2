@@ -40,10 +40,19 @@ class AggregateStep(
                 """
                 UPDATE course c
                 LEFT JOIN (
-                    SELECT course_id, COUNT(*) AS cnt, AVG(rating) AS avg_rating
+                    SELECT course_id, COUNT(*) AS cnt, AVG(rating) AS avg_rating,
+                           AVG(grade_satisfaction) AS avg_grade_satisfaction,
+                           AVG(teaching_skill) AS avg_teaching_skill,
+                           AVG(gains) AS avg_gains,
+                           AVG(life_balance) AS avg_life_balance
                     FROM evaluation WHERE is_hidden = FALSE GROUP BY course_id
                 ) e ON e.course_id = c.id
-                SET c.eval_count = COALESCE(e.cnt, 0), c.avg_rating = e.avg_rating
+                SET c.eval_count = COALESCE(e.cnt, 0),
+                    c.avg_rating = e.avg_rating,
+                    c.avg_grade_satisfaction = e.avg_grade_satisfaction,
+                    c.avg_teaching_skill = e.avg_teaching_skill,
+                    c.avg_gains = e.avg_gains,
+                    c.avg_life_balance = e.avg_life_balance
                 """.trimIndent(),
             )
         log.info("course 집계 갱신: {}건", updated)

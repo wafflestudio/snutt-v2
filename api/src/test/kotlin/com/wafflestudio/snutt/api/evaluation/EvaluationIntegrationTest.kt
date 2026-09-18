@@ -482,6 +482,9 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 courseId = course2.id,
             ),
         )
+        courseAggregateUpdater.update(course1.id!!)
+        courseAggregateUpdater.update(course2.id!!)
+
         val wellTaught = get("/v2/evaluations/tags/well-taught", verifiedToken)
         assertEquals(200, wellTaught.statusCode.value())
         val wellTaughtItems = body(wellTaught)["content"]

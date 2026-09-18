@@ -2,12 +2,12 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
 import com.linecorp.kotlinjdsl.dsl.jpql.jpql
-import com.linecorp.kotlinjdsl.querymodel.jpql.entity.Entity
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutorImpl
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
@@ -81,8 +81,10 @@ class EvaluationRepositoryImpl(
                 cursorId?.let { predicates += path(Evaluation::id).lessThan(it) }
                 tagPredicate(tag)?.let { predicates += it }
                 select(entity(Evaluation::class))
-                    .from(entity(Evaluation::class))
-                    .where(and(*predicates.toTypedArray()))
+                    .from(
+                        entity(Evaluation::class),
+                        join(Course::class).on(path(Course::id).equal(path(Evaluation::courseId))),
+                    ).where(and(*predicates.toTypedArray()))
                     .orderBy(path(Evaluation::id).desc())
             }
         }.filterNotNull()
@@ -125,12 +127,16 @@ class EvaluationRepositoryImpl(
             }
         }.firstOrNull() ?: 0L
 
-    override fun findCourseAggregate(courseId: Long): Pair<Long, Double?> {
+    override fun findCourseAggregate(courseId: Long): CourseAggregate {
         val row =
             findAll(offset = null, limit = 1) {
                 jpql {
                     selectNew<AggregateRow>(
                         count(path(Evaluation::id)),
+                        avg(path(Evaluation::gradeSatisfaction)),
+                        avg(path(Evaluation::teachingSkill)),
+                        avg(path(Evaluation::gains)),
+                        avg(path(Evaluation::lifeBalance)),
                         avg(path(Evaluation::rating)),
                     ).from(entity(Evaluation::class))
                         .where(
@@ -141,7 +147,17 @@ class EvaluationRepositoryImpl(
                         )
                 }
             }.firstOrNull()
-        return (row?.count ?: 0L) to row?.avgRating
+        return CourseAggregate(
+            evalCount = row?.count ?: 0L,
+            averages =
+                EvaluationAverages(
+                    avgGradeSatisfaction = row?.avgGradeSatisfaction,
+                    avgTeachingSkill = row?.avgTeachingSkill,
+                    avgGains = row?.avgGains,
+                    avgLifeBalance = row?.avgLifeBalance,
+                    avgRating = row?.avgRating,
+                ),
+        )
     }
 
     override fun findEvaluationAverages(
@@ -289,51 +305,30 @@ class EvaluationRepositoryImpl(
                             )
                     }.asSubquery(),
                 )
-            EvaluationTag.RECOMMENDED ->
-                courseAvgHaving { innerEvaluation ->
-                    avg(innerEvaluation.path(Evaluation::rating)).greaterThanOrEqualTo(4.0)
-                }
+            EvaluationTag.RECOMMENDED -> path(Course::avgRating).greaterThanOrEqualTo(4.0)
             EvaluationTag.WELL_TAUGHT ->
-                courseAvgHaving { innerEvaluation ->
-                    and(
-                        avg(innerEvaluation.path(Evaluation::teachingSkill)).greaterThanOrEqualTo(4.0),
-                        avg(innerEvaluation.path(Evaluation::gains)).greaterThanOrEqualTo(4.0),
-                    )
-                }
+                and(
+                    path(Course::avgTeachingSkill).greaterThanOrEqualTo(4.0),
+                    path(Course::avgGains).greaterThanOrEqualTo(4.0),
+                )
             EvaluationTag.SWEET ->
-                courseAvgHaving { innerEvaluation ->
-                    and(
-                        avg(innerEvaluation.path(Evaluation::gradeSatisfaction)).greaterThanOrEqualTo(4.0),
-                        avg(innerEvaluation.path(Evaluation::lifeBalance)).greaterThanOrEqualTo(4.0),
-                    )
-                }
+                and(
+                    path(Course::avgGradeSatisfaction).greaterThanOrEqualTo(4.0),
+                    path(Course::avgLifeBalance).greaterThanOrEqualTo(4.0),
+                )
             EvaluationTag.HARD_BUT_WORTH ->
-                courseAvgHaving { innerEvaluation ->
-                    and(
-                        avg(innerEvaluation.path(Evaluation::lifeBalance)).lessThan(2.0),
-                        avg(innerEvaluation.path(Evaluation::gains)).greaterThanOrEqualTo(4.0),
-                    )
-                }
+                and(
+                    path(Course::avgLifeBalance).lessThan(2.0),
+                    path(Course::avgGains).greaterThanOrEqualTo(4.0),
+                )
         }
-
-    private fun Jpql.courseAvgHaving(having: Jpql.(Entity<Evaluation>) -> Predicate): Predicate =
-        exists(
-            jpql {
-                val innerEvaluation = entity(Evaluation::class, "innerEvaluation")
-                select(innerEvaluation.path(Evaluation::courseId))
-                    .from(innerEvaluation)
-                    .where(
-                        and(
-                            innerEvaluation.path(Evaluation::courseId).equal(path(Evaluation::courseId)),
-                            innerEvaluation.path(Evaluation::isHidden).equal(false),
-                        ),
-                    ).groupBy(innerEvaluation.path(Evaluation::courseId))
-                    .having(having(innerEvaluation))
-            }.asSubquery(),
-        )
 
     private data class AggregateRow(
         val count: Long,
+        val avgGradeSatisfaction: Double?,
+        val avgTeachingSkill: Double?,
+        val avgGains: Double?,
+        val avgLifeBalance: Double?,
         val avgRating: Double?,
     )
 }

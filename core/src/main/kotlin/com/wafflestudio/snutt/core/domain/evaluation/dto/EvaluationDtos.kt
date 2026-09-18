@@ -24,3 +24,8 @@ data class EvaluationAverages(
     val avgLifeBalance: Double?,
     val avgRating: Double?,
 )
+
+data class CourseAggregate(
+    val evalCount: Long,
+    val averages: EvaluationAverages,
+)
