@@ -224,7 +224,6 @@ data class LegacyYearAndSemesterDto(
 )
 
 @RestController
-@V1Public
 @RequestMapping("/v1/semesters")
 class V1CompatSemesterController(
     private val semesterService: SemesterService,

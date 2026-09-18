@@ -153,7 +153,7 @@ class PasswordResetService(
         newPassword: String,
     ) {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        confirmReset(user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND), code, newPassword)
+        confirmResetFor(user, code, newPassword)
     }
 
     @Transactional
@@ -165,18 +165,6 @@ class PasswordResetService(
         val user =
             userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
                 ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
-        confirmResetFor(user, code, newPassword)
-    }
-
-    @Transactional
-    fun confirmReset(
-        email: String,
-        code: String,
-        newPassword: String,
-    ) {
-        val user =
-            userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
-                ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         confirmResetFor(user, code, newPassword)
     }
 

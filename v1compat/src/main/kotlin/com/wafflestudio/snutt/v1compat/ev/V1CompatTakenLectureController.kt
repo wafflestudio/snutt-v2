@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
+import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -132,6 +133,7 @@ data class LegacySemesterLectureDto(
 private const val LEGACY_COURSE_PAGE_SIZE = 20
 
 @RestController
+@V1EmailVerifiedRequired
 @RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
 class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
