@@ -62,6 +62,7 @@ class DiaryService(
     companion object {
         const val COMMENT_MAX_LENGTH = 1000
         private const val QUESTION_COUNT = 3
+        private const val SUBMISSION_COOLDOWN_HOURS = 12L
     }
 
     fun generateQuestionnaire(
@@ -132,6 +133,14 @@ class DiaryService(
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
+        if (diarySubmissionRepository.existsByUserIdAndLectureIdAndCreatedAtAfter(
+                userId,
+                lecture.id!!,
+                Instant.now().minus(SUBMISSION_COOLDOWN_HOURS, ChronoUnit.HOURS),
+            )
+        ) {
+            throw SnuttException(ErrorType.DIARY_SUBMISSION_TOO_FREQUENT)
+        }
         val questionIds = request.questionAnswers.map { it.questionId }
         if (questionIds.size != questionIds.toSet().size) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
         val questionsById = diaryQuestionRepository.findAllById(questionIds).associateBy { it.id }

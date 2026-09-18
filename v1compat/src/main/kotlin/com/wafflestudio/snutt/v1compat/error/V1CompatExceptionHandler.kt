@@ -45,6 +45,7 @@ private val V1_ERROR_CODE_MAP =
         ErrorType.LECTURE_NOT_FOUND to 0x4003,
         ErrorType.USER_NOT_FOUND to 0x4004,
         ErrorType.TIMETABLE_LECTURE_NOT_FOUND to 0x4005,
+        ErrorType.DIARY_SUBMISSION_TOO_FREQUENT to 40028L,
         ErrorType.DUPLICATE_NICKNAME to 40031L,
     )
 

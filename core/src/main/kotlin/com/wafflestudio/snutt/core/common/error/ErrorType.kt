@@ -56,6 +56,7 @@ enum class ErrorType(
     INVALID_TIME(HttpStatus.BAD_REQUEST, 40033, "강좌의 시간이 올바르게 설정되었는지 확인해 주시기 바랍니다", "시간대 겹침"),
     INVALID_EVALUATION_SORT(HttpStatus.BAD_REQUEST, 40034, "sort는 latest 또는 recommended 여야 합니다"),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, 40035, "cursor 형식이 올바르지 않습니다"),
+    DIARY_SUBMISSION_TOO_FREQUENT(HttpStatus.BAD_REQUEST, 40036, "오늘 이미 강의 일기장을 작성했습니다"),
 
     SOCIAL_CONNECT_FAIL(HttpStatus.UNAUTHORIZED, 40100, "소셜 로그인에 실패했습니다"),
     INVALID_APPLE_LOGIN_TOKEN(HttpStatus.UNAUTHORIZED, 40101, "소셜 로그인에 실패했습니다"),

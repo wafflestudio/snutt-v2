@@ -17,6 +17,9 @@ import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
@@ -38,9 +41,11 @@ data class LectureSearchRequest(
     val times: List<SearchTimeRequest>? = null,
     val timesToExclude: List<SearchTimeRequest>? = null,
     val cursor: String? = null,
-    val limit: Int = 20,
+    @field:Min(1) @field:Max(MAX_SEARCH_PAGE_SIZE) val limit: Int = 20,
     val sort: String? = null,
 )
+
+const val MAX_SEARCH_PAGE_SIZE = 100L
 
 data class SearchTimeRequest(
     val day: Int,
@@ -125,7 +130,7 @@ class LectureController(
     @Public
     @PostMapping("/search")
     fun searchLectures(
-        @RequestBody request: LectureSearchRequest,
+        @Valid @RequestBody request: LectureSearchRequest,
         @RequestAttribute clientInfo: ClientInfo,
     ): CursorPage<LectureResponse> {
         val criteria =
