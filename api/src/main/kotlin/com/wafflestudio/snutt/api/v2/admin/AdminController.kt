@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.v2.admin
 
 import com.wafflestudio.snutt.api.auth.AdminOnly
 import com.wafflestudio.snutt.api.scheduler.DiaryScheduler
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -49,10 +50,9 @@ data class InsertNotificationRequest(
 
 data class AdminConfigWriteRequest(
     val value: JsonNode,
-    val minIosVersion: String? = null,
-    val maxIosVersion: String? = null,
-    val minAndroidVersion: String? = null,
-    val maxAndroidVersion: String? = null,
+    val osType: OsType,
+    val minVersion: String? = null,
+    val maxVersion: String? = null,
 )
 
 data class AdminPopupWriteRequest(
@@ -337,10 +337,9 @@ class AdminController(
     private fun AdminConfigWriteRequest.toWriteRequest() =
         ClientConfigWriteRequest(
             value = jsonMapper.writeValueAsString(value),
-            minIosVersion = minIosVersion,
-            maxIosVersion = maxIosVersion,
-            minAndroidVersion = minAndroidVersion,
-            maxAndroidVersion = maxAndroidVersion,
+            osType = osType,
+            minVersion = minVersion,
+            maxVersion = maxVersion,
         )
 
     private fun ApiTraceTargetDisplay.toResponse() =

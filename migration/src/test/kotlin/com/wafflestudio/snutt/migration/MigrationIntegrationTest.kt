@@ -118,7 +118,7 @@ class MigrationIntegrationTest {
                 "SELECT provider, sub, display_name FROM user_social_auth WHERE user_id = ?",
                 context.userIds[userWithBoth.toHexString()],
             )
-        assertEquals("facebook", social["provider"])
+        assertEquals("FACEBOOK", social["provider"])
         assertEquals("fb-1", social["sub"])
         assertEquals("김와플", social["display_name"])
     }

@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
@@ -29,7 +30,7 @@ class UserStep(
     override val tables = listOf("refresh_token", "user_social_auth", "user")
 
     private data class SocialCredential(
-        val provider: String,
+        val provider: AuthProvider,
         val sub: String,
         val email: String?,
         val displayName: String?,
@@ -108,7 +109,7 @@ class UserStep(
                 out.add(
                     socialIds.next(),
                     context.userIds[externalId],
-                    credential.provider,
+                    credential.provider.name,
                     credential.sub,
                     credential.email,
                     credential.displayName,
@@ -127,16 +128,16 @@ class UserStep(
     private fun socialCredentials(credential: Document): List<SocialCredential> =
         buildList {
             credential.str("fbId")?.let {
-                add(SocialCredential("facebook", it, null, credential.str("fbName"), null))
+                add(SocialCredential(AuthProvider.FACEBOOK, it, null, credential.str("fbName"), null))
             }
             credential.str("appleSub")?.let {
-                add(SocialCredential("apple", it, credential.str("appleEmail"), null, credential.str("appleTransferSub")))
+                add(SocialCredential(AuthProvider.APPLE, it, credential.str("appleEmail"), null, credential.str("appleTransferSub")))
             }
             credential.str("googleSub")?.let {
-                add(SocialCredential("google", it, credential.str("googleEmail"), null, null))
+                add(SocialCredential(AuthProvider.GOOGLE, it, credential.str("googleEmail"), null, null))
             }
             credential.str("kakaoSub")?.let {
-                add(SocialCredential("kakao", it, credential.str("kakaoEmail"), null, null))
+                add(SocialCredential(AuthProvider.KAKAO, it, credential.str("kakaoEmail"), null, null))
             }
         }
 

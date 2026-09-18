@@ -453,16 +453,15 @@ CREATE TABLE popup
 
 CREATE TABLE client_config
 (
-    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name                VARCHAR(64) NOT NULL,
-    value               TEXT        NOT NULL,
-    min_ios_version     VARCHAR(32) NULL,
-    max_ios_version     VARCHAR(32) NULL,
-    min_android_version VARCHAR(32) NULL,
-    max_android_version VARCHAR(32) NULL,
-    created_at          DATETIME(6) NOT NULL,
-    updated_at          DATETIME(6) NOT NULL,
-    INDEX idx_client_config_name (name)
+    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name        VARCHAR(64) NOT NULL,
+    os_type     VARCHAR(16) NOT NULL,
+    min_version VARCHAR(32) NULL,
+    max_version VARCHAR(32) NULL,
+    value       TEXT        NOT NULL,
+    created_at  DATETIME(6) NOT NULL,
+    updated_at  DATETIME(6) NOT NULL,
+    INDEX idx_client_config_name (name, os_type)
 );
 
 CREATE TABLE lecture_building

@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
@@ -560,9 +561,10 @@ class V1CompatConfigController(
     fun getConfigs(
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): Map<String, JsonNode> {
+        val osType = OsType.from(clientInfo.osType) ?: return emptyMap()
         val appVersion = clientInfo.appVersion ?: return emptyMap()
         return configService
-            .getConfigs(clientInfo.osType.lowercase(), appVersion)
+            .getConfigs(osType, appVersion)
             .associate { it.name to jsonMapper.readTree(it.value) }
     }
 }
