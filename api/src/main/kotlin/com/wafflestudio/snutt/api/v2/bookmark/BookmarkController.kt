@@ -1,17 +1,14 @@
 package com.wafflestudio.snutt.api.v2.bookmark
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
+import com.wafflestudio.snutt.api.v2.lecture.LectureResponse
+import com.wafflestudio.snutt.api.v2.lecture.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkDisplay
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,33 +22,7 @@ import org.springframework.web.bind.annotation.RestController
 data class BookmarkResponse(
     val year: Int,
     val semester: Semester,
-    val lectures: List<BookmarkLectureResponse>,
-)
-
-data class BookmarkLectureResponse(
-    val id: Long,
-    val courseId: Long?,
-    val academicYear: String?,
-    val category: String?,
-    val categoryPre2025: String?,
-    val classification: String?,
-    val courseNumber: String,
-    val lectureNumber: String,
-    val department: String?,
-    val quota: Int,
-    val freshmanQuota: Int?,
-    val courseTitle: String,
-    val instructor: String?,
-    val credit: Int,
-    val remark: String?,
-    val classPlaceAndTimes: List<BookmarkClassPlaceAndTimeResponse>,
-)
-
-data class BookmarkClassPlaceAndTimeResponse(
-    val day: Int,
-    val place: String,
-    val startMinute: Int,
-    val endMinute: Int,
+    val lectures: List<LectureResponse>,
 )
 
 private fun BookmarkDisplay.toResponse(
@@ -63,31 +34,6 @@ private fun BookmarkDisplay.toResponse(
     lectures = lectures.map { it.toResponse(classTimesMap[it.id].orEmpty(), language) },
 )
 
-private fun Lecture.toResponse(
-    classTimes: List<ClassPlaceAndTime>,
-    language: Language,
-) = BookmarkLectureResponse(
-    id = id!!,
-    courseId = courseId,
-    academicYear = language.select(academicYear, academicYearEn),
-    category = language.select(category, categoryEn),
-    categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
-    classification = language.select(classification, classificationEn),
-    courseNumber = courseNumber,
-    lectureNumber = lectureNumber,
-    department = language.select(department, departmentEn),
-    quota = quota,
-    freshmanQuota = freshmanQuota,
-    courseTitle = language.select(courseTitle, courseTitleEn),
-    instructor = language.select(instructor, instructorEn),
-    credit = credit,
-    remark = language.select(remark, remarkEn),
-    classPlaceAndTimes = classTimes.map { it.toResponse() },
-)
-
-private fun ClassPlaceAndTime.toResponse() =
-    BookmarkClassPlaceAndTimeResponse(day = day.value, place = place, startMinute = startMinute, endMinute = endMinute)
-
 @RestController
 @RequestMapping("/v2/bookmarks")
 class BookmarkController(
@@ -98,12 +44,11 @@ class BookmarkController(
     fun getBookmarks(
         @CurrentUserId userId: Long,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestAttribute clientInfo: ClientInfo,
     ): BookmarkResponse {
-        val display =
-            bookmarkService.getBookmark(userId, year, Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER))
-        val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
+        val display = bookmarkService.getBookmark(userId, year, semester)
+        val classTimesMap = lectureService.classTimesByLectureId(display.lectures.map { it.id!! })
         return display.toResponse(classTimesMap, clientInfo.language)
     }
 

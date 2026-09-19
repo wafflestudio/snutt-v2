@@ -4,8 +4,6 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseVocabularyRepository
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
@@ -57,11 +55,10 @@ class TagController(
     @GetMapping("/{year}/{semester}")
     fun getTagList(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
         @RequestAttribute clientInfo: ClientInfo,
     ): TagListResponse {
-        val parsedSemester = Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val vocabulary = lectureVocabularyService.getVocabulary(year, parsedSemester, clientInfo.language)
+        val vocabulary = lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
         return TagListResponse(
             classification = vocabulary.classification,
             department = vocabulary.department,

@@ -108,8 +108,9 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
         val send = post("/v2/users/me/email/verification", """{"email":"emailuser@snu.ac.kr"}""")
         assertEquals(200, send.statusCode.value())
         assertTrue(recordingMailClient.sentMails.isNotEmpty())
-        val (email, code) = recordingMailClient.sentMails[0]
-        assertEquals("emailuser@snu.ac.kr", email)
+        val mail = recordingMailClient.sentMails[0]
+        assertEquals("emailuser@snu.ac.kr", mail.to)
+        val code = codeOf(mail.subject)
         assertEquals(6, code.length)
 
         val wrong = post("/v2/users/me/email/verification/code", """{"code":"000000"}""")
@@ -142,7 +143,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, send.statusCode.value())
-        val code = recordingMailClient.sentMails[0].second
+        val code = codeOf(recordingMailClient.sentMails[0].subject)
 
         val verify =
             client()
@@ -155,4 +156,6 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, verify.statusCode.value())
         assertEquals(true, body(verify)["isEmailVerified"].asBoolean())
     }
+
+    private fun codeOf(subject: String): String = Regex("\\[(\\d{6})]").find(subject)!!.groupValues[1]
 }

@@ -14,7 +14,7 @@ data class PushPreferenceDto(
 )
 
 data class PushPreferenceItem(
-    val type: String,
+    val type: PushPreferenceType,
     val isEnabled: Boolean,
 )
 
@@ -24,30 +24,22 @@ class PushPreferenceService(
     private val userRepository: UserRepository,
 ) {
     fun getPushPreferences(userId: Long): PushPreferenceDto =
-        PushPreferenceDto(
-            pushPreferences = pushPreferenceRepository.findAllByUserId(userId).map { it.toItem() },
-        )
+        PushPreferenceDto(pushPreferenceRepository.findAllByUserId(userId).map { PushPreferenceItem(it.type, it.isEnabled) })
 
     @Transactional
     fun savePushPreferences(
         userId: Long,
         dto: PushPreferenceDto,
     ) {
-        val existing = pushPreferenceRepository.findAllByUserId(userId)
-        val requestedTypes = dto.pushPreferences.map { it.type }
-        pushPreferenceRepository.deleteAll(existing.filter { it.type.name !in requestedTypes })
+        val items = dto.pushPreferences
         val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        dto.pushPreferences.forEach { item ->
-            val type =
-                PushPreferenceType.entries.firstOrNull { it.name == item.type }
-                    ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-            val preference =
-                existing.firstOrNull { it.type == type }
-                    ?: PushPreference(user = user, type = type, isEnabled = item.isEnabled)
+        val existing = pushPreferenceRepository.findAllByUserId(userId).associateBy { it.type }
+        val requestedTypes = items.map { it.type }.toSet()
+        pushPreferenceRepository.deleteAll(existing.values.filter { it.type !in requestedTypes })
+        items.forEach { item ->
+            val preference = existing[item.type] ?: PushPreference(user = user, type = item.type)
             preference.isEnabled = item.isEnabled
             pushPreferenceRepository.save(preference)
         }
     }
-
-    private fun PushPreference.toItem() = PushPreferenceItem(type = type.name, isEnabled = isEnabled)
 }

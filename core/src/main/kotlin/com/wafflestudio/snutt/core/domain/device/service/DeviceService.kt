@@ -10,8 +10,6 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 class DeviceService(
@@ -50,7 +48,7 @@ class DeviceService(
         device.appType = clientInfo.appType
         device.appVersion = clientInfo.appVersion
         userDeviceRepository.save(device)
-        afterCommit { pushClient.subscribeGlobalTopic(registrationId) }
+        pushClient.subscribeGlobalTopic(registrationId)
     }
 
     @Transactional
@@ -62,21 +60,12 @@ class DeviceService(
             userDeviceRepository.findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
                 ?: return
         device.isDeleted = true
-        afterCommit { pushClient.unsubscribeGlobalTopic(registrationId) }
+        pushClient.unsubscribeGlobalTopic(registrationId)
     }
 
-    /** FCM이 무효하다고 응답한 토큰의 기기를 soft delete 한다. 보내는 쪽 트랜잭션이 이미 커밋된 뒤에 호출되므로 독립 트랜잭션으로 커밋한다. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun markDeletedByRegistrationIds(registrationIds: Collection<String>) {
         if (registrationIds.isEmpty()) return
         userDeviceRepository.markDeletedByFcmRegistrationIds(registrationIds)
-    }
-
-    private fun afterCommit(action: () -> Unit) {
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() = action()
-            },
-        )
     }
 }

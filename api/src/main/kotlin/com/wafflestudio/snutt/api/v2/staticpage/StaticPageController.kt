@@ -34,7 +34,6 @@ class StaticPageController(
     @GetMapping("/v2/static/terms-of-service", produces = ["text/html; charset=utf-8"])
     fun termsOfService(): ResponseEntity<Resource> = serve("terms_of_service.html")
 
-    // 루트 경로는 앱스토어 심사 링크 등 외부 참조 호환을 위해 영구 리다이렉트로 유지한다
     @GetMapping("/member")
     fun memberLegacy(): ResponseEntity<Void> = permanentRedirectTo("/v2/static/member")
 

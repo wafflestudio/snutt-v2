@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.batch.vacancy
 
+import com.wafflestudio.snutt.batch.BatchJob
+import com.wafflestudio.snutt.batch.YearSemesterArgs
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
@@ -14,26 +17,15 @@ import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationT
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.configuration.annotation.JobScope
-import org.springframework.batch.core.job.Job
-import org.springframework.batch.core.job.builder.JobBuilder
-import org.springframework.batch.core.repository.JobRepository
-import org.springframework.batch.core.step.Step
-import org.springframework.batch.core.step.builder.StepBuilder
-import org.springframework.batch.infrastructure.repeat.RepeatStatus
-import org.springframework.batch.infrastructure.support.transaction.ResourcelessTransactionManager
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
+import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-@Configuration
-class VacancyNotificationJobConfig(
-    private val jobRepository: JobRepository,
+@Component
+class VacancyNotificationJob(
     private val transactionManager: PlatformTransactionManager,
     private val lectureRepository: LectureRepository,
     private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
@@ -43,32 +35,15 @@ class VacancyNotificationJobConfig(
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val crawler: SugangSnuRegistrationStatusCrawler,
     private val clock: Clock,
-) {
+) : BatchJob {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Bean
-    fun vacancyNotificationJob(): Job =
-        JobBuilder(JOB_NAME, jobRepository)
-            .start(vacancyNotificationStep(null, null))
-            .build()
+    override val name = "vacancyNotification"
 
-    @Bean
-    @JobScope
-    fun vacancyNotificationStep(
-        @Value("#{jobParameters[year]}") year: Int?,
-        @Value("#{jobParameters[semester]}") semester: Int?,
-    ): Step =
-        StepBuilder("vacancyNotificationStep", jobRepository)
-            .tasklet(
-                { _, _ ->
-                    val coursebook = coursebookService.getLatestCoursebook()
-                    val targetYear = year ?: coursebook.year
-                    val targetSemester = semester?.let(Semester::getOfValue) ?: coursebook.semester
-                    runOnce(targetYear, targetSemester)
-                    RepeatStatus.FINISHED
-                },
-                ResourcelessTransactionManager(),
-            ).build()
+    override fun run(args: YearSemesterArgs) {
+        val coursebook = coursebookService.getLatestCoursebook()
+        runOnce(args.year ?: coursebook.year, args.semester ?: coursebook.semester)
+    }
 
     private fun runOnce(
         year: Int,
@@ -103,7 +78,6 @@ class VacancyNotificationJobConfig(
                 log.info("수강신청이 시작되지 않아 중단한다")
                 return
             }
-            // DB 변경은 청크 트랜잭션으로 커밋하고, 푸시는 커밋된 뒤에 보낸다(롤백 시 유령 알림 방지)
             val pendingPushes =
                 TransactionTemplate(transactionManager)
                     .execute { processChunk(lectureMap, storedStatuses, statuses, window) }
@@ -111,12 +85,9 @@ class VacancyNotificationJobConfig(
             pendingPushes.forEach { push ->
                 pushService.sendPushAndNotification(
                     userIds = push.userIds,
-                    title = push.title,
-                    body = push.body,
+                    message = PushMessage(push.title, push.body, urlScheme = "snutt://vacancy", isUrgentOnAndroid = true),
                     type = NotificationType.LECTURE_VACANCY,
                     preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
-                    urlScheme = "snutt://vacancy",
-                    isUrgentOnAndroid = true,
                 )
             }
             Thread.sleep(DELAY_PER_CHUNK_MS)
@@ -202,7 +173,6 @@ class VacancyNotificationJobConfig(
             ?.let { RegistrationWindow(it.phase, it.vacantSeatRegistrationTimes) }
     }
 
-    // 1학기 재학생 선착순 기간에는 신입생 몫이 정원에서 빠져 있다
     private fun Lecture.effectiveQuota(phase: RegistrationPhase): Int =
         if (semester == Semester.SPRING && phase == RegistrationPhase.CURRENT_STUDENT) {
             quota - (freshmanQuota ?: 0)
@@ -211,7 +181,6 @@ class VacancyNotificationJobConfig(
         }
 
     companion object {
-        const val JOB_NAME = "vacancyNotificationJob"
         private const val DELAY_PER_CHUNK_MS = 300L
         private val KST: ZoneId = ZoneId.of("Asia/Seoul")
     }

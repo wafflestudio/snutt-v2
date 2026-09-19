@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.common.pagination.toCursorPage
+import com.wafflestudio.snutt.core.common.util.CopyTitle
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
@@ -49,11 +50,6 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay = displays(listOf(findThemeAvailableToUser(userId, themeId)), getDefaultThemeId(userId)).getValue(themeId)
-
-    fun getAvailableTheme(
-        userId: Long,
-        themeId: Long,
-    ): TimetableThemeDisplay = displays(listOf(findThemeAvailableToUser(userId, themeId))).getValue(themeId)
 
     fun getThemesByIds(themeIds: Collection<Long>): Map<Long, TimetableThemeDisplay> =
         displays(timetableThemeRepository.findAllById(themeIds.distinct()))
@@ -99,18 +95,7 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableThemeDisplay {
         val source = getTheme(userId, themeId)
-        val baseName = source.name.replace(COPY_NUMBER, "")
-        val numberedCopy = Regex("^${Regex.escape(baseName)} \\((\\d+)\\)$")
-        val lastNumber =
-            getThemes(userId)
-                .mapNotNull {
-                    numberedCopy
-                        .matchEntire(it.name)
-                        ?.groupValues
-                        ?.get(1)
-                        ?.toIntOrNull()
-                }.maxOrNull() ?: 0
-        return addTheme(userId, "$baseName (${lastNumber + 1})", source.colors)
+        return addTheme(userId, CopyTitle.next(source.name, getThemes(userId).map { it.name }), source.colors)
     }
 
     @Transactional
@@ -169,32 +154,13 @@ class TimetableThemeService(
     private fun builtinTheme(code: String): TimetableTheme =
         timetableThemeRepository.findByBuiltinCode(code) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
 
-    fun findThemeAvailableToUser(
+    private fun findThemeAvailableToUser(
         userId: Long,
         themeId: Long,
     ): TimetableTheme =
         (timetableThemeRepository.findByIdOrNull(themeId) ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)).also {
             if (it.kind != ThemeKind.BUILTIN && it.userId != userId) throw SnuttException(ErrorType.THEME_NOT_FOUND)
         }
-
-    fun newPaletteIndex(
-        themeId: Long,
-        usedIndices: List<Int>,
-    ): Int {
-        val size = getThemesByIds(listOf(themeId)).getValue(themeId).colors.size
-        val counts = (0 until size).associateWith { index -> usedIndices.count { it == index } }
-        val least = counts.minOf { it.value }
-        return counts.filterValues { it == least }.keys.random()
-    }
-
-    fun validatePaletteIndex(
-        themeId: Long,
-        index: Int,
-    ) {
-        if (index !in getThemesByIds(listOf(themeId)).getValue(themeId).colors.indices) {
-            throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
-        }
-    }
 
     @Transactional
     fun publishTheme(
@@ -279,10 +245,7 @@ class TimetableThemeService(
                 userIds,
                 after?.downloadCount,
                 after?.publicationId,
-                PageRequest.of(
-                    0,
-                    PAGE_SIZE + 1,
-                ),
+                PageRequest.of(0, PAGE_SIZE + 1),
             ).toPublicationPage()
     }
 
@@ -353,6 +316,5 @@ class TimetableThemeService(
 
     companion object {
         private const val PAGE_SIZE = 20
-        private val COPY_NUMBER = """\s\(\d+\)$""".toRegex()
     }
 }

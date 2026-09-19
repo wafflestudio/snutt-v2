@@ -1,8 +1,6 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
@@ -39,7 +37,6 @@ data class LegacySocialAccounts(
     val facebookName: String?,
 )
 
-/** 관리자 도구는 /v2/admin 으로 옮겼다. 여기에는 구 경로의 조회만 남는다. */
 @RestController
 @V1AdminOnly
 @RequestMapping("/v1/admin", "/admin")
@@ -54,8 +51,8 @@ class V1AdminController(
     @GetMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
-    ): SemesterRegistrationPeriod? = semesterRegistrationPeriodService.getByYearAndSemester(year, parseSemester(semester))
+        @PathVariable semester: Semester,
+    ): SemesterRegistrationPeriod? = semesterRegistrationPeriodService.getByYearAndSemester(year, semester)
 
     @GetMapping("/users/search")
     fun searchUsersByEmail(
@@ -89,6 +86,4 @@ class V1AdminController(
 
     @GetMapping("/diary/questions")
     fun getDiaryQuestions(): List<DiaryQuestion> = diaryService.getActiveQuestions()
-
-    private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

@@ -141,7 +141,6 @@ class CatalogStep(
         val ids =
             com.wafflestudio.snutt.migration
                 .IdSequence()
-        // 구 스키마는 한 행이 두 OS의 버전 범위를 함께 들고 있었다. OS별 행으로 나눈다
         writer(
             "client_config",
             listOf(

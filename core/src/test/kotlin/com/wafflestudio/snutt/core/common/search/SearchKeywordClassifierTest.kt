@@ -5,11 +5,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class SearchKeywordClassifierTest {
-    private val classifier =
-        SearchKeywordClassifier(
-            placePattern = Regex("""^(?:|#|\*)\d+(?:-\d+|-[a-zA-Z])?-[a-zA-Z]?\d+[a-zA-Z]?(?:-\d+)?$"""),
-            buildingPattern = Regex("""^(?:|#|\*)\d+(?:-\d+)?동$"""),
-        )
+    private val classifier = SearchKeywordClassifier
 
     @Test
     fun emptyKeyword() {

@@ -2,20 +2,12 @@ package com.wafflestudio.snutt.api.v2.lecture
 
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.core.common.client.ClientInfo
-import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
-import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
@@ -26,9 +18,11 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+const val MAX_SEARCH_PAGE_SIZE = 100L
+
 data class LectureSearchRequest(
     val year: Int,
-    val semester: Int,
+    val semester: Semester,
     val query: String? = null,
     val classification: List<String>? = null,
     val credit: List<Int>? = null,
@@ -38,94 +32,17 @@ data class LectureSearchRequest(
     val category: List<String>? = null,
     val categoryPre2025: List<String>? = null,
     val etcTags: List<String>? = null,
-    val times: List<SearchTimeRequest>? = null,
-    val timesToExclude: List<SearchTimeRequest>? = null,
+    val times: List<SearchTime>? = null,
+    val timesToExclude: List<SearchTime>? = null,
     val cursor: String? = null,
     @field:Min(1) @field:Max(MAX_SEARCH_PAGE_SIZE) val limit: Int = 20,
     val sort: String? = null,
 )
 
-const val MAX_SEARCH_PAGE_SIZE = 100L
-
-data class SearchTimeRequest(
-    val day: Int,
-    val startMinute: Int,
-    val endMinute: Int,
-)
-
-data class LectureResponse(
-    val id: Long,
-    val courseId: Long?,
-    val year: Int,
-    val semester: Semester,
-    val courseNumber: String,
-    val lectureNumber: String,
-    val courseTitle: String,
-    val instructor: String?,
-    val department: String?,
-    val academicYear: String?,
-    val category: String?,
-    val categoryPre2025: String?,
-    val classification: String?,
-    val credit: Int,
-    val quota: Int,
-    val freshmanQuota: Int?,
-    val remark: String?,
-    val classPlaceAndTimes: List<ClassPlaceAndTimeResponse>,
-    val evaluationSummary: LectureEvSummaryResponse?,
-)
-
-data class LectureEvSummaryResponse(
-    val avgRating: Double?,
-    val evalCount: Long,
-)
-
-data class ClassPlaceAndTimeResponse(
-    val day: DayOfWeek,
-    val place: String,
-    val startMinute: Int,
-    val endMinute: Int,
-)
-
-private fun Lecture.toResponse(
-    classTimes: List<ClassPlaceAndTime>,
-    language: Language,
-    evaluationSummary: LectureEvSummaryResponse? = null,
-) = LectureResponse(
-    id = id!!,
-    courseId = courseId,
-    year = year,
-    semester = semester,
-    courseNumber = courseNumber,
-    lectureNumber = lectureNumber,
-    courseTitle = language.select(courseTitle, courseTitleEn),
-    instructor = language.select(instructor, instructorEn),
-    department = language.select(department, departmentEn),
-    academicYear = language.select(academicYear, academicYearEn),
-    category = language.select(category, categoryEn),
-    categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
-    classification = language.select(classification, classificationEn),
-    credit = credit,
-    quota = quota,
-    freshmanQuota = freshmanQuota,
-    remark = language.select(remark, remarkEn),
-    classPlaceAndTimes = classTimes.map { it.toResponse() },
-    evaluationSummary = evaluationSummary,
-)
-
-private fun ClassPlaceAndTime.toResponse() =
-    ClassPlaceAndTimeResponse(
-        day = day,
-        place = place,
-        startMinute = startMinute,
-        endMinute = endMinute,
-    )
-
 @RestController
 @RequestMapping("/v2/lectures")
 class LectureController(
     private val lectureService: LectureService,
-    private val evaluationService: EvaluationService,
 ) {
     @Public
     @PostMapping("/search")
@@ -136,7 +53,7 @@ class LectureController(
         val criteria =
             LectureSearchCriteria(
                 year = request.year,
-                semester = parseSemester(request.semester),
+                semester = request.semester,
                 language = clientInfo.language,
                 query = request.query,
                 classification = request.classification,
@@ -147,27 +64,18 @@ class LectureController(
                 category = request.category,
                 categoryPre2025 = request.categoryPre2025?.map { LectureCategoryPre2025.toKorean(it) },
                 etcTags = request.etcTags,
-                times = request.times?.map { parseSearchTime(it) },
-                timesToExclude = request.timesToExclude?.map { parseSearchTime(it) },
+                times = request.times,
+                timesToExclude = request.timesToExclude,
                 sort = LectureSort.fromParameter(request.sort),
             )
         val page = lectureService.search(criteria, request.cursor, request.limit)
-        val rows = page.content
-        val lectures = rows.map { it.lecture }
-        val classTimesMap = lectureService.classTimesByLectureId(lectures.mapNotNull { it.id })
+        val classTimesMap = lectureService.classTimesByLectureId(page.content.map { it.lecture.id!! })
         return page.map { row ->
-            val classTimes = classTimesMap[row.lecture.id].orEmpty()
-            val evaluationSummary =
-                LectureEvSummaryResponse(avgRating = row.avgRating, evalCount = row.evalCount)
-            row.lecture.toResponse(classTimes, clientInfo.language, evaluationSummary)
+            row.lecture.toResponse(
+                classTimesMap[row.lecture.id].orEmpty(),
+                clientInfo.language,
+                LectureEvSummaryResponse(avgRating = row.avgRating, evalCount = row.evalCount),
+            )
         }
-    }
-
-    private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-
-    private fun parseSearchTime(time: SearchTimeRequest): SearchTime {
-        val day =
-            DayOfWeek.getOfValue(time.day) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return SearchTime(day = day, startMinute = time.startMinute, endMinute = time.endMinute)
     }
 }

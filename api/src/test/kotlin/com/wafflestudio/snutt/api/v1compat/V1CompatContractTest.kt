@@ -122,9 +122,22 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
             .builder()
             .baseUrl("http://localhost:$port")
             .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-access-apikey", "test-ios-key")
+            .defaultHeader("x-access-apikey", legacyApiKey("ios", "0"))
             .defaultHeader("Content-Type", "application/json")
             .build()
+
+    private fun legacyApiKey(
+        platform: String,
+        keyVersion: String,
+    ): String =
+        Jwts
+            .builder()
+            .claim("string", platform)
+            .claim("key_version", keyVersion)
+            .signWith(
+                SecretKeySpec("test-legacy-secret-key-0123456789abcdef".toByteArray(), "HmacSHA256"),
+                Jwts.SIG.HS256,
+            ).compact()
 
     private fun post(
         uri: String,
@@ -178,19 +191,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `구 백엔드 apikey JWT로 v1 API를 호출할 수 있다`() {
-        fun legacyApiKey(
-            platform: String,
-            keyVersion: String,
-        ): String =
-            Jwts
-                .builder()
-                .claim("string", platform)
-                .claim("key_version", keyVersion)
-                .signWith(
-                    SecretKeySpec("test-legacy-secret-key-0123456789abcdef".toByteArray(), "HmacSHA256"),
-                    Jwts.SIG.HS256,
-                ).compact()
-
         fun callWith(apiKey: String): ResponseEntity<String> =
             RestClient
                 .builder()

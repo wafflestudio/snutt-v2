@@ -20,8 +20,6 @@ enum class Semester(
 
         @JsonCreator
         fun fromValue(value: Int): Semester = valueMap[value] ?: throw IllegalArgumentException("unknown semester value: $value")
-
-        fun getOfValue(value: Int): Semester? = valueMap[value]
     }
 }
 

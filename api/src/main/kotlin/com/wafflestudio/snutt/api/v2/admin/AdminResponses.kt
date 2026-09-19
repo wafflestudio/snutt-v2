@@ -9,7 +9,6 @@ import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
 data class AdminConfigResponse(
     val id: Long,
@@ -60,12 +59,12 @@ data class AdminDiaryQuestionResponse(
     val updatedAt: Long,
 )
 
-internal fun ClientConfig.toResponse(mapper: JsonMapper) =
+internal fun ClientConfig.toResponse() =
     AdminConfigResponse(
         id = checkNotNull(id),
         name = name,
         osType = osType,
-        value = mapper.readTree(value),
+        value = value,
         minVersion = minVersion,
         maxVersion = maxVersion,
         createdAt = checkNotNull(createdAt).toEpochMilli(),

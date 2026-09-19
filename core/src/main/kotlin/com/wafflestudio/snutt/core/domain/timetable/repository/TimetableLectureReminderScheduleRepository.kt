@@ -12,7 +12,6 @@ interface TimetableLectureReminderScheduleRepository : JpaRepository<TimetableLe
 
     fun deleteByReminderId(reminderId: Long)
 
-    // day/minute 복합 인덱스로 스케줄러가 발화 대상 스케줄을 범위 조회한다
     @Query(
         "SELECT s.reminderId FROM TimetableLectureReminderSchedule s " +
             "WHERE s.day = :day AND s.minute BETWEEN :startMinute AND :endMinute",

@@ -33,16 +33,7 @@ enum class TimetableLectureReminderOption(
     ;
 
     companion object {
-        const val TIME_WINDOW_MINUTES = 10L
-
-        fun fromOffsetMinutes(offsetMinutes: Int?): TimetableLectureReminderOption =
-            when (offsetMinutes) {
-                null -> NONE
-                -10 -> TEN_MINUTES_BEFORE
-                0 -> ZERO_MINUTE
-                10 -> TEN_MINUTES_AFTER
-                else -> throw IllegalArgumentException("Invalid offsetMinutes: $offsetMinutes")
-            }
+        fun fromOffsetMinutes(offsetMinutes: Int?): TimetableLectureReminderOption = entries.first { it.offsetMinutes == offsetMinutes }
     }
 }
 
@@ -70,6 +61,15 @@ class TimetableLectureReminderService(
 
     private companion object {
         const val TIME_WINDOW_MINUTES = 10L
+        const val LAST_MINUTE_OF_DAY = 1439
+    }
+
+    private data class DueWindow(
+        val day: DayOfWeek,
+        val startMinute: Int,
+        val endMinute: Int,
+    ) {
+        fun contains(schedule: Schedule): Boolean = schedule.day == day && schedule.minute in startMinute..endMinute
     }
 
     @Transactional
@@ -79,71 +79,68 @@ class TimetableLectureReminderService(
     ): List<DueReminderPush> {
         cleanupPastSemesterReminders(now, current)
         val lastNotifiedBefore = now.toInstant().minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
-        val pushes = mutableListOf<DueReminderPush>()
-        dueWindows(now).forEach { window ->
-            val reminderIds =
-                timetableLectureReminderScheduleRepository.findReminderIdsByFireInRange(
-                    DayOfWeek.getOfValue(window.day)!!,
-                    window.startMinute,
-                    window.endMinute,
-                )
-            if (reminderIds.isEmpty()) return@forEach
-            val reminders = timetableLectureReminderRepository.findAllById(reminderIds.toSet())
-            val schedulesByReminderId =
-                timetableLectureReminderScheduleRepository.findByReminderIdIn(reminderIds).groupBy { it.reminderId }
-            val batch = reminderBatch(reminders, current)
-            reminders.forEach { reminder ->
-                collect(
-                    reminder,
-                    schedulesByReminderId[reminder.id].orEmpty(),
-                    batch,
-                    now,
-                    listOf(window),
-                    lastNotifiedBefore,
-                )?.let { pushes += it }
-            }
-        }
-        return pushes
+        return dueWindows(now).flatMap { window -> processWindow(window, now, current, lastNotifiedBefore) }
     }
 
-    private fun reminderBatch(
-        reminders: List<TimetableLectureReminder>,
+    private fun processWindow(
+        window: DueWindow,
+        now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
-    ): ReminderBatch {
+        lastNotifiedBefore: Instant,
+    ): List<DueReminderPush> {
+        val reminderIds =
+            timetableLectureReminderScheduleRepository.findReminderIdsByFireInRange(window.day, window.startMinute, window.endMinute)
+        if (reminderIds.isEmpty()) return emptyList()
+        val reminders = timetableLectureReminderRepository.findAllById(reminderIds.toSet())
+        val schedulesByReminderId =
+            timetableLectureReminderScheduleRepository.findByReminderIdIn(reminderIds).groupBy { it.reminderId }
         val timetableLecturesById =
             timetableLectureRepository.findAllById(reminders.map { it.timetableLectureId }).associateBy { it.id!! }
-        // 구 노티파이어와 동일하게 대표 시간표의 리마인더만 보낸다
         val timetablesById =
             timetableRepository
                 .findAllById(timetableLecturesById.values.map { it.timetableId })
                 .filter { it.isPrimary && it.year == current.year && it.semester == current.semester }
                 .associateBy { it.id!! }
-        val displaysByTimetableId =
-            timetableService.displaysOf(timetablesById.values.toList()).mapValues { it.value.lectures }
-        return ReminderBatch(timetableLecturesById, timetablesById, displaysByTimetableId)
+        val displaysByTimetableId = timetableService.displaysOf(timetablesById.values.toList())
+
+        return reminders.mapNotNull { reminder ->
+            val timetableLecture = timetableLecturesById[reminder.timetableLectureId] ?: return@mapNotNull null
+            val timetable = timetablesById[timetableLecture.timetableId] ?: return@mapNotNull null
+            val dueSchedules =
+                schedulesByReminderId[reminder.id].orEmpty().filter { schedule ->
+                    window.contains(schedule.toSchedule()) &&
+                        (schedule.recentNotifiedAt?.isBefore(lastNotifiedBefore) ?: true)
+                }
+            if (dueSchedules.isEmpty()) return@mapNotNull null
+            val courseTitle =
+                displaysByTimetableId
+                    .getValue(timetable.id!!)
+                    .lectures
+                    .firstOrNull { it.id == timetableLecture.id }
+                    ?.courseTitle ?: return@mapNotNull null
+            dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
+            timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
+            DueReminderPush(userId = timetable.userId, body = reminderBody(courseTitle, reminder.offsetMinutes))
+        }
     }
 
-    private data class DueWindow(
-        val day: Int,
-        val startMinute: Int,
-        val endMinute: Int,
-    ) {
-        fun contains(schedule: Schedule): Boolean = schedule.day.value == day && schedule.minute in startMinute..endMinute
-    }
-
-    private data class ReminderBatch(
-        val timetableLecturesById: Map<Long, TimetableLecture>,
-        val timetablesById: Map<Long, Timetable>,
-        val displaysByTimetableId: Map<Long, List<TimetableLectureDisplay>>,
-    )
+    private fun reminderBody(
+        courseTitle: String,
+        offsetMinutes: Int,
+    ): String =
+        when {
+            offsetMinutes == 0 -> "$courseTitle 강의 시간이에요."
+            offsetMinutes > 0 -> "$courseTitle 강의 시작 ${offsetMinutes}분 후예요."
+            else -> "$courseTitle 강의 시작 ${-offsetMinutes}분 전이에요."
+        }
 
     private fun dueWindows(now: ZonedDateTime): List<DueWindow> {
         val end = Schedule.fromInstant(now.toInstant())
         val start = end.plusMinutes(-TIME_WINDOW_MINUTES.toInt())
         return if (start.day == end.day) {
-            listOf(DueWindow(end.day.value, start.minute, end.minute))
+            listOf(DueWindow(end.day, start.minute, end.minute))
         } else {
-            listOf(DueWindow(start.day.value, start.minute, 1439), DueWindow(end.day.value, 0, end.minute))
+            listOf(DueWindow(start.day, start.minute, LAST_MINUTE_OF_DAY), DueWindow(end.day, 0, end.minute))
         }
     }
 
@@ -153,44 +150,9 @@ class TimetableLectureReminderService(
     ) {
         val last = lastCleanupAt
         if (last != null && now.toInstant().isBefore(last.plus(Duration.ofHours(1)))) return
-        val deleted =
-            timetableLectureReminderRepository.deleteByPastSemesters(current.year, current.semester.value)
+        val deleted = timetableLectureReminderRepository.deleteByPastSemesters(current.year, current.semester.value)
         if (deleted > 0) log.info("과거 학기 리마인더 정리: {}건", deleted)
         lastCleanupAt = now.toInstant()
-    }
-
-    private fun collect(
-        reminder: TimetableLectureReminder,
-        schedules: List<TimetableLectureReminderSchedule>,
-        batch: ReminderBatch,
-        now: ZonedDateTime,
-        windows: List<DueWindow>,
-        lastNotifiedBefore: Instant,
-    ): DueReminderPush? {
-        val timetableLecture = batch.timetableLecturesById[reminder.timetableLectureId] ?: return null
-        val timetable = batch.timetablesById[timetableLecture.timetableId] ?: return null
-
-        val dueSchedules =
-            schedules.filter { schedule ->
-                val lastNotified = schedule.recentNotifiedAt
-                windows.any { it.contains(schedule.toSchedule()) } &&
-                    (lastNotified == null || lastNotified.isBefore(lastNotifiedBefore))
-            }
-        if (dueSchedules.isEmpty()) return null
-        val courseTitle =
-            batch.displaysByTimetableId[timetable.id]
-                ?.firstOrNull { it.id == timetableLecture.id }
-                ?.courseTitle ?: return null
-        val body =
-            when {
-                reminder.offsetMinutes == 0 -> "$courseTitle 강의 시간이에요."
-                reminder.offsetMinutes > 0 -> "$courseTitle 강의 시작 ${reminder.offsetMinutes}분 후예요."
-                else -> "$courseTitle 강의 시작 ${-reminder.offsetMinutes}분 전이에요."
-            }
-
-        dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
-        timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
-        return DueReminderPush(userId = timetable.userId, body = body)
     }
 
     fun getReminder(
@@ -203,31 +165,25 @@ class TimetableLectureReminderService(
         return TimetableLectureReminderDisplay(
             timetableLectureId = timetableLecture.id!!,
             courseTitle = display.courseTitle,
-            option =
-                reminder?.let { TimetableLectureReminderOption.fromOffsetMinutes(it.offsetMinutes) } ?: TimetableLectureReminderOption.NONE,
+            option = TimetableLectureReminderOption.fromOffsetMinutes(reminder?.offsetMinutes),
         )
     }
 
     fun getReminders(
         userId: Long,
         timetableId: Long,
-    ): List<TimetableLectureReminderDisplay> = getReminders(timetableService.getTimetable(userId, timetableId))
-
-    private fun getReminders(timetable: Timetable): List<TimetableLectureReminderDisplay> {
+    ): List<TimetableLectureReminderDisplay> {
+        val timetable = timetableService.getTimetable(userId, timetableId)
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
         val reminders =
             timetableLectureReminderRepository
-                .findByTimetableLectureIdIn(lectures.mapNotNull { it.id })
+                .findByTimetableLectureIdIn(lectures.map { it.id!! })
                 .associateBy { it.timetableLectureId }
-        val displays = timetableService.displayOf(timetable).lectures
-        return displays.map { display ->
+        return timetableService.displayOf(timetable).lectures.map { display ->
             TimetableLectureReminderDisplay(
                 timetableLectureId = display.id,
                 courseTitle = display.courseTitle,
-                option =
-                    reminders[display.id]?.let {
-                        TimetableLectureReminderOption.fromOffsetMinutes(it.offsetMinutes)
-                    } ?: TimetableLectureReminderOption.NONE,
+                option = TimetableLectureReminderOption.fromOffsetMinutes(reminders[display.id]?.offsetMinutes),
             )
         }
     }
@@ -241,28 +197,17 @@ class TimetableLectureReminderService(
     ): TimetableLectureReminderDisplay {
         val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableId, timetableLectureId)
         if (display.classPlaceAndTimes.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
+        val existing = timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
+        val offsetMinutes = option.offsetMinutes
 
-        if (option == TimetableLectureReminderOption.NONE) {
-            timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)?.let {
-                deleteReminder(it)
-            }
-            return TimetableLectureReminderDisplay(
-                timetableLecture.id!!,
-                display.courseTitle,
-                TimetableLectureReminderOption.NONE,
-            )
+        if (offsetMinutes == null) {
+            existing?.let { deleteReminder(it) }
+        } else {
+            val reminder =
+                existing ?: timetableLectureReminderRepository.save(TimetableLectureReminder(timetableLecture.id!!, offsetMinutes))
+            reminder.offsetMinutes = offsetMinutes
+            replaceSchedules(reminder.id!!, schedulesOf(display.classPlaceAndTimes, offsetMinutes))
         }
-
-        val offsetMinutes = checkNotNull(option.offsetMinutes)
-        val schedules = display.classPlaceAndTimes.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }
-        val reminder =
-            timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
-                ?: TimetableLectureReminder(
-                    timetableLectureId = timetableLecture.id!!,
-                    offsetMinutes = offsetMinutes,
-                ).also { timetableLectureReminderRepository.save(it) }
-        reminder.offsetMinutes = offsetMinutes
-        replaceSchedules(reminder.id!!, schedules)
         return TimetableLectureReminderDisplay(timetableLecture.id!!, display.courseTitle, option)
     }
 
@@ -276,12 +221,13 @@ class TimetableLectureReminderService(
             deleteReminder(reminder)
             return
         }
-        val newSchedules =
-            times.map { classTime ->
-                Schedule(classTime.day, classTime.startMinute).plusMinutes(reminder.offsetMinutes)
-            }
-        replaceSchedules(reminder.id!!, newSchedules)
+        replaceSchedules(reminder.id!!, schedulesOf(times, reminder.offsetMinutes))
     }
+
+    private fun schedulesOf(
+        times: List<ClassPlaceAndTime>,
+        offsetMinutes: Int,
+    ): List<Schedule> = times.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }
 
     private fun deleteReminder(reminder: TimetableLectureReminder) {
         timetableLectureReminderScheduleRepository.deleteByReminderId(reminder.id!!)
@@ -295,13 +241,11 @@ class TimetableLectureReminderService(
         val existing =
             timetableLectureReminderScheduleRepository
                 .findByReminderId(reminderId)
-                .associateBy { it.day to it.minute }
+                .associateBy { it.toSchedule() }
         timetableLectureReminderScheduleRepository.deleteByReminderId(reminderId)
         timetableLectureReminderScheduleRepository.saveAll(
             schedules.map { schedule ->
-                existing[schedule.day to schedule.minute]
-                    ?.let { prev -> TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, prev.recentNotifiedAt) }
-                    ?: TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute)
+                TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, existing[schedule]?.recentNotifiedAt)
             },
         )
     }
@@ -313,11 +257,7 @@ class TimetableLectureReminderService(
     ): Pair<TimetableLecture, TimetableLectureDisplay> {
         val timetable = timetableService.getTimetable(userId, timetableId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
-        val display =
-            timetableService
-                .displayOf(timetable)
-                .lectures
-                .first { it.id == timetableLecture.id }
+        val display = timetableService.displayOf(timetable).lectures.first { it.id == timetableLecture.id }
         return timetableLecture to display
     }
 

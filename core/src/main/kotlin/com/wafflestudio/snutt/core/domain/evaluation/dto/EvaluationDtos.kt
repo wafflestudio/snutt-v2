@@ -1,9 +1,11 @@
 package com.wafflestudio.snutt.core.domain.evaluation.dto
 
+import com.wafflestudio.snutt.core.common.enums.Semester
+
 data class EvaluationCursor(
     val sort: EvaluationSort,
     val year: Int,
-    val semester: Int,
+    val semester: Semester,
     val evaluationId: Long,
     val likeCount: Long? = null,
 )

@@ -46,8 +46,6 @@ class V1CompatTakenLectureController(
     private val takenLectureService: TakenLectureService,
     private val legacyCourseRepository: LegacyCourseRepository,
 ) {
-    // 구 백엔드는 클라이언트 요청을 가로채 서버 시간표에서 최근 2개 학기 강의를 조립해
-    // snutt-ev에 전달했다. 클라이언트는 snutt_lecture_info를 보내지 않는다.
     @GetMapping("/users/me/lectures/latest")
     fun getMyLatestLectures(
         @V1CurrentUser user: User,
@@ -135,7 +133,6 @@ data class LegacySemesterLectureDto(
     val myEvaluationExists: Boolean,
 )
 
-/** 구 ev 의 lecture 는 학기 구분이 없는 과목 단위였다. v2 의 course 가 그것이고 id 도 그대로 이어받았다. */
 data class LegacyLectureIdResponse(
     val id: Long,
     val snuttId: String? = null,

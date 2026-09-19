@@ -21,7 +21,6 @@ class SchedulerLock(
         try {
             block()
         } finally {
-            // 실행이 TTL을 넘겨 타 인스턴스가 잠금을 선점한 경우 그 잠금을 지우지 않도록 자신의 것만 해제한다
             redisTemplate.execute(UNLOCK_SCRIPT, listOf(lockKey), token)
         }
     }

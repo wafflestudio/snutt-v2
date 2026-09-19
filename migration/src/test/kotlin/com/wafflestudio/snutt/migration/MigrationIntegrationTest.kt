@@ -15,7 +15,6 @@ import com.wafflestudio.snutt.migration.step.TimetableStep
 import com.wafflestudio.snutt.migration.step.UserDataStep
 import com.wafflestudio.snutt.migration.step.UserStep
 import com.wafflestudio.snutt.migration.step.ValidateStep
-import com.wafflestudio.snutt.v1compat.config.V1CompatSchemaInitializer
 import org.bson.Document
 import org.bson.types.ObjectId
 import org.flywaydb.core.Flyway
@@ -63,15 +62,6 @@ class MigrationIntegrationTest {
             .configure()
             .dataSource(targetMysql.jdbcUrl, targetMysql.username, targetMysql.password)
             .locations("classpath:db/migration")
-            .load()
-            .migrate()
-        Flyway
-            .configure()
-            .dataSource(targetMysql.jdbcUrl, targetMysql.username, targetMysql.password)
-            .locations(V1CompatSchemaInitializer.LOCATION)
-            .table(V1CompatSchemaInitializer.HISTORY_TABLE)
-            .baselineOnMigrate(true)
-            .baselineVersion("0")
             .load()
             .migrate()
 

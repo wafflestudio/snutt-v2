@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.v1compat.auth
 
-import com.wafflestudio.snutt.core.common.client.ClientInfo
-import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.PlatformKeys
+import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import jakarta.servlet.http.HttpServletRequest
@@ -59,25 +59,15 @@ class V1UserAuthInterceptor(
 
 @Component
 class V1ApiKeyInterceptor(
-    @Value("\${snutt.auth.platform-keys}") platformKeysConfig: String,
+    private val platformKeys: PlatformKeys,
     @Value("\${snutt.auth.legacy-secret-key:}") legacySecretKey: String,
 ) : HandlerInterceptor {
-    private val platformKeys: Map<String, String> =
-        platformKeysConfig
-            .split(",")
-            .filter { it.isNotBlank() }
-            .associate { entry ->
-                val (platform, key) = entry.split(":", limit = 2)
-                platform.trim() to key.trim()
-            }
-
     private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey)
 
     companion object {
         const val CLIENT_INFO_ATTRIBUTE = "v1compat.clientInfo"
-        private const val PLATFORM_HEADER = "x-client-platform"
-        private const val KEY_HEADER = "x-client-key"
-        private val LEGACY_KEY_VERSIONS = mapOf("ios" to "0", "web" to "0", "android" to "0", "test" to "0")
+        private const val LEGACY_KEY_VERSION = "0"
+        private val LEGACY_PLATFORMS = setOf("ios", "web", "android", "test")
     }
 
     override fun preHandle(
@@ -86,32 +76,19 @@ class V1ApiKeyInterceptor(
         handler: Any,
     ): Boolean {
         val apiKey = request.getHeader("x-access-apikey")
-        if (apiKey != null) {
-            if (apiKey !in platformKeys.values && !isLegacyApiKey(apiKey)) throw SnuttException(ErrorType.WRONG_API_KEY)
-        } else {
-            val platform = request.getHeader(PLATFORM_HEADER) ?: throw SnuttException(ErrorType.WRONG_API_KEY)
-            val key = request.getHeader(KEY_HEADER) ?: throw SnuttException(ErrorType.WRONG_API_KEY)
-            if (platformKeys[platform] != key) throw SnuttException(ErrorType.WRONG_API_KEY)
-        }
-        request.setAttribute(CLIENT_INFO_ATTRIBUTE, request.toClientInfo())
+        val authorized =
+            if (apiKey != null) {
+                isLegacyApiKey(apiKey)
+            } else {
+                platformKeys.matches(request.getHeader("x-client-platform"), request.getHeader("x-client-key"))
+            }
+        if (!authorized) throw SnuttException(ErrorType.WRONG_API_KEY)
+        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, defaultOsType = "unknown"))
         return true
     }
 
     private fun isLegacyApiKey(apiKey: String): Boolean {
         val claims = legacyApiKeyVerifier.claimsOf(apiKey) ?: return false
-        val platform = claims["string"]?.toString() ?: return false
-        val keyVersion = claims["key_version"]?.toString() ?: return false
-        return LEGACY_KEY_VERSIONS[platform] == keyVersion
+        return claims["string"] in LEGACY_PLATFORMS && claims["key_version"]?.toString() == LEGACY_KEY_VERSION
     }
-
-    private fun HttpServletRequest.toClientInfo() =
-        ClientInfo(
-            osType = getHeader("x-os-type") ?: "unknown",
-            osVersion = getHeader("x-os-version"),
-            appType = getHeader("x-app-type"),
-            appVersion = getHeader("x-app-version"),
-            deviceId = getHeader("x-device-id"),
-            deviceModel = getHeader("x-device-model"),
-            language = Language.from(getHeader("x-language")) ?: Language.KO,
-        )
 }

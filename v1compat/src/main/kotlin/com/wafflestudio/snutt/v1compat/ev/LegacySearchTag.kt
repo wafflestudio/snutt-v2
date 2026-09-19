@@ -74,7 +74,8 @@ class LegacySearchTagService(
 
     private fun String.toYearAndSemester(): YearAndSemester? {
         val (year, semester) = split(",").takeIf { it.size == 2 } ?: return null
-        val semesterValue = semester.trim().toIntOrNull()?.let(Semester::getOfValue) ?: return null
+        val semesterValue =
+            semester.trim().toIntOrNull()?.let { value -> Semester.entries.firstOrNull { it.value == value } } ?: return null
         return YearAndSemester(year.trim().toIntOrNull() ?: return null, semesterValue)
     }
 

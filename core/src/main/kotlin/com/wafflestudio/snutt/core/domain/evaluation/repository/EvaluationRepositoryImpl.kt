@@ -26,30 +26,37 @@ class EvaluationRepositoryImpl(
     context: JpqlRenderContext,
 ) : EvaluationCustomRepository,
     KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
-    override fun findOthersByCourseAndSemester(
+    override fun findOthers(
         courseId: Long,
+        userId: Long,
         year: Int?,
         semester: Semester?,
-        userId: Long,
         cursor: EvaluationCursor?,
         pageSize: Int,
         sort: EvaluationSort,
     ): List<Evaluation> =
         findAll(offset = null, limit = pageSize) {
             jpql {
-                val predicates = mutableListOf<Predicate>()
-                predicates += path(Evaluation::courseId).equal(courseId)
-                year?.let { predicates += path(Evaluation::year).equal(it) }
-                semester?.let { predicates += path(Evaluation::semester).equal(it) }
-                predicates += or(path(Evaluation::userId).isNull(), path(Evaluation::userId).notEqual(userId))
-                predicates += path(Evaluation::isHidden).equal(false)
-                cursor?.let { predicates += beforeCursor(it, sort) }
                 select(entity(Evaluation::class))
                     .from(entity(Evaluation::class))
-                    .where(and(*predicates.toTypedArray()))
+                    .where(and(othersOf(courseId, userId, year, semester), cursor?.let { beforeCursor(it, sort) }))
                     .orderBy(*sortOrder(sort).toTypedArray())
             }
         }.filterNotNull()
+
+    private fun Jpql.othersOf(
+        courseId: Long,
+        userId: Long,
+        year: Int?,
+        semester: Semester?,
+    ): Predicate =
+        and(
+            path(Evaluation::courseId).equal(courseId),
+            path(Evaluation::isHidden).equal(false),
+            or(path(Evaluation::userId).isNull(), path(Evaluation::userId).notEqual(userId)),
+            year?.let { path(Evaluation::year).equal(it) },
+            semester?.let { path(Evaluation::semester).equal(it) },
+        )
 
     override fun findMine(
         userId: Long,
@@ -89,25 +96,7 @@ class EvaluationRepositoryImpl(
             }
         }.filterNotNull()
 
-    override fun countByCourseIdAndIsHiddenFalse(
-        courseId: Long,
-        year: Int?,
-        semester: Semester?,
-    ): Long =
-        findAll(offset = null, limit = 1) {
-            jpql {
-                val predicates = mutableListOf<Predicate>()
-                predicates += path(Evaluation::courseId).equal(courseId)
-                predicates += path(Evaluation::isHidden).equal(false)
-                year?.let { predicates += path(Evaluation::year).equal(it) }
-                semester?.let { predicates += path(Evaluation::semester).equal(it) }
-                select(count(path(Evaluation::id)))
-                    .from(entity(Evaluation::class))
-                    .where(and(*predicates.toTypedArray()))
-            }
-        }.firstOrNull() ?: 0L
-
-    override fun countOthersByCourseIdAndIsHiddenFalse(
+    override fun countOthers(
         courseId: Long,
         userId: Long,
         year: Int?,
@@ -115,19 +104,17 @@ class EvaluationRepositoryImpl(
     ): Long =
         findAll(offset = null, limit = 1) {
             jpql {
-                val predicates = mutableListOf<Predicate>()
-                predicates += path(Evaluation::courseId).equal(courseId)
-                predicates += path(Evaluation::isHidden).equal(false)
-                predicates += or(path(Evaluation::userId).isNull(), path(Evaluation::userId).notEqual(userId))
-                year?.let { predicates += path(Evaluation::year).equal(it) }
-                semester?.let { predicates += path(Evaluation::semester).equal(it) }
                 select(count(path(Evaluation::id)))
                     .from(entity(Evaluation::class))
-                    .where(and(*predicates.toTypedArray()))
+                    .where(othersOf(courseId, userId, year, semester))
             }
         }.firstOrNull() ?: 0L
 
-    override fun findCourseAggregate(courseId: Long): CourseAggregate {
+    override fun findCourseAggregate(
+        courseId: Long,
+        year: Int?,
+        semester: Semester?,
+    ): CourseAggregate {
         val row =
             findAll(offset = null, limit = 1) {
                 jpql {
@@ -143,6 +130,8 @@ class EvaluationRepositoryImpl(
                             and(
                                 path(Evaluation::courseId).equal(courseId),
                                 path(Evaluation::isHidden).equal(false),
+                                year?.let { path(Evaluation::year).equal(it) },
+                                semester?.let { path(Evaluation::semester).equal(it) },
                             ),
                         )
                 }
@@ -159,29 +148,6 @@ class EvaluationRepositoryImpl(
                 ),
         )
     }
-
-    override fun findEvaluationAverages(
-        courseId: Long,
-        year: Int?,
-        semester: Semester?,
-    ): EvaluationAverages? =
-        findAll(offset = null, limit = 1) {
-            jpql {
-                val predicates = mutableListOf<Predicate>()
-                predicates += path(Evaluation::courseId).equal(courseId)
-                year?.let { predicates += path(Evaluation::year).equal(it) }
-                semester?.let { predicates += path(Evaluation::semester).equal(it) }
-                predicates += path(Evaluation::isHidden).equal(false)
-                selectNew<EvaluationAverages>(
-                    avg(path(Evaluation::gradeSatisfaction)),
-                    avg(path(Evaluation::teachingSkill)),
-                    avg(path(Evaluation::gains)),
-                    avg(path(Evaluation::lifeBalance)),
-                    avg(path(Evaluation::rating)),
-                ).from(entity(Evaluation::class))
-                    .where(and(*predicates.toTypedArray()))
-            }
-        }.firstOrNull()
 
     override fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> {
         if (lectureIds.isEmpty()) return emptyMap()
@@ -264,11 +230,11 @@ class EvaluationRepositoryImpl(
                     path(Evaluation::year).lessThan(cursor.year),
                     and(
                         path(Evaluation::year).equal(cursor.year),
-                        path(Evaluation::semester).lessThan(Semester.fromValue(cursor.semester)),
+                        path(Evaluation::semester).lessThan(cursor.semester),
                     ),
                     and(
                         path(Evaluation::year).equal(cursor.year),
-                        path(Evaluation::semester).equal(Semester.fromValue(cursor.semester)),
+                        path(Evaluation::semester).equal(cursor.semester),
                         path(Evaluation::id).lessThan(cursor.evaluationId),
                     ),
                 )

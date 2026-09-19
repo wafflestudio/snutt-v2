@@ -3,8 +3,3 @@ spring:
     name: snutt-batch
   config:
     import: classpath:application-core.yml
-  batch:
-    job:
-      enabled: false
-    jdbc:
-      initialize-schema: always

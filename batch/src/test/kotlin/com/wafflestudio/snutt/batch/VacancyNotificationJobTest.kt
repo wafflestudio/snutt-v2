@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.batch
 
 import com.wafflestudio.snutt.batch.vacancy.RegistrationStatus
 import com.wafflestudio.snutt.batch.vacancy.SugangSnuRegistrationStatusCrawler
+import com.wafflestudio.snutt.batch.vacancy.VacancyNotificationJob
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.RecordingPushClient
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -31,11 +32,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
-import org.springframework.batch.core.BatchStatus
-import org.springframework.batch.core.configuration.JobRegistry
-import org.springframework.batch.core.job.parameters.JobParameters
-import org.springframework.batch.core.job.parameters.JobParametersBuilder
-import org.springframework.batch.core.launch.JobOperator
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
@@ -78,10 +74,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Autowired
-    lateinit var jobOperator: JobOperator
-
-    @Autowired
-    lateinit var jobRegistry: JobRegistry
+    lateinit var vacancyNotificationJob: VacancyNotificationJob
 
     @Autowired
     lateinit var lectureRepository: LectureRepository
@@ -179,12 +172,15 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)))
 
-        val status = jobOperator.start(jobRegistry.getJob("vacancyNotificationJob")!!, runIdParameters()).status
-        assertEquals(BatchStatus.COMPLETED, status)
+        vacancyNotificationJob.run(YearSemesterArgs(null, null))
 
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-token-1", recordingPushClient.sentMessages[0].fcmRegistrationId)
-        assertTrue(recordingPushClient.sentMessages[0].body.contains("빈자리"))
+        assertTrue(
+            recordingPushClient.sentMessages[0]
+                .message.body
+                .contains("빈자리"),
+        )
         assertEquals(24, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
         assertEquals(1, notificationRepository.findAll().size)
     }
@@ -230,7 +226,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)))
 
-        jobOperator.start(jobRegistry.getJob("vacancyNotificationJob")!!, runIdParameters())
+        vacancyNotificationJob.run(YearSemesterArgs(null, null))
 
         assertTrue(recordingPushClient.sentMessages.isEmpty())
         assertEquals(1, notificationRepository.findAll().size)
@@ -238,6 +234,4 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @Autowired
     lateinit var pushPreferenceRepository: PushPreferenceRepository
-
-    private fun runIdParameters(): JobParameters = JobParametersBuilder().addLong("run.id", System.currentTimeMillis()).toJobParameters()
 }

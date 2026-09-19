@@ -1,15 +1,13 @@
 package com.wafflestudio.snutt.core.common.push
 
-import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 import java.util.concurrent.CopyOnWriteArrayList
 
 @Service
-@Profile("test")
 class RecordingPushClient : PushClient {
     val sentMessages: MutableList<TargetedPushMessage> = CopyOnWriteArrayList()
 
-    val topicMessages: MutableList<TopicPushMessage> = CopyOnWriteArrayList()
+    val topicMessages: MutableList<Pair<String, PushMessage>> = CopyOnWriteArrayList()
 
     val globalTopicSubscriptions: MutableList<String> = CopyOnWriteArrayList()
 
@@ -18,8 +16,11 @@ class RecordingPushClient : PushClient {
         return PushSendResult()
     }
 
-    override fun sendTopicMessage(message: TopicPushMessage) {
-        topicMessages.add(message)
+    override fun sendTopicMessage(
+        topic: String,
+        message: PushMessage,
+    ) {
+        topicMessages.add(topic to message)
     }
 
     override fun subscribeGlobalTopic(registrationId: String) {

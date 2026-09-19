@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.lecture.repository
 import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
 import com.linecorp.kotlinjdsl.dsl.jpql.jpql
 import com.linecorp.kotlinjdsl.querymodel.jpql.expression.Expressions
+import com.linecorp.kotlinjdsl.querymodel.jpql.path.Path
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicates
 import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
@@ -28,15 +29,17 @@ class LectureSearchRepositoryImpl(
     context: JpqlRenderContext,
 ) : LectureSearchRepository,
     KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
-    private val classifier = SearchKeywordClassifier(placeRegex, buildingRegex)
-
     companion object {
-        private val placeRegex = """^(?:|#|\*)\d+(?:-\d+|-[a-zA-Z])?-[a-zA-Z]?\d+[a-zA-Z]?(?:-\d+)?$""".toRegex()
-        private val buildingRegex = """^(?:|#|\*)\d+(?:-\d+)?동$""".toRegex()
-        private val GRADUATE_YEARS = listOf("석사", "박사", "석박사통합")
+        private const val ENGLISH_LECTURE_PATTERN = ".*ⓔ.*"
+        private const val MILITARY_LEAVE_PATTERN = ".*ⓜⓞ.*"
+        private const val RECOMMENDED_PATTERN = ".*권장과목.*"
+        private val ETC_TAG_PATTERNS =
+            mapOf(
+                "E" to ENGLISH_LECTURE_PATTERN,
+                "MO" to MILITARY_LEAVE_PATTERN,
+                "R" to RECOMMENDED_PATTERN,
+            )
 
-        // Kotlin Regex.escape는 \Q..\E(PCRE)를 쓰지만 MySQL ICU는 지원하지 않으므로
-        // 백슬래시 이스케이프를 쓴다. 두 엔진 모두 메타문자 리터럴 매칭은 동일하다
         private fun regexEscape(value: String): String =
             value.flatMap { ch -> if (ch in "\\^$.|?*+()[]{}") listOf('\\', ch) else listOf(ch) }.joinToString("")
 
@@ -80,15 +83,17 @@ class LectureSearchRepositoryImpl(
                     ?.let { predicates += path(Lecture::id).greaterThan(it) }
 
                 criteria.query?.split(' ')?.forEach { keyword ->
-                    when (val intent = classifier.classify(keyword, criteria.language)) {
+                    when (val intent = SearchKeywordClassifier.classify(keyword, criteria.language)) {
                         KeywordIntent.Empty -> {}
                         KeywordIntent.Major -> predicates += path(Lecture::classification).`in`(listOf("전선", "전필"))
-                        KeywordIntent.Graduate -> predicates += path(Lecture::academicYear).`in`(GRADUATE_YEARS)
-                        KeywordIntent.Undergraduate -> predicates += path(Lecture::academicYear).notIn(GRADUATE_YEARS)
+                        KeywordIntent.Graduate -> predicates += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
+                        KeywordIntent.Undergraduate ->
+                            predicates +=
+                                path(Lecture::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
                         KeywordIntent.PhysicalEducation -> predicates += path(Lecture::category).equal("체육")
-                        KeywordIntent.EnglishLecture -> predicates += regexp(path(Lecture::remark), ".*ⓔ.*")
-                        KeywordIntent.MilitaryLeave -> predicates += regexp(path(Lecture::remark), ".*ⓜⓞ.*")
-                        KeywordIntent.Recommended -> predicates += regexp(path(Lecture::remark), ".*권장과목.*")
+                        KeywordIntent.EnglishLecture -> predicates += regexp(path(Lecture::remark), ENGLISH_LECTURE_PATTERN)
+                        KeywordIntent.MilitaryLeave -> predicates += regexp(path(Lecture::remark), MILITARY_LEAVE_PATTERN)
+                        KeywordIntent.Recommended -> predicates += regexp(path(Lecture::remark), RECOMMENDED_PATTERN)
                         is KeywordIntent.Place -> {
                             val escaped = regexEscape(intent.keyword)
                             predicates +=
@@ -142,7 +147,6 @@ class LectureSearchRepositoryImpl(
                                         ).toTypedArray(),
                                     )
                             } else {
-                                // 구버전 KO 분기: 한글 미포함 키워드는 ko 필드만 대상으로 한다
                                 predicates +=
                                     or(
                                         *listOfNotNull(
@@ -238,12 +242,8 @@ class LectureSearchRepositoryImpl(
                         )
                 }
 
-                criteria.etcTags.orEmpty().forEach { etcTag ->
-                    when (etcTag) {
-                        "E" -> predicates += regexp(path(Lecture::remark), ".*ⓔ.*")
-                        "MO" -> predicates += regexp(path(Lecture::remark), ".*ⓜⓞ.*")
-                        "R" -> predicates += regexp(path(Lecture::remark), ".*권장과목.*")
-                    }
+                criteria.etcTags.orEmpty().mapNotNull(ETC_TAG_PATTERNS::get).forEach { pattern ->
+                    predicates += regexp(path(Lecture::remark), pattern)
                 }
 
                 if (cursorRating != null) {
@@ -302,8 +302,6 @@ class LectureSearchRepositoryImpl(
         }.filterNotNull()
     }
 
-    // 영문 교수명 표기가 'Han, Chul-woong', 'Lee Ho Young', 'Park,  YoonJeong', 'AN/YOONGSOO'처럼 제각각이라
-    // 구분자(공백/쉼표/하이픈/슬래시)를 무시하고 매칭한다. 노이즈를 줄이기 위해 이름 단어 첫 글자부터 시작하는 매치만 허용한다
     private fun instructorEnPattern(keyword: String): String {
         val separator = "[^A-Za-z0-9가-힣]"
         val letters = keyword.filter { it.isLetterOrDigit() }
@@ -334,15 +332,13 @@ class LectureSearchRepositoryImpl(
             path(LectureClassTime::endMinute).greaterThan(it.startMinute),
         )
 
-    // Hibernate는 FUNCTION('regexp', ...)를 비타입으로 해석하므로
-    // RegexpFunctionContributor에 등록된 함수 이름으로 직접 렌더링해야 boolean 타입이 추론된다
     private fun regexp(
-        path: com.linecorp.kotlinjdsl.querymodel.jpql.path.Path<String>,
+        path: Path<String>,
         pattern: String,
     ): Predicate = Predicates.customPredicate("regexp({0}, {1})", listOf(path, Expressions.value(pattern)))
 
     private fun bineq(
-        path: com.linecorp.kotlinjdsl.querymodel.jpql.path.Path<String>,
+        path: Path<String>,
         value: String,
     ): Predicate = Predicates.customPredicate("bineq({0}, {1})", listOf(path, Expressions.value(value)))
 

@@ -1,3 +1,7 @@
+snutt:
+  mail:
+    compartment-id: ocid1.compartment.oc1..aaaaaaaaxzo4fga6br76o3e34rshtsl6alzripmgdh7f4lg4u4tzezosypaq
+
 spring:
   profiles:
     default: local

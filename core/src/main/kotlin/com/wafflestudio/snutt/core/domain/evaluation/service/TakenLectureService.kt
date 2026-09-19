@@ -50,8 +50,8 @@ class TakenLectureService(
             }
         if (timetables.isEmpty()) return emptyList()
 
-        val timetableSemester = timetables.associate { (timetable, coursebook) -> timetable.id to coursebook }
-        val timetableLectures = timetableLectureRepository.findByTimetableIdIn(timetableSemester.keys.filterNotNull())
+        val timetableSemester = timetables.associate { (timetable, coursebook) -> timetable.id!! to coursebook }
+        val timetableLectures = timetableLectureRepository.findByTimetableIdIn(timetableSemester.keys)
         val lecturesById =
             lectureRepository
                 .findAllById(timetableLectures.mapNotNull { it.lectureId }.distinct())

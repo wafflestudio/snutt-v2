@@ -21,7 +21,6 @@ class AppleClient(
 
     override fun getMe(token: String): OAuth2UserResponse? {
         if (!oidcJwtVerifier.looksLikeJwt(token)) throw SnuttException(ErrorType.INVALID_APPLE_LOGIN_TOKEN)
-
         val claims =
             oidcJwtVerifier.verifyAndDecodeToken(
                 token = token,

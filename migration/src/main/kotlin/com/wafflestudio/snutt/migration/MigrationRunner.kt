@@ -16,18 +16,8 @@ class MigrationRunner(
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        require(args.nonOptionArgs.isEmpty() || args.nonOptionArgs == listOf("all")) {
-            "ID mapping은 실행 중에만 유지되므로 부분 이관은 지원하지 않는다. 인자 없이 또는 all로 전체 이관을 실행한다"
-        }
-        val truncateValues = args.getOptionValues("truncate").orEmpty()
-        require(truncateValues.size <= 1) { "--truncate는 한 번만 지정한다" }
-        val truncate =
-            if (!args.containsOption("truncate")) {
-                false
-            } else {
-                truncateValues.singleOrNull()?.toBooleanStrictOrNull()
-                    ?: if (truncateValues.isEmpty()) true else error("--truncate 값은 true 또는 false여야 한다")
-            }
+        require(args.nonOptionArgs.isEmpty()) { "부분 이관은 지원하지 않는다. --truncate 외의 인자는 받지 않는다" }
+        val truncate = args.getOptionValues("truncate")?.let { it.singleOrNull()?.toBooleanStrictOrNull() ?: it.isEmpty() } ?: false
         val byName = steps.associateBy { it.name }
         val selected = ORDER.map { name -> checkNotNull(byName[name]) { "이관 단계가 없다: $name" } }
         val tables = selected.flatMap { it.tables }.distinct()

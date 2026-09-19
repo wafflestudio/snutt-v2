@@ -11,7 +11,6 @@ data class RegistrationStatus(
     val courseNumber: String,
     val lectureNumber: String,
     val registrationCount: Int,
-    // 검색 결과의 취소여석 마커: 만석을 겪은 강의에만 붙는다
     val wasFull: Boolean,
 )
 

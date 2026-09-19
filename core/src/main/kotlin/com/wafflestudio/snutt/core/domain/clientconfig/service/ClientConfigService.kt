@@ -11,12 +11,11 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
+import tools.jackson.databind.JsonNode
 import java.time.Instant
 
 data class ClientConfigWriteRequest(
-    val value: String,
+    val value: JsonNode,
     val osType: OsType,
     val minVersion: String? = null,
     val maxVersion: String? = null,
@@ -64,7 +63,7 @@ class ClientConfigService(
                     minVersion = request.minVersion,
                     maxVersion = request.maxVersion,
                 ),
-            ).also { refreshAfterCommit() }
+            ).also { refresh() }
 
     @Transactional
     fun patchConfig(
@@ -80,7 +79,7 @@ class ClientConfigService(
         config.osType = request.osType
         config.minVersion = request.minVersion
         config.maxVersion = request.maxVersion
-        refreshAfterCommit()
+        refresh()
         return config
     }
 
@@ -94,15 +93,7 @@ class ClientConfigService(
                 ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         if (config.name != name) throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         clientConfigRepository.delete(config)
-        refreshAfterCommit()
-    }
-
-    private fun refreshAfterCommit() {
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() = refresh()
-            },
-        )
+        refresh()
     }
 
     companion object {

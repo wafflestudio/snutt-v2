@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
+import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.model.RefreshToken
 import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
@@ -74,7 +75,7 @@ class AuthService(
                 localId = localId,
                 localPw = passwordEncoder.encode(password),
             )
-        save(user, ErrorType.DUPLICATE_LOCAL_ID)
+        conflictAs(ErrorType.DUPLICATE_LOCAL_ID) { userRepository.saveAndFlush(user) }
         eventPublisher.publishEvent(UserRegisteredEvent(user.id!!))
         return user
     }
@@ -166,7 +167,7 @@ class AuthService(
         if (userRepository.existsByLocalIdAndActiveTrue(localId)) throw SnuttException(ErrorType.DUPLICATE_LOCAL_ID)
         user.localId = localId
         user.localPw = passwordEncoder.encode(password)
-        save(user, ErrorType.DUPLICATE_LOCAL_ID)
+        conflictAs(ErrorType.DUPLICATE_LOCAL_ID) { userRepository.saveAndFlush(user) }
         publishCredentialChanged(user)
     }
 
@@ -185,7 +186,9 @@ class AuthService(
         if (userSocialAuthRepository.findByUserIdAndProvider(userId, provider) != null) {
             throw SnuttException(ErrorType.ALREADY_SOCIAL_ACCOUNT)
         }
-        if (existsBySocialId(provider, response.socialId)) throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+        if (userSocialAuthRepository.existsByProviderAndSub(provider, response.socialId)) {
+            throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+        }
         insertSocialAuth(userId, provider, response)
         publishCredentialChanged(user)
     }
@@ -207,13 +210,7 @@ class AuthService(
 
     @Transactional(readOnly = true)
     fun getAuthProviders(userId: Long): List<AuthProvider> =
-        buildList {
-            if (getActiveUser(userId).localId != null) add(AuthProvider.LOCAL)
-            userSocialAuthRepository
-                .findByUserId(userId)
-                .sortedBy { it.provider.ordinal }
-                .forEach { add(it.provider) }
-        }
+        authProvidersOf(getActiveUser(userId), userSocialAuthRepository.findByUserId(userId).map { it.provider })
 
     @Transactional
     fun changePassword(
@@ -239,7 +236,6 @@ class AuthService(
         provider: AuthProvider,
         token: String,
     ): OAuth2UserResponse {
-        require(provider != AuthProvider.LOCAL) { "LOCAL is not a social provider" }
         val oauth2Client = checkNotNull(oauth2Clients[provider]) { "unsupported provider: $provider" }
         return oauth2Client.getMe(token) ?: throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
     }
@@ -248,7 +244,6 @@ class AuthService(
         provider: AuthProvider,
         response: OAuth2UserResponse,
     ): User? {
-        require(provider != AuthProvider.LOCAL) { "LOCAL is not a social provider" }
         userSocialAuthRepository.findActiveUserByProviderAndSub(provider, response.socialId)?.let { return it }
         if (provider != AuthProvider.APPLE) return null
         val transferSub = response.transferInfo ?: return null
@@ -259,11 +254,6 @@ class AuthService(
             userRepository.findByIdAndActiveTrue(auth.userId)
         }
     }
-
-    private fun existsBySocialId(
-        provider: AuthProvider,
-        socialId: String,
-    ): Boolean = userSocialAuthRepository.existsByProviderAndSub(provider, socialId)
 
     private fun createSocialUser(
         provider: AuthProvider,
@@ -281,7 +271,7 @@ class AuthService(
                 nickname = nickname.name,
                 nicknameTag = nickname.tag,
             )
-        save(user, ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
+        conflictAs(ErrorType.DUPLICATE_SOCIAL_ACCOUNT) { userRepository.saveAndFlush(user) }
         insertSocialAuth(user.id!!, provider, response)
         eventPublisher.publishEvent(UserRegisteredEvent(user.id!!))
         return user
@@ -304,13 +294,6 @@ class AuthService(
                 ),
             )
         }
-
-    private fun save(
-        user: User,
-        onConflict: ErrorType,
-    ) {
-        conflictAs(onConflict) { userRepository.saveAndFlush(user) }
-    }
 
     private fun publishCredentialChanged(user: User) {
         eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))

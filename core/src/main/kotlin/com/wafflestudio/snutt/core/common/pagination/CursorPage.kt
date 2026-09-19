@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.common.pagination
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import tools.jackson.databind.json.JsonMapper
+import com.wafflestudio.snutt.core.common.json.Json
 import java.util.Base64
 
 data class CursorPage<T>(
@@ -50,19 +50,16 @@ fun <T, R> List<T>.toCursorPage(
 }
 
 object CursorCodec {
-    @PublishedApi
-    internal val jsonMapper = JsonMapper.builder().findAndAddModules().build()
-
-    inline fun <reified T> encode(value: T): String =
+    fun encode(value: Any): String =
         Base64
             .getUrlEncoder()
             .withoutPadding()
-            .encodeToString(jsonMapper.writeValueAsBytes(value))
+            .encodeToString(Json.mapper.writeValueAsBytes(value))
 
     inline fun <reified T> decode(cursor: String?): T? =
         cursor?.let {
             try {
-                jsonMapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java)
+                Json.mapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java)
             } catch (_: Exception) {
                 throw SnuttException(ErrorType.INVALID_CURSOR)
             }

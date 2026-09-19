@@ -14,11 +14,12 @@ import java.time.format.DateTimeFormatter
 
 @Service
 class FeedbackService(
-    private val restClient: RestClient,
     @param:Value("\${snutt.github.token:}") private val token: String,
     @param:Value("\${snutt.github.repo-owner:wafflestudio}") private val repoOwner: String,
     @param:Value("\${snutt.github.repo-name:snutt-v2}") private val repoName: String,
 ) {
+    private val restClient = RestClient.builder().baseUrl("https://api.github.com").build()
+
     fun postFeedback(
         email: String,
         message: String,

@@ -51,7 +51,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 
 data class LegacyFriendRequest(
@@ -555,7 +554,6 @@ class V1CompatPopupController(
 @RequestMapping("/v1/configs")
 class V1CompatConfigController(
     private val configService: ClientConfigService,
-    private val jsonMapper: JsonMapper,
 ) {
     @GetMapping("")
     fun getConfigs(
@@ -565,7 +563,7 @@ class V1CompatConfigController(
         val appVersion = clientInfo.appVersion ?: return emptyMap()
         return configService
             .getConfigs(osType, appVersion)
-            .associate { it.name to jsonMapper.readTree(it.value) }
+            .associate { it.name to it.value }
     }
 }
 

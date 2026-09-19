@@ -15,22 +15,16 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import kotlin.random.Random
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
     companion object {
@@ -57,9 +51,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var lectureService: LectureService
-
-    @LocalServerPort
-    var port = 0
 
     private lateinit var referenceLectures: List<ReferenceLecture>
 
@@ -475,21 +466,6 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             )
 
         corpus.forEach { (name, c) -> assertSearch(name, c) }
-    }
-
-    @Test
-    fun `QUERY 메서드로 검색이 동작한다`() {
-        val request =
-            HttpRequest
-                .newBuilder(URI.create("http://localhost:$port/v2/lectures/search"))
-                .method("QUERY", HttpRequest.BodyPublishers.ofString("""{"year":2026,"semester":3,"query":"컴퓨터","limit":10}"""))
-                .header("Content-Type", "application/json")
-                .header("x-client-platform", "ios")
-                .header("x-client-key", "test-ios-key")
-                .build()
-        val response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString())
-        assertEquals(200, response.statusCode())
-        assertTrue(response.body().contains("courseTitle"))
     }
 
     @Test

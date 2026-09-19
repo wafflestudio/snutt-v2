@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.common.error
 
 import org.springframework.http.HttpStatus
 
-/** Legacy v1 error codes are maintained by `V1_ERROR_CODE_MAP` in v1compat. */
 enum class ErrorType(
     val httpStatus: HttpStatus,
     val errorCode: Long,

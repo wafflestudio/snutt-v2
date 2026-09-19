@@ -7,10 +7,6 @@ import java.util.Base64
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-/**
- * 구 백엔드는 80비트짜리 짧은 secret 으로 HS256 apikey JWT 를 발급했다.
- * jjwt 는 256비트 미만 키를 거부하므로(RFC 7518 §3.2) 서명 검증을 직접 한다.
- */
 class LegacyApiKeyVerifier(
     secretKey: String,
 ) {

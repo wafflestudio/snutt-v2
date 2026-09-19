@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
@@ -13,7 +14,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -111,15 +111,7 @@ data class LectureEvaluationSummaryResponse(
     val academicYear: String?,
     val category: String?,
     val classification: String?,
-    val evaluation: EvaluationAveragesResponse,
-)
-
-data class EvaluationAveragesResponse(
-    val avgGradeSatisfaction: Double?,
-    val avgTeachingSkill: Double?,
-    val avgGains: Double?,
-    val avgLifeBalance: Double?,
-    val avgRating: Double?,
+    val evaluation: EvaluationAverages,
 )
 
 data class CourseEvaluationDetailsResponse(
@@ -142,7 +134,6 @@ data class EvaluationTagResponse(
 @EmailVerifiedRequired
 class EvaluationController(
     private val evaluationService: EvaluationService,
-    private val lectureService: LectureService,
     private val evaluationResponseMapper: EvaluationResponseMapper,
 ) {
     @GetMapping("/v2/courses/{courseId}/evaluations")
@@ -152,29 +143,19 @@ class EvaluationController(
         @RequestParam(required = false) cursor: String?,
         @RequestParam(required = false) sort: String?,
         @RequestParam(required = false) year: Int?,
-        @RequestParam(required = false) semester: Int?,
+        @RequestParam(required = false) semester: Semester?,
     ): CursorPage<EvaluationResponse> =
         evaluationService
-            .getEvaluationsOfCourse(
-                userId,
-                courseId,
-                cursor,
-                EvaluationSort.fromParameter(sort),
-                year,
-                semester?.let { Semester.getOfValue(it) ?: throw SnuttException(ErrorType.INVALID_PARAMETER) },
-            ).let(evaluationResponseMapper::toResponse)
+            .getEvaluationsOfCourse(userId, courseId, cursor, EvaluationSort.fromParameter(sort), year, semester)
+            .let(evaluationResponseMapper::toResponse)
 
     @GetMapping("/v2/lectures/{lectureId}/evaluations")
     fun getEvaluationsOfLecture(
         @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> {
-        val lecture = lectureService.get(lectureId)
-        return evaluationService
-            .getEvaluationsOfLecture(userId, lectureId, cursor, year = lecture.year, semester = lecture.semester)
-            .let(evaluationResponseMapper::toResponse)
-    }
+    ): CursorPage<EvaluationResponse> =
+        evaluationService.getEvaluationsOfLecture(userId, lectureId, cursor).let(evaluationResponseMapper::toResponse)
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
@@ -207,15 +188,16 @@ class EvaluationController(
         @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
     ): CourseEvaluationDetailsResponse {
-        val display = evaluationService.getEvaluationSummaryOfCourse(courseId)
+        val summary = evaluationService.getEvaluationSummaryOfCourse(courseId)
+        val averages = summary.aggregate.averages
         return CourseEvaluationDetailsResponse(
             courseId = courseId,
-            count = display.course.evalCount,
-            avgGradeSatisfaction = display.averages?.avgGradeSatisfaction,
-            avgTeachingSkill = display.averages?.avgTeachingSkill,
-            avgGains = display.averages?.avgGains,
-            avgLifeBalance = display.averages?.avgLifeBalance,
-            avgRating = display.averages?.avgRating,
+            count = summary.aggregate.evalCount,
+            avgGradeSatisfaction = averages.avgGradeSatisfaction,
+            avgTeachingSkill = averages.avgTeachingSkill,
+            avgGains = averages.avgGains,
+            avgLifeBalance = averages.avgLifeBalance,
+            avgRating = averages.avgRating,
         )
     }
 
@@ -224,8 +206,8 @@ class EvaluationController(
         @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
     ): LectureEvaluationSummaryResponse {
-        val display = evaluationService.getEvaluationSummaryOfLecture(lectureId)
-        val lecture = display.lecture
+        val summary = evaluationService.getEvaluationSummaryOfLecture(lectureId)
+        val lecture = summary.lecture
         return LectureEvaluationSummaryResponse(
             id = lecture.id!!,
             title = lecture.courseTitle,
@@ -236,16 +218,7 @@ class EvaluationController(
             academicYear = lecture.academicYear,
             category = lecture.category,
             classification = lecture.classification,
-            evaluation =
-                display.averages?.let {
-                    EvaluationAveragesResponse(
-                        avgGradeSatisfaction = it.avgGradeSatisfaction,
-                        avgTeachingSkill = it.avgTeachingSkill,
-                        avgGains = it.avgGains,
-                        avgLifeBalance = it.avgLifeBalance,
-                        avgRating = it.avgRating,
-                    )
-                } ?: EvaluationAveragesResponse(null, null, null, null, null),
+            evaluation = summary.aggregate.averages,
         )
     }
 

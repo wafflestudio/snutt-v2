@@ -6,8 +6,6 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
@@ -30,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController
 
 data class TimetableAddRequest(
     val year: Int,
-    val semester: Int,
+    val semester: Semester,
     @field:NotBlank val title: String,
 )
 
@@ -80,17 +78,10 @@ data class TimetableLectureResponse(
     val instructor: String?,
     val credit: Int?,
     val remark: String?,
-    val classPlaceAndTimes: List<ClassPlaceAndTimeResponse>,
+    val classPlaceAndTimes: List<ClassPlaceAndTime>,
     val color: ColorSet,
     val customColor: ColorSet?,
     val paletteIndex: Int,
-)
-
-data class ClassPlaceAndTimeResponse(
-    val day: Int,
-    val place: String,
-    val startMinute: Int,
-    val endMinute: Int,
 )
 
 private fun TimetableBriefDto.toResponse() =
@@ -134,14 +125,11 @@ internal fun TimetableLectureDisplay.toResponse(language: Language = Language.KO
         instructor = language.select(instructor, instructorEn),
         credit = credit,
         remark = language.select(remark, remarkEn),
-        classPlaceAndTimes = classPlaceAndTimes.map { it.toResponse() },
+        classPlaceAndTimes = classPlaceAndTimes,
         color = color,
         customColor = customColor,
         paletteIndex = paletteIndex,
     )
-
-internal fun ClassPlaceAndTime.toResponse() =
-    ClassPlaceAndTimeResponse(day = day.value, place = place, startMinute = startMinute, endMinute = endMinute)
 
 @RestController
 @RequestMapping("/v2/timetables")
@@ -151,7 +139,7 @@ class TimetableController(
     @GetMapping("")
     fun getTimetableBriefs(
         @CurrentUserId userId: Long,
-    ): List<TimetableBriefResponse> = timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
+    ): List<TimetableBriefResponse> = briefs(userId)
 
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
@@ -159,21 +147,20 @@ class TimetableController(
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableService
-            .getTimetableDisplay(
-                userId,
-                timetableService.getMostRecentlyUpdatedTimetable(userId).id!!,
-            ).toResponse(clientInfo.language)
+            .displayOf(timetableService.getMostRecentlyUpdatedTimetable(userId))
+            .toResponse(clientInfo.language)
 
     @GetMapping("/{year}/{semester}")
     fun getTimetablesBySemester(
         @CurrentUserId userId: Long,
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
         @RequestAttribute clientInfo: ClientInfo,
     ): List<TimetableResponse> =
         timetableService
-            .getTimetablesBySemester(userId, year, parseSemester(semester))
-            .map { timetableService.getTimetableDisplay(userId, it.id!!).toResponse(clientInfo.language) }
+            .displaysOf(timetableService.getTimetablesBySemester(userId, year, semester))
+            .values
+            .map { it.toResponse(clientInfo.language) }
 
     @PostMapping("")
     fun addTimetable(
@@ -181,13 +168,12 @@ class TimetableController(
         @RequestParam(required = false) source: Long?,
         @Valid @RequestBody body: TimetableAddRequest,
     ): List<TimetableBriefResponse> {
-        val userId = userId
         if (source == null) {
-            timetableService.addTimetable(userId, body.year, parseSemester(body.semester), body.title)
+            timetableService.addTimetable(userId, body.year, body.semester, body.title)
         } else {
             timetableService.copyTimetable(userId, source)
         }
-        return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
+        return briefs(userId)
     }
 
     @GetMapping("/{timetableId}")
@@ -203,9 +189,8 @@ class TimetableController(
         @PathVariable timetableId: Long,
         @Valid @RequestBody body: TimetableModifyRequest,
     ): List<TimetableBriefResponse> {
-        val userId = userId
         timetableService.modifyTimetableTitle(userId, timetableId, body.title)
-        return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
+        return briefs(userId)
     }
 
     @DeleteMapping("/{timetableId}")
@@ -213,9 +198,8 @@ class TimetableController(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
     ): List<TimetableBriefResponse> {
-        val userId = userId
         timetableService.deleteTimetable(userId, timetableId)
-        return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
+        return briefs(userId)
     }
 
     @PostMapping("/{timetableId}/copy")
@@ -223,9 +207,8 @@ class TimetableController(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
     ): List<TimetableBriefResponse> {
-        val userId = userId
         timetableService.copyTimetable(userId, timetableId)
-        return timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
+        return briefs(userId)
     }
 
     @PutMapping("/{timetableId}/theme")
@@ -251,5 +234,6 @@ class TimetableController(
         timetableService.unsetPrimary(userId, timetableId)
     }
 
-    private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+    private fun briefs(userId: Long): List<TimetableBriefResponse> =
+        timetableService.toBriefs(timetableService.getTimetables(userId)).map { it.toResponse() }
 }

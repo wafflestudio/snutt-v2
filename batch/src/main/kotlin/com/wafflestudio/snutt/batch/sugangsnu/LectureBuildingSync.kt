@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.json.Json
 import com.wafflestudio.snutt.core.domain.building.model.Campus
 import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
@@ -9,9 +10,7 @@ import com.wafflestudio.snutt.core.domain.building.repository.LectureBuildingRep
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.client.RestClient
-import tools.jackson.databind.json.JsonMapper
 
 data class SnuMapSearchResult(
     @param:JsonProperty("search_list")
@@ -44,10 +43,6 @@ class SnuMapClient(
 ) {
     private val restClient = RestClient.builder().baseUrl(baseUrl).build()
 
-    companion object {
-        private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
-    }
-
     fun search(buildingNumber: String): SnuMapSearchResult {
         val body =
             restClient
@@ -61,7 +56,7 @@ class SnuMapClient(
                 }.retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("SNU 지도 검색 실패: $buildingNumber")
-        return jsonMapper.readValue(body, SnuMapSearchResult::class.java)
+        return Json.mapper.readValue(body, SnuMapSearchResult::class.java)
     }
 }
 
@@ -70,33 +65,45 @@ class LectureBuildingSync(
     private val snuMapClient: SnuMapClient,
     private val lectureBuildingRepository: LectureBuildingRepository,
 ) {
-    @Transactional
     fun sync(places: List<String>) {
-        val placeInfos =
+        val buildingNumbers =
             places
                 .flatMap { PlaceInfo.getValuesOf(it) }
                 .filter { it.campus == Campus.GWANAK }
+                .map { it.buildingNumber }
                 .distinct()
-        if (placeInfos.isEmpty()) return
-        val existing =
-            lectureBuildingRepository
-                .findByBuildingNumberIn(placeInfos.map { it.buildingNumber })
-                .associateBy { it.buildingNumber }
-        placeInfos.forEach { placeInfo ->
-            val item = snuMapClient.search(placeInfo.buildingNumber).mostProbableItem(placeInfo.buildingNumber) ?: return@forEach
-            val building =
-                existing[placeInfo.buildingNumber]
-                    ?: LectureBuilding(
-                        buildingNumber = placeInfo.buildingNumber,
-                        buildingNameKor = item.name,
-                        campus = Campus.GWANAK,
-                    )
-            building.buildingNameKor = item.name
-            building.buildingNameEng = item.englishName.orEmpty()
-            building.locationInDms = GeoCoordinate(item.latitudeInDms, item.longitudeInDms)
-            building.locationInDecimal = GeoCoordinate(item.latitudeInDecimal, item.longitudeInDecimal)
-            lectureBuildingRepository.save(building)
+        if (buildingNumbers.isEmpty()) return
+        val existing = lectureBuildingRepository.findByBuildingNumberIn(buildingNumbers).associateBy { it.buildingNumber }
+        buildingNumbers.forEach { buildingNumber ->
+            val item = snuMapClient.search(buildingNumber).mostProbableItem(buildingNumber) ?: return@forEach
+            val fetched =
+                LectureBuilding(
+                    buildingNumber = buildingNumber,
+                    buildingNameKor = item.name,
+                    buildingNameEng = item.englishName.orEmpty(),
+                    campus = Campus.GWANAK,
+                    locationInDms = GeoCoordinate(item.latitudeInDms, item.longitudeInDms),
+                    locationInDecimal = GeoCoordinate(item.latitudeInDecimal, item.longitudeInDecimal),
+                )
+            val current = existing[buildingNumber]
+            when {
+                current == null -> lectureBuildingRepository.save(fetched)
+                !current.sameAs(fetched) -> lectureBuildingRepository.save(current.apply { copyFrom(fetched) })
+            }
         }
+    }
+
+    private fun LectureBuilding.sameAs(other: LectureBuilding): Boolean =
+        buildingNameKor == other.buildingNameKor &&
+            buildingNameEng == other.buildingNameEng &&
+            locationInDms == other.locationInDms &&
+            locationInDecimal == other.locationInDecimal
+
+    private fun LectureBuilding.copyFrom(other: LectureBuilding) {
+        buildingNameKor = other.buildingNameKor
+        buildingNameEng = other.buildingNameEng
+        locationInDms = other.locationInDms
+        locationInDecimal = other.locationInDecimal
     }
 
     private fun SnuMapSearchResult.mostProbableItem(buildingNumber: String): SnuMapSearchItem? =

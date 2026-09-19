@@ -54,7 +54,7 @@ data class FriendRequestLinkResponse(
 
 data class FriendCoursebookResponse(
     val year: Int,
-    val semester: Int,
+    val semester: Semester,
 )
 
 private fun FriendResponse(
@@ -150,13 +150,13 @@ class FriendController(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestAttribute clientInfo: ClientInfo,
     ): TimetableResponse {
         val friend = getAcceptedFriend(userId, friendId)
         val partnerId = friend.getPartnerUserId(userId)
-        val timetable = timetableService.getUserPrimaryTable(partnerId, year, parseSemester(semester))
-        return timetableService.getTimetableDisplay(partnerId, timetable.id!!).toResponse(clientInfo.language)
+        val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
+        return timetableService.displayOf(timetable).toResponse(clientInfo.language)
     }
 
     @GetMapping("/{friendId}/coursebooks")
@@ -167,7 +167,7 @@ class FriendController(
         val friend = getAcceptedFriend(userId, friendId)
         return timetableService
             .getCoursebooksWithPrimaryTable(friend.getPartnerUserId(userId))
-            .map { FriendCoursebookResponse(year = it.first, semester = it.second.value) }
+            .map { FriendCoursebookResponse(year = it.first, semester = it.second) }
     }
 
     private fun getAcceptedFriend(
@@ -178,6 +178,4 @@ class FriendController(
         if (!friend.isAccepted || !friend.includes(userId)) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
         return friend
     }
-
-    private fun parseSemester(value: Int) = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }
