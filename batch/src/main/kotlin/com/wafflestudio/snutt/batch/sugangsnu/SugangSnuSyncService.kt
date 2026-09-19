@@ -120,6 +120,7 @@ class SugangSnuSyncService(
                     val affectedCourses =
                         (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                             .distinct()
+                    courseRepository.refreshLatestLectures(affectedCourses)
                     val latest = courseSearchRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
                     courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
                         course.title = latest.getValue(course.id!!).courseTitle
@@ -144,9 +145,10 @@ class SugangSnuSyncService(
         created: List<LectureInput>,
         updated: List<LectureUpdate>,
     ) {
+        val courses = loadCourses(created.map { it.lecture } + updated.map { it.input.lecture })
         created.forEach { input ->
             val lecture = input.lecture
-            lecture.courseId = resolveCourseId(lecture)
+            lecture.courseId = resolveCourseId(lecture, courses)
             lectureRepository.save(lecture)
             saveClassTimes(lecture, input.classTimes)
         }
@@ -155,7 +157,7 @@ class SugangSnuSyncService(
             val instructorChanged = old.instructor != update.input.lecture.instructor
             old.copyMetadataFrom(update.input.lecture)
             if (instructorChanged || old.courseId == null) {
-                old.courseId = resolveCourseId(old)
+                old.courseId = resolveCourseId(old, courses)
             }
             if (update.classTimesChanged) {
                 lectureClassTimeRepository.deleteByLectureId(old.id!!)
@@ -185,17 +187,30 @@ class SugangSnuSyncService(
         }
     }
 
-    private fun resolveCourseId(lecture: Lecture): Long? {
+    private fun loadCourses(lectures: List<Lecture>): MutableMap<Pair<String, String>, Course> =
+        lectures
+            .map { it.courseNumber }
+            .distinct()
+            .chunked(COURSE_LOOKUP_CHUNK_SIZE)
+            .flatMap(courseRepository::findAllByCourseNumberIn)
+            .associateBy { it.courseNumber to it.instructor }
+            .toMutableMap()
+
+    private fun resolveCourseId(
+        lecture: Lecture,
+        courses: MutableMap<Pair<String, String>, Course>,
+    ): Long? {
         val instructor = lecture.instructor?.takeIf { it.isNotBlank() } ?: return null
         val course =
-            courseRepository.findByCourseNumberAndInstructor(lecture.courseNumber, instructor)
-                ?: courseRepository.save(
+            courses.getOrPut(lecture.courseNumber to instructor) {
+                courseRepository.save(
                     Course(
                         courseNumber = lecture.courseNumber,
                         instructor = instructor,
                         title = lecture.courseTitle,
                     ),
                 )
+            }
         return course.id
     }
 
@@ -453,4 +468,8 @@ class SugangSnuSyncService(
         classificationEn = classificationEn,
         remarkEn = remarkEn,
     )
+
+    companion object {
+        private const val COURSE_LOOKUP_CHUNK_SIZE = 500
+    }
 }
