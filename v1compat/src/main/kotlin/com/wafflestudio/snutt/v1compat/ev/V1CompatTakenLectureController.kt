@@ -41,7 +41,7 @@ data class LegacyTakenLectureDto(
 )
 
 @RestController
-@RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
+@RequestMapping(V1_EV_SERVICE_PATH, V1_EV_PATH, EV_SERVICE_PATH, EV_PATH)
 class V1CompatTakenLectureController(
     private val takenLectureService: TakenLectureService,
     private val legacyCourseRepository: LegacyCourseRepository,
@@ -143,7 +143,7 @@ private const val LEGACY_COURSE_PAGE_SIZE = 20
 
 @RestController
 @V1EmailVerifiedRequired
-@RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
+@RequestMapping(V1_EV_SERVICE_PATH, V1_EV_PATH, EV_SERVICE_PATH, EV_PATH)
 class V1CompatCourseSearchController(
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,

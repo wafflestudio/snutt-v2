@@ -242,5 +242,7 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
         val search = getV1("/v1/ev-service/v1/lectures?query=&page=0")
         assertEquals(200, search.statusCode.value())
         assertTrue(body(search).hasNonNull("content"))
+
+        assertEquals(200, getV1("/ev-service/v1/evaluations/users/me").statusCode.value())
     }
 }
