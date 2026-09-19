@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/v2/push/preferences")
+@RequestMapping("/v2/users/me/push-preferences")
 class PushPreferenceController(
     private val pushPreferenceService: PushPreferenceService,
 ) {

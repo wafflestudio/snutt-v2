@@ -343,7 +343,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `푸시 프리퍼런스 저장과 조회`() {
         val saved =
             post(
-                "/v2/push/preferences",
+                "/v2/users/me/push-preferences",
                 """{"pushPreferences":[{"type":"LECTURE_UPDATE","isEnabled":false}]}""",
                 userAToken,
             )
