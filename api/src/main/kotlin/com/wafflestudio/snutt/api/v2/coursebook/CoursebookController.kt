@@ -35,7 +35,7 @@ private fun Coursebook.toResponse() =
 @RequestMapping("/v2/coursebooks")
 class CoursebookController(
     private val coursebookService: CoursebookService,
-    @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
+    @param:Value("\${snutt.syllabus-proxy.base-url:}") private val syllabusProxyBaseUrl: String,
 ) {
     @Public
     @GetMapping("")

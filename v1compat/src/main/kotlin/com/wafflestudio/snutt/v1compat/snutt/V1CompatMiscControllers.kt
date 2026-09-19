@@ -106,7 +106,7 @@ data class LegacyCoursebookOfficialResponse(
 @RequestMapping("/v1/course_books")
 class V1CompatCoursebookController(
     private val coursebookService: CoursebookService,
-    @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
+    @param:Value("\${snutt.syllabus-proxy.base-url:}") private val syllabusProxyBaseUrl: String,
 ) {
     @GetMapping("")
     fun getCoursebooks(): List<LegacyCoursebookDto> = coursebookService.getCoursebooks().map { it.toLegacy() }
