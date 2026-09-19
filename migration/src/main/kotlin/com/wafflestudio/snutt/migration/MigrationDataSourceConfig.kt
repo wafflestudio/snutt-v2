@@ -23,18 +23,25 @@ class MigrationDataSourceConfig {
     ): DataSource =
         DataSourceBuilder
             .create()
-            .url(utcJdbcUrl(url))
+            .url(jdbcUrl(url))
             .username(username)
             .password(password)
             .build()
 
     companion object {
-        fun utcJdbcUrl(url: String): String =
-            if (url.contains("connectionTimeZone") || url.contains("serverTimezone")) {
-                url
-            } else {
-                url + (if (url.contains('?')) "&" else "?") + "connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true"
-            }
+        private val REQUIRED_PARAMS =
+            mapOf(
+                "connectionTimeZone" to "UTC",
+                "forceConnectionTimeZoneToSession" to "true",
+                "rewriteBatchedStatements" to "true",
+            )
+
+        fun jdbcUrl(url: String): String {
+            val missing = REQUIRED_PARAMS.filterKeys { !url.contains("$it=") }
+            if (missing.isEmpty()) return url
+            val separator = if (url.contains('?')) "&" else "?"
+            return url + separator + missing.entries.joinToString("&") { "${it.key}=${it.value}" }
+        }
     }
 
     @Bean
@@ -82,7 +89,7 @@ class EvSource(
         JdbcTemplate(
             DataSourceBuilder
                 .create()
-                .url(MigrationDataSourceConfig.utcJdbcUrl(url))
+                .url(MigrationDataSourceConfig.jdbcUrl(url))
                 .username(username)
                 .password(password)
                 .build(),

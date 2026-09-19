@@ -3,6 +3,8 @@ spring:
     name: snutt-migration
   main:
     web-application-type: none
+  config:
+    import: classpath:application-core.yml
 
 migration:
   mongo:
