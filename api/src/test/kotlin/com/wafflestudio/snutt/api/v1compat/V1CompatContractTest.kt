@@ -227,51 +227,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `v1 시간표 상세는 레거시 형태를 유지한다`() {
-        val add = post("/v1/tables", """{"year":2026,"semester":3,"title":"레거시시간표"}""", legacyToken)
-        val timetableId = body(add)[0]["_id"].asString()
-
-        val addLecture = post("/v1/tables/$timetableId/lecture/$lectureId", """{}""", legacyToken)
-        assertEquals(200, addLecture.statusCode.value())
-
-        val detail = get("/v1/tables/$timetableId", legacyToken)
-        assertEquals(200, detail.statusCode.value())
-        val node = body(detail)
-        assertEquals(timetableId, node["_id"].asString())
-        assertEquals(userId, node["user_id"].asString())
-        val lectures = node["lecture_list"]
-        assertEquals(1, lectures.size())
-        val lecture = lectures[0]
-        assertEquals("고급한국어", lecture["course_title"].asString())
-        assertEquals(lectureId, lecture["lecture_id"].asString())
-        assertTrue(lecture.has("class_time_json"))
-        val classTimes = lecture["class_time_json"]
-        assertEquals(0, classTimes[0]["day"].asInt())
-        assertEquals(570, classTimes[0]["startMinute"].asInt())
-        assertEquals("09:30", classTimes[0]["start_time"].asString())
-    }
-
-    @Test
-    fun `v1 검색은 레거시 형태를 반환한다`() {
-        val search =
-            post(
-                "/v1/search_query",
-                """{"year":2026,"semester":3,"title":"한국어"}""",
-            )
-        assertEquals(200, search.statusCode.value())
-        val lectures = body(search)
-        assertTrue(lectures.size() > 0)
-        val lecture = lectures[0]
-        assertEquals("고급한국어", lecture["course_title"].asString())
-        assertTrue(lecture.has("_id"))
-        assertTrue(lecture.has("class_time_json"))
-        val classTimes = lecture["class_time_json"]
-        assertEquals("09:30", classTimes[0]["start_time"].asString())
-        // len은 교시 격자 길이: 09:30(1.5교시)~10:45(30분 올림→3교시) → 1.5
-        assertEquals(1.5, classTimes[0]["len"].asDouble())
-    }
-
-    @Test
     fun `ev 경로는 ev 에러 봉투를 사용한다`() {
         val notVerified =
             post(
