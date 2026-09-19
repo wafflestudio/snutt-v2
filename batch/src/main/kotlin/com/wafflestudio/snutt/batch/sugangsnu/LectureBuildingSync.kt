@@ -19,13 +19,13 @@ data class SnuMapSearchResult(
 
 data class SnuMapSearchItem(
     @param:JsonProperty("lat_val")
-    val latitudeInDms: Double,
+    val latitudeInDms: Double?,
     @param:JsonProperty("lon_val")
-    val longitudeInDms: Double,
+    val longitudeInDms: Double?,
     @param:JsonProperty("lat_val1")
-    val latitudeInDecimal: Double = 0.0,
+    val latitudeInDecimal: Double?,
     @param:JsonProperty("lon_val1")
-    val longitudeInDecimal: Double = 0.0,
+    val longitudeInDecimal: Double?,
     @param:JsonProperty("vil_dong_nm")
     val buildingNumber: String?,
     val name: String,
@@ -82,8 +82,8 @@ class LectureBuildingSync(
                     buildingNameKor = item.name,
                     buildingNameEng = item.englishName.orEmpty(),
                     campus = Campus.GWANAK,
-                    locationInDms = GeoCoordinate(item.latitudeInDms, item.longitudeInDms),
-                    locationInDecimal = GeoCoordinate(item.latitudeInDecimal, item.longitudeInDecimal),
+                    locationInDms = coordinate(item.latitudeInDms, item.longitudeInDms),
+                    locationInDecimal = coordinate(item.latitudeInDecimal, item.longitudeInDecimal),
                 )
             val current = existing[buildingNumber]
             when {
@@ -105,6 +105,11 @@ class LectureBuildingSync(
         locationInDms = other.locationInDms
         locationInDecimal = other.locationInDecimal
     }
+
+    private fun coordinate(
+        latitude: Double?,
+        longitude: Double?,
+    ): GeoCoordinate? = if (latitude != null && longitude != null) GeoCoordinate(latitude, longitude) else null
 
     private fun SnuMapSearchResult.mostProbableItem(buildingNumber: String): SnuMapSearchItem? =
         searchList
