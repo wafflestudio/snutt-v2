@@ -22,7 +22,7 @@
   </p>
 </div>
 
-# snutt-v2
+# SNUTT
 
 SNU Timetable & Course Evaluation API 서버
 
