@@ -1,0 +1,61 @@
+<br />
+<div align="center">
+  <a href="https://github.com/wafflestudio/snutt-v2">
+    <img src="https://user-images.githubusercontent.com/33917774/199519767-60590904-b15a-4464-ab21-e3a424649d5c.svg" alt="Logo" width="70" height="70">
+  </a>
+
+  <h3 align="center">SNUTT</h3>
+
+  <p align="center">
+    The best timetable application for SNU students, developed and maintained by SNU students.
+    <div style=" padding-bottom: 1rem;">
+    <img src="https://img.shields.io/badge/Spring Boot-6DB33F?style=for-the-badge&logo=Spring-boot&logoColor=white" />
+    <img src="https://img.shields.io/badge/Kotlin-B125EA?style=for-the-badge&logo=kotlin&logoColor=white" />
+    <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white"/>
+    <img src="https://img.shields.io/badge/Redis-FF4438?style=for-the-badge&logo=redis&logoColor=white"/>
+    </div>
+    <a href="https://github.com/wafflestudio/snutt-v2/issues">Request Feature</a>
+    ·
+    <a href="https://github.com/wafflestudio/snutt-v2/issues">Report Bug</a>
+    ·
+    <a href="https://wafflestudio.com/">Wafflestudio</a>
+  </p>
+</div>
+
+# SNUTT
+
+SNU Timetable & Course Evaluation API 서버
+
+서울대학교 수강편람 검색, 시간표 작성 및 강의평가를 위한 백엔드 서버입니다.
+
+### 사용해보기
+- [웹](https://snutt.wafflestudio.com/)
+- [안드로이드 앱](https://play.google.com/store/apps/details?id=com.wafflestudio.snutt2.live)
+- [iOS 앱](https://apps.apple.com/us/app/snutt-%EC%84%9C%EC%9A%B8%EB%8C%80%ED%95%99%EA%B5%90-%EC%8B%9C%EA%B0%84%ED%91%9C-%EC%95%B1/id1215668309)
+
+## Modules
+- `api`: HTTP API 서버
+- `batch`: 수강편람 크롤링 및 빈자리 알림 배치
+- `core`: 공통 도메인 및 데이터베이스 레이어
+
+## Related Repositories
+### Front-end Clients
+* [Web Client](https://github.com/wafflestudio/snutt-frontend)
+* [Android Client](https://github.com/wafflestudio/SNUTT-android)
+* [iOS Client](https://github.com/wafflestudio/SNUTT-iOS)
+
+## Documentation
+- [Notion](https://www.notion.so/SNUTT-f5c63e408e2c4275af4682112abd6af7)
+- [Feedback](https://github.com/wafflestudio/snutt-feedbacks/)
+
+## Contributing
+PR is welcome!
+
+## Liability
+SNUTT는 [서울대학교 수강편람 서비스](http://sugang.snu.ac.kr)에서 데이터를 다운로드 후 가공합니다. 잦은 크롤링을 수행하면, 서울대학교 측으로부터 IP 밴 등의 불이익이 있을 수 있습니다. 와플스튜디오는 데이터 크롤링에 수반하는 일체의 불이익에 대하여 책임지지 않으며, 본 프로그램을 사용하는 경우 서울대학교 서비스에 부하를 가하기 않도록 유의하여야 합니다.
+
+## 다른 학교에서도 이용할 수 있나요?
+본 프로젝트는 MIT 라이센스로 공개되어 있으므로, 열정과 시간이 있으시다면 다른 학교의 상황에 맞게 수정하실 수 있습니다.
+
+## License
+MIT
