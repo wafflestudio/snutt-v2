@@ -448,14 +448,14 @@ class MigrationIntegrationTest {
 
         @JvmStatic
         val targetMysql: MySQLContainer =
-            MySQLContainer("mysql:8.4")
+            MySQLContainer("mysql:26.7")
                 .withDatabaseName("snutt")
                 .withUrlParam("rewriteBatchedStatements", "true")
 
         @JvmStatic
-        val evMysql: MySQLContainer = MySQLContainer("mysql:8.4").withDatabaseName("snutt_ev")
+        val evMysql: MySQLContainer = MySQLContainer("mysql:26.7").withDatabaseName("snutt_ev")
 
         @JvmStatic
-        val mongo: GenericContainer<*> = GenericContainer("mongo:7").withExposedPorts(27017)
+        val mongo: GenericContainer<*> = GenericContainer("mongo:8.2.7").withExposedPorts(27017)
     }
 }

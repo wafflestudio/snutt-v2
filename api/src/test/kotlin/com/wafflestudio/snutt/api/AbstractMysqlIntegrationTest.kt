@@ -9,7 +9,7 @@ abstract class AbstractMysqlIntegrationTest {
     companion object {
         @JvmStatic
         val mysql: MySQLContainer =
-            MySQLContainer("mysql:8.4")
+            MySQLContainer("mysql:26.7")
                 .apply { start() }
                 .apply {
                     execInContainer("mysql", "-uroot", "-ptest", "-e", "GRANT ALL PRIVILEGES ON *.* TO 'test'@'%' WITH GRANT OPTION")
@@ -17,7 +17,7 @@ abstract class AbstractMysqlIntegrationTest {
 
         @JvmStatic
         val redis: GenericContainer<*> =
-            GenericContainer("redis:7-alpine").withExposedPorts(6379).apply { start() }
+            GenericContainer("valkey/valkey:9-alpine").withExposedPorts(6379).apply { start() }
 
         @JvmStatic
         fun mysqlJdbcUrl(databaseName: String): String =
