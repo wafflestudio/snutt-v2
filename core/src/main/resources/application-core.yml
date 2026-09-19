@@ -1,4 +1,6 @@
 snutt:
+  syllabus-proxy:
+    base-url: https://snutt-proxy.wafflestudio.com
   mail:
     compartment-id: ocid1.compartment.oc1..aaaaaaaaxzo4fga6br76o3e34rshtsl6alzripmgdh7f4lg4u4tzezosypaq
 

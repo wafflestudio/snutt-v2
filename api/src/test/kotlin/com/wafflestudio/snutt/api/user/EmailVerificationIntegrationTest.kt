@@ -154,7 +154,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, verify.statusCode.value())
-        assertEquals(true, body(verify)["isEmailVerified"].asBoolean())
+        assertEquals(true, body(verify)["is_email_verified"].asBoolean())
     }
 
     private fun codeOf(subject: String): String = Regex("\\[(\\d{6})]").find(subject)!!.groupValues[1]
