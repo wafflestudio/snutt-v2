@@ -79,6 +79,7 @@ data class LegacySocialProvidersResponse(
 )
 
 data class LegacyEmailVerificationResponse(
+    @get:JsonProperty("is_email_verified")
     val isEmailVerified: Boolean,
 )
 
