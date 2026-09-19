@@ -1,35 +1,32 @@
 package com.wafflestudio.snutt.core.domain.clientconfig.model
 
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.model.BaseEntity
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
-@Table(name = "client_config")
 class ClientConfig(
     var name: String,
+    @Enumerated(EnumType.STRING)
+    @Column(length = 16)
+    var osType: OsType,
+    var minVersion: String? = null,
+    var maxVersion: String? = null,
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var value: String,
-    var minIosVersion: String? = null,
-    var maxIosVersion: String? = null,
-    var minAndroidVersion: String? = null,
-    var maxAndroidVersion: String? = null,
 ) : BaseEntity() {
     fun isAdaptable(
-        osType: String,
+        osType: OsType,
         appVersion: String,
-    ): Boolean {
-        val (minVersion, maxVersion) =
-            when (osType) {
-                "ios" -> minIosVersion to maxIosVersion
-                "android" -> minAndroidVersion to maxAndroidVersion
-                else -> return false
-            }
-        return (minVersion == null || compareVersions(appVersion, minVersion) >= 0) &&
-            (maxVersion == null || compareVersions(appVersion, maxVersion) <= 0)
-    }
+    ): Boolean =
+        this.osType == osType &&
+            (minVersion == null || compareVersions(appVersion, minVersion!!) >= 0) &&
+            (maxVersion == null || compareVersions(appVersion, maxVersion!!) <= 0)
 
     companion object {
         private fun compareVersions(

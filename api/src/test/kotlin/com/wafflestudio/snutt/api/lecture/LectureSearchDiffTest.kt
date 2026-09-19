@@ -321,7 +321,7 @@ class LectureSearchDiffTest : AbstractMysqlIntegrationTest() {
             linkedSeeds.flatMapIndexed { i, seed ->
                 seed.classPlaceAndTimes.map { time ->
                     LectureClassTime(
-                        lecture = lectures[i],
+                        lectureId = lectures[i].id!!,
                         day = time.day,
                         place = time.place,
                         startMinute = time.startMinute,

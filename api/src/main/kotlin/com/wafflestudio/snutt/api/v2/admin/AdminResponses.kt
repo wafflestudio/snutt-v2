@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.api.v2.admin
 
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
@@ -13,11 +14,10 @@ import tools.jackson.databind.json.JsonMapper
 data class AdminConfigResponse(
     val id: Long,
     val name: String,
+    val osType: OsType,
     val value: JsonNode,
-    val minIosVersion: String?,
-    val maxIosVersion: String?,
-    val minAndroidVersion: String?,
-    val maxAndroidVersion: String?,
+    val minVersion: String?,
+    val maxVersion: String?,
     val createdAt: Long,
     val updatedAt: Long,
 )
@@ -64,11 +64,10 @@ internal fun ClientConfig.toResponse(mapper: JsonMapper) =
     AdminConfigResponse(
         id = checkNotNull(id),
         name = name,
+        osType = osType,
         value = mapper.readTree(value),
-        minIosVersion = minIosVersion,
-        maxIosVersion = maxIosVersion,
-        minAndroidVersion = minAndroidVersion,
-        maxAndroidVersion = maxAndroidVersion,
+        minVersion = minVersion,
+        maxVersion = maxVersion,
         createdAt = checkNotNull(createdAt).toEpochMilli(),
         updatedAt = checkNotNull(updatedAt).toEpochMilli(),
     )

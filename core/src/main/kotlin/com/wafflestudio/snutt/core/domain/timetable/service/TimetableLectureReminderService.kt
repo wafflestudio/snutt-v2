@@ -118,7 +118,8 @@ class TimetableLectureReminderService(
                 .findAllById(timetableLecturesById.values.map { it.timetableId })
                 .filter { it.isPrimary && it.year == current.year && it.semester == current.semester }
                 .associateBy { it.id!! }
-        val displaysByTimetableId = timetableService.displaysOf(timetablesById.values.toList())
+        val displaysByTimetableId =
+            timetableService.displaysOf(timetablesById.values.toList()).mapValues { it.value.lectures }
         return ReminderBatch(timetableLecturesById, timetablesById, displaysByTimetableId)
     }
 
@@ -218,7 +219,7 @@ class TimetableLectureReminderService(
             timetableLectureReminderRepository
                 .findByTimetableLectureIdIn(lectures.mapNotNull { it.id })
                 .associateBy { it.timetableLectureId }
-        val displays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
+        val displays = timetableService.displayOf(timetable).lectures
         return displays.map { display ->
             TimetableLectureReminderDisplay(
                 timetableLectureId = display.id,
@@ -314,8 +315,8 @@ class TimetableLectureReminderService(
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         val display =
             timetableService
-                .displaysOf(listOf(timetable))[timetable.id!!]
-                .orEmpty()
+                .displayOf(timetable)
+                .lectures
                 .first { it.id == timetableLecture.id }
         return timetableLecture to display
     }

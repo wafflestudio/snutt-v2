@@ -6,8 +6,19 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.transaction.annotation.Transactional
 
+data class PushTarget(
+    val userId: Long,
+    val fcmRegistrationId: String,
+)
+
 interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
     fun findAllByUserIdInAndIsDeletedFalse(userIds: Collection<Long>): List<UserDevice>
+
+    @Query(
+        "SELECT new com.wafflestudio.snutt.core.domain.device.repository.PushTarget(d.user.id, d.fcmRegistrationId) " +
+            "FROM UserDevice d WHERE d.user.id IN :userIds AND d.isDeleted = false",
+    )
+    fun findPushTargets(userIds: Collection<Long>): List<PushTarget>
 
     fun findByUserIdAndDeviceIdAndIsDeletedFalse(
         userId: Long,

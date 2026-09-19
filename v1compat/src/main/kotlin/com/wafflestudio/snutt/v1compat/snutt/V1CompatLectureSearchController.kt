@@ -163,14 +163,8 @@ class V1CompatLectureSearchController(
                 sort = LectureSort.getOfName(query.sortCriteria) ?: LectureSort.DEFAULT,
             )
         val offset = query.offset ?: query.page * 20L
-        if (offset < 0 || query.limit <= 0 || offset > Int.MAX_VALUE - query.limit) {
-            throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
-        val lectures =
-            lectureService
-                .search(criteria, null, offset.toInt() + query.limit)
-                .content
-                .drop(offset.toInt())
+        if (offset !in 0..Int.MAX_VALUE.toLong()) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val lectures = lectureService.searchByOffset(criteria, offset.toInt(), query.limit)
         val lectureIds = lectures.mapNotNull { it.lecture.id }
         val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
         val classTimesMap = lectureService.classTimesByLectureId(lectureIds)

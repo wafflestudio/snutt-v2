@@ -13,6 +13,8 @@ import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceTyp
 import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 
 data class TargetedPush(
     val title: String,
@@ -31,42 +33,34 @@ class PushService(
     private val pushPreferenceRepository: PushPreferenceRepository,
     private val notificationRepository: NotificationRepository,
 ) {
-    @Transactional(readOnly = true)
     fun sendTargetedPushes(
         messagesByUserId: Map<Long, TargetedPush>,
         preferenceType: PushPreferenceType,
     ) {
-        sendToUsers(messagesByUserId, preferenceType)
+        deliver(resolveMessages(messagesByUserId, preferenceType))
     }
 
-    private fun sendToUsers(
+    private fun resolveMessages(
         messagesByUserId: Map<Long, TargetedPush>,
         preferenceType: PushPreferenceType,
-    ) {
-        if (messagesByUserId.isEmpty()) return
-        val disabledUserIds =
-            pushPreferenceRepository
-                .findByUserIdInAndTypeAndIsEnabledFalse(messagesByUserId.keys, preferenceType)
-                .map { it.user.id!! }
-                .toSet()
+    ): List<TargetedPushMessage> {
+        if (messagesByUserId.isEmpty()) return emptyList()
+        val disabledUserIds = pushPreferenceRepository.findDisabledUserIds(messagesByUserId.keys, preferenceType).toSet()
         val targets = messagesByUserId.filterKeys { it !in disabledUserIds }
-        if (targets.isEmpty()) return
-        val devices = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(targets.keys)
-        sendToDevicesWithCleanup(
-            devices.mapNotNull { device ->
-                targets[device.user.id]?.let {
-                    TargetedPushMessage(
-                        it.title,
-                        it.body,
-                        it.urlScheme,
-                        device.fcmRegistrationId,
-                        it.isUrgentOnAndroid,
-                        it.shouldSendAsDataMessage,
-                        it.data,
-                    )
-                }
-            },
-        )
+        if (targets.isEmpty()) return emptyList()
+        return userDeviceRepository.findPushTargets(targets.keys).mapNotNull { target ->
+            targets[target.userId]?.let {
+                TargetedPushMessage(
+                    it.title,
+                    it.body,
+                    it.urlScheme,
+                    target.fcmRegistrationId,
+                    it.isUrgentOnAndroid,
+                    it.shouldSendAsDataMessage,
+                    it.data,
+                )
+            }
+        }
     }
 
     fun sendGlobalPushAndNotification(
@@ -99,18 +93,25 @@ class PushService(
         data: Map<String, String> = emptyMap(),
     ) {
         if (userIds.isEmpty()) return
-        sendToUsers(
-            userIds.associateWith {
-                TargetedPush(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
-            },
-            preferenceType,
-        )
         notificationRepository.saveAll(
             userIds.map { userId -> Notification(userId = userId, title = title, message = body, type = type, deeplink = urlScheme) },
         )
+        val messages =
+            resolveMessages(
+                userIds.associateWith {
+                    TargetedPush(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
+                },
+                preferenceType,
+            )
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() = deliver(messages)
+            },
+        )
     }
 
-    private fun sendToDevicesWithCleanup(messages: List<TargetedPushMessage>) {
+    private fun deliver(messages: List<TargetedPushMessage>) {
+        if (messages.isEmpty()) return
         val result = pushClient.sendMessages(messages)
         deviceService.markDeletedByRegistrationIds(result.invalidRegistrationIds)
     }

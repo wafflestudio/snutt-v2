@@ -45,6 +45,12 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
             registry.add("spring.datasource.username") { mysql.username }
             registry.add("spring.datasource.password") { mysql.password }
         }
+
+        @JvmStatic
+        @DynamicPropertySource
+        fun storageProperties(registry: DynamicPropertyRegistry) {
+            registry.add("snutt.storage.namespace") { "testnamespace" }
+        }
     }
 
     @Autowired
@@ -253,6 +259,16 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
+    fun `관리자 이미지 업로드 URI를 발급한다`() {
+        val response = post("/v2/admin/images/popup/upload-uris?count=2", "", adminToken)
+        assertEquals(200, response.statusCode.value())
+        val uris = body(response)
+        assertEquals(2, uris.size())
+        assertTrue(uris[0]["fileOriginUri"].asString().startsWith("s3://snutt-asset/popup-images/"))
+        assertTrue(uris[0]["fileUri"].asString().startsWith("https://objectstorage."))
+    }
+
+    @Test
     fun `알림함 조회와 읽음 처리`() {
         val broadcast =
             post(
@@ -291,7 +307,7 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
         val config =
             post(
                 "/v2/admin/configs/notice",
-                """{"value":{"text":"공지"},"minIosVersion":"3.0.0","maxIosVersion":"4.0.0"}""",
+                """{"value":{"text":"공지"},"osType":"ios","minVersion":"3.0.0","maxVersion":"4.0.0"}""",
                 adminToken,
             )
         assertEquals(200, config.statusCode.value())

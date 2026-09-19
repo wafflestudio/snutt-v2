@@ -5,9 +5,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
-import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.Table
 import java.time.Instant
 
 /**
@@ -18,10 +16,8 @@ import java.time.Instant
  * 로그아웃/탈퇴/비밀번호 변경은 이 행을 삭제하는 것으로 만료를 표현한다.
  */
 @Entity
-@Table(name = "refresh_token")
 class RefreshToken(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
     val user: User,
     @Column(nullable = false, columnDefinition = "char(64)")
     var tokenHash: String,

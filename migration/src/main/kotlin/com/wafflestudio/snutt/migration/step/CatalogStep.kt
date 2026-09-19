@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.MigrationContext
@@ -140,32 +141,31 @@ class CatalogStep(
         val ids =
             com.wafflestudio.snutt.migration
                 .IdSequence()
+        // 구 스키마는 한 행이 두 OS의 버전 범위를 함께 들고 있었다. OS별 행으로 나눈다
         writer(
             "client_config",
             listOf(
                 "id",
                 "name",
+                "os_type",
+                "min_version",
+                "max_version",
                 "value",
-                "min_ios_version",
-                "max_ios_version",
-                "min_android_version",
-                "max_android_version",
                 "created_at",
                 "updated_at",
             ),
         ).use { out ->
             mongo.each("clientConfig") { doc ->
-                out.add(
-                    ids.next(),
-                    doc.str("name") ?: "",
-                    doc.str("value") ?: "",
-                    doc.str("minIosVersion"),
-                    doc.str("maxIosVersion"),
-                    doc.str("minAndroidVersion"),
-                    doc.str("maxAndroidVersion"),
-                    doc.instant("createdAt").orNow().toSqlTimestamp(),
-                    doc.instant("updatedAt").orNow().toSqlTimestamp(),
-                )
+                val name = doc.str("name") ?: ""
+                val value = doc.str("value") ?: ""
+                val createdAt = doc.instant("createdAt").orNow().toSqlTimestamp()
+                val updatedAt = doc.instant("updatedAt").orNow().toSqlTimestamp()
+                listOf(
+                    OsType.IOS to (doc.str("minIosVersion") to doc.str("maxIosVersion")),
+                    OsType.ANDROID to (doc.str("minAndroidVersion") to doc.str("maxAndroidVersion")),
+                ).forEach { (osType, versions) ->
+                    out.add(ids.next(), name, osType.name, versions.first, versions.second, value, createdAt, updatedAt)
+                }
             }
         }
         alignAutoIncrement("client_config", ids.peek())

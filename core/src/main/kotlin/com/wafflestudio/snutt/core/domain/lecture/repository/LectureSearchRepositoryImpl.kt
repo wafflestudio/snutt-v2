@@ -47,6 +47,7 @@ class LectureSearchRepositoryImpl(
         criteria: LectureSearchCriteria,
         cursorLectureId: Long?,
         limit: Int,
+        offset: Int?,
     ): List<LectureSearchRow> {
         val cursorRating =
             if (cursorLectureId != null && criteria.sort != LectureSort.DEFAULT) {
@@ -69,7 +70,7 @@ class LectureSearchRepositoryImpl(
                 null
             }
 
-        return findAll(offset = null, limit = limit) {
+        return findAll(offset = offset, limit = limit) {
             jpql {
                 val predicates = mutableListOf<Predicate>()
                 predicates += path(Lecture::year).equal(criteria.year)

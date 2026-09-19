@@ -14,5 +14,6 @@ interface LectureSearchRepository {
         criteria: LectureSearchCriteria,
         cursorLectureId: Long?,
         limit: Int,
+        offset: Int? = null,
     ): List<LectureSearchRow>
 }

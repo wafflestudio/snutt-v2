@@ -11,4 +11,10 @@ interface DiarySubmissionRepository : JpaRepository<DiarySubmission, Long> {
         userId: Long,
         createdAt: Instant,
     ): List<DiarySubmission>
+
+    fun existsByUserIdAndLectureIdAndCreatedAtAfter(
+        userId: Long,
+        lectureId: Long,
+        createdAt: Instant,
+    ): Boolean
 }

@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
@@ -70,7 +71,7 @@ interface EvaluationCustomRepository {
         pageSize: Int,
     ): List<Evaluation>
 
-    fun findCourseAggregate(courseId: Long): Pair<Long, Double?>
+    fun findCourseAggregate(courseId: Long): CourseAggregate
 
     fun findEvaluationAverages(
         courseId: Long,

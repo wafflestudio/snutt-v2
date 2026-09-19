@@ -48,40 +48,40 @@ class TimetableService(
         timetableId: Long,
     ): TimetableDisplay = displayOf(getTimetable(userId, timetableId))
 
-    fun displayOf(timetable: Timetable): TimetableDisplay =
-        TimetableDisplay(
-            timetable = timetable,
-            lectures = displaysOf(listOf(timetable))[timetable.id!!].orEmpty(),
-        )
+    fun displayOf(timetable: Timetable): TimetableDisplay = displaysOf(listOf(timetable)).getValue(timetable.id!!)
 
     fun toBriefs(timetables: List<Timetable>): List<TimetableBriefDto> {
         val displays = displaysOf(timetables)
         return timetables.map { timetable ->
-            TimetableBriefDto(timetable, displays[timetable.id]?.sumOf { it.credit ?: 0 } ?: 0)
+            TimetableBriefDto(timetable, displays.getValue(timetable.id!!).lectures.sumOf { it.credit ?: 0 })
         }
     }
 
-    fun displaysOf(timetables: List<Timetable>): Map<Long, List<TimetableLectureDisplay>> {
-        val timetableIds = timetables.mapNotNull { it.id }
+    fun displaysOf(timetables: List<Timetable>): Map<Long, TimetableDisplay> {
         val themes = timetableThemeService.getThemesByIds(timetables.map { it.themeId })
-        val themeByTimetable = timetables.associate { it.id!! to themes.getValue(it.themeId) }
-        val lectures = timetableLectureRepository.findByTimetableIdIn(timetableIds)
+        val entries = timetableLectureRepository.findByTimetableIdIn(timetables.mapNotNull { it.id })
         val lectureMap =
-            lectureRepository.findAllById(lectures.mapNotNull { it.lectureId }).associateBy { it.id!! }
+            lectureRepository.findAllById(entries.mapNotNull { it.lectureId }).associateBy { it.id!! }
         val classTimesMap =
-            lectureService.classTimesByLectureId(lectures.mapNotNull { it.lectureId })
-        return lectures
-            .groupBy { it.timetableId }
-            .mapValues { (_, lectureList) ->
-                lectureList.map {
-                    TimetableLectureDisplay(
-                        it,
-                        lectureMap[it.lectureId],
-                        classTimesMap[it.lectureId].orEmpty(),
-                        themeByTimetable.getValue(it.timetableId),
-                    )
-                }
-            }
+            lectureService.classTimesByLectureId(entries.mapNotNull { it.lectureId })
+        val entriesByTimetableId = entries.groupBy { it.timetableId }
+        return timetables.associate { timetable ->
+            val theme = themes.getValue(timetable.themeId)
+            timetable.id!! to
+                TimetableDisplay(
+                    timetable = timetable,
+                    theme = theme,
+                    lectures =
+                        entriesByTimetableId[timetable.id].orEmpty().map {
+                            TimetableLectureDisplay(
+                                it,
+                                lectureMap[it.lectureId],
+                                classTimesMap[it.lectureId].orEmpty(),
+                                theme,
+                            )
+                        },
+                )
+        }
     }
 
     @Transactional
@@ -171,13 +171,12 @@ class TimetableService(
         themeId: Long,
     ): TimetableDisplay {
         val timetable = getTimetable(userId, timetableId)
-        val theme = timetableThemeService.findThemeAvailableToUser(userId, themeId)
-        timetable.themeId = theme.id!!
+        val theme = timetableThemeService.getAvailableTheme(userId, themeId)
+        timetable.themeId = theme.id
 
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        val palette = timetableThemeService.getTheme(userId, themeId).colors
         lectures.forEachIndexed { index, timetableLecture ->
-            timetableLecture.paletteIndex = index % palette.size
+            timetableLecture.paletteIndex = index % theme.colors.size
             timetableLecture.customColor = null
         }
         return displayOf(timetable)

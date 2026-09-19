@@ -38,6 +38,15 @@ class LectureService(
         return results.toCursorPage(limit, cursorOf = { LectureSearchCursor(criteria.sort, it.lecture.id!!) }) { it }
     }
 
+    fun searchByOffset(
+        criteria: LectureSearchCriteria,
+        offset: Int,
+        limit: Int,
+    ): List<LectureSearchRow> {
+        if (offset < 0 || limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        return lectureSearchRepository.search(criteria, cursorLectureId = null, limit = limit, offset = offset)
+    }
+
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
     fun getAllByIds(lectureIds: Collection<Long>): Map<Long, Lecture> =
@@ -46,5 +55,5 @@ class LectureService(
     fun classTimesByLectureId(lectureIds: Collection<Long>): Map<Long, List<ClassPlaceAndTime>> =
         lectureClassTimeRepository
             .findAllByLectureIdInOrderById(lectureIds)
-            .groupBy({ it.lectureId!! }, { it.toClassPlaceAndTime() })
+            .groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
 }

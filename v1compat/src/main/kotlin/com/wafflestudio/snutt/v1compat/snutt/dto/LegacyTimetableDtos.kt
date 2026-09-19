@@ -56,19 +56,21 @@ fun LegacyTimetableDto(
     display: TimetableDisplay,
     evLectureIds: Map<String, Long>,
     language: Language = Language.KO,
-): LegacyTimetableDto =
-    LegacyTimetableDto(
+): LegacyTimetableDto {
+    val builtinCode = display.theme.builtinCode
+    return LegacyTimetableDto(
         id = timetable.id!!.toString(),
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
         lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.toString()?.let(evLectureIds::get), language) },
         title = timetable.title,
-        theme = if (timetable.themeId in 1..6) (timetable.themeId - 1).toInt() else BasicThemeType.SNUTT.value,
-        themeId = if (timetable.themeId in 1..6) null else timetable.themeId.toString(),
+        theme = builtinCode?.let(::legacyThemeValue) ?: BasicThemeType.SNUTT.value,
+        themeId = if (builtinCode == null) timetable.themeId.toString() else null,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
+}
 
 data class LegacyTimetableLectureDto(
     @param:JsonProperty("_id")

@@ -2,14 +2,11 @@ package com.wafflestudio.snutt.core.domain.lecture.model
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.BaseEntity
-import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
 @Entity
-@Table(name = "lecture")
 class Lecture(
     var year: Int,
     @JdbcTypeCode(SqlTypes.TINYINT)
@@ -36,7 +33,6 @@ class Lecture(
     var classificationEn: String? = null,
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var remarkEn: String? = null,
-    @Column(name = "course_id")
     var courseId: Long? = null,
 ) : BaseEntity() {
     fun copyMetadataFrom(other: Lecture) {

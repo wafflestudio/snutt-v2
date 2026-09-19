@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import jakarta.persistence.Entity
-import jakarta.persistence.Table
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
@@ -49,7 +48,6 @@ data class LectureOverrides(
 }
 
 @Entity
-@Table(name = "timetable_lecture")
 class TimetableLecture(
     var timetableId: Long,
     var lectureId: Long? = null,

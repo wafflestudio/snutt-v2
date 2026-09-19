@@ -140,7 +140,7 @@ class TimetableLectureService(
             timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
-        val existingDisplays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
+        val existingDisplays = timetableService.displayOf(timetable).lectures
 
         val timesReset = LectureOverrideField.CLASS_PLACE_AND_TIMES in request.resetFields
         val timesChanged = request.classPlaceAndTimes != null || timesReset
@@ -253,7 +253,7 @@ class TimetableLectureService(
         isForced: Boolean,
         selfId: Long?,
     ) {
-        val displays = timetableService.displaysOf(listOf(timetable))[timetable.id!!].orEmpty()
+        val displays = timetableService.displayOf(timetable).lectures
         val overlapping =
             displays.filter { display ->
                 display.id != selfId && ClassTimeUtils.timesOverlap(newTimes, display.classPlaceAndTimes)
