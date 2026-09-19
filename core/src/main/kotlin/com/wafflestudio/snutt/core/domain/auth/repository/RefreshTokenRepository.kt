@@ -1,14 +1,15 @@
 package com.wafflestudio.snutt.core.domain.auth.repository
 
 import com.wafflestudio.snutt.core.domain.auth.model.RefreshToken
+import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 
 interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {
-    @Query("SELECT t FROM RefreshToken t JOIN FETCH t.user WHERE t.tokenHash = :tokenHash")
-    fun findWithUserByTokenHash(tokenHash: String): RefreshToken?
+    @EntityGraph(attributePaths = ["user"])
+    fun findByTokenHash(tokenHash: String): RefreshToken?
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(

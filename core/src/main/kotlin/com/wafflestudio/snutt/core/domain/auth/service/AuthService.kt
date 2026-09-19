@@ -106,7 +106,7 @@ class AuthService(
     fun refresh(refreshToken: String): Pair<User, TokenPair> {
         val presentedTokenHash = sha256Hex(refreshToken)
         val refreshTokenRecord =
-            refreshTokenRepository.findWithUserByTokenHash(presentedTokenHash)
+            refreshTokenRepository.findByTokenHash(presentedTokenHash)
                 ?: throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
         val user = refreshTokenRecord.user
         if (!user.active) throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
@@ -145,7 +145,7 @@ class AuthService(
         refreshToken: String,
         fcmRegistrationId: String?,
     ) {
-        val refreshTokenRecord = refreshTokenRepository.findWithUserByTokenHash(sha256Hex(refreshToken)) ?: return
+        val refreshTokenRecord = refreshTokenRepository.findByTokenHash(sha256Hex(refreshToken)) ?: return
         val userId = refreshTokenRecord.user.id!!
         refreshTokenRepository.delete(refreshTokenRecord)
         if (fcmRegistrationId == null) return

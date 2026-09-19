@@ -15,21 +15,16 @@ import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
 import com.wafflestudio.snutt.core.domain.theme.model.UserPreference
+import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeCursor
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.UserPreferenceRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-
-data class PublishedThemeCursor(
-    val downloadCount: Long,
-    val publicationId: Long,
-)
 
 @Service
 class TimetableThemeService(
@@ -43,7 +38,12 @@ class TimetableThemeService(
 ) {
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
         val defaultId = getDefaultThemeId(userId)
-        return displays(timetableThemeRepository.findAvailableThemes(userId), defaultId).values.toList()
+        val themes =
+            (
+                timetableThemeRepository.findByUserIdOrderById(userId) +
+                    timetableThemeRepository.findByBuiltinCodeIsNotNullOrderById()
+            ).sortedBy { it.id }
+        return displays(themes, defaultId).values.toList()
     }
 
     fun getTheme(
@@ -228,9 +228,7 @@ class TimetableThemeService(
         query: String? = null,
     ): CursorPage<ThemePublicationDisplay> {
         val after = decodeCursor(cursor)
-        return publishedThemeRepository
-            .findListed(query, after?.downloadCount, after?.publicationId, PageRequest.of(0, PAGE_SIZE + 1))
-            .toPublicationPage()
+        return publishedThemeRepository.findListed(query, after, PAGE_SIZE + 1).toPublicationPage()
     }
 
     fun getFriendsPublications(
@@ -240,13 +238,13 @@ class TimetableThemeService(
         val userIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
         if (userIds.isEmpty()) return CursorPage.of(emptyList(), null, PAGE_SIZE)
         val after = decodeCursor(cursor)
-        return publishedThemeRepository
-            .findFriendsPublished(
-                userIds,
-                after?.downloadCount,
-                after?.publicationId,
-                PageRequest.of(0, PAGE_SIZE + 1),
-            ).toPublicationPage()
+        val authored = publishedThemeRepository.findListedByAuthorIds(userIds, after, PAGE_SIZE + 1)
+        val downloaded = publishedThemeRepository.findListedDownloadedByUsers(userIds, after, PAGE_SIZE + 1)
+        return (authored + downloaded)
+            .distinctBy { it.id }
+            .sortedWith(compareByDescending<PublishedTheme> { it.downloadCount }.thenByDescending { it.id })
+            .take(PAGE_SIZE + 1)
+            .toPublicationPage()
     }
 
     fun getMyPublications(userId: Long): List<ThemePublicationDisplay> =
