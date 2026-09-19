@@ -362,7 +362,7 @@ data class LegacyDiaryQuestionDto(
 )
 
 data class LegacyDiaryTargetLectureDto(
-    val lectureId: Long?,
+    val lectureId: String?,
     val courseTitle: String,
 )
 
@@ -379,7 +379,7 @@ data class LegacyDiarySemesterSubmissionsDto(
 
 data class LegacyDiarySubmissionDto(
     val id: String,
-    val lectureId: Long?,
+    val lectureId: String?,
     val date: Instant,
     val courseTitle: String,
     val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
@@ -419,7 +419,7 @@ class V1CompatDiaryController(
             nextLecture =
                 display.nextLecture?.let {
                     LegacyDiaryTargetLectureDto(
-                        lectureId = it.lectureId,
+                        lectureId = it.lectureId?.toString(),
                         courseTitle = clientInfo.language.select(it.courseTitle, it.courseTitleEn),
                     )
                 },
@@ -437,7 +437,7 @@ class V1CompatDiaryController(
             diaryService.getDiaryTargetLecture(user.id!!, year, Semester.fromValue(semester), emptyList())
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         return LegacyDiaryTargetLectureDto(
-            lectureId = target.lectureId,
+            lectureId = target.lectureId?.toString(),
             courseTitle = clientInfo.language.select(target.courseTitle, target.courseTitleEn),
         )
     }
@@ -466,7 +466,7 @@ class V1CompatDiaryController(
                         group.map { submission ->
                             LegacyDiarySubmissionDto(
                                 id = submission.id!!.toString(),
-                                lectureId = submission.lectureId,
+                                lectureId = submission.lectureId?.toString(),
                                 date = checkNotNull(submission.createdAt),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
