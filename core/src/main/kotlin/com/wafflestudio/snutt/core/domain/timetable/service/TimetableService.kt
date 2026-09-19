@@ -92,7 +92,7 @@ class TimetableService(
         semester: Semester,
         title: String,
     ): Timetable {
-        userRepository.findByIdForUpdate(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         validateTimetableTitle(userId, year, semester, title)
         return timetableRepository.save(
             Timetable(
@@ -123,7 +123,7 @@ class TimetableService(
         userId: Long,
         timetableId: Long,
     ) {
-        userRepository.findByIdForUpdate(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.TABLE_DELETE_ERROR)
         timetableRepository.delete(getTimetable(userId, timetableId))
     }
@@ -177,7 +177,7 @@ class TimetableService(
         userId: Long,
         timetableId: Long,
     ) {
-        userRepository.findByIdForUpdate(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val newPrimary = getTimetable(userId, timetableId)
         if (newPrimary.isPrimary) return
         timetableRepository

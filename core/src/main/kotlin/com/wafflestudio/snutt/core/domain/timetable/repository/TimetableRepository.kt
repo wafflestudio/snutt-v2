@@ -11,8 +11,7 @@ import java.time.Instant
 
 interface TimetableRepository : JpaRepository<Timetable, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT t FROM Timetable t WHERE t.id = :id AND t.userId = :userId")
-    fun findByIdAndUserIdForUpdate(
+    fun findForUpdateByIdAndUserId(
         id: Long,
         userId: Long,
     ): Timetable?

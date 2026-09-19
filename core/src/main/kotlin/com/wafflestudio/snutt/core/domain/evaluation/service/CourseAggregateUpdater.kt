@@ -14,7 +14,7 @@ class CourseAggregateUpdater(
 ) {
     @Transactional
     fun update(courseId: Long) {
-        val course = courseRepository.findByIdForUpdate(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        val course = courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         val aggregate = evaluationRepository.findCourseAggregate(courseId)
         course.evalCount = aggregate.evalCount
         course.avgRating = aggregate.averages.avgRating

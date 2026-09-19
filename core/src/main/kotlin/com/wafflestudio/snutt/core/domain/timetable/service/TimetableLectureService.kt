@@ -218,7 +218,7 @@ class TimetableLectureService(
         userId: Long,
         timetableId: Long,
     ): Timetable =
-        timetableRepository.findByIdAndUserIdForUpdate(timetableId, userId)
+        timetableRepository.findForUpdateByIdAndUserId(timetableId, userId)
             ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
 
     private fun getTimetableLecture(

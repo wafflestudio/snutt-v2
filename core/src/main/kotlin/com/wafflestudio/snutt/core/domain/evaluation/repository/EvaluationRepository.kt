@@ -10,7 +10,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
-import org.springframework.data.jpa.repository.Query
 
 interface EvaluationRepository :
     JpaRepository<Evaluation, Long>,
@@ -32,8 +31,7 @@ interface EvaluationRepository :
     fun findByIdAndIsHiddenFalse(id: Long): Evaluation?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT e FROM Evaluation e WHERE e.id = :id AND e.isHidden = false")
-    fun findForUpdate(id: Long): Evaluation?
+    fun findForUpdateByIdAndIsHiddenFalse(id: Long): Evaluation?
 }
 
 interface EvaluationCustomRepository {

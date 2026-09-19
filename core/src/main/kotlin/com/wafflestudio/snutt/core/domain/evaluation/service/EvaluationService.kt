@@ -90,7 +90,7 @@ class EvaluationService(
         if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
         val lecture = getLecture(lectureId)
         val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        courseRepository.findByIdForUpdate(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         ensureNotEvaluated(courseId, lecture.year, lecture.semester, userId)
         val evaluation =
@@ -202,7 +202,7 @@ class EvaluationService(
     ): EvaluationDisplay {
         val moveTo = request.moveToLectureId?.let(::getLecture)
         val evaluation = lockMyEvaluation(userId, evaluationId)
-        courseRepository.findByIdForUpdate(evaluation.courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        courseRepository.findForUpdateById(evaluation.courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         if (request.content?.isBlank() == true) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
         if (moveTo != null && moveTo.courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
@@ -308,7 +308,7 @@ class EvaluationService(
         lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
     private fun lockEvaluation(evaluationId: Long): Evaluation =
-        evaluationRepository.findForUpdate(evaluationId) ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
+        evaluationRepository.findForUpdateByIdAndIsHiddenFalse(evaluationId) ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
 
     private fun lockMyEvaluation(
         userId: Long,
