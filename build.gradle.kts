@@ -65,20 +65,20 @@ subprojects {
 project(":api") {
     apply(plugin = "org.springframework.boot")
 
-    val bootJar: BootJar by tasks
+    val bootJar = tasks.getByName<BootJar>("bootJar")
     bootJar.archiveFileName.set("snutt-api.jar")
 }
 
 project(":batch") {
     apply(plugin = "org.springframework.boot")
 
-    val bootJar: BootJar by tasks
+    val bootJar = tasks.getByName<BootJar>("bootJar")
     bootJar.archiveFileName.set("snutt-batch.jar")
 }
 
 project(":migration") {
     apply(plugin = "org.springframework.boot")
 
-    val bootJar: BootJar by tasks
+    val bootJar = tasks.getByName<BootJar>("bootJar")
     bootJar.archiveFileName.set("snutt-migration.jar")
 }

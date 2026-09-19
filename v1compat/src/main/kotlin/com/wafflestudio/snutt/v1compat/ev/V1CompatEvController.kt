@@ -153,7 +153,7 @@ class V1CompatEvController(
         val course = legacyCourseRepository.get(lectureId)
         val averages = summary.aggregate.averages
         return LegacyEvLectureSummaryResponse(
-            id = course.id!!,
+            id = course.id,
             title = course.title,
             instructor = course.instructor,
             department = course.department,

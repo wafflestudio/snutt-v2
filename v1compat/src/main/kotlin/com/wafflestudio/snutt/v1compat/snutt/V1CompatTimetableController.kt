@@ -80,7 +80,7 @@ class V1CompatTimetableController(
         val userId = user.id!!
         return timetableService.toBriefs(timetableService.getTimetables(userId)).map { brief ->
             LegacyTimetableBriefDto(
-                id = brief.id!!.toString(),
+                id = brief.id.toString(),
                 year = brief.year,
                 semester = brief.semester,
                 title = brief.title,

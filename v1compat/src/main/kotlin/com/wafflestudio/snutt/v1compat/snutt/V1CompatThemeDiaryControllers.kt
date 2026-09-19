@@ -406,7 +406,7 @@ class V1CompatDiaryController(
             diaryService.generateQuestionnaire(
                 user.id!!,
                 DiaryQuestionnaireRequest(
-                    lectureId = body.lectureId.toLong(),
+                    lectureId = body.lectureId,
                     dailyClassTypes = body.dailyClassTypes,
                 ),
             )
@@ -488,7 +488,7 @@ class V1CompatDiaryController(
         diaryService.submitDiary(
             user.id!!,
             DiarySubmissionRequest(
-                lectureId = body.lectureId.toLong(),
+                lectureId = body.lectureId,
                 dailyClassTypes = body.dailyClassTypes,
                 questionAnswers = body.questionAnswers,
                 comment = body.comment,
