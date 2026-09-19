@@ -1,5 +1,7 @@
 spring:
   application:
     name: snutt-batch
+  main:
+    lazy-initialization: true
   config:
     import: classpath:application-core.yml
