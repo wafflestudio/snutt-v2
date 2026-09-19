@@ -127,14 +127,14 @@ class SugangSnuSyncService(
                     changeCounts
                 }.orEmpty()
 
-        lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
-
         pushService.sendTargetedPushes(
             timetableChangeCounts.mapValues { (_, counts) ->
                 PushMessage(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
             },
             PushPreferenceType.LECTURE_UPDATE,
         )
+
+        lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
 
         log.info("sugang sync: created={} updated={} deleted={}", created.size, updated.size, deleted.size)
         return SugangSnuSyncResult(createdCount = created.size, updatedCount = updated.size, deletedCount = deleted.size)

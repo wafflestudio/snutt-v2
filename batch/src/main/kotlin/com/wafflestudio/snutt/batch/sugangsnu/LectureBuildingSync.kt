@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
 import com.wafflestudio.snutt.core.domain.building.model.PlaceInfo
 import com.wafflestudio.snutt.core.domain.building.repository.LectureBuildingRepository
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
@@ -19,13 +20,13 @@ data class SnuMapSearchResult(
 
 data class SnuMapSearchItem(
     @param:JsonProperty("lat_val")
-    val latitudeInDms: Double,
+    val latitudeInDms: Double?,
     @param:JsonProperty("lon_val")
-    val longitudeInDms: Double,
+    val longitudeInDms: Double?,
     @param:JsonProperty("lat_val1")
-    val latitudeInDecimal: Double = 0.0,
+    val latitudeInDecimal: Double?,
     @param:JsonProperty("lon_val1")
-    val longitudeInDecimal: Double = 0.0,
+    val longitudeInDecimal: Double?,
     @param:JsonProperty("vil_dong_nm")
     val buildingNumber: String?,
     val name: String,
@@ -65,6 +66,8 @@ class LectureBuildingSync(
     private val snuMapClient: SnuMapClient,
     private val lectureBuildingRepository: LectureBuildingRepository,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     fun sync(places: List<String>) {
         val buildingNumbers =
             places
@@ -74,22 +77,31 @@ class LectureBuildingSync(
                 .distinct()
         if (buildingNumbers.isEmpty()) return
         val existing = lectureBuildingRepository.findByBuildingNumberIn(buildingNumbers).associateBy { it.buildingNumber }
+        val failed = mutableListOf<String>()
         buildingNumbers.forEach { buildingNumber ->
-            val item = snuMapClient.search(buildingNumber).mostProbableItem(buildingNumber) ?: return@forEach
-            val fetched =
-                LectureBuilding(
-                    buildingNumber = buildingNumber,
-                    buildingNameKor = item.name,
-                    buildingNameEng = item.englishName.orEmpty(),
-                    campus = Campus.GWANAK,
-                    locationInDms = GeoCoordinate(item.latitudeInDms, item.longitudeInDms),
-                    locationInDecimal = GeoCoordinate(item.latitudeInDecimal, item.longitudeInDecimal),
-                )
-            val current = existing[buildingNumber]
-            when {
-                current == null -> lectureBuildingRepository.save(fetched)
-                !current.sameAs(fetched) -> lectureBuildingRepository.save(current.apply { copyFrom(fetched) })
-            }
+            runCatching { update(buildingNumber, existing[buildingNumber]) }
+                .onFailure { failed += buildingNumber }
+        }
+        if (failed.isNotEmpty()) log.warn("건물 정보를 갱신하지 못했다: {}", failed)
+    }
+
+    private fun update(
+        buildingNumber: String,
+        current: LectureBuilding?,
+    ) {
+        val item = snuMapClient.search(buildingNumber).mostProbableItem(buildingNumber) ?: return
+        val fetched =
+            LectureBuilding(
+                buildingNumber = buildingNumber,
+                buildingNameKor = item.name,
+                buildingNameEng = item.englishName.orEmpty(),
+                campus = Campus.GWANAK,
+                locationInDms = coordinate(item.latitudeInDms, item.longitudeInDms) ?: current?.locationInDms,
+                locationInDecimal = coordinate(item.latitudeInDecimal, item.longitudeInDecimal) ?: current?.locationInDecimal,
+            )
+        when {
+            current == null -> lectureBuildingRepository.save(fetched)
+            !current.sameAs(fetched) -> lectureBuildingRepository.save(current.apply { copyFrom(fetched) })
         }
     }
 
@@ -105,6 +117,11 @@ class LectureBuildingSync(
         locationInDms = other.locationInDms
         locationInDecimal = other.locationInDecimal
     }
+
+    private fun coordinate(
+        latitude: Double?,
+        longitude: Double?,
+    ): GeoCoordinate? = if (latitude != null && longitude != null) GeoCoordinate(latitude, longitude) else null
 
     private fun SnuMapSearchResult.mostProbableItem(buildingNumber: String): SnuMapSearchItem? =
         searchList
