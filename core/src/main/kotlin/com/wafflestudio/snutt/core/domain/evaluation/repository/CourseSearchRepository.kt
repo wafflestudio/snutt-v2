@@ -22,8 +22,6 @@ class CourseSearchRepository(
     entityManager: EntityManager,
     context: JpqlRenderContext,
 ) : KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
-    private val classifier = SearchKeywordClassifier(PLACE, BUILDING)
-
     fun search(
         criteria: CourseSearchCriteria,
         cursor: CourseSearchCursor?,
@@ -37,11 +35,11 @@ class CourseSearchRepository(
                 criteria.query.split(' ').filter { it.isNotBlank() }.forEach { word ->
                     val identities = mutableListOf<Predicate>()
                     val lectures = mutableListOf<Predicate>()
-                    when (val intent = classifier.classify(word, criteria.language)) {
+                    when (val intent = SearchKeywordClassifier.classify(word, criteria.language)) {
                         KeywordIntent.Empty -> Unit
                         KeywordIntent.Major -> lectures += path(Lecture::classification).`in`(listOf("전선", "전필"))
-                        KeywordIntent.Graduate -> lectures += path(Lecture::academicYear).`in`(GRADUATE_YEARS)
-                        KeywordIntent.Undergraduate -> lectures += path(Lecture::academicYear).notIn(GRADUATE_YEARS)
+                        KeywordIntent.Graduate -> lectures += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
+                        KeywordIntent.Undergraduate -> lectures += path(Lecture::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
                         KeywordIntent.PhysicalEducation -> lectures += path(Lecture::category).equal("체육")
                         is KeywordIntent.Fuzzy -> text(identities, lectures, intent.keyword, true)
                         KeywordIntent.EnglishLecture -> text(identities, lectures, "영강", true)
@@ -138,7 +136,7 @@ class CourseSearchRepository(
         word: String,
         fuzzy: Boolean,
     ) {
-        val pattern = if (fuzzy) word.fold("%") { acc, character -> "$acc$character%" } else "%$word%"
+        val pattern = if (fuzzy) word.toCharArray().joinToString("%", prefix = "%", postfix = "%") else "%$word%"
         identities += path(Course::title).like(pattern)
         identities += path(Course::instructor).like(if (fuzzy) word else pattern)
         identities += path(Course::courseNumber).like(word)
@@ -149,11 +147,13 @@ class CourseSearchRepository(
             lectures += path(Lecture::category).like(pattern)
             lectures += path(Lecture::academicYear).equal(word)
             lectures += path(Lecture::classification).equal(word)
-            when (word.last()) {
-                '과', '부' -> lectures += path(Lecture::department).like(pattern.substring(1, pattern.length - 2))
-                '학' -> Unit
-                else -> lectures += path(Lecture::department).like(pattern.substring(1))
-            }
+            val departmentPrefix =
+                when (word.last()) {
+                    '과', '부' -> word.dropLast(1)
+                    '학' -> null
+                    else -> word
+                }
+            departmentPrefix?.let { lectures += path(Lecture::department).like(it.toCharArray().joinToString("%", postfix = "%")) }
         }
     }
 
@@ -179,10 +179,4 @@ class CourseSearchRepository(
                 newer.path(Lecture::id).greaterThan(previous.path(Lecture::id)),
             ),
         )
-
-    companion object {
-        private val GRADUATE_YEARS = listOf("석사", "박사", "석박사통합")
-        private val PLACE = """^(?:|#|\*)\d+(?:-\d+|-[a-zA-Z])?-[a-zA-Z]?\d+[a-zA-Z]?(?:-\d+)?$""".toRegex()
-        private val BUILDING = """^(?:|#|\*)\d+(?:-\d+)?동$""".toRegex()
-    }
 }

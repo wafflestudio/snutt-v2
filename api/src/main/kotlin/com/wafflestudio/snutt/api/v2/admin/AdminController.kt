@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.storage.FileUploadUri
 import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
@@ -22,8 +23,6 @@ import com.wafflestudio.snutt.core.domain.popup.service.PopupWriteRequest
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
-import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetDisplay
-import com.wafflestudio.snutt.core.domain.trace.service.ApiTraceTargetService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
@@ -37,7 +36,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
 data class InsertNotificationRequest(
     val userId: Long? = null,
@@ -92,20 +90,6 @@ data class AdminDiaryQuestionWriteRequest(
     val targetDailyClassTypes: List<String>,
 )
 
-data class AdminApiTraceTargetRequest(
-    val userId: Long,
-    val memo: String? = null,
-)
-
-data class AdminApiTraceTargetResponse(
-    val userId: Long,
-    val nickname: String,
-    val nicknameTag: String,
-    val email: String?,
-    val memo: String?,
-    val createdAt: Long,
-)
-
 @RestController
 @AdminOnly
 @RequestMapping("/v2/admin")
@@ -118,9 +102,7 @@ class AdminController(
     private val userService: UserService,
     private val diaryService: DiaryService,
     private val diaryScheduler: DiaryScheduler,
-    private val apiTraceTargetService: ApiTraceTargetService,
     private val uploadUriIssuer: UploadUriIssuer,
-    private val jsonMapper: JsonMapper,
 ) {
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
@@ -146,33 +128,14 @@ class AdminController(
         @Valid @RequestBody body: InsertNotificationRequest,
     ) {
         val userId = body.userId
+        val message = PushMessage(title = body.title, body = body.message, urlScheme = body.deeplink)
         when {
             !body.sendPush ->
                 notificationService.sendNotification(
-                    Notification(
-                        userId = userId,
-                        title = body.title,
-                        message = body.message,
-                        type = body.type,
-                        deeplink = body.deeplink,
-                    ),
+                    Notification(userId = userId, title = body.title, message = body.message, type = body.type, deeplink = body.deeplink),
                 )
-            userId != null ->
-                pushService.sendPushAndNotification(
-                    userIds = listOf(userId),
-                    title = body.title,
-                    body = body.message,
-                    type = body.type,
-                    preferenceType = PushPreferenceType.NORMAL,
-                    urlScheme = body.deeplink,
-                )
-            else ->
-                pushService.sendGlobalPushAndNotification(
-                    title = body.title,
-                    body = body.message,
-                    type = body.type,
-                    urlScheme = body.deeplink,
-                )
+            userId != null -> pushService.sendPushAndNotification(listOf(userId), message, body.type, PushPreferenceType.NORMAL)
+            else -> pushService.sendGlobalPushAndNotification(message, body.type)
         }
     }
 
@@ -180,19 +143,19 @@ class AdminController(
     fun postConfig(
         @PathVariable name: String,
         @Valid @RequestBody body: AdminConfigWriteRequest,
-    ): AdminConfigResponse = configService.postConfig(name, body.toWriteRequest()).toResponse(jsonMapper)
+    ): AdminConfigResponse = configService.postConfig(name, body.toWriteRequest()).toResponse()
 
     @GetMapping("/configs/{name}")
     fun getConfigs(
         @PathVariable name: String,
-    ): List<AdminConfigResponse> = configService.getConfigsByName(name).map { it.toResponse(jsonMapper) }
+    ): List<AdminConfigResponse> = configService.getConfigsByName(name).map { it.toResponse() }
 
     @PatchMapping("/configs/{name}/{configId}")
     fun patchConfig(
         @PathVariable name: String,
         @PathVariable configId: Long,
         @Valid @RequestBody body: AdminConfigWriteRequest,
-    ): AdminConfigResponse = configService.patchConfig(name, configId, body.toWriteRequest()).toResponse(jsonMapper)
+    ): AdminConfigResponse = configService.patchConfig(name, configId, body.toWriteRequest()).toResponse()
 
     @DeleteMapping("/configs/{name}/{configId}")
     fun deleteConfig(
@@ -230,25 +193,24 @@ class AdminController(
     @GetMapping("/registration-periods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
-    ): AdminRegistrationPeriodResponse? =
-        semesterRegistrationPeriodService.getByYearAndSemester(year, parseSemester(semester))?.toResponse()
+        @PathVariable semester: Semester,
+    ): AdminRegistrationPeriodResponse? = semesterRegistrationPeriodService.getByYearAndSemester(year, semester)?.toResponse()
 
     @PatchMapping("/registration-periods/{year}/{semester}")
     fun patchSemesterRegistrationPeriod(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
         @RequestBody registrationPeriods: List<RegistrationDate>,
     ) {
-        semesterRegistrationPeriodService.upsert(year, parseSemester(semester), registrationPeriods)
+        semesterRegistrationPeriodService.upsert(year, semester, registrationPeriods)
     }
 
     @DeleteMapping("/registration-periods/{year}/{semester}")
     fun deleteSemesterRegistrationPeriod(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
     ) {
-        semesterRegistrationPeriodService.delete(year, parseSemester(semester))
+        semesterRegistrationPeriodService.delete(year, semester)
     }
 
     @GetMapping("/users/search")
@@ -278,21 +240,6 @@ class AdminController(
                     ),
             )
         }
-
-    @GetMapping("/trace-targets")
-    fun getApiTraceTargets(): List<AdminApiTraceTargetResponse> = apiTraceTargetService.getAll().map { it.toResponse() }
-
-    @PostMapping("/trace-targets")
-    fun addApiTraceTarget(
-        @RequestBody body: AdminApiTraceTargetRequest,
-    ): AdminApiTraceTargetResponse = apiTraceTargetService.add(body.userId, body.memo).toResponse()
-
-    @DeleteMapping("/trace-targets/{userId}")
-    fun removeApiTraceTarget(
-        @PathVariable userId: Long,
-    ) {
-        apiTraceTargetService.remove(userId)
-    }
 
     @GetMapping("/diary/daily-class-types")
     fun getAllDiaryDailyClassTypes(): List<AdminDiaryDailyClassTypeResponse> = diaryService.getAllDailyClassTypes().map { it.toResponse() }
@@ -336,21 +283,9 @@ class AdminController(
 
     private fun AdminConfigWriteRequest.toWriteRequest() =
         ClientConfigWriteRequest(
-            value = jsonMapper.writeValueAsString(value),
+            value = value,
             osType = osType,
             minVersion = minVersion,
             maxVersion = maxVersion,
         )
-
-    private fun ApiTraceTargetDisplay.toResponse() =
-        AdminApiTraceTargetResponse(
-            userId = target.userId,
-            nickname = user.nickname,
-            nicknameTag = user.nicknameTag,
-            email = user.email,
-            memo = target.memo,
-            createdAt = checkNotNull(target.createdAt).toEpochMilli(),
-        )
-
-    private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

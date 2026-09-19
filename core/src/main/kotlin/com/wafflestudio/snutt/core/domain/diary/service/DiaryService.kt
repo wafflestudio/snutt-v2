@@ -18,7 +18,6 @@ import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionDailyC
 import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
-import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import org.springframework.data.repository.findByIdOrNull
@@ -55,7 +54,6 @@ class DiaryService(
     private val diarySubmissionDailyClassTypeRepository: DiarySubmissionDailyClassTypeRepository,
     private val diarySubmissionAnswerRepository: DiarySubmissionAnswerRepository,
     private val timetableRepository: TimetableRepository,
-    private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
     private val timetableService: TimetableService,
 ) {
@@ -69,7 +67,7 @@ class DiaryService(
         userId: Long,
         request: DiaryQuestionnaireRequest,
     ): DiaryQuestionnaireDisplay {
-        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).mapNotNull { it.id }
+        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).map { it.id!! }
         val targetedQuestionIds =
             diaryQuestionTargetRepository
                 .findByDailyClassTypeIdIn(dailyClassTypeIds)
@@ -106,16 +104,13 @@ class DiaryService(
             diarySubmissionRepository
                 .findByUserIdAndCreatedAtAfter(userId, Instant.now().minus(1, ChronoUnit.DAYS))
                 .mapNotNull { it.lectureId }
-        val timetableLectures =
-            timetableLectureRepository.findByTimetableId(timetable.id!!).filter { it.lectureId != null }
-        val eligible = timetableLectures.filter { it.lectureId !in lectureIdsToExclude }
+        val eligible =
+            timetableService
+                .displayOf(timetable)
+                .lectures
+                .filter { it.lectureId != null && it.lectureId !in lectureIdsToExclude }
         val candidates = eligible.filter { it.lectureId !in recentlySubmittedIds }.ifEmpty { eligible }
-        if (candidates.isEmpty()) return null
-        val picked = candidates.random()
-        return timetableService
-            .displayOf(timetable)
-            .lectures
-            .first { it.id == picked.id }
+        return candidates.randomOrNull()
     }
 
     fun getActiveDailyClassTypes(): List<DiaryDailyClassType> = diaryDailyClassTypeRepository.findAllByActiveTrueOrderByNameAsc()
@@ -155,7 +150,7 @@ class DiaryService(
         if (request.dailyClassTypes.size != request.dailyClassTypes.toSet().size) {
             throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
         }
-        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).mapNotNull { it.id }
+        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).map { it.id!! }
         if (dailyClassTypeIds.size != request.dailyClassTypes.size) {
             throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
         }
@@ -189,7 +184,7 @@ class DiaryService(
     fun getSubmissionIdShortQuestionRepliesMap(submissions: List<DiarySubmission>): Map<Long, List<DiaryShortQuestionReply>> {
         val answersBySubmissionId =
             diarySubmissionAnswerRepository
-                .findBySubmissionIdIn(submissions.mapNotNull { it.id })
+                .findBySubmissionIdIn(submissions.map { it.id!! })
                 .groupBy { it.submissionId }
         val questions =
             diaryQuestionRepository
@@ -228,7 +223,7 @@ class DiaryService(
 
     @Transactional
     fun addOrEnableDailyClassType(name: String) {
-        val existing = diaryDailyClassTypeRepository.findAll().firstOrNull { it.name == name }
+        val existing = diaryDailyClassTypeRepository.findByName(name)
         if (existing != null) {
             existing.active = true
         } else {
@@ -238,7 +233,7 @@ class DiaryService(
 
     @Transactional
     fun disableDailyClassType(name: String) {
-        diaryDailyClassTypeRepository.findAll().firstOrNull { it.name == name }?.let { it.active = false }
+        diaryDailyClassTypeRepository.findByName(name)?.let { it.active = false }
     }
 
     @Transactional
@@ -250,7 +245,7 @@ class DiaryService(
         targetDailyClassTypes: List<String>,
         active: Boolean = true,
     ) {
-        val targetIds = diaryDailyClassTypeRepository.findAllByNameIn(targetDailyClassTypes).mapNotNull { it.id }
+        val targetIds = diaryDailyClassTypeRepository.findAllByNameIn(targetDailyClassTypes).map { it.id!! }
         val questionEntity =
             diaryQuestionRepository.save(
                 DiaryQuestion(

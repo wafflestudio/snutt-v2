@@ -10,11 +10,6 @@ import org.springframework.stereotype.Component
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.servlet.HandlerInterceptor
 
-/**
- * access token 인증은 상태를 조회하지 않는다. 서명과 만료만 검증하고 payload 의 식별자를 그대로 넘긴다.
- * 따라서 일반 endpoint 는 로그아웃/탈퇴가 access token 을 즉시 무효화하지 못하며, 최대 access token TTL 만큼 지연된다.
- * [AdminOnly] 와 [EmailVerifiedRequired] 는 active 계정만 통과시키고, 그 외 요청은 user 를 읽지 않는다.
- */
 @Component
 class UserAuthInterceptor(
     private val accessTokenService: AccessTokenService,

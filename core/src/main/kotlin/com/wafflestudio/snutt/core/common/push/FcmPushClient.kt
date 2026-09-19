@@ -55,9 +55,18 @@ class FcmPushClient(
         return PushSendResult(invalidRegistrationIds)
     }
 
-    override fun sendTopicMessage(message: TopicPushMessage) {
+    override fun sendTopicMessage(
+        topic: String,
+        message: PushMessage,
+    ) {
         runCatching {
-            FirebaseMessaging.getInstance().send(message.toFcmTopicMessage())
+            FirebaseMessaging.getInstance().send(
+                Message
+                    .builder()
+                    .setTopic(topic)
+                    .withPayload(message)
+                    .build(),
+            )
         }.onFailure { log.error("토픽 푸시 전송 실패", it) }
     }
 
@@ -73,39 +82,21 @@ class FcmPushClient(
         }.onFailure { log.error("글로벌 토픽 구독 해제 실패", it) }
     }
 
-    private fun TopicPushMessage.toFcmTopicMessage(): Message =
-        Message
-            .builder()
-            .setTopic(topic)
-            .buildMessage(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
-            .build()
-
-    // setFid 전환은 클라이언트가 FID를 등록해야 가능하다. 저장된 값은 registration token이므로 setToken을 유지한다
     @Suppress("DEPRECATION")
     private fun TargetedPushMessage.toFcmMessage(): Message =
         Message
             .builder()
             .setToken(fcmRegistrationId)
-            .buildMessage(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
+            .withPayload(message)
             .build()
 
-    private fun Message.Builder.buildMessage(
-        title: String,
-        body: String,
-        urlScheme: String?,
-        isUrgentOnAndroid: Boolean,
-        shouldSendAsDataMessage: Boolean,
-        data: Map<String, String>,
-    ): Message.Builder {
+    private fun Message.Builder.withPayload(message: PushMessage): Message.Builder {
         setAndroidConfig(
             AndroidConfig
                 .builder()
-                .setPriority(
-                    if (isUrgentOnAndroid) AndroidConfig.Priority.HIGH else AndroidConfig.Priority.NORMAL,
-                ).apply {
-                    urlScheme?.let { scheme ->
-                        setNotification(AndroidNotification.builder().setClickAction(scheme).build())
-                    }
+                .setPriority(if (message.isUrgentOnAndroid) AndroidConfig.Priority.HIGH else AndroidConfig.Priority.NORMAL)
+                .apply {
+                    message.urlScheme?.let { setNotification(AndroidNotification.builder().setClickAction(it).build()) }
                 }.build(),
         )
         setApnsConfig(
@@ -120,27 +111,27 @@ class FcmPushClient(
                         .setAlert(
                             ApsAlert
                                 .builder()
-                                .setTitle(title)
-                                .setBody(body)
+                                .setTitle(message.title)
+                                .setBody(message.body)
                                 .build(),
                         ).setContentAvailable(true)
                         .build(),
                 ).build(),
         )
-        if (shouldSendAsDataMessage) {
-            putData(TITLE_KEY, title)
-            putData(BODY_KEY, body)
+        if (message.shouldSendAsDataMessage) {
+            putData(TITLE_KEY, message.title)
+            putData(BODY_KEY, message.body)
         } else {
             setNotification(
                 Notification
                     .builder()
-                    .setTitle(title)
-                    .setBody(body)
+                    .setTitle(message.title)
+                    .setBody(message.body)
                     .build(),
             )
         }
-        urlScheme?.let { putData(URL_SCHEME_KEY, it) }
-        putAllData(data)
+        message.urlScheme?.let { putData(URL_SCHEME_KEY, it) }
+        putAllData(message.data)
         return this
     }
 

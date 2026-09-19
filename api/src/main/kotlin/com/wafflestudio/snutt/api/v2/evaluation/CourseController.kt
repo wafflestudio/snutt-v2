@@ -78,18 +78,12 @@ class CourseController(
         @RequestParam(required = false) category: List<String>?,
         @RequestParam(required = false) categoryPre2025: List<String>?,
         @RequestParam(required = false) year: Int?,
-        @RequestParam(required = false) semester: Int?,
+        @RequestParam(required = false) semester: Semester?,
         @RequestParam(required = false) cursor: String?,
         @RequestAttribute clientInfo: ClientInfo,
     ): CursorPage<CourseResponse> {
         if ((year == null) != (semester == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val yearSemesters =
-            if (year != null && semester != null) {
-                val parsed = Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-                listOf(YearAndSemester(year, parsed))
-            } else {
-                emptyList()
-            }
+        val yearSemesters = if (year != null && semester != null) listOf(YearAndSemester(year, semester)) else emptyList()
         val page =
             courseSearchService.search(
                 CourseSearchCriteria(

@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
@@ -16,7 +17,6 @@ import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
-import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
@@ -106,32 +106,32 @@ class SugangSnuSyncService(
             }
         val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
 
-        // DB 변경은 하나의 짧은 트랜잭션으로 묶고, 푸시는 커밋된 뒤에 보낸다(롤백 시 유령 알림 방지)
         val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
-        var timetableChangeCounts: Map<Long, TimetableChangeCount> = emptyMap()
-        transactionTemplate.executeWithoutResult {
-            upsertLectures(created, updated)
-            val lectureByKey =
-                oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
-            syncRegistrationCounts(year, semester, rows, lectureByKey)
-            timetableChangeCounts = syncUserLectures(updated, deleted)
-            deleted.forEach(lectureRepository::delete)
-            lectureRepository.flush()
-            val affectedCourses =
-                (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId }).distinct()
-            val latest = courseSearchRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
-            courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
-                course.title = latest.getValue(course.id!!).courseTitle
-            }
-        }
+        val timetableChangeCounts =
+            transactionTemplate
+                .execute {
+                    upsertLectures(created, updated)
+                    val lectureByKey =
+                        oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
+                    syncRegistrationCounts(year, semester, rows, lectureByKey)
+                    val changeCounts = syncUserLectures(updated, deleted)
+                    deleted.forEach(lectureRepository::delete)
+                    lectureRepository.flush()
+                    val affectedCourses =
+                        (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
+                            .distinct()
+                    val latest = courseSearchRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
+                    courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
+                        course.title = latest.getValue(course.id!!).courseTitle
+                    }
+                    changeCounts
+                }.orEmpty()
 
-        runCatching {
-            lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
-        }.onFailure { log.error("강의 건물 갱신 실패: {}", it.message) }
+        lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
 
         pushService.sendTargetedPushes(
             timetableChangeCounts.mapValues { (_, counts) ->
-                TargetedPush(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
+                PushMessage(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
             },
             PushPreferenceType.LECTURE_UPDATE,
         )
@@ -154,7 +154,6 @@ class SugangSnuSyncService(
             val old = update.lecture
             val instructorChanged = old.instructor != update.input.lecture.instructor
             old.copyMetadataFrom(update.input.lecture)
-            // 강사가 바뀌면 과목-교수 정체성이 바뀐 것이므로 기존 코스와의 연결을 끊고 새 코스로 연결한다(기존 평가는 기존 코스에 남는다)
             if (instructorChanged || old.courseId == null) {
                 old.courseId = resolveCourseId(old)
             }
@@ -166,7 +165,6 @@ class SugangSnuSyncService(
         }
     }
 
-    // was_full은 크롤러 소유라 건드리지 않는다
     private fun syncRegistrationCounts(
         year: Int,
         semester: Semester,

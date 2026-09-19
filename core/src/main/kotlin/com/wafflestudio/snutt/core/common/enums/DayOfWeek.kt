@@ -25,8 +25,6 @@ enum class DayOfWeek(
         @JsonCreator
         fun fromValue(value: Int): DayOfWeek = valueMap[value] ?: throw IllegalArgumentException("unknown day-of-week value: $value")
 
-        fun getOfValue(value: Int): DayOfWeek? = valueMap[value]
-
         fun getByKoreanText(koreanText: String): DayOfWeek? = koreanTextMap[koreanText]
     }
 }

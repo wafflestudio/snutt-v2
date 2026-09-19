@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.batch.sugangsnu
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.batch.sugangsnu.data.SugangSnuLectureInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.json.Json
+import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.MediaType
@@ -10,7 +12,6 @@ import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import org.springframework.web.client.RestClient
-import tools.jackson.databind.json.JsonMapper
 
 data class SugangSnuCoursebookCondition(
     @param:JsonProperty("currSchyy")
@@ -21,14 +22,7 @@ data class SugangSnuCoursebookCondition(
     val semesterFlagNext: String,
 ) {
     val latestSemester: Semester
-        get() =
-            when (semesterFlagPrev + semesterFlagNext) {
-                "U000200001U000300001" -> Semester.SPRING
-                "U000200001U000300002" -> Semester.SUMMER
-                "U000200002U000300001" -> Semester.AUTUMN
-                "U000200002U000300002" -> Semester.WINTER
-                else -> throw IllegalArgumentException("알 수 없는 학기 플래그: $semesterFlagPrev$semesterFlagNext")
-            }
+        get() = SugangSnuUrlUtils.semesterOf(semesterFlagPrev, semesterFlagNext)
 }
 
 @Component
@@ -49,7 +43,6 @@ class SugangSnuLectureApi(
         courseNumber: String,
         lectureNumber: String,
     ): SugangSnuLectureInfo {
-        val semesterString = convertSemesterToSugangSnuSearchString(semester)
         val body =
             restClient
                 .get()
@@ -60,8 +53,8 @@ class SugangSnuLectureApi(
                         .queryParam("workType", "+")
                         .queryParam("sbjtSubhCd", "000")
                         .queryParam("openSchyy", year)
-                        .queryParam("openShtmFg", semesterString.substring(0, 10))
-                        .queryParam("openDetaShtmFg", semesterString.substring(10))
+                        .queryParam("openShtmFg", SugangSnuUrlUtils.shtmFlag(semester))
+                        .queryParam("openDetaShtmFg", SugangSnuUrlUtils.detaShtmFlag(semester))
                         .queryParam("sbjtCd", courseNumber)
                         .queryParam("ltNo", lectureNumber)
                         .build()
@@ -69,7 +62,7 @@ class SugangSnuLectureApi(
                 .retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("수강스누 강좌 상세 조회 실패: $courseNumber-$lectureNumber")
-        return jsonMapper.readValue(body, SugangSnuLectureInfo::class.java)
+        return Json.mapper.readValue(body, SugangSnuLectureInfo::class.java)
     }
 
     fun getCoursebookCondition(): SugangSnuCoursebookCondition {
@@ -81,7 +74,7 @@ class SugangSnuLectureApi(
                 .retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("수강스누 수강편람 조건 조회 실패")
-        return jsonMapper.readValue(body, SugangSnuCoursebookCondition::class.java)
+        return Json.mapper.readValue(body, SugangSnuCoursebookCondition::class.java)
     }
 
     fun getMainPageHtml(): String =
@@ -105,7 +98,7 @@ class SugangSnuLectureApi(
                     .path("/sugang/cc/cc100InterfaceSrch.action")
                     .query("workType=S&sortKey=&sortOrder=")
                     .queryParam("srchOpenSchyy", year)
-                    .queryParam("srchOpenShtm", convertSemesterToSugangSnuSearchString(semester))
+                    .queryParam("srchOpenShtm", SugangSnuUrlUtils.searchShtm(semester))
                     .queryParam("pageNo", pageNo)
                     .build()
             }.accept(MediaType.TEXT_HTML)
@@ -180,25 +173,15 @@ class SugangSnuLectureApi(
         form.add("workType", "EX")
         form.add("srchLanguage", language)
         form.add("srchOpenSchyy", year.toString())
-        form.add("srchOpenShtm", convertSemesterToSugangSnuSearchString(semester))
+        form.add("srchOpenShtm", SugangSnuUrlUtils.searchShtm(semester))
         return form
     }
 
     companion object {
-        private val jsonMapper = JsonMapper.builder().findAndAddModules().build()
-
         private const val USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
         private const val REFERER = "https://sugang.snu.ac.kr/sugang/cc/cc100InterfaceSrch.action"
-
-        private fun convertSemesterToSugangSnuSearchString(semester: Semester): String =
-            when (semester) {
-                Semester.SPRING -> "U000200001U000300001"
-                Semester.SUMMER -> "U000200001U000300002"
-                Semester.AUTUMN -> "U000200002U000300001"
-                Semester.WINTER -> "U000200002U000300002"
-            }
     }
 }

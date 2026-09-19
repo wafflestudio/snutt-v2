@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.core.domain.auth
 
+import com.wafflestudio.snutt.core.domain.user.model.User
+
 enum class AuthProvider(
     val value: String,
     val korName: String,
@@ -17,3 +19,12 @@ enum class AuthProvider(
         fun from(value: String): AuthProvider? = mapping[value]
     }
 }
+
+fun authProvidersOf(
+    user: User,
+    socialProviders: Collection<AuthProvider>,
+): List<AuthProvider> =
+    buildList {
+        if (user.localId != null) add(AuthProvider.LOCAL)
+        addAll(socialProviders.distinct().sortedBy { it.ordinal })
+    }

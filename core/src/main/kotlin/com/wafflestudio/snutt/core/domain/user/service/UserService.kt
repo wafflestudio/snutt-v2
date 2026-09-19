@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
+import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -64,21 +65,5 @@ data class UserAuthInfo(
     val user: User,
     val socialAuths: List<UserSocialAuth>,
 ) {
-    val authProviders: List<AuthProvider> =
-        buildList {
-            if (user.localId != null) add(AuthProvider.LOCAL)
-            PROVIDER_ORDER.forEach { provider ->
-                if (socialAuths.any { it.provider == provider }) add(provider)
-            }
-        }
-
-    private companion object {
-        val PROVIDER_ORDER =
-            listOf(
-                AuthProvider.FACEBOOK,
-                AuthProvider.GOOGLE,
-                AuthProvider.KAKAO,
-                AuthProvider.APPLE,
-            )
-    }
+    val authProviders: List<AuthProvider> = authProvidersOf(user, socialAuths.map { it.provider })
 }

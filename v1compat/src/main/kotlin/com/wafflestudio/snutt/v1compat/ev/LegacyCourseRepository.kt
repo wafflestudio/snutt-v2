@@ -46,12 +46,6 @@ class LegacyCourseRepository(
     entityManager: EntityManager,
     context: JpqlRenderContext,
 ) : KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
-    private val classifier =
-        SearchKeywordClassifier(
-            """^(?:|#|\*)\d+(?:-\d+|-[a-zA-Z])?-[a-zA-Z]?\d+[a-zA-Z]?(?:-\d+)?$""".toRegex(),
-            """^(?:|#|\*)\d+(?:-\d+)?동$""".toRegex(),
-        )
-
     fun get(courseId: Long): LegacyCourseMetadata = getByIds(listOf(courseId))[courseId] ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
 
     fun getByIds(courseIds: Collection<Long>): Map<Long, LegacyCourseMetadata> {
@@ -179,11 +173,11 @@ class LegacyCourseRepository(
         }
         criteria.query.split(' ').filter { it.isNotBlank() }.forEach { word ->
             val alternatives = mutableListOf<Predicate>()
-            when (val intent = classifier.classify(word, Language.KO)) {
+            when (val intent = SearchKeywordClassifier.classify(word, Language.KO)) {
                 KeywordIntent.Empty -> Unit
                 KeywordIntent.Major -> alternatives += path(Lecture::classification).`in`(listOf("전선", "전필"))
-                KeywordIntent.Graduate -> alternatives += path(Lecture::academicYear).`in`(GRADUATE_YEARS)
-                KeywordIntent.Undergraduate -> alternatives += path(Lecture::academicYear).notIn(GRADUATE_YEARS)
+                KeywordIntent.Graduate -> alternatives += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
+                KeywordIntent.Undergraduate -> alternatives += path(Lecture::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
                 KeywordIntent.PhysicalEducation -> alternatives += path(Lecture::category).equal("체육")
                 is KeywordIntent.Fuzzy -> fuzzy(alternatives, intent.keyword)
                 KeywordIntent.EnglishLecture -> fuzzy(alternatives, "영강")
@@ -221,9 +215,5 @@ class LegacyCourseRepository(
             '학' -> Unit
             else -> conditions += path(Lecture::department).like(pattern.substring(1))
         }
-    }
-
-    companion object {
-        private val GRADUATE_YEARS = listOf("석사", "박사", "석박사통합")
     }
 }

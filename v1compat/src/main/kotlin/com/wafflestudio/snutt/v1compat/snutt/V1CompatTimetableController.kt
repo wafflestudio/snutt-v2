@@ -52,7 +52,7 @@ data class LegacyTimetableBriefDto(
 
 data class LegacyTimetableAddRequest(
     val year: Int,
-    val semester: Int,
+    val semester: Semester,
     val title: String,
 )
 
@@ -104,11 +104,11 @@ class V1CompatTimetableController(
     fun getTimetablesBySemester(
         @V1CurrentUser user: User,
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): List<LegacyTimetableDto> =
         timetableService
-            .getTimetablesBySemester(user.id!!, year, parseSemester(semester))
+            .getTimetablesBySemester(user.id!!, year, semester)
             .map { toLegacy(user, it, clientInfo.language) }
 
     @PostMapping("")
@@ -119,7 +119,7 @@ class V1CompatTimetableController(
     ): List<LegacyTimetableBriefDto> {
         val userId = user.id!!
         if (source == null) {
-            timetableService.addTimetable(userId, body.year, parseSemester(body.semester), body.title)
+            timetableService.addTimetable(userId, body.year, body.semester, body.title)
         } else {
             timetableService.copyTimetable(userId, source)
         }
@@ -364,8 +364,6 @@ class V1CompatTimetableController(
             .mapNotNull { (lectureId, lecture) -> lecture.courseId?.let { lectureId.toString() to it } }
             .toMap()
     }
-
-    private fun parseSemester(value: Int): Semester = Semester.getOfValue(value) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }
 
 data class LegacyForcedRequest(
@@ -389,7 +387,7 @@ fun LegacyColorRequest.toColorSet(): ColorSet? {
 fun LegacyColorRequest.requireColorSet(): ColorSet = toColorSet() ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
 
 data class LegacyClassTimeRequest(
-    val day: Int,
+    val day: DayOfWeek,
     val place: String? = null,
     @param:JsonProperty("start_minute")
     val startMinute: Int,
@@ -399,7 +397,7 @@ data class LegacyClassTimeRequest(
 
 fun LegacyClassTimeRequest.toClassPlaceAndTime() =
     ClassPlaceAndTime(
-        day = DayOfWeek.getOfValue(day) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+        day = day,
         place = place.orEmpty(),
         startMinute = startMinute,
         endMinute = endMinute,

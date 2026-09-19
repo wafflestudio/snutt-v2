@@ -123,11 +123,10 @@ class TimetableStep(
                             val day =
                                 when (val raw = schedule.get("day")) {
                                     is String -> DayOfWeek.valueOf(raw)
-                                    is Number -> DayOfWeek.getOfValue(raw.toInt())
+                                    is Number -> DayOfWeek.entries.firstOrNull { it.value == raw.toInt() }
                                     else -> null
                                 } ?: return@mapNotNull null
                             val minute = schedule.int("minute") ?: return@mapNotNull null
-                            // recentNotifiedAt는 11분 내 중복 방지에만 쓰이므로 이관하지 않는다
                             Schedule(day, minute)
                         }
                     if (schedules.isEmpty()) return@each

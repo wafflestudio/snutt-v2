@@ -6,10 +6,9 @@ enum class Language {
     ;
 
     companion object {
-        fun from(value: String?): Language? =
-            value?.lowercase()?.let { lang ->
-                entries.firstOrNull { it.name.lowercase() == lang }
-            }
+        private val valueMap = entries.associateBy { it.name.lowercase() }
+
+        fun from(value: String?): Language? = value?.lowercase()?.let(valueMap::get)
     }
 }
 

@@ -85,17 +85,6 @@ CREATE TABLE push_preference
     CONSTRAINT fk_push_preference_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
 );
 
-CREATE TABLE api_trace_target
-(
-    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id    BIGINT       NOT NULL,
-    memo       VARCHAR(255) NULL,
-    created_at DATETIME(6)  NOT NULL,
-    updated_at DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_api_trace_target_user UNIQUE (user_id),
-    CONSTRAINT fk_api_trace_target_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE
-);
-
 CREATE TABLE notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -458,7 +447,7 @@ CREATE TABLE client_config
     os_type     VARCHAR(16) NOT NULL,
     min_version VARCHAR(32) NULL,
     max_version VARCHAR(32) NULL,
-    value       TEXT        NOT NULL,
+    value       JSON        NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
     INDEX idx_client_config_name (name, os_type)
@@ -560,4 +549,28 @@ CREATE TABLE diary_submission_answer
     updated_at    DATETIME(6) NOT NULL,
     CONSTRAINT fk_diary_submission_answer_submission FOREIGN KEY (submission_id) REFERENCES diary_submission (id) ON DELETE CASCADE,
     INDEX idx_diary_submission_answer_submission (submission_id)
+);
+CREATE TABLE legacy_access_token
+(
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT      NOT NULL,
+    token_hash CHAR(64)    NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    CONSTRAINT uk_legacy_access_token_hash UNIQUE (token_hash),
+    CONSTRAINT fk_legacy_access_token_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
+    INDEX idx_legacy_access_token_user (user_id)
+);
+
+CREATE TABLE legacy_search_tag
+(
+    id             BIGINT       NOT NULL PRIMARY KEY,
+    group_name     VARCHAR(32)  NOT NULL,
+    group_ordering INT          NOT NULL,
+    group_color    VARCHAR(16)  NULL,
+    name           VARCHAR(128) NOT NULL,
+    ordering       INT          NOT NULL,
+    int_value      INT          NULL,
+    string_value   VARCHAR(128) NULL,
+    INDEX idx_legacy_search_tag_group (group_ordering, ordering)
 );

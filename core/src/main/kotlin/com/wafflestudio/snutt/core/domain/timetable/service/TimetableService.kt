@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.timetable.service
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.util.CopyTitle
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
@@ -134,25 +135,14 @@ class TimetableService(
         title: String? = null,
     ): Timetable {
         val timetable = getTimetable(userId, timetableId)
-        val baseTitle = (title ?: timetable.title).replace(COPY_NUMBER_REGEX, "")
-        val copyNumber = Regex("^${Regex.escape(baseTitle)} \\((\\d+)\\)$")
-        val lastCopiedNumber =
-            timetableRepository
-                .findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester)
-                .mapNotNull {
-                    copyNumber
-                        .find(it.title)
-                        ?.groupValues
-                        ?.get(1)
-                        ?.toIntOrNull()
-                }.maxOrNull() ?: 0
+        val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
         val copied =
             timetableRepository.save(
                 Timetable(
                     userId = userId,
                     year = timetable.year,
                     semester = timetable.semester,
-                    title = "$baseTitle (${lastCopiedNumber + 1})",
+                    title = CopyTitle.next(title ?: timetable.title, siblingTitles),
                     themeId = timetable.themeId,
                     isPrimary = false,
                 ),
@@ -171,7 +161,7 @@ class TimetableService(
         themeId: Long,
     ): TimetableDisplay {
         val timetable = getTimetable(userId, timetableId)
-        val theme = timetableThemeService.getAvailableTheme(userId, themeId)
+        val theme = timetableThemeService.getTheme(userId, themeId)
         timetable.themeId = theme.id
 
         val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
@@ -249,9 +239,5 @@ class TimetableService(
         if (duplicate != null && duplicate.id != excludeTimetableId) {
             throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
         }
-    }
-
-    companion object {
-        private val COPY_NUMBER_REGEX = """\s\(\d+\)$""".toRegex()
     }
 }

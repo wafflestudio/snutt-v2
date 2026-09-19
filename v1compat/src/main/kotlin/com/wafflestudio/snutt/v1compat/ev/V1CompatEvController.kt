@@ -101,7 +101,7 @@ class V1CompatEvController(
         @RequestParam(required = false) cursor: String?,
         @RequestParam(required = false) sort: String?,
         @RequestParam(required = false) year: Int?,
-        @RequestParam(required = false) semester: Int?,
+        @RequestParam(required = false) semester: Semester?,
     ): LegacyEvCursorPage<LegacyEvaluationWithSemesterDto> {
         val page =
             evaluationService.getEvaluationsOfCourse(
@@ -110,7 +110,7 @@ class V1CompatEvController(
                 cursor = cursor,
                 sort = EvaluationSort.fromParameter(sort),
                 year = year,
-                semester = semester?.let { Semester.getOfValue(it) ?: throw SnuttException(ErrorType.INVALID_PARAMETER) },
+                semester = semester,
             )
         return page.toLegacyEvPage { it.toLegacyWithSemester() }
     }
@@ -149,9 +149,9 @@ class V1CompatEvController(
         @V1CurrentUser user: User,
         @PathVariable lectureId: Long,
     ): LegacyEvLectureSummaryResponse {
-        val display = evaluationService.getEvaluationSummaryOfCourse(lectureId)
+        val summary = evaluationService.getEvaluationSummaryOfCourse(lectureId)
         val course = legacyCourseRepository.get(lectureId)
-        val averages = display.averages
+        val averages = summary.aggregate.averages
         return LegacyEvLectureSummaryResponse(
             id = course.id!!,
             title = course.title,
@@ -164,11 +164,11 @@ class V1CompatEvController(
             classification = course.classification,
             evaluation =
                 LegacyEvAveragesDto(
-                    avgGradeSatisfaction = averages?.avgGradeSatisfaction,
-                    avgTeachingSkill = averages?.avgTeachingSkill,
-                    avgGains = averages?.avgGains,
-                    avgLifeBalance = averages?.avgLifeBalance,
-                    avgRating = averages?.avgRating,
+                    avgGradeSatisfaction = averages.avgGradeSatisfaction,
+                    avgTeachingSkill = averages.avgTeachingSkill,
+                    avgGains = averages.avgGains,
+                    avgLifeBalance = averages.avgLifeBalance,
+                    avgRating = averages.avgRating,
                     evaluationCount = course.evalCount,
                 ),
         )

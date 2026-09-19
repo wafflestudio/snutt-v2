@@ -1,9 +1,11 @@
 package com.wafflestudio.snutt.batch
 
 import com.wafflestudio.snutt.batch.sugangsnu.LectureBuildingSync
+import com.wafflestudio.snutt.batch.sugangsnu.RegistrationPeriodExtractor
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuCoursebookCondition
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureApi
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
+import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuSyncJob
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuXlsxParser
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
@@ -29,10 +31,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.mockito.Mockito
-import org.springframework.batch.core.BatchStatus
-import org.springframework.batch.core.configuration.JobRegistry
-import org.springframework.batch.core.job.parameters.JobParametersBuilder
-import org.springframework.batch.core.launch.JobOperator
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -53,10 +51,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Autowired
-    lateinit var jobOperator: JobOperator
-
-    @Autowired
-    lateinit var jobRegistry: JobRegistry
+    lateinit var sugangSnuSyncJob: SugangSnuSyncJob
 
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
@@ -94,6 +89,9 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     @MockitoBean
     lateinit var lectureBuildingSync: LectureBuildingSync
 
+    @MockitoBean
+    lateinit var registrationPeriodExtractor: RegistrationPeriodExtractor
+
     @BeforeAll
     fun seedCoursebook() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
@@ -124,12 +122,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             .getCoursebookCondition()
     }
 
-    private fun runJob(): BatchStatus =
-        jobOperator
-            .start(
-                jobRegistry.getJob("sugangSnuMigrationJob")!!,
-                JobParametersBuilder().addLong("run.id", System.currentTimeMillis()).toJobParameters(),
-            ).status
+    private fun runJob() = sugangSnuSyncJob.run(YearSemesterArgs(null, null))
 
     @Autowired
     lateinit var sugangSnuXlsxParser: SugangSnuXlsxParser
@@ -164,7 +157,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         stubCurrentCoursebook()
         assertEquals(2, sugangSnuXlsxParser.parse(xlsx).size)
 
-        assertEquals(BatchStatus.COMPLETED, runJob())
+        runJob()
 
         val lectures = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN)
         assertEquals(2, lectures.size)
@@ -254,7 +247,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         Mockito.doReturn(englishXlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
         stubCurrentCoursebook()
 
-        assertEquals(BatchStatus.COMPLETED, runJob())
+        runJob()
 
         val lectures = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN)
         assertEquals(1, lectures.size)

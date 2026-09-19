@@ -9,14 +9,12 @@ import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
 @RestController
 @Public
 @RequestMapping("/v2/configs")
 class ConfigController(
     private val configService: ClientConfigService,
-    private val jsonMapper: JsonMapper,
 ) {
     @GetMapping("")
     fun getConfigs(
@@ -26,6 +24,6 @@ class ConfigController(
         val appVersion = clientInfo.appVersion ?: return emptyMap()
         return configService
             .getConfigs(osType, appVersion)
-            .associate { it.name to jsonMapper.readTree(it.value) }
+            .associate { it.name to it.value }
     }
 }

@@ -286,7 +286,6 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        // 구버전(3.5.0)과 동일하게 기본 테마를 직접 지정할 수 없으며 현재 기본값을 그대로 반환한다
         basicThemeType(basicThemeTypeValue)
         return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.id!!.toString(), null)
     }

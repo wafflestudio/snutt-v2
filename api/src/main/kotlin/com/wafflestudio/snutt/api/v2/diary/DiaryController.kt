@@ -136,16 +136,12 @@ class DiaryController(
     fun getRandomTargetLecture(
         @CurrentUserId userId: Long,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestAttribute clientInfo: ClientInfo,
     ): DiaryTargetLectureResponse {
         val target =
-            diaryService.getDiaryTargetLecture(
-                userId,
-                year,
-                Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
-                emptyList(),
-            ) ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
+            diaryService.getDiaryTargetLecture(userId, year, semester, emptyList())
+                ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         return target.toResponse(clientInfo.language)
     }
 

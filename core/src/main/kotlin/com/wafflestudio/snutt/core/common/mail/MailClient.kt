@@ -1,55 +1,63 @@
 package com.wafflestudio.snutt.core.common.mail
 
+import com.oracle.bmc.Region
+import com.oracle.bmc.auth.BasicAuthenticationDetailsProvider
+import com.oracle.bmc.emaildataplane.EmailDPClient
+import com.oracle.bmc.emaildataplane.model.EmailAddress
+import com.oracle.bmc.emaildataplane.model.Recipients
+import com.oracle.bmc.emaildataplane.model.Sender
+import com.oracle.bmc.emaildataplane.model.SubmitEmailDetails
+import com.oracle.bmc.emaildataplane.requests.SubmitEmailRequest
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
-import org.springframework.mail.SimpleMailMessage
-import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.stereotype.Service
 
-enum class MailType(
-    val subject: String,
-) {
-    VERIFICATION("[SNUTT] 이메일 인증 코드"),
-    PASSWORD_RESET("[SNUTT] 비밀번호 초기화 인증 코드"),
-}
-
 interface MailClient {
-    fun sendCodeMail(
-        type: MailType,
+    fun send(
         to: String,
-        code: String,
+        subject: String,
+        html: String,
     )
 }
 
 @Service
 @Profile("!test")
-class SmtpMailClient(
-    private val mailSender: JavaMailSender,
+class OciMailClient(
+    authProvider: BasicAuthenticationDetailsProvider,
+    @param:Value("\${snutt.mail.compartment-id}") private val compartmentId: String,
+    @param:Value("\${snutt.mail.sender-address:snutt@wafflestudio.com}") private val senderAddress: String,
+    @param:Value("\${snutt.mail.sender-name:SNUTT}") private val senderName: String,
+    @Value("\${snutt.mail.region:ap-chuncheon-1}") region: String,
 ) : MailClient {
-    override fun sendCodeMail(
-        type: MailType,
-        to: String,
-        code: String,
-    ) {
-        val message =
-            SimpleMailMessage().apply {
-                setTo(to)
-                setSubject(type.subject)
-                setText("SNUTT 인증 코드는 $code 입니다.")
-            }
-        mailSender.send(message)
-    }
-}
+    private val client = EmailDPClient.builder().region(Region.fromRegionId(region)).build(authProvider)
 
-@Service
-@Profile("test")
-class RecordingMailClient : MailClient {
-    val sentMails: MutableList<Pair<String, String>> = java.util.concurrent.CopyOnWriteArrayList()
-
-    override fun sendCodeMail(
-        type: MailType,
+    override fun send(
         to: String,
-        code: String,
+        subject: String,
+        html: String,
     ) {
-        sentMails.add(to to code)
+        val details =
+            SubmitEmailDetails
+                .builder()
+                .sender(
+                    Sender
+                        .builder()
+                        .senderAddress(
+                            EmailAddress
+                                .builder()
+                                .email(senderAddress)
+                                .name(senderName)
+                                .build(),
+                        ).compartmentId(compartmentId)
+                        .build(),
+                ).recipients(
+                    Recipients
+                        .builder()
+                        .to(listOf(EmailAddress.builder().email(to).build()))
+                        .build(),
+                ).subject(subject)
+                .bodyHtml(html)
+                .build()
+        client.submitEmail(SubmitEmailRequest.builder().submitEmailDetails(details).build())
     }
 }

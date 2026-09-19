@@ -153,7 +153,7 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
         timetableLectureReminderScheduleRepository.save(
             TimetableLectureReminderSchedule(
                 reminderId = reminder.id!!,
-                day = DayOfWeek.getOfValue(now.dayOfWeek.value - 1)!!,
+                day = DayOfWeek.fromValue(now.dayOfWeek.value - 1),
                 minute = now.hour * 60 + now.minute,
             ),
         )
@@ -162,15 +162,27 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
 
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
         assertEquals("fcm-reminder", recordingPushClient.sentMessages[0].fcmRegistrationId)
-        assertTrue(recordingPushClient.sentMessages[0].title.contains("리마인더"))
-        assertTrue(recordingPushClient.sentMessages[0].body.contains("HCI이론 및 실습"))
-        assertTrue(recordingPushClient.sentMessages[0].body.contains("10분 전"))
+        assertTrue(
+            recordingPushClient.sentMessages[0]
+                .message.title
+                .contains("리마인더"),
+        )
+        assertTrue(
+            recordingPushClient.sentMessages[0]
+                .message.body
+                .contains("HCI이론 및 실습"),
+        )
+        assertTrue(
+            recordingPushClient.sentMessages[0]
+                .message.body
+                .contains("10분 전"),
+        )
 
         val after = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId)!!
         val schedule =
             timetableLectureReminderScheduleRepository
                 .findByReminderId(after.id!!)
-                .single { it.day == DayOfWeek.getOfValue(now.dayOfWeek.value - 1)!! && it.minute == now.hour * 60 + now.minute }
+                .single { it.day == DayOfWeek.fromValue(now.dayOfWeek.value - 1) && it.minute == now.hour * 60 + now.minute }
         assertNotNull(schedule.recentNotifiedAt)
     }
 
@@ -254,8 +266,16 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
         diaryScheduler.sendDiaryNotifications()
 
         assertTrue(recordingPushClient.sentMessages.isNotEmpty())
-        assertTrue(recordingPushClient.sentMessages[0].title.contains("강의일기"))
-        assertTrue(recordingPushClient.sentMessages[0].body.contains("강의일기를 작성해보세요"))
+        assertTrue(
+            recordingPushClient.sentMessages[0]
+                .message.title
+                .contains("강의일기"),
+        )
+        assertTrue(
+            recordingPushClient.sentMessages[0]
+                .message.body
+                .contains("강의일기를 작성해보세요"),
+        )
         assertTrue(notificationRepository.findAll().none { it.userId == user.id })
     }
 }

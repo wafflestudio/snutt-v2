@@ -9,13 +9,13 @@ import org.springframework.jdbc.core.BatchPreparedStatementSetter
 import org.springframework.jdbc.core.ConnectionCallback
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
-import tools.jackson.databind.json.JsonMapper
 import java.sql.PreparedStatement
 import java.sql.Timestamp
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
+import com.wafflestudio.snutt.core.common.json.Json as CoreJson
 
 interface MigrationStep {
     val name: String
@@ -243,9 +243,7 @@ fun Instant?.orNow(): Instant = this ?: Instant.now()
 fun Instant.toSqlTimestamp(): Timestamp = Timestamp.from(this)
 
 object Json {
-    private val mapper: JsonMapper = JsonMapper.builder().findAndAddModules().build()
+    fun write(value: Any?): String? = value?.let { CoreJson.mapper.writeValueAsString(it) }
 
-    fun write(value: Any?): String? = value?.let { mapper.writeValueAsString(it) }
-
-    fun writeRequired(value: Any): String = mapper.writeValueAsString(value)
+    fun writeRequired(value: Any): String = CoreJson.mapper.writeValueAsString(value)
 }

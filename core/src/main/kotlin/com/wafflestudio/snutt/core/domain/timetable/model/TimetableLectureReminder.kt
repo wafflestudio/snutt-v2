@@ -18,7 +18,7 @@ data class Schedule(
         val daysToAdd = Math.floorDiv(totalMinutes, minutesPerDay)
         val newMinute = Math.floorMod(totalMinutes, minutesPerDay)
         val newDayIndex = Math.floorMod(day.value + daysToAdd, 7)
-        return Schedule(DayOfWeek.getOfValue(newDayIndex)!!, newMinute)
+        return Schedule(DayOfWeek.fromValue(newDayIndex), newMinute)
     }
 
     override fun compareTo(other: Schedule): Int {
@@ -33,7 +33,7 @@ data class Schedule(
         ): Schedule {
             val localDateTime = instant.atZone(zoneId).toLocalDateTime()
             return Schedule(
-                day = DayOfWeek.getOfValue(localDateTime.dayOfWeek.value - 1)!!,
+                day = DayOfWeek.fromValue(localDateTime.dayOfWeek.value - 1),
                 minute = localDateTime.hour * 60 + localDateTime.minute,
             )
         }

@@ -12,7 +12,6 @@ interface CourseRepository : JpaRepository<Course, Long> {
         instructor: String,
     ): Course?
 
-    // 집계 갱신은 같은 course에 대한 동시 쓰기를 직렬화해야 값이 유실되지 않는다
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM Course c WHERE c.id = :id")
     fun findByIdForUpdate(id: Long): Course?

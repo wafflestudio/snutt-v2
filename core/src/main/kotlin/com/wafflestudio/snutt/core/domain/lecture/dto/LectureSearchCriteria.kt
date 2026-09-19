@@ -16,18 +16,14 @@ enum class LectureSort(
     ;
 
     companion object {
-        // 클라이언트가 언어에 따라 한글/영문 중 무엇을 보내든 받을 수 있도록 둘 다 키로 등록한다
         private val nameMap = entries.flatMap { listOf(it.fullName to it, it.fullNameEn to it) }.toMap()
 
         fun getOfName(name: String?): LectureSort? = nameMap[name]
 
-        fun fromParameter(value: String?): LectureSort =
-            if (value == null) {
-                DEFAULT
-            } else {
-                entries.find { it.name.equals(value, ignoreCase = true) }
-                    ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-            }
+        fun fromParameter(value: String?): LectureSort {
+            if (value == null) return DEFAULT
+            return entries.find { it.name.equals(value, ignoreCase = true) } ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
     }
 }
 

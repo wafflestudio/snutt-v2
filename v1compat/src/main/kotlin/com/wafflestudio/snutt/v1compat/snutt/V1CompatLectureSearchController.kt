@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -31,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController
 
 data class LegacySearchQuery(
     val year: Int,
-    val semester: Int,
+    val semester: Semester,
     val title: String? = null,
     val classification: List<String>? = null,
     val credit: List<Int>? = null,
@@ -41,20 +40,14 @@ data class LegacySearchQuery(
     val academicYear: List<String>? = null,
     val department: List<String>? = null,
     val category: List<String>? = null,
-    val times: List<LegacySearchTime>? = null,
-    val timesToExclude: List<LegacySearchTime>? = null,
+    val times: List<SearchTime>? = null,
+    val timesToExclude: List<SearchTime>? = null,
     val etc: List<String>? = null,
     val page: Int = 0,
     val offset: Long? = null,
     val limit: Int = 20,
     val sortCriteria: String? = null,
     val categoryPre2025: List<String>? = null,
-)
-
-data class LegacySearchTime(
-    val day: Int,
-    val startMinute: Int,
-    val endMinute: Int,
 )
 
 data class LegacyLectureDto(
@@ -131,7 +124,7 @@ class V1CompatLectureSearchController(
         val criteria =
             LectureSearchCriteria(
                 year = query.year,
-                semester = Semester.getOfValue(query.semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
+                semester = query.semester,
                 language = clientInfo.language,
                 query = query.title,
                 classification = query.classification,
@@ -142,24 +135,8 @@ class V1CompatLectureSearchController(
                 category = query.category,
                 categoryPre2025 = query.categoryPre2025?.map { LectureCategoryPre2025.toKorean(it) },
                 etcTags = query.etc,
-                times =
-                    query.times?.map {
-                        SearchTime(
-                            DayOfWeek.getOfValue(it.day)
-                                ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
-                            it.startMinute,
-                            it.endMinute,
-                        )
-                    },
-                timesToExclude =
-                    query.timesToExclude?.map {
-                        SearchTime(
-                            DayOfWeek.getOfValue(it.day)
-                                ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
-                            it.startMinute,
-                            it.endMinute,
-                        )
-                    },
+                times = query.times,
+                timesToExclude = query.timesToExclude,
                 sort = LectureSort.getOfName(query.sortCriteria) ?: LectureSort.DEFAULT,
             )
         val offset = query.offset ?: query.page * 20L

@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
+import tools.jackson.databind.JsonNode
 
 @Entity
 class ClientConfig(
@@ -17,8 +18,8 @@ class ClientConfig(
     var osType: OsType,
     var minVersion: String? = null,
     var maxVersion: String? = null,
-    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
-    var value: String,
+    @JdbcTypeCode(SqlTypes.JSON)
+    var value: JsonNode,
 ) : BaseEntity() {
     fun isAdaptable(
         osType: OsType,

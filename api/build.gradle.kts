@@ -1,5 +1,6 @@
 dependencies {
     implementation(project(":core"))
+    testImplementation(testFixtures(project(":core")))
     implementation(project(":v1compat"))
 
     implementation("org.springframework.boot:spring-boot-starter-web")

@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
@@ -49,14 +48,14 @@ interface EvaluationCustomRepository {
 
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary>
 
-    fun findOthersByCourseAndSemester(
+    fun findOthers(
         courseId: Long,
+        userId: Long,
         year: Int?,
         semester: Semester?,
-        userId: Long,
         cursor: EvaluationCursor?,
         pageSize: Int,
-        sort: EvaluationSort = EvaluationSort.LATEST,
+        sort: EvaluationSort,
     ): List<Evaluation>
 
     fun findMine(
@@ -71,24 +70,16 @@ interface EvaluationCustomRepository {
         pageSize: Int,
     ): List<Evaluation>
 
-    fun findCourseAggregate(courseId: Long): CourseAggregate
-
-    fun findEvaluationAverages(
-        courseId: Long,
-        year: Int?,
-        semester: Semester?,
-    ): EvaluationAverages?
-
-    fun countByCourseIdAndIsHiddenFalse(
+    fun findCourseAggregate(
         courseId: Long,
         year: Int? = null,
         semester: Semester? = null,
-    ): Long
+    ): CourseAggregate
 
-    fun countOthersByCourseIdAndIsHiddenFalse(
+    fun countOthers(
         courseId: Long,
         userId: Long,
-        year: Int? = null,
-        semester: Semester? = null,
+        year: Int?,
+        semester: Semester?,
     ): Long
 }

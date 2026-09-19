@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 data class V1ErrorResponse(
     val errcode: Long,
@@ -17,10 +18,6 @@ data class V1ErrorResponse(
     val displayMessage: String,
 )
 
-/**
- * v1이 실제로 반환하던 errcode. v2 체계로 재번호된 항목의 구 값을 유지한다.
- * 여기에 없는 항목은 이미 v1과 같은 값이라 그대로 error.errorCode를 쓴다.
- */
 private val V1_ERROR_CODE_MAP =
     mapOf(
         ErrorType.INVALID_TIMETABLE_TITLE to 0x1007,
@@ -70,6 +67,9 @@ class V1CompatExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableBody(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE).toV1ErrorResponse()
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleArgumentTypeMismatch(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_PARAMETER).toV1ErrorResponse()
 
     @ExceptionHandler(UpstreamException::class)
     fun handleUpstreamException(e: UpstreamException): ResponseEntity<V1ErrorResponse> {

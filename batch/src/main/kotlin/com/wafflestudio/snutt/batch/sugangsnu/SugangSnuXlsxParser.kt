@@ -10,8 +10,6 @@ import org.springframework.stereotype.Component
 
 data class SugangLectureRow(
     val classification: String,
-    // category는 교양영역(전공 강의는 값 없음). xlsx에 교양영역 컬럼이 없어 null이 기본값이고,
-    // enrich 단계에서 API의 sbjtFldNm으로 채워진다. classification에서 파생하면 안 된다.
     val category: String?,
     val department: String,
     val academicYear: String,
@@ -136,7 +134,6 @@ class SugangSnuXlsxParser {
                 ?.get("quota")
                 ?.value
                 ?.toInt() ?: 0
-        // "35 (30)": 재학생 수강신청 기간에는 신입생 예비 정원을 제외한 정원이 유효 정원이다
         val freshmanQuota =
             quotaMatch
                 ?.groups

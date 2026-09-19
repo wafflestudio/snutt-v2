@@ -69,10 +69,6 @@ class LegacyTokenStep(
     override val tables = emptyList<String>()
 
     override fun run() {
-        if (!tableExists()) {
-            log.info("legacy_access_token 테이블이 없다. v1compat 모듈이 없는 배포이므로 건너뛴다")
-            return
-        }
         jdbc.execute("DELETE FROM legacy_access_token")
 
         val owners = HashMap<String, String?>()
@@ -102,14 +98,6 @@ class LegacyTokenStep(
         alignAutoIncrement("legacy_access_token", ids.peek())
         log.info("구 토큰 이관: {}건 (특정 불가로 제외 {}건)", count, ambiguous)
     }
-
-    private fun tableExists(): Boolean =
-        (
-            jdbc.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'legacy_access_token'",
-                Long::class.java,
-            ) ?: 0L
-        ) > 0L
 
     private fun org.bson.Document.hasCredential(): Boolean {
         val credential = doc("credential") ?: return false

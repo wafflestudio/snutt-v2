@@ -3,13 +3,11 @@ package com.wafflestudio.snutt.core.domain.friend.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
+import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
-import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
-import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
-import com.wafflestudio.snutt.core.domain.notification.service.TargetedPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -17,8 +15,6 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 
 enum class FriendState {
     ACTIVE,
@@ -32,7 +28,6 @@ class FriendService(
     private val userRepository: UserRepository,
     private val friendLinkTokenProvider: FriendLinkTokenProvider,
     private val pushService: PushService,
-    private val notificationRepository: NotificationRepository,
 ) {
     companion object {
         private val friendDisplayNameRegex = "^[a-zA-Z가-힣0-9 ]+$".toRegex()
@@ -164,18 +159,11 @@ class FriendService(
         title: String,
         body: String,
     ) {
-        notificationRepository.save(
-            Notification(userId = userId, title = title, message = body, type = NotificationType.FRIEND, deeplink = FRIEND_URL_SCHEME),
-        )
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() {
-                    pushService.sendTargetedPushes(
-                        messagesByUserId = mapOf(userId to TargetedPush(title, body, FRIEND_URL_SCHEME)),
-                        preferenceType = PushPreferenceType.NORMAL,
-                    )
-                }
-            },
+        pushService.sendPushAndNotification(
+            userIds = listOf(userId),
+            message = PushMessage(title, body, FRIEND_URL_SCHEME),
+            type = NotificationType.FRIEND,
+            preferenceType = PushPreferenceType.NORMAL,
         )
     }
 }

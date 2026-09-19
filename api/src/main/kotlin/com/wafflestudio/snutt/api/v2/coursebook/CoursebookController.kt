@@ -2,8 +2,6 @@ package com.wafflestudio.snutt.api.v2.coursebook
 
 import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
@@ -37,7 +35,7 @@ private fun Coursebook.toResponse() =
 @RequestMapping("/v2/coursebooks")
 class CoursebookController(
     private val coursebookService: CoursebookService,
-    @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
+    @param:Value("\${snutt.syllabus-proxy.base-url:}") private val syllabusProxyBaseUrl: String,
 ) {
     @Public
     @GetMapping("")
@@ -51,14 +49,11 @@ class CoursebookController(
     @GetMapping("/official")
     fun getCoursebookOfficial(
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestParam courseNumber: String,
         @RequestParam lectureNumber: String,
     ): CoursebookOfficialResponse {
-        val semesterValue =
-            Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val syllabusPath =
-            SugangSnuUrlUtils.parseSyllabusPath(year, semesterValue, courseNumber, lectureNumber)
+        val syllabusPath = SugangSnuUrlUtils.parseSyllabusPath(year, semester, courseNumber, lectureNumber)
         return CoursebookOfficialResponse(
             url = SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,
             proxyUrl = syllabusProxyBaseUrl.takeIf { it.isNotBlank() }?.plus(syllabusPath),

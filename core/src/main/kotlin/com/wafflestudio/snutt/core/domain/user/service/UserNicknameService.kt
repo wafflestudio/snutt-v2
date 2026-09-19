@@ -43,7 +43,7 @@ class UserNicknameService(
         val existingTags =
             userRepository
                 .findAllByNicknameAndActiveTrue(nickname)
-                .mapNotNull { it.nicknameTag }
+                .map { it.nicknameTag }
                 .toSet()
         val newTag =
             generateSequence { (0 until NICKNAME_TAG_LENGTH_BOUND).random().toString().padStart(4, '0') }

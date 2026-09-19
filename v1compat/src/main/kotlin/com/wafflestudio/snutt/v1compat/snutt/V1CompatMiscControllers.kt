@@ -6,8 +6,6 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
@@ -59,11 +57,10 @@ class V1CompatTagController(
     fun getTagList(
         @V1CurrentUser user: User,
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTagListResponse {
-        val parsedSemester = Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val vocabulary = lectureVocabularyService.getVocabulary(year, parsedSemester, clientInfo.language)
+        val vocabulary = lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
         return LegacyTagListResponse(
             classification = vocabulary.classification,
             department = vocabulary.department,
@@ -109,7 +106,7 @@ data class LegacyCoursebookOfficialResponse(
 @RequestMapping("/v1/course_books")
 class V1CompatCoursebookController(
     private val coursebookService: CoursebookService,
-    @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
+    @param:Value("\${snutt.syllabus-proxy.base-url:}") private val syllabusProxyBaseUrl: String,
 ) {
     @GetMapping("")
     fun getCoursebooks(): List<LegacyCoursebookDto> = coursebookService.getCoursebooks().map { it.toLegacy() }
@@ -120,13 +117,11 @@ class V1CompatCoursebookController(
     @GetMapping("/official")
     fun getCoursebookOfficial(
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestParam("course_number") courseNumber: String,
         @RequestParam("lecture_number") lectureNumber: String,
     ): LegacyCoursebookOfficialResponse {
-        val semesterValue =
-            Semester.getOfValue(semester) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val syllabusPath = SugangSnuUrlUtils.parseSyllabusPath(year, semesterValue, courseNumber, lectureNumber)
+        val syllabusPath = SugangSnuUrlUtils.parseSyllabusPath(year, semester, courseNumber, lectureNumber)
         val proxyUrl = syllabusProxyBaseUrl.takeIf { it.isNotBlank() }?.plus(syllabusPath)
         return LegacyCoursebookOfficialResponse(
             noProxyUrl = SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,

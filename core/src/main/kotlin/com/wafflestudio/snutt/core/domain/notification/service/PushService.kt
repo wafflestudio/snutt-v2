@@ -2,8 +2,8 @@ package com.wafflestudio.snutt.core.domain.notification.service
 
 import com.wafflestudio.snutt.core.common.push.GLOBAL_TOPIC
 import com.wafflestudio.snutt.core.common.push.PushClient
+import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
-import com.wafflestudio.snutt.core.common.push.TopicPushMessage
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
@@ -16,15 +16,6 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 
-data class TargetedPush(
-    val title: String,
-    val body: String,
-    val urlScheme: String? = null,
-    val isUrgentOnAndroid: Boolean = false,
-    val shouldSendAsDataMessage: Boolean = false,
-    val data: Map<String, String> = emptyMap(),
-)
-
 @Service
 class PushService(
     private val pushClient: PushClient,
@@ -34,14 +25,51 @@ class PushService(
     private val notificationRepository: NotificationRepository,
 ) {
     fun sendTargetedPushes(
-        messagesByUserId: Map<Long, TargetedPush>,
+        messagesByUserId: Map<Long, PushMessage>,
         preferenceType: PushPreferenceType,
     ) {
         deliver(resolveMessages(messagesByUserId, preferenceType))
     }
 
+    fun sendGlobalPushAndNotification(
+        message: PushMessage,
+        type: NotificationType,
+    ) {
+        notificationRepository.save(
+            Notification(userId = null, title = message.title, message = message.body, type = type, deeplink = message.urlScheme),
+        )
+        pushClient.sendTopicMessage(GLOBAL_TOPIC, message)
+    }
+
+    @Transactional
+    fun sendPushAndNotification(
+        userIds: Collection<Long>,
+        message: PushMessage,
+        type: NotificationType,
+        preferenceType: PushPreferenceType,
+    ) {
+        if (userIds.isEmpty()) return
+        notificationRepository.saveAll(
+            userIds.map {
+                Notification(
+                    userId = it,
+                    title = message.title,
+                    message = message.body,
+                    type = type,
+                    deeplink = message.urlScheme,
+                )
+            },
+        )
+        val messages = resolveMessages(userIds.associateWith { message }, preferenceType)
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() = deliver(messages)
+            },
+        )
+    }
+
     private fun resolveMessages(
-        messagesByUserId: Map<Long, TargetedPush>,
+        messagesByUserId: Map<Long, PushMessage>,
         preferenceType: PushPreferenceType,
     ): List<TargetedPushMessage> {
         if (messagesByUserId.isEmpty()) return emptyList()
@@ -49,65 +77,8 @@ class PushService(
         val targets = messagesByUserId.filterKeys { it !in disabledUserIds }
         if (targets.isEmpty()) return emptyList()
         return userDeviceRepository.findPushTargets(targets.keys).mapNotNull { target ->
-            targets[target.userId]?.let {
-                TargetedPushMessage(
-                    it.title,
-                    it.body,
-                    it.urlScheme,
-                    target.fcmRegistrationId,
-                    it.isUrgentOnAndroid,
-                    it.shouldSendAsDataMessage,
-                    it.data,
-                )
-            }
+            targets[target.userId]?.let { TargetedPushMessage(target.fcmRegistrationId, it) }
         }
-    }
-
-    fun sendGlobalPushAndNotification(
-        title: String,
-        body: String,
-        type: NotificationType,
-        urlScheme: String? = null,
-        isUrgentOnAndroid: Boolean = false,
-        shouldSendAsDataMessage: Boolean = false,
-        data: Map<String, String> = emptyMap(),
-    ) {
-        notificationRepository.save(
-            Notification(userId = null, title = title, message = body, type = type, deeplink = urlScheme),
-        )
-        pushClient.sendTopicMessage(
-            TopicPushMessage(title, body, urlScheme, GLOBAL_TOPIC, isUrgentOnAndroid, shouldSendAsDataMessage, data),
-        )
-    }
-
-    @Transactional
-    fun sendPushAndNotification(
-        userIds: Collection<Long>,
-        title: String,
-        body: String,
-        type: NotificationType,
-        preferenceType: PushPreferenceType,
-        urlScheme: String? = null,
-        isUrgentOnAndroid: Boolean = false,
-        shouldSendAsDataMessage: Boolean = false,
-        data: Map<String, String> = emptyMap(),
-    ) {
-        if (userIds.isEmpty()) return
-        notificationRepository.saveAll(
-            userIds.map { userId -> Notification(userId = userId, title = title, message = body, type = type, deeplink = urlScheme) },
-        )
-        val messages =
-            resolveMessages(
-                userIds.associateWith {
-                    TargetedPush(title, body, urlScheme, isUrgentOnAndroid, shouldSendAsDataMessage, data)
-                },
-                preferenceType,
-            )
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() = deliver(messages)
-            },
-        )
     }
 
     private fun deliver(messages: List<TargetedPushMessage>) {

@@ -2,12 +2,12 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.mail.MailClient
-import com.wafflestudio.snutt.core.common.mail.MailType
+import com.wafflestudio.snutt.core.common.mail.UserMailService
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
+import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -18,8 +18,6 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration
 
 @Service
@@ -28,106 +26,63 @@ class PasswordResetService(
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val mailClient: MailClient,
+    private val userMailService: UserMailService,
     private val passwordEncoder: PasswordEncoder,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     private val store = CodeChallengeStore(redisTemplate, "reset-password", ttl = Duration.ofMinutes(15))
 
+    private data class FoundAccount(
+        val user: User,
+        val providers: List<AuthProvider>,
+    )
+
     companion object {
         private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
     }
 
-    @Transactional
     fun sendLocalIdToEmail(email: String) {
-        val accountInfo = findIdAccountInfo(email) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        store.throttleSend(email.trim())
-        sendMail(MailType.VERIFICATION, email.trim(), accountInfo)
+        val trimmed = email.trim()
+        val accounts = findIdAccounts(trimmed)
+        if (accounts.isEmpty()) return
+        store.throttleSend(trimmed)
+        val html = renderFindIdMail(accounts)
+        userMailService.sendFoundAccounts(trimmed, html)
     }
 
-    @Transactional
-    fun sendLocalIdToEmailQuietly(email: String) {
-        val accountInfo = findIdAccountInfo(email) ?: return
-        store.throttleSend(email.trim())
-        sendMail(MailType.VERIFICATION, email.trim(), accountInfo)
-    }
-
-    private fun findIdAccountInfo(email: String): String? {
-        val users = userRepository.findAllByEmailAndActiveTrue(email.trim())
-        return buildFindIdAccountInfo(users).ifEmpty { null }
-    }
-
-    private fun buildFindIdAccountInfo(users: List<User>): String {
+    private fun findIdAccounts(email: String): List<FoundAccount> {
+        val users = userRepository.findAllByEmailAndActiveTrue(email)
         val socialProvidersByUser =
             userSocialAuthRepository
-                .findByUserIdIn(users.mapNotNull { it.id })
+                .findByUserIdIn(users.map { it.id!! })
                 .groupBy({ it.userId }, { it.provider })
-
-        fun providersOf(user: User): List<AuthProvider> =
-            buildList {
-                if (user.localId != null) add(AuthProvider.LOCAL)
-                socialProvidersByUser[user.id].orEmpty().forEach { add(it) }
-            }
-        val accounts =
-            users
-                .filter { it.localId != null || !socialProvidersByUser[it.id].isNullOrEmpty() }
-                .sortedBy { it.createdAt }
-        return when (accounts.size) {
-            0 -> ""
-            1 ->
-                renderFindIdAccount(accounts[0], providersOf(accounts[0]))
-            else ->
-                accounts
-                    .mapIndexed { index, user -> "<b>&lt;계정 ${index + 1}&gt;</b><br/>" + renderFindIdAccount(user, providersOf(user)) }
-                    .joinToString(separator = "<br/>")
-        }
+        return users
+            .sortedBy { it.createdAt }
+            .map { FoundAccount(it, authProvidersOf(it, socialProvidersByUser[it.id].orEmpty())) }
+            .filter { it.providers.isNotEmpty() }
     }
 
-    private fun renderFindIdAccount(
-        user: User,
-        providers: List<AuthProvider>,
-    ): String =
-        buildList {
-            user.localId?.let { add("<b>[아이디]</b> $it") }
-            if (providers.isNotEmpty()) add("<b>[소셜 로그인 수단]</b> ${providers.joinToString(", ")}")
+    private fun renderFindIdMail(accounts: List<FoundAccount>): String {
+        if (accounts.size == 1) return renderFindIdAccount(accounts.single())
+        return accounts
+            .mapIndexed { index, account -> "<b>&lt;계정 ${index + 1}&gt;</b><br/>" + renderFindIdAccount(account) }
+            .joinToString(separator = "<br/>")
+    }
+
+    private fun renderFindIdAccount(account: FoundAccount): String {
+        val social = account.providers.filter { it != AuthProvider.LOCAL }.map { it.korName }
+        return buildList {
+            account.user.localId?.let { add("<b>[아이디]</b> $it") }
+            if (social.isNotEmpty()) add("<b>[소셜 로그인 수단]</b> ${social.joinToString(", ")}")
         }.joinToString(separator = "<br/>", postfix = "<br/>")
+    }
 
-    @Transactional
     fun requestReset(email: String) {
-        val user = findResetTargetUser(email) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        sendResetCode(user, email)
-    }
-
-    @Transactional
-    fun requestResetQuietly(email: String) {
-        val user = findResetTargetUser(email) ?: return
-        sendResetCode(user, email)
-    }
-
-    private fun findResetTargetUser(email: String): User? = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
-
-    private fun sendResetCode(
-        user: User,
-        email: String,
-    ) {
-        val userId = requireNotNull(user.id) { "persisted user must have an id" }
+        val trimmed = email.trim()
+        val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) ?: return
         val code = VerificationCode.generate()
-        store.store(userId, code)
-        sendMail(MailType.PASSWORD_RESET, email.trim(), code)
-    }
-
-    private fun sendMail(
-        type: MailType,
-        to: String,
-        code: String,
-    ) {
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() {
-                    mailClient.sendCodeMail(type, to, code)
-                }
-            },
-        )
+        store.store(user.id!!, code)
+        userMailService.sendPasswordResetCode(trimmed, code)
     }
 
     @Transactional(readOnly = true)
@@ -143,7 +98,7 @@ class PasswordResetService(
         code: String,
     ) {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        store.verify(requireNotNull(user.id), code)
+        store.verify(user.id!!, code)
     }
 
     @Transactional
@@ -153,11 +108,11 @@ class PasswordResetService(
         newPassword: String,
     ) {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        confirmResetFor(user, code, newPassword)
+        confirmReset(user, code, newPassword)
     }
 
     @Transactional
-    fun confirmResetQuietly(
+    fun confirmResetByEmail(
         email: String,
         code: String,
         newPassword: String,
@@ -165,15 +120,15 @@ class PasswordResetService(
         val user =
             userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
                 ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
-        confirmResetFor(user, code, newPassword)
+        confirmReset(user, code, newPassword)
     }
 
-    private fun confirmResetFor(
+    private fun confirmReset(
         user: User,
         code: String,
         newPassword: String,
     ) {
-        val userId = requireNotNull(user.id) { "persisted user must have an id" }
+        val userId = user.id!!
         store.verify(userId, code)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)

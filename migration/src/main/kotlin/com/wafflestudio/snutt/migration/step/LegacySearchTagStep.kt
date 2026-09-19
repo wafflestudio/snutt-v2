@@ -20,10 +20,6 @@ class LegacySearchTagStep(
             log.info("구 ev DB가 없어 검색 태그 이관을 건너뛴다")
             return
         }
-        if (!tableExists()) {
-            log.info("legacy_search_tag 테이블이 없다. v1compat 모듈이 없는 배포이므로 건너뛴다")
-            return
-        }
         jdbc.execute("DELETE FROM legacy_search_tag")
 
         var count = 0
@@ -51,12 +47,4 @@ class LegacySearchTagStep(
         }
         log.info("구 검색 태그 이관: {}건", count)
     }
-
-    private fun tableExists(): Boolean =
-        (
-            jdbc.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'legacy_search_tag'",
-                Long::class.java,
-            ) ?: 0L
-        ) > 0L
 }

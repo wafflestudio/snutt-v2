@@ -2,12 +2,13 @@ package com.wafflestudio.snutt.core.domain.lecture.service
 
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.json.Json
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabulary
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabularyRepository
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
-import tools.jackson.databind.json.JsonMapper
+import tools.jackson.core.JacksonException
 import java.time.Duration
 import java.time.Instant
 
@@ -24,14 +25,17 @@ class LectureVocabularyService(
     ): LectureVocabulary {
         val key = cacheKey(year, semester, language)
         redisTemplate.opsForValue().get(key)?.let { cached ->
-            runCatching { jsonMapper.readValue(cached, LectureVocabulary::class.java) }.getOrNull()?.let { return it }
+            try {
+                return Json.mapper.readValue(cached, LectureVocabulary::class.java)
+            } catch (e: JacksonException) {
+                redisTemplate.delete(key)
+            }
         }
         val vocabulary = lectureVocabularyRepository.findVocabulary(year, semester, language)
-        redisTemplate.opsForValue().set(key, jsonMapper.writeValueAsString(vocabulary), TTL)
+        redisTemplate.opsForValue().set(key, Json.mapper.writeValueAsString(vocabulary), TTL)
         return vocabulary
     }
 
-    /** 수강편람 sync가 실행될 때마다 최신 coursebook의 updated_at이 갱신되므로 이를 캐시 버전으로 쓴다. */
     private fun cacheKey(
         year: Int?,
         semester: Semester?,
@@ -44,8 +48,6 @@ class LectureVocabularyService(
 
     companion object {
         private const val PREFIX = "lecture-vocabulary"
-
         private val TTL: Duration = Duration.ofDays(1)
-        private val jsonMapper: JsonMapper = JsonMapper.builder().findAndAddModules().build()
     }
 }
