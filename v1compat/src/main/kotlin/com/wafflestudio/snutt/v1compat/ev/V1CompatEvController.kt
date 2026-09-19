@@ -89,7 +89,7 @@ data class LegacyEvaluationReportResponse(
 
 @RestController
 @V1EmailVerifiedRequired
-@RequestMapping("/v1/ev-service/v1", "/v1/ev/v1")
+@RequestMapping(V1_EV_SERVICE_PATH, V1_EV_PATH, EV_SERVICE_PATH, EV_PATH)
 class V1CompatEvController(
     private val evaluationService: EvaluationService,
     private val legacyCourseRepository: LegacyCourseRepository,
