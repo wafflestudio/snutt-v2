@@ -143,7 +143,7 @@ class V1CompatPathIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val verification = getV1("/v1/user/email/verification")
         assertEquals(200, verification.statusCode.value())
-        assertEquals(false, body(verification)["isEmailVerified"].asBoolean())
+        assertEquals(false, body(verification)["is_email_verified"].asBoolean())
     }
 
     @Test
