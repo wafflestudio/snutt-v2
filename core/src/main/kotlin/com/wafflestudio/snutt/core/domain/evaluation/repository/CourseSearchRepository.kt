@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.core.domain.evaluation.repository
 
 import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
 import com.linecorp.kotlinjdsl.dsl.jpql.jpql
-import com.linecorp.kotlinjdsl.querymodel.jpql.entity.Entity
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
@@ -69,23 +68,11 @@ class CourseSearchRepository(
         if (courseIds.isEmpty()) return emptyList()
         return findAll {
             jpql {
-                val lecture = entity(Lecture::class)
-                select(lecture).from(lecture).where(
-                    and(
-                        path(Lecture::courseId).`in`(courseIds),
-                        notExists(
-                            jpql {
-                                val newer = entity(Lecture::class, "newer")
-                                select(value(1)).from(newer).where(
-                                    and(
-                                        newer.path(Lecture::courseId).equal(path(Lecture::courseId)),
-                                        newerThan(newer, lecture),
-                                    ),
-                                )
-                            }.asSubquery(),
-                        ),
-                    ),
-                )
+                select(entity(Lecture::class))
+                    .from(
+                        entity(Lecture::class),
+                        join(Course::class).on(path(Course::latestLectureId).equal(path(Lecture::id))),
+                    ).where(path(Course::id).`in`(courseIds))
             }
         }.filterNotNull()
     }
@@ -156,27 +143,4 @@ class CourseSearchRepository(
             departmentPrefix?.let { lectures += path(Lecture::department).like(it.toCharArray().joinToString("%", postfix = "%")) }
         }
     }
-
-    private fun Jpql.newerThan(
-        newer: Entity<Lecture>,
-        previous: Entity<Lecture>,
-    ): Predicate =
-        or(
-            newer.path(Lecture::year).greaterThan(previous.path(Lecture::year)),
-            and(
-                newer.path(Lecture::year).equal(previous.path(Lecture::year)),
-                newer.path(Lecture::semester).greaterThan(previous.path(Lecture::semester)),
-            ),
-            and(
-                newer.path(Lecture::year).equal(previous.path(Lecture::year)),
-                newer.path(Lecture::semester).equal(previous.path(Lecture::semester)),
-                newer.path(Lecture::updatedAt).greaterThan(previous.path(Lecture::updatedAt)),
-            ),
-            and(
-                newer.path(Lecture::year).equal(previous.path(Lecture::year)),
-                newer.path(Lecture::semester).equal(previous.path(Lecture::semester)),
-                newer.path(Lecture::updatedAt).equal(previous.path(Lecture::updatedAt)),
-                newer.path(Lecture::id).greaterThan(previous.path(Lecture::id)),
-            ),
-        )
 }

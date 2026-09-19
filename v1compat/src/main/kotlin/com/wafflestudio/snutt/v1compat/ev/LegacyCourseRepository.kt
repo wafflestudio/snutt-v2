@@ -66,7 +66,7 @@ class LegacyCourseRepository(
                     path(Course::avgRating),
                 ).from(
                     entity(Course::class),
-                    leftJoin(Lecture::class).on(and(path(Lecture::courseId).equal(path(Course::id)), latest())),
+                    leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
                 ).where(path(Course::id).`in`(courseIds))
             }
         }.filterNotNull().associateBy { it.id }
@@ -94,7 +94,7 @@ class LegacyCourseRepository(
                     path(Course::avgRating),
                 ).from(
                     entity(Course::class),
-                    leftJoin(Lecture::class).on(and(path(Lecture::courseId).equal(path(Course::id)), latest())),
+                    leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
                 ).where(and(*predicates(criteria).toTypedArray()))
                     .orderBy(path(Course::evalCount).desc(), path(Course::id).asc())
             }
@@ -107,40 +107,10 @@ class LegacyCourseRepository(
                 select(count(path(Course::id)))
                     .from(
                         entity(Course::class),
-                        leftJoin(Lecture::class).on(and(path(Lecture::courseId).equal(path(Course::id)), latest())),
+                        leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
                     ).where(and(*predicates(criteria).toTypedArray()))
             }
         }.first()!!
-
-    private fun Jpql.latest(): Predicate =
-        notExists(
-            jpql {
-                val newer = entity(Lecture::class, "newer")
-                select(value(1)).from(newer).where(
-                    and(
-                        newer.path(Lecture::courseId).equal(path(Lecture::courseId)),
-                        or(
-                            newer.path(Lecture::year).greaterThan(path(Lecture::year)),
-                            and(
-                                newer.path(Lecture::year).equal(path(Lecture::year)),
-                                newer.path(Lecture::semester).greaterThan(path(Lecture::semester)),
-                            ),
-                            and(
-                                newer.path(Lecture::year).equal(path(Lecture::year)),
-                                newer.path(Lecture::semester).equal(path(Lecture::semester)),
-                                newer.path(Lecture::updatedAt).greaterThan(path(Lecture::updatedAt)),
-                            ),
-                            and(
-                                newer.path(Lecture::year).equal(path(Lecture::year)),
-                                newer.path(Lecture::semester).equal(path(Lecture::semester)),
-                                newer.path(Lecture::updatedAt).equal(path(Lecture::updatedAt)),
-                                newer.path(Lecture::id).greaterThan(path(Lecture::id)),
-                            ),
-                        ),
-                    ),
-                )
-            }.asSubquery(),
-        )
 
     private fun Jpql.predicates(criteria: LegacyCourseSearchCriteria): List<Predicate> {
         val conditions = mutableListOf<Predicate>()

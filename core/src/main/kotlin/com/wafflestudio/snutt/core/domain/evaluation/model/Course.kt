@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.core.domain.evaluation.model
 
 import com.wafflestudio.snutt.core.common.model.BaseEntity
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 
 @Entity
@@ -14,4 +15,6 @@ class Course(
     var avgTeachingSkill: Double? = null,
     var avgGains: Double? = null,
     var avgLifeBalance: Double? = null,
+    @Column(insertable = false, updatable = false)
+    val latestLectureId: Long? = null,
 ) : BaseEntity()

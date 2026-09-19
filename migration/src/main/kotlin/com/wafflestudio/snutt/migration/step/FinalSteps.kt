@@ -29,10 +29,11 @@ class AggregateStep(
         jdbc.update(
             """
             UPDATE course c JOIN (
-                SELECT course_id, course_title, ROW_NUMBER() OVER (
+                SELECT course_id, id AS lecture_id, course_title, ROW_NUMBER() OVER (
                     PARTITION BY course_id ORDER BY year DESC, semester DESC, updated_at DESC, id DESC
                 ) AS rank_index FROM lecture WHERE course_id IS NOT NULL
-            ) latest ON latest.course_id=c.id AND latest.rank_index=1 SET c.title=latest.course_title
+            ) latest ON latest.course_id=c.id AND latest.rank_index=1
+            SET c.title=latest.course_title, c.latest_lecture_id=latest.lecture_id
             """.trimIndent(),
         )
         val updated =
