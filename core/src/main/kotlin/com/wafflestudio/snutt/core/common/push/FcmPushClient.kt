@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service
 @Service
 @Profile("!test")
 class FcmPushClient(
-    @param:Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
+    @Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
     @param:Value("\${snutt.fcm.ios-bundle-id:}") private val iosBundleId: String,
 ) : PushClient {
     private val log = LoggerFactory.getLogger(javaClass)
