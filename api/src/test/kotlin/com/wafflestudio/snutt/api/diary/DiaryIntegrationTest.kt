@@ -230,7 +230,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `질문지와 대상 강의가 생성된다`() {
         val questionnaire =
             post(
-                "/v2/diary/questionnaire",
+                "/v2/diaries/questionnaire",
                 """{"lectureId":${lectureIds[0]},"dailyClassTypes":["수업듣기","공부하기"]}""",
             )
         assertEquals(200, questionnaire.statusCode.value())
@@ -243,7 +243,7 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `대상 강의 추천은 대표 시간표 기준이다`() {
-        val target = get("/v2/diary/target?year=2026&semester=3")
+        val target = get("/v2/diaries/target?year=2026&semester=3")
         assertEquals(200, target.statusCode.value())
         val node = body(target)
         assertTrue(node["courseTitle"].asString() in listOf("공학연구의 실습 1", "고급한국어"))
@@ -253,12 +253,12 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `일기 제출과 내 기록 조회와 삭제`() {
         val submit =
             post(
-                "/v2/diary",
+                "/v2/diaries",
                 """{"lectureId":${lectureIds[0]},"dailyClassTypes":["수업듣기"],"questionAnswers":[{"questionId":${questionIds[0]},"answerIndex":0}],"comment":"좋은 하루였다"}""",
             )
         assertEquals(200, submit.statusCode.value())
 
-        val my = get("/v2/diary/me")
+        val my = get("/v2/diaries/me")
         assertEquals(200, my.statusCode.value())
         val groups = body(my)
         assertEquals(1, groups.size())
@@ -273,19 +273,19 @@ class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val tooLong =
             post(
-                "/v2/diary",
+                "/v2/diaries",
                 """{"lectureId":${lectureIds[0]},"dailyClassTypes":[],"questionAnswers":[],"comment":"${"가".repeat(1001)}"}""",
             )
         assertEquals(400, tooLong.statusCode.value())
 
         val submissionId = summary["id"].asString()
-        assertEquals(200, delete("/v2/diary/$submissionId").statusCode.value())
-        assertEquals(0, body(get("/v2/diary/me")).size())
+        assertEquals(200, delete("/v2/diaries/$submissionId").statusCode.value())
+        assertEquals(0, body(get("/v2/diaries/me")).size())
     }
 
     @Test
     fun `오늘 한 일 유형 목록`() {
-        val types = body(get("/v2/diary/daily-class-types"))
+        val types = body(get("/v2/diaries/daily-class-types"))
         assertEquals(2, types.size())
         assertEquals(setOf("수업듣기", "공부하기"), types.values().map { it["name"].asString() }.toSet())
     }

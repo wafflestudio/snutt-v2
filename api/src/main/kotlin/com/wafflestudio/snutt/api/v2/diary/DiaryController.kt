@@ -116,7 +116,7 @@ private fun TimetableLectureDisplay.toResponse(language: Language) =
 private fun DiaryDailyClassType.toResponse() = DiaryDailyClassTypeResponse(id = id!!, name = name)
 
 @RestController
-@RequestMapping("/v2/diary")
+@RequestMapping("/v2/diaries")
 class DiaryController(
     private val diaryService: DiaryService,
 ) {
