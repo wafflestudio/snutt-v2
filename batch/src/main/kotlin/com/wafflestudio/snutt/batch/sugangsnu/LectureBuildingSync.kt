@@ -96,8 +96,8 @@ class LectureBuildingSync(
                 buildingNameKor = item.name,
                 buildingNameEng = item.englishName.orEmpty(),
                 campus = Campus.GWANAK,
-                locationInDms = coordinate(item.latitudeInDms, item.longitudeInDms),
-                locationInDecimal = coordinate(item.latitudeInDecimal, item.longitudeInDecimal),
+                locationInDms = coordinate(item.latitudeInDms, item.longitudeInDms) ?: current?.locationInDms,
+                locationInDecimal = coordinate(item.latitudeInDecimal, item.longitudeInDecimal) ?: current?.locationInDecimal,
             )
         when {
             current == null -> lectureBuildingRepository.save(fetched)
