@@ -29,8 +29,7 @@ class CourseSearchRepository(
         findAll(offset = 0, limit = limit) {
             jpql {
                 val conditions = mutableListOf<Predicate>()
-                val filters = lectureFilters(criteria)
-                if (filters.isNotEmpty()) conditions += matchingLectures(filters)
+                conditions += lectureFilters(criteria)
                 criteria.query.split(' ').filter { it.isNotBlank() }.forEach { word ->
                     val identities = mutableListOf<Predicate>()
                     val lectures = mutableListOf<Predicate>()
@@ -47,8 +46,8 @@ class CourseSearchRepository(
                         is KeywordIntent.Place -> text(identities, lectures, intent.keyword, false)
                         is KeywordIntent.Plain -> text(identities, lectures, intent.keyword, false)
                     }
-                    if (lectures.isNotEmpty()) identities += matchingLectures(filters + or(*lectures.toTypedArray()))
-                    if (identities.isNotEmpty()) conditions += or(*identities.toTypedArray())
+                    val alternatives = identities + lectures
+                    if (alternatives.isNotEmpty()) conditions += or(*alternatives.toTypedArray())
                 }
                 cursor?.let {
                     conditions +=
@@ -58,8 +57,10 @@ class CourseSearchRepository(
                         )
                 }
                 select(entity(Course::class))
-                    .from(entity(Course::class))
-                    .where(and(*conditions.toTypedArray()))
+                    .from(
+                        entity(Course::class),
+                        leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
+                    ).where(and(*conditions.toTypedArray()))
                     .orderBy(path(Course::evalCount).desc(), path(Course::id).asc())
             }
         }.filterNotNull()
@@ -77,45 +78,59 @@ class CourseSearchRepository(
         }.filterNotNull()
     }
 
-    private fun Jpql.matchingLectures(conditions: List<Predicate>): Predicate =
-        path(Course::id).`in`(
-            jpql {
-                select(path(Lecture::courseId)).from(entity(Lecture::class)).where(and(*conditions.toTypedArray()))
-            }.asSubquery(),
-        )
-
     private fun Jpql.lectureFilters(criteria: CourseSearchCriteria): List<Predicate> {
-        val conditions = mutableListOf<Predicate>()
         val english = criteria.language == Language.EN
-        criteria.credit.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::credit).`in`(it) }
-        criteria.academicYear.takeIf { it.isNotEmpty() }?.let {
-            conditions +=
-                path(if (english) Lecture::academicYearEn else Lecture::academicYear).`in`(it)
-        }
-        criteria.classification.takeIf { it.isNotEmpty() }?.let {
-            conditions +=
-                path(if (english) Lecture::classificationEn else Lecture::classification).`in`(it)
-        }
+        val conditions = mutableListOf<Predicate>()
         criteria.department.takeIf { it.isNotEmpty() }?.let {
-            conditions +=
-                path(if (english) Lecture::departmentEn else Lecture::department).`in`(it)
+            conditions += path(if (english) Lecture::departmentEn else Lecture::department).`in`(it)
         }
-        criteria.category.takeIf { it.isNotEmpty() }?.let {
-            conditions +=
-                path(if (english) Lecture::categoryEn else Lecture::category).`in`(it)
-        }
-        criteria.categoryPre2025.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::categoryPre2025).`in`(it) }
-        if (criteria.yearSemesters.isNotEmpty()) {
-            conditions +=
-                or(
-                    *criteria.yearSemesters
-                        .map {
-                            and(path(Lecture::year).equal(it.year), path(Lecture::semester).equal(it.semester))
-                        }.toTypedArray(),
-                )
+        if (criteria.yearSemesters.isEmpty()) {
+            criteria.credit.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::credit).`in`(it) }
+            criteria.academicYear.takeIf { it.isNotEmpty() }?.let {
+                conditions += path(if (english) Lecture::academicYearEn else Lecture::academicYear).`in`(it)
+            }
+            criteria.classification.takeIf { it.isNotEmpty() }?.let {
+                conditions += path(if (english) Lecture::classificationEn else Lecture::classification).`in`(it)
+            }
+            criteria.category.takeIf { it.isNotEmpty() }?.let {
+                conditions += path(if (english) Lecture::categoryEn else Lecture::category).`in`(it)
+            }
+            criteria.categoryPre2025.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::categoryPre2025).`in`(it) }
+        } else {
+            conditions += scopedLectures(criteria, english)
         }
         return conditions
     }
+
+    private fun Jpql.scopedLectures(
+        criteria: CourseSearchCriteria,
+        english: Boolean,
+    ): Predicate =
+        path(Course::id).`in`(
+            jpql {
+                val scoped = entity(Lecture::class, "scoped")
+                val filters = mutableListOf<Predicate>()
+                filters +=
+                    or(
+                        *criteria.yearSemesters
+                            .map {
+                                and(scoped.path(Lecture::year).equal(it.year), scoped.path(Lecture::semester).equal(it.semester))
+                            }.toTypedArray(),
+                    )
+                criteria.credit.takeIf { it.isNotEmpty() }?.let { filters += scoped.path(Lecture::credit).`in`(it) }
+                criteria.academicYear.takeIf { it.isNotEmpty() }?.let {
+                    filters += scoped.path(if (english) Lecture::academicYearEn else Lecture::academicYear).`in`(it)
+                }
+                criteria.classification.takeIf { it.isNotEmpty() }?.let {
+                    filters += scoped.path(if (english) Lecture::classificationEn else Lecture::classification).`in`(it)
+                }
+                criteria.category.takeIf { it.isNotEmpty() }?.let {
+                    filters += scoped.path(if (english) Lecture::categoryEn else Lecture::category).`in`(it)
+                }
+                criteria.categoryPre2025.takeIf { it.isNotEmpty() }?.let { filters += scoped.path(Lecture::categoryPre2025).`in`(it) }
+                select(scoped.path(Lecture::courseId)).from(scoped).where(and(*filters.toTypedArray()))
+            }.asSubquery(),
+        )
 
     private fun Jpql.text(
         identities: MutableList<Predicate>,
