@@ -52,7 +52,6 @@ class ReminderScheduler(
                     PushMessage(
                         title = "📚 강의 리마인더",
                         body = push.body,
-                        urlScheme = "snutt://timetable",
                         isUrgentOnAndroid = true,
                         shouldSendAsDataMessage = true,
                     ),

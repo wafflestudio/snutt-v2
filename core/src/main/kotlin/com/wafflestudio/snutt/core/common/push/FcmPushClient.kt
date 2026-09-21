@@ -4,7 +4,6 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.AndroidConfig
-import com.google.firebase.messaging.AndroidNotification
 import com.google.firebase.messaging.ApnsConfig
 import com.google.firebase.messaging.Aps
 import com.google.firebase.messaging.ApsAlert
@@ -21,7 +20,7 @@ import org.springframework.stereotype.Service
 @Profile("!test")
 class FcmPushClient(
     @Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
-    @param:Value("\${snutt.fcm.ios-bundle-id:}") private val iosBundleId: String,
+    @param:Value("\${snutt.fcm.ios-bundle-id}") private val iosBundleId: String,
 ) : PushClient {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -95,16 +94,14 @@ class FcmPushClient(
             AndroidConfig
                 .builder()
                 .setPriority(if (message.isUrgentOnAndroid) AndroidConfig.Priority.HIGH else AndroidConfig.Priority.NORMAL)
-                .apply {
-                    message.urlScheme?.let { setNotification(AndroidNotification.builder().setClickAction(it).build()) }
-                }.build(),
+                .build(),
         )
         setApnsConfig(
             ApnsConfig
                 .builder()
                 .putHeader("apns-push-type", "alert")
                 .putHeader("apns-priority", "5")
-                .apply { if (iosBundleId.isNotBlank()) putHeader("apns-topic", iosBundleId) }
+                .putHeader("apns-topic", iosBundleId)
                 .setAps(
                     Aps
                         .builder()
