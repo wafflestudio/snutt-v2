@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.domain.bookmark.model.BookmarkLecture
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -21,6 +22,7 @@ data class BookmarkDisplay(
 class BookmarkService(
     private val bookmarkLectureRepository: BookmarkLectureRepository,
     private val lectureRepository: LectureRepository,
+    private val userRepository: UserRepository,
 ) {
     fun getBookmark(
         userId: Long,
@@ -50,6 +52,7 @@ class BookmarkService(
         userId: Long,
         lectureId: Long,
     ) {
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         val exists =
             bookmarkLectureRepository.existsByUserIdAndYearAndSemesterAndLectureId(
