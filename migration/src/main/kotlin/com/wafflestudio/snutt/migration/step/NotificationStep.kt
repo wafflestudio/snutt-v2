@@ -5,9 +5,10 @@ import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.instant
-import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.oid
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
@@ -40,9 +41,9 @@ class NotificationStep(
                 out.add(
                     ids.next(),
                     userId,
-                    doc.str("title").orEmpty(),
-                    doc.str("message") ?: doc.str("body").orEmpty(),
-                    typeName(doc.int("type")),
+                    doc.requireStr("title"),
+                    doc.requireStr("message"),
+                    TYPE_NAMES.getValue(doc.requireInt("type")),
                     rewriteDeeplink(doc.str("deeplink") ?: doc.str("urlScheme")),
                     createdAt,
                     createdAt,
@@ -52,8 +53,6 @@ class NotificationStep(
         alignAutoIncrement("notification", ids.peek())
         log.info("알림 이관: {}건 (사용자가 없어 제외 {}건)", ids.peek() - 1, skipped)
     }
-
-    private fun typeName(value: Int?): String = TYPE_NAMES[value] ?: "NORMAL"
 
     private fun rewriteDeeplink(value: String?): String? {
         val deeplink = value ?: return null

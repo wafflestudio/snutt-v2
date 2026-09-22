@@ -4,6 +4,8 @@ import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.MongoDatabase
+import com.zaxxer.hikari.HikariDataSource
+import jakarta.annotation.PreDestroy
 import org.bson.Document
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.jdbc.DataSourceBuilder
@@ -84,15 +86,24 @@ class EvSource(
 ) {
     val available: Boolean = url.isNotBlank()
 
+    private var dataSource: HikariDataSource? = null
+
     val jdbc: JdbcTemplate by lazy {
         check(available) { "구 ev DB 접속 정보(migration.old-ev.url)가 없다" }
-        JdbcTemplate(
+        val source =
             DataSourceBuilder
                 .create()
+                .type(HikariDataSource::class.java)
                 .url(MigrationDataSourceConfig.jdbcUrl(url))
                 .username(username)
                 .password(password)
-                .build(),
-        )
+                .build()
+        dataSource = source
+        JdbcTemplate(source)
+    }
+
+    @PreDestroy
+    fun close() {
+        dataSource?.close()
     }
 }

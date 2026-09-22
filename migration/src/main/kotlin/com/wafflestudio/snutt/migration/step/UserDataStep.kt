@@ -3,15 +3,17 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
-import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.oid
 import com.wafflestudio.snutt.migration.oids
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
@@ -55,16 +57,22 @@ class UserDataStep(
             listOf("id", "user_id", "year", "semester", "lecture_id", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("bookmarks") { doc ->
-                val userId = context.userIds[doc.oid("user_id")] ?: return@each
+                val lectureRefs = doc.docs("lectures").map { it.id() }.distinct()
+                val userId = context.userIds[doc.oid("user_id")]
+                if (userId == null) {
+                    repeat(lectureRefs.size) { context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_USER_MISSING) }
+                    return@each
+                }
                 val now = Instant.now().toSqlTimestamp()
-                doc
-                    .docs("lectures")
-                    .mapNotNull { context.lectureIds[it.id()] }
-                    .distinct()
-                    .forEach { lectureId ->
-                        out.add(ids.next(), userId, doc.int("year") ?: 0, doc.int("semester") ?: 1, lectureId, now, now)
-                        lectureCount++
+                lectureRefs.forEach { ref ->
+                    val lectureId = context.lectureIds[ref]
+                    if (lectureId == null) {
+                        context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING)
+                        return@forEach
                     }
+                    out.add(ids.next(), userId, doc.requireInt("year"), doc.requireInt("semester"), lectureId, now, now)
+                    lectureCount++
+                }
             }
         }
         alignAutoIncrement("bookmark_lecture", ids.peek())
@@ -79,10 +87,18 @@ class UserDataStep(
             listOf("id", "user_id", "lecture_id", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("vacancy_notifications") { doc ->
-                val userId = context.userIds[doc.oid("userId")] ?: return@each
-                val lectureId = context.lectureIds[doc.oid("lectureId")] ?: return@each
+                val userId = context.userIds[doc.oid("userId")]
+                if (userId == null) {
+                    context.resolved(MigrationSupport.ResolutionReasons.VACANCY_USER_MISSING)
+                    return@each
+                }
+                val lectureId = context.lectureIds[doc.oid("lectureId")]
+                if (lectureId == null) {
+                    context.resolved(MigrationSupport.ResolutionReasons.VACANCY_LECTURE_MISSING)
+                    return@each
+                }
                 if (!seen.add("$userId\u0000$lectureId")) {
-                    context.resolved("같은 사용자·강의의 빈자리 알림이 중복되어 제외")
+                    context.resolved(MigrationSupport.ResolutionReasons.VACANCY_DUPLICATE)
                     return@each
                 }
                 val now = Instant.now().toSqlTimestamp()
@@ -100,10 +116,8 @@ class UserDataStep(
             devices.indices
                 .filter { index ->
                     val doc = devices[index]
-                    context.userIds[doc.oid("userId")] != null &&
-                        !doc.bool("isDeleted") &&
-                        !doc.str("fcmRegistrationId").isNullOrBlank()
-                }.groupBy { devices[it].str("fcmRegistrationId").orEmpty() }
+                    context.userIds[doc.oid("userId")] != null && !doc.bool("isDeleted")
+                }.groupBy { devices[it].requireStr("fcmRegistrationId") }
                 .mapValues { (_, indexes) ->
                     indexes.maxWith(compareBy<Int> { devices[it].instant("updatedAt") ?: Instant.EPOCH }.thenBy { it })
                 }
@@ -128,11 +142,9 @@ class UserDataStep(
         ).use { out ->
             devices.forEachIndexed { index, doc ->
                 val userId = context.userIds[doc.oid("userId")] ?: return@forEachIndexed
-                val registrationId = doc.str("fcmRegistrationId").orEmpty()
+                val registrationId = doc.requireStr("fcmRegistrationId")
                 val duplicateActiveRegistrationId =
-                    !doc.bool("isDeleted") &&
-                        registrationId.isNotBlank() &&
-                        activeOwnerByRegistrationId[registrationId] != index
+                    !doc.bool("isDeleted") && activeOwnerByRegistrationId[registrationId] != index
                 val missingRegistrationId = !doc.bool("isDeleted") && registrationId.isBlank()
                 if (duplicateActiveRegistrationId) context.resolved("같은 FCM 등록 토큰의 활성 기기가 중복되어 이전 항목을 비활성화")
                 if (missingRegistrationId) context.resolved("FCM 등록 토큰이 없는 기기를 비활성화")
@@ -160,14 +172,15 @@ class UserDataStep(
         val ids = IdSequence()
         writer("push_preference", listOf("id", "user_id", "type", "is_enabled", "created_at", "updated_at")).use { out ->
             mongo.each("pushPreference") { doc ->
-                val userId = context.userIds[doc.oid("userId")] ?: return@each
+                val userId = context.userIds[doc.oid("userId")]
+                if (userId == null) {
+                    context.resolved("사용자가 없는 푸시 설정을 제외")
+                    return@each
+                }
                 val now = Instant.now().toSqlTimestamp()
-                doc
-                    .docs("pushPreferences")
-                    .mapNotNull { preference -> preference.str("type")?.let { it to preference.bool("isEnabled") } }
-                    .distinctBy { it.first }
-                    .filter { (type, _) -> type in PUSH_PREFERENCE_TYPES }
-                    .forEach { (type, enabled) -> out.add(ids.next(), userId, type, enabled, now, now) }
+                doc.docs("pushPreferences").forEach { preference ->
+                    out.add(ids.next(), userId, preference.requireStr("type"), preference.bool("isEnabled"), now, now)
+                }
             }
         }
         alignAutoIncrement("push_preference", ids.peek())
@@ -177,8 +190,12 @@ class UserDataStep(
     private fun migrateFriends() {
         val winners = LinkedHashMap<String, org.bson.Document>()
         mongo.each("friend") { doc ->
-            val fromUserId = context.userIds[doc.oid("fromUserId")] ?: return@each
-            val toUserId = context.userIds[doc.oid("toUserId")] ?: return@each
+            val fromUserId = context.userIds[doc.oid("fromUserId")]
+            val toUserId = context.userIds[doc.oid("toUserId")]
+            if (fromUserId == null || toUserId == null) {
+                context.resolved("사용자를 찾을 수 없는 친구 관계를 제외")
+                return@each
+            }
             val key = "${minOf(fromUserId, toUserId)}\u0000${maxOf(fromUserId, toUserId)}"
             val previous = winners[key]
             if (previous == null) {
@@ -253,26 +270,37 @@ class UserDataStep(
                     parent = out,
                 ).use { answerOut ->
                     mongo.each("diarySubmission") { doc ->
-                        val userId = context.userIds[doc.oid("userId")] ?: return@each
+                        val userId = context.userIds[doc.oid("userId")]
+                        if (userId == null) {
+                            context.resolved(MigrationSupport.ResolutionReasons.DIARY_USER_MISSING)
+                            return@each
+                        }
                         val createdAt = doc.instant("createdAt").orNow().toSqlTimestamp()
                         val submissionId = ids.next()
                         out.add(
                             submissionId,
                             userId,
-                            doc.int("year") ?: 0,
-                            doc.int("semester") ?: 1,
+                            doc.requireInt("year"),
+                            doc.requireInt("semester"),
                             doc.oid("lectureId")?.let(context.lectureIds::get),
-                            doc.str("courseTitle").orEmpty(),
+                            doc.requireStr("courseTitle"),
                             doc.str("comment"),
                             createdAt,
                             createdAt,
                         )
-                        doc.oids("dailyClassTypeIds").mapNotNull(context.diaryClassTypeIds::get).forEach { typeId ->
-                            dctOut.add(dctIds.next(), submissionId, typeId, createdAt, createdAt)
+                        doc.oids("dailyClassTypeIds").forEach { typeId ->
+                            dctOut.add(dctIds.next(), submissionId, context.diaryClassTypeIds.getValue(typeId), createdAt, createdAt)
                         }
                         doc.docs("questionAnswers").forEach { answer ->
-                            val questionId = answer.str("questionId")?.let(context.diaryQuestionIds::get) ?: return@forEach
-                            answerOut.add(answerIds.next(), submissionId, questionId, answer.int("answerIndex") ?: 0, createdAt, createdAt)
+                            val questionId = context.diaryQuestionIds.getValue(answer.requireStr("questionId"))
+                            answerOut.add(
+                                answerIds.next(),
+                                submissionId,
+                                questionId,
+                                answer.requireInt("answerIndex"),
+                                createdAt,
+                                createdAt,
+                            )
                         }
                     }
                 }
@@ -282,9 +310,5 @@ class UserDataStep(
         alignAutoIncrement("diary_submission_daily_class_type", dctIds.peek())
         alignAutoIncrement("diary_submission_answer", answerIds.peek())
         log.info("강의 일기장 기록 이관: {}건", ids.peek() - 1)
-    }
-
-    companion object {
-        private val PUSH_PREFERENCE_TYPES = setOf("NORMAL", "LECTURE_UPDATE", "VACANCY_NOTIFICATION", "DIARY")
     }
 }

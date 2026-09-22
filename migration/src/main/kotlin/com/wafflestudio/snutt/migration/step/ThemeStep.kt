@@ -14,6 +14,7 @@ import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.long
 import com.wafflestudio.snutt.migration.oid
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
@@ -60,7 +61,7 @@ class ThemeStep(
             check(palette.size in 1..9) { "잘못된 팔레트: ${doc.id()}" }
             val id = ids.next()
             context.themeIds[doc.id()] = id
-            themes += SourceTheme(doc, id, userId, doc.str("name").orEmpty(), palette)
+            themes += SourceTheme(doc, id, userId, doc.requireStr("name"), palette)
         }
         writer("timetable_theme", THEME_COLUMNS).use { out ->
             themes.filterNot { it.downloaded }.forEach { source ->

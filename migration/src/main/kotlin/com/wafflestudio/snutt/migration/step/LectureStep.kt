@@ -11,6 +11,8 @@ import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
@@ -60,9 +62,9 @@ class LectureStep(
                             courseId,
                             doc.int("year"),
                             doc.int("semester"),
-                            doc.str("course_number").orEmpty(),
-                            doc.str("lecture_number").orEmpty(),
-                            doc.str("course_title").orEmpty(),
+                            doc.requireStr("course_number"),
+                            doc.requireStr("lecture_number"),
+                            doc.requireStr("course_title"),
                             instructor,
                             context.intern(doc.str("department")),
                             context.intern(doc.str("academic_year")),
@@ -76,8 +78,8 @@ class LectureStep(
                             context.intern(doc.str("category_en")),
                             context.intern(doc.str("classification_en")),
                             doc.str("remark_en"),
-                            doc.int("credit") ?: 0,
-                            doc.int("quota") ?: 0,
+                            doc.requireInt("credit"),
+                            doc.requireInt("quota"),
                             doc.int("freshmanQuota"),
                             doc.str("remark"),
                             createdAt.toSqlTimestamp(),
@@ -86,7 +88,7 @@ class LectureStep(
 
                         statuses.add(
                             id,
-                            doc.int("registrationCount") ?: 0,
+                            doc.requireInt("registrationCount"),
                             doc.bool("wasFull"),
                             createdAt.toSqlTimestamp(),
                         )
@@ -95,10 +97,10 @@ class LectureStep(
                             classTimes.add(
                                 classTimeIds.next(),
                                 id,
-                                place.int("day") ?: 0,
+                                place.requireInt("day"),
                                 place.str("place"),
-                                place.int("startMinute") ?: 0,
-                                place.int("endMinute") ?: 0,
+                                place.requireInt("startMinute"),
+                                place.requireInt("endMinute"),
                             )
                             classTimeCount++
                         }
@@ -117,8 +119,8 @@ class LectureStep(
         listOf(
             doc.int("year").toString(),
             doc.int("semester").toString(),
-            doc.str("course_number").orEmpty(),
-            doc.str("lecture_number").orEmpty(),
+            doc.requireStr("course_number"),
+            doc.requireStr("lecture_number"),
         ).joinToString("\u0000")
 
     private fun Document.toSnapshot(places: List<Document>) =
@@ -138,10 +140,10 @@ class LectureStep(
         fun classTimeKey(places: List<Document>): String =
             places.joinToString("|") { place ->
                 listOf(
-                    place.int("day") ?: 0,
-                    place.str("place").orEmpty(),
-                    place.int("startMinute") ?: 0,
-                    place.int("endMinute") ?: 0,
+                    place.requireInt("day"),
+                    place.requireStr("place"),
+                    place.requireInt("startMinute"),
+                    place.requireInt("endMinute"),
                 ).joinToString(",")
             }
 

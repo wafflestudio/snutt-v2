@@ -74,21 +74,24 @@ class MigrationIntegrationTest {
 
         context = MigrationContext()
         val mongoSource = MongoSource(mongoClient, "snutt")
-        listOf(
-            CatalogStep(jdbc, context, mongoSource),
-            UserStep(jdbc, context, mongoSource),
-            CourseStep(jdbc, context, mongoSource, ev),
-            LectureStep(jdbc, context, mongoSource),
-            ThemeStep(jdbc, context, mongoSource),
-            TimetableStep(jdbc, context, mongoSource),
-            UserDataStep(jdbc, context, mongoSource),
-            NotificationStep(jdbc, context, mongoSource),
-            EvaluationStep(jdbc, context, ev),
-            AggregateStep(jdbc, context),
-            LegacyTokenStep(jdbc, context, mongoSource),
-            LegacySearchTagStep(jdbc, context, ev),
-            ValidateStep(jdbc, context, mongoSource, ev),
-        ).forEach { it.run() }
+        val steps =
+            listOf<MigrationStep>(
+                CatalogStep(jdbc, context, mongoSource),
+                UserStep(jdbc, context, mongoSource),
+                CourseStep(jdbc, context, mongoSource, ev),
+                LectureStep(jdbc, context, mongoSource),
+                ThemeStep(jdbc, context, mongoSource),
+                TimetableStep(jdbc, context, mongoSource),
+                UserDataStep(jdbc, context, mongoSource),
+                NotificationStep(jdbc, context, mongoSource),
+                EvaluationStep(jdbc, context, ev),
+                AggregateStep(jdbc, context),
+                LegacyTokenStep(jdbc, context, mongoSource),
+                LegacySearchTagStep(jdbc, context, ev),
+                ValidateStep(jdbc, context, mongoSource, ev),
+            )
+        MigrationSupport.requireEmpty(jdbc, steps.flatMap { it.tables }.distinct())
+        steps.forEach { it.run() }
     }
 
     @Test
@@ -325,6 +328,13 @@ class MigrationIntegrationTest {
                     .append("created_at", Date()),
             ),
         )
+        db.getCollection("bookmarks").insertOne(
+            Document("_id", ObjectId())
+                .append("user_id", userWithBoth)
+                .append("year", 2026)
+                .append("semester", 3)
+                .append("lectures", listOf(Document("_id", lectureId))),
+        )
     }
 
     private fun userDocument(
@@ -336,7 +346,7 @@ class MigrationIntegrationTest {
         lastLogin: Long = 1_700_000_000_000L,
     ) = Document("_id", id)
         .append("email", "$nickname@snu.ac.kr")
-        .append("nickname", nickname)
+        .append("nickname", "$nickname#0001")
         .append("isEmailVerified", false)
         .append(
             "credential",

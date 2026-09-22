@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
-import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
@@ -12,13 +11,13 @@ import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.long
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.time.Instant
-import kotlin.random.Random
 
 @Component
 class UserStep(
@@ -46,7 +45,6 @@ class UserStep(
         val ids = IdSequence()
         val socialIds = IdSequence()
         val socialRows = mutableListOf<Pair<String, SocialCredential>>()
-        val takenNicknames = HashSet<String>(256_000)
         writer("user", COLUMNS).use { out ->
             mongo.each("users") { doc ->
                 val externalId = doc.id()
@@ -80,13 +78,13 @@ class UserStep(
                 }
 
                 val registeredAt = doc.instant("regDate").orNow()
-                val nickname = uniqueNickname(doc.str("nickname"), takenNicknames)
+                val nickname = doc.requireStr("nickname")
                 out.add(
                     id,
                     email,
                     isEmailVerified,
-                    nickname.name,
-                    nickname.tag,
+                    nickname.substringBeforeLast(TAG_DELIMITER),
+                    nickname.substringAfterLast(TAG_DELIMITER),
                     localId,
                     localPw,
                     active,
@@ -183,25 +181,8 @@ class UserStep(
         fallback: Instant,
     ): Instant = doc.long("lastLoginTimestamp")?.let(Instant::ofEpochMilli) ?: fallback
 
-    private fun uniqueNickname(
-        nickname: String?,
-        taken: HashSet<String>,
-    ): Nickname {
-        val base = nickname?.substringBeforeLast(TAG_DELIMITER)?.takeIf { it.isNotBlank() } ?: "스누티"
-        val tag = nickname?.substringAfterLast(TAG_DELIMITER, "")?.takeIf { it.matches(Regex("[0-9]{4}")) }
-        if (tag != null && taken.add("$base$TAG_DELIMITER$tag")) return Nickname(base, tag)
-        while (true) {
-            val replacement = Random.nextInt(TAG_BOUND).toString().padStart(4, '0')
-            if (taken.add("$base$TAG_DELIMITER$replacement")) {
-                context.resolved("누락되었거나 중복된 닉네임 태그를 재배정")
-                return Nickname(base, replacement)
-            }
-        }
-    }
-
     companion object {
         private const val TAG_DELIMITER = "#"
-        private const val TAG_BOUND = 10_000
         private val COLUMNS =
             listOf(
                 "id",

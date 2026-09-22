@@ -59,9 +59,8 @@ class EvaluationStep(
                     "FROM lecture_evaluation ORDER BY id",
             ) { rs ->
                 val id = rs.getLong("id")
-                val anchor =
-                    anchors[rs.getLong("semester_lecture_id")]
-                        ?: error("강의평 $id 의 과목·학기를 원본 DB에서 찾을 수 없다")
+                val anchor = anchors.getValue(rs.getLong("semester_lecture_id"))
+                val courseId = context.courseIdRemap[anchor.courseId] ?: anchor.courseId
                 val userId = context.userIds[rs.getString("user_id")]
                 val hidden = rs.getBoolean("is_hidden")
                 maxId = maxOf(maxId, id)
@@ -69,11 +68,11 @@ class EvaluationStep(
                 count++
                 out.add(
                     id,
-                    anchor.courseId,
+                    courseId,
                     userId,
                     anchor.year,
                     anchor.semester,
-                    rs.getString("content").orEmpty(),
+                    rs.getString("content"),
                     rs.getObject("grade_satisfaction") as? Double,
                     rs.getObject("teaching_skill") as? Double,
                     rs.getObject("gains") as? Double,
@@ -143,7 +142,7 @@ class EvaluationStep(
                     id,
                     evaluationId,
                     userId,
-                    rs.getString("content").orEmpty(),
+                    rs.getString("content"),
                     rs.getBoolean("is_hidden"),
                     rs.getTimestamp("created_at") ?: Timestamp.from(Instant.now()),
                     rs.getTimestamp("updated_at") ?: Timestamp.from(Instant.now()),

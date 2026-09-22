@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
+import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.str
 import org.springframework.jdbc.core.JdbcTemplate
@@ -138,10 +139,41 @@ class ValidateStep(
             compare(
                 failures,
                 "evaluation",
-                ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java) ?: 0L,
+                ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java)!!,
                 count("evaluation"),
             )
         }
+
+        compare(
+            failures,
+            "bookmark_lecture",
+            bookmarkLectureEntries(),
+            count("bookmark_lecture"),
+            tolerated =
+                resolved(
+                    MigrationSupport.ResolutionReasons.BOOKMARK_USER_MISSING,
+                    MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING,
+                ),
+        )
+        compare(
+            failures,
+            "vacancy_notification",
+            mongo.count("vacancy_notifications"),
+            count("vacancy_notification"),
+            tolerated =
+                resolved(
+                    MigrationSupport.ResolutionReasons.VACANCY_USER_MISSING,
+                    MigrationSupport.ResolutionReasons.VACANCY_LECTURE_MISSING,
+                    MigrationSupport.ResolutionReasons.VACANCY_DUPLICATE,
+                ),
+        )
+        compare(
+            failures,
+            "diary_submission",
+            mongo.count("diarySubmission"),
+            count("diary_submission"),
+            tolerated = resolved(MigrationSupport.ResolutionReasons.DIARY_USER_MISSING),
+        )
 
         orphans(failures, "timetable", "SELECT COUNT(*) FROM timetable t LEFT JOIN `user` u ON u.id = t.user_id WHERE u.id IS NULL")
         orphans(
@@ -188,7 +220,15 @@ class ValidateStep(
         log.info("검증 통과")
     }
 
-    private fun count(table: String): Long = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java) ?: 0L
+    private fun count(table: String): Long = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java)!!
+
+    private fun resolved(vararg reasons: String): Long = reasons.sumOf { context.resolutions[it] ?: 0L }
+
+    private fun bookmarkLectureEntries(): Long {
+        var total = 0L
+        mongo.each("bookmarks") { doc -> total += doc.docs("lectures").distinctBy { it.id() }.size }
+        return total
+    }
 
     private fun compare(
         failures: MutableList<String>,
@@ -197,8 +237,8 @@ class ValidateStep(
         actual: Long,
         tolerated: Long = 0L,
     ) {
-        if (actual + tolerated < expected) {
-            failures += "$label 행 수 부족: 원본 $expected, 대상 $actual (허용 $tolerated)"
+        if (actual + tolerated != expected) {
+            failures += "$label 행 수가 어긋난다: 원본 $expected, 대상 $actual (허용 $tolerated)"
         } else {
             log.info("{} 행 수: 원본 {}, 대상 {}", label, expected, actual)
         }
@@ -209,7 +249,7 @@ class ValidateStep(
         label: String,
         sql: String,
     ) {
-        val count = jdbc.queryForObject(sql, Long::class.java) ?: 0L
+        val count = jdbc.queryForObject(sql, Long::class.java)!!
         if (count > 0L) failures += "$label 의 고아 참조 ${count}건"
     }
 }

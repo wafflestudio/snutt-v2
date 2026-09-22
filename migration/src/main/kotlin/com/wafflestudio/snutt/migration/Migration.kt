@@ -37,6 +37,7 @@ class MigrationContext {
     val timetableLectureIds = HashMap<String, Long>(1_024_000)
 
     val courseIds = HashMap<String, Long>(64_000)
+    val courseIdRemap = HashMap<Long, Long>()
 
     val lectureSnapshots = HashMap<Long, LectureSnapshot>(256_000)
 
@@ -153,7 +154,12 @@ object MigrationSupport {
 
     object ResolutionReasons {
         const val TIMETABLE_USER_MISSING = "사용자가 없는 시간표를 제외"
-        const val EVALUATION_ANCHOR_MISSING = "개설을 찾을 수 없는 강의평을 제외"
+        const val BOOKMARK_USER_MISSING = "사용자가 없는 북마크 항목을 제외"
+        const val BOOKMARK_LECTURE_MISSING = "강의를 찾을 수 없는 북마크 항목을 제외"
+        const val VACANCY_USER_MISSING = "사용자가 없는 빈자리 알림을 제외"
+        const val VACANCY_LECTURE_MISSING = "강의를 찾을 수 없는 빈자리 알림을 제외"
+        const val VACANCY_DUPLICATE = "같은 사용자·강의의 빈자리 알림이 중복되어 제외"
+        const val DIARY_USER_MISSING = "사용자가 없는 강의 일기장 기록을 제외"
     }
 
     fun truncate(
@@ -184,7 +190,8 @@ object MigrationSupport {
         tables: List<String>,
     ) {
         tables.forEach { table ->
-            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java) ?: 0L
+            val filter = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
+            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`$filter", Long::class.java)!!
             check(count == 0L) {
                 "$table 에 이미 $count 행이 있다. 부분 재실행은 행을 중복시키므로 --truncate 로 비우고 다시 실행한다"
             }
@@ -205,7 +212,11 @@ fun Document.id(): String = oid("_id") ?: error("_id 없는 문서: ${toJson()}"
 
 fun Document.str(key: String): String? = get(key)?.takeIf { it !is Document && it !is List<*> }?.toString()
 
+fun Document.requireStr(key: String): String = str(key) ?: error("$key 없는 문서: ${id()}")
+
 fun Document.int(key: String): Int? = (get(key) as? Number)?.toInt()
+
+fun Document.requireInt(key: String): Int = int(key) ?: error("$key 없는 문서: ${id()}")
 
 fun Document.long(key: String): Long? = (get(key) as? Number)?.toLong()
 

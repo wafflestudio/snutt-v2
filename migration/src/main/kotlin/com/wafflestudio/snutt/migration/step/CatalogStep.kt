@@ -9,11 +9,14 @@ import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.dbl
 import com.wafflestudio.snutt.migration.doc
+import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.oids
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.strings
 import com.wafflestudio.snutt.migration.toSqlTimestamp
@@ -85,10 +88,10 @@ class CatalogStep(
                 val now = Instant.now().toSqlTimestamp()
                 out.add(
                     ids.next(),
-                    doc.str("buildingNumber") ?: "",
-                    doc.str("buildingNameKor") ?: "",
-                    doc.str("buildingNameEng") ?: "",
-                    doc.str("campus") ?: "GWANAK",
+                    doc.requireStr("buildingNumber"),
+                    doc.requireStr("buildingNameKor"),
+                    doc.requireStr("buildingNameEng"),
+                    doc.requireStr("campus"),
                     doc.doc("locationInDMS")?.toGeoJson(),
                     doc.doc("locationInDecimal")?.toGeoJson(),
                     now,
@@ -116,22 +119,17 @@ class CatalogStep(
             mongo.each("semesterRegistrationPeriod") { doc ->
                 val now = Instant.now().toSqlTimestamp()
                 val periods =
-                    doc.let { root ->
-                        (root["registrationPeriods"] as? List<*>).orEmpty().filterIsInstance<Document>().map { period ->
-                            mapOf(
-                                "date" to period.instant("date")?.let(MigrationSupport::toLocalDate)?.toString(),
-                                "vacantSeatRegistrationTimes" to
-                                    (period["vacantSeatRegistrationTimes"] as? List<*>)
-                                        .orEmpty()
-                                        .filterIsInstance<Document>()
-                                        .map { slot ->
-                                            mapOf("startMinute" to slot.int("startMinute"), "endMinute" to slot.int("endMinute"))
-                                        },
-                                "phase" to (period.str("phase") ?: "CURRENT_STUDENT"),
-                            )
-                        }
+                    doc.docs("registrationPeriods").map { period ->
+                        mapOf(
+                            "date" to MigrationSupport.toLocalDate(checkNotNull(period.instant("date"))).toString(),
+                            "vacantSeatRegistrationTimes" to
+                                period.docs("vacantSeatRegistrationTimes").map { slot ->
+                                    mapOf("startMinute" to slot.requireInt("startMinute"), "endMinute" to slot.requireInt("endMinute"))
+                                },
+                            "phase" to period.requireStr("phase"),
+                        )
                     }
-                out.add(ids.next(), doc.int("year"), doc.int("semester"), Json.writeRequired(periods), now, now)
+                out.add(ids.next(), doc.requireInt("year"), doc.requireInt("semester"), Json.writeRequired(periods), now, now)
             }
         }
         alignAutoIncrement("semester_registration_period", ids.peek())
@@ -155,8 +153,8 @@ class CatalogStep(
             ),
         ).use { out ->
             mongo.each("clientConfig") { doc ->
-                val name = doc.str("name") ?: ""
-                val value = doc.str("value") ?: ""
+                val name = doc.requireStr("name")
+                val value = doc.requireStr("value")
                 val createdAt = doc.instant("createdAt").orNow().toSqlTimestamp()
                 val updatedAt = doc.instant("updatedAt").orNow().toSqlTimestamp()
                 listOf(
@@ -181,8 +179,8 @@ class CatalogStep(
             mongo.each("popup") { doc ->
                 out.add(
                     ids.next(),
-                    doc.str("key") ?: "",
-                    doc.str("imageOriginUri") ?: "",
+                    doc.requireStr("key"),
+                    doc.requireStr("imageOriginUri"),
                     doc.str("linkUrl"),
                     doc.int("hiddenDays"),
                     doc.instant("createdAt").orNow().toSqlTimestamp(),
@@ -202,7 +200,7 @@ class CatalogStep(
                 val id = typeIds.next()
                 context.diaryClassTypeIds[doc.id()] = id
                 val now = Instant.now().toSqlTimestamp()
-                out.add(id, doc.str("name") ?: "", doc.bool("active"), now, now)
+                out.add(id, doc.requireStr("name"), doc.bool("active"), now, now)
             }
         }
         alignAutoIncrement("diary_daily_class_type", typeIds.peek())
@@ -240,12 +238,12 @@ class CatalogStep(
                 mongo.each("diaryQuestion") { doc ->
                     val id = questionIds.next()
                     context.diaryQuestionIds[doc.id()] = id
-                    val targets = doc.oids("targetDailyClassTypeIds").mapNotNull { context.diaryClassTypeIds[it] }
+                    val targets = doc.oids("targetDailyClassTypeIds").map { context.diaryClassTypeIds.getValue(it) }
                     val now = Instant.now().toSqlTimestamp()
                     out.add(
                         id,
-                        doc.str("question") ?: "",
-                        doc.str("shortQuestion") ?: "",
+                        doc.requireStr("question"),
+                        doc.requireStr("shortQuestion"),
                         Json.writeRequired(doc.strings("answers")),
                         Json.writeRequired(doc.strings("shortAnswers")),
                         doc.bool("active"),

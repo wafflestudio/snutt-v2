@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
@@ -41,17 +42,24 @@ class CourseStep(
         var count = 0
         writer("course", COLUMNS).use { out ->
             ev.jdbc.query(
-                "SELECT id, course_number, instructor, title, created_at, updated_at FROM lecture",
+                "SELECT id, course_number, instructor, title, created_at, updated_at FROM lecture ORDER BY id",
             ) { rs ->
                 val id = rs.getLong("id")
-                val courseNumber = rs.getString("course_number").orEmpty()
-                val instructor = rs.getString("instructor").orEmpty()
-                context.courseIds[context.courseKey(courseNumber, instructor)] = id
+                val courseNumber = rs.getString("course_number").trim()
+                val instructor = rs.getString("instructor").trim()
+                val key = context.courseKey(courseNumber, instructor)
+                val existing = context.courseIds[key]
+                if (existing != null) {
+                    context.courseIdRemap[id] = existing
+                    context.resolved("구 ev course 중복을 하나로 합쳐 이관")
+                    return@query
+                }
+                context.courseIds[key] = id
                 out.add(
                     id,
                     courseNumber,
                     instructor,
-                    rs.getString("title").orEmpty(),
+                    rs.getString("title"),
                     rs.getTimestamp("created_at"),
                     rs.getTimestamp("updated_at"),
                 )
@@ -64,7 +72,7 @@ class CourseStep(
     private fun mintMissingCourses(fromEv: Int): Int {
         val pending = LinkedHashMap<String, Array<Any?>>()
         mongo.each("lectures") { doc ->
-            val courseNumber = doc.str("course_number").orEmpty().trim()
+            val courseNumber = doc.requireStr("course_number").trim()
             val instructor = doc.str("instructor").orEmpty().trim()
             if (courseNumber.isEmpty() || instructor.isEmpty()) return@each
             val key = context.courseKey(courseNumber, instructor)
@@ -73,7 +81,7 @@ class CourseStep(
                 arrayOf(
                     courseNumber,
                     instructor,
-                    doc.str("course_title").orEmpty(),
+                    doc.requireStr("course_title"),
                 )
         }
         if (pending.isEmpty()) return 0
