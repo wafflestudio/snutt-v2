@@ -41,8 +41,9 @@ data class SnuMapSearchItem(
 @Component
 class SnuMapClient(
     @Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") baseUrl: String,
+    restClientBuilder: RestClient.Builder,
 ) {
-    private val restClient = RestClient.builder().baseUrl(baseUrl).build()
+    private val restClient = restClientBuilder.baseUrl(baseUrl).build()
 
     fun search(buildingNumber: String): SnuMapSearchResult {
         val body =

@@ -3,5 +3,9 @@ spring:
     name: snutt-batch
   main:
     lazy-initialization: true
+  http:
+    clients:
+      connect-timeout: 5s
+      read-timeout: 30s
   config:
     import: classpath:application-core.yml

@@ -28,10 +28,10 @@ data class SugangSnuCoursebookCondition(
 @Component
 class SugangSnuLectureApi(
     @Value("\${snutt.sugang.base-url:https://sugang.snu.ac.kr}") baseUrl: String,
+    restClientBuilder: RestClient.Builder,
 ) {
     private val restClient: RestClient =
-        RestClient
-            .builder()
+        restClientBuilder
             .baseUrl(baseUrl)
             .defaultHeader("User-Agent", USER_AGENT)
             .defaultHeader("Referer", REFERER)

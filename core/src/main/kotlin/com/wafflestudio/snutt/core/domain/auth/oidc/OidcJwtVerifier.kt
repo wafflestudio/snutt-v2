@@ -2,12 +2,12 @@ package com.wafflestudio.snutt.core.domain.auth.oidc
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.UpstreamException
-import com.wafflestudio.snutt.core.common.http.TimedRestClients
 import com.wafflestudio.snutt.core.common.json.Json
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import tools.jackson.module.kotlin.readValue
 import java.math.BigInteger
@@ -42,8 +42,9 @@ private data class OidcJwtHeader(
 )
 
 @Component
-class OidcJwtVerifier {
-    private val restClient = TimedRestClients.restClient()
+class OidcJwtVerifier(
+    private val restClient: RestClient,
+) {
     private val jwkSets = ConcurrentHashMap<String, OidcJwkSet>()
 
     fun verifyAndDecodeToken(
