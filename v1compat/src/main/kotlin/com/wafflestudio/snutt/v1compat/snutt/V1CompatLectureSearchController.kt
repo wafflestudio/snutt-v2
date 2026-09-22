@@ -3,8 +3,6 @@ package com.wafflestudio.snutt.v1compat.snutt
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
-import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -13,14 +11,10 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
-import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
-import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyClassPlaceAndTimeFullDto
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyEvSummary
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -47,63 +41,6 @@ data class LegacySearchQuery(
     val limit: Int = 20,
     val sortCriteria: String? = null,
     val categoryPre2025: List<String>? = null,
-)
-
-data class LegacyLectureDto(
-    @param:JsonProperty("_id")
-    val id: String,
-    @param:JsonProperty("academic_year")
-    val academicYear: String?,
-    val category: String?,
-    @param:JsonProperty("class_time_json")
-    val classPlaceAndTimes: List<LegacyClassPlaceAndTimeFullDto>,
-    val classification: String?,
-    val credit: Int,
-    val department: String?,
-    val instructor: String?,
-    @param:JsonProperty("lecture_number")
-    val lectureNumber: String,
-    val quota: Int,
-    val freshmanQuota: Int?,
-    val remark: String?,
-    val semester: Semester,
-    val year: Int,
-    @param:JsonProperty("course_number")
-    val courseNumber: String,
-    @param:JsonProperty("course_title")
-    val courseTitle: String,
-    val registrationCount: Int,
-    val wasFull: Boolean,
-    val snuttEvLecture: LegacyEvSummary?,
-    val categoryPre2025: String?,
-)
-
-private fun Lecture.toLegacy(
-    classTimes: List<ClassPlaceAndTime>,
-    language: Language,
-    evaluationSummary: LegacyEvSummary?,
-    status: LectureRegistrationStatus?,
-) = LegacyLectureDto(
-    id = id!!.toString(),
-    academicYear = language.select(academicYear, academicYearEn),
-    category = language.select(category, categoryEn),
-    classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
-    classification = language.select(classification, classificationEn),
-    credit = credit,
-    department = language.select(department, departmentEn),
-    instructor = language.select(instructor, instructorEn),
-    lectureNumber = lectureNumber,
-    quota = quota,
-    freshmanQuota = freshmanQuota,
-    remark = language.select(remark, remarkEn),
-    semester = semester,
-    year = year,
-    courseNumber = courseNumber,
-    courseTitle = language.select(courseTitle, courseTitleEn),
-    registrationCount = status?.registrationCount ?: 0,
-    wasFull = status?.wasFull ?: false,
-    snuttEvLecture = evaluationSummary,
-    categoryPre2025 = categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
 )
 
 @RestController
@@ -146,11 +83,12 @@ class V1CompatLectureSearchController(
         val statuses = lectureRegistrationStatusRepository.findAllById(lectureIds).associateBy { it.lectureId }
         return lectures.map { row ->
             val lecture = row.lecture
-            lecture.toLegacy(
-                classTimesMap[lecture.id].orEmpty(),
-                clientInfo.language,
-                summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
-                statuses[lecture.id],
+            LegacyLectureDto(
+                lecture = lecture,
+                classTimes = classTimesMap[lecture.id].orEmpty(),
+                language = clientInfo.language,
+                evaluationSummary = summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                status = statuses[lecture.id],
             )
         }
     }
