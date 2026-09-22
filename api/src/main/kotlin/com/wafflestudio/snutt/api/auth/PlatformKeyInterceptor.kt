@@ -15,7 +15,7 @@ class PlatformKeyInterceptor(
     private val platformKeys: PlatformKeys,
 ) : HandlerInterceptor {
     companion object {
-        const val PLATFORM_HEADER = "x-client-platform"
+        const val OS_TYPE_HEADER = "x-os-type"
         const val KEY_HEADER = "x-client-key"
     }
 
@@ -24,9 +24,10 @@ class PlatformKeyInterceptor(
         response: HttpServletResponse,
         handler: Any,
     ): Boolean {
-        val platform = request.getHeader(PLATFORM_HEADER)
-        if (!platformKeys.matches(platform, request.getHeader(KEY_HEADER))) throw SnuttException(ErrorType.WRONG_API_KEY)
-        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, defaultOsType = platform))
+        val osType =
+            request.getHeader(OS_TYPE_HEADER)?.takeIf { platformKeys.matches(it, request.getHeader(KEY_HEADER)) }
+                ?: throw SnuttException(ErrorType.WRONG_API_KEY)
+        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, osType))
         return true
     }
 }

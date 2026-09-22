@@ -82,10 +82,10 @@ class V1ApiKeyInterceptor(
             if (apiKey != null) {
                 isLegacyApiKey(apiKey)
             } else {
-                platformKeys.matches(request.getHeader("x-client-platform"), request.getHeader("x-client-key"))
+                platformKeys.matches(request.getHeader("x-os-type"), request.getHeader("x-client-key"))
             }
         if (!authorized) throw SnuttException(ErrorType.WRONG_API_KEY)
-        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, defaultOsType = "unknown"))
+        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, osType = request.getHeader("x-os-type") ?: "unknown"))
         return true
     }
 

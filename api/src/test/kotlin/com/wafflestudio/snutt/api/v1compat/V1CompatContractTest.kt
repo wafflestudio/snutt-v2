@@ -175,7 +175,7 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 .builder()
                 .baseUrl("http://localhost:$port")
                 .defaultStatusHandler({ true }) { _, _ -> }
-                .defaultHeader("x-client-platform", "ios")
+                .defaultHeader("x-os-type", "ios")
                 .defaultHeader("x-client-key", "test-ios-key")
                 .defaultHeader("Content-Type", "application/json")
                 .build()

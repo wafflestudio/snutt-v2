@@ -20,10 +20,10 @@ class PlatformKeys(
 
 fun clientInfoOf(
     header: (String) -> String?,
-    defaultOsType: String,
+    osType: String,
 ): ClientInfo =
     ClientInfo(
-        osType = header("x-os-type") ?: defaultOsType,
+        osType = osType,
         osVersion = header("x-os-version"),
         appType = header("x-app-type"),
         appVersion = header("x-app-version"),
