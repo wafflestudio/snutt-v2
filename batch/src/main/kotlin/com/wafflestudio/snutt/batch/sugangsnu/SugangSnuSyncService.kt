@@ -9,9 +9,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepo
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
-import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
@@ -57,7 +55,6 @@ private data class FieldChange(
 class SugangSnuSyncService(
     private val lectureRepository: LectureRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
-    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val courseRepository: CourseRepository,
     private val courseSearchRepository: CourseSearchRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
@@ -111,9 +108,6 @@ class SugangSnuSyncService(
             transactionTemplate
                 .execute {
                     upsertLectures(created, updated)
-                    val lectureByKey =
-                        oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
-                    syncRegistrationCounts(year, semester, rows, lectureByKey)
                     val changeCounts = syncUserLectures(updated, deleted)
                     deleted.forEach(lectureRepository::delete)
                     lectureRepository.flush()
@@ -164,26 +158,6 @@ class SugangSnuSyncService(
                 saveClassTimes(old, update.input.classTimes)
             }
             lectureRepository.save(old)
-        }
-    }
-
-    private fun syncRegistrationCounts(
-        year: Int,
-        semester: Semester,
-        rows: List<SugangLectureRow>,
-        lectureByKey: Map<Pair<String, String>, Lecture>,
-    ) {
-        val statuses = lectureRegistrationStatusRepository.findByYearAndSemester(year, semester).associateBy { it.lectureId }
-        rows.forEach { row ->
-            val lectureId = lectureByKey[row.courseNumber to row.lectureNumber]?.id ?: return@forEach
-            val status = statuses[lectureId]
-            if (status == null) {
-                lectureRegistrationStatusRepository.save(
-                    LectureRegistrationStatus(lectureId = lectureId, registrationCount = row.registrationCount),
-                )
-            } else {
-                status.registrationCount = row.registrationCount
-            }
         }
     }
 

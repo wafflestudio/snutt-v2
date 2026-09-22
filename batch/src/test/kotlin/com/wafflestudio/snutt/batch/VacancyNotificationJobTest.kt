@@ -186,6 +186,47 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Test
+    fun `처음 보이는 강의는 상태만 저장하고 푸시하지 않는다`() {
+        val user =
+            userRepository.save(
+                User(
+                    email = "firstseen@snu.ac.kr",
+                    isEmailVerified = true,
+                    nickname = "firstseen",
+                    nicknameTag = "0000",
+                    localId = "firstseen",
+                ),
+            )
+        userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-3"))
+        val lecture =
+            lectureRepository.save(
+                Lecture(
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    courseNumber = "400.301",
+                    lectureNumber = "001",
+                    courseTitle = "운영체제",
+                    instructor = "김준우",
+                    department = "컴퓨터공학부",
+                    academicYear = "3학년",
+                    classification = "전선",
+                    credit = 3,
+                    quota = 24,
+                ),
+            )
+        vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
+        whenever(crawler.getPageCount(any(), any())).thenReturn(1)
+        whenever(crawler.getRegistrationStatus(any(), any(), any()))
+            .thenReturn(listOf(RegistrationStatus("400.301", "001", registrationCount = 23, wasFull = true)))
+
+        vacancyNotificationJob.run(YearSemesterArgs(null, null))
+
+        assertTrue(recordingPushClient.sentMessages.isEmpty())
+        assertEquals(0, notificationRepository.findAll().size)
+        assertEquals(23, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
+    }
+
+    @Test
     fun `알림을 끈 사용자는 제외된다`() {
         val user =
             userRepository.save(
