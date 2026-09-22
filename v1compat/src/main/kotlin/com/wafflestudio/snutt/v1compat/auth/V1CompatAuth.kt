@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.servlet.HandlerInterceptor
+import tools.jackson.databind.json.JsonMapper
 
 @Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
@@ -61,8 +62,9 @@ class V1UserAuthInterceptor(
 class V1ApiKeyInterceptor(
     private val platformKeys: PlatformKeys,
     @Value("\${snutt.auth.legacy-secret-key:}") legacySecretKey: String,
+    jsonMapper: JsonMapper,
 ) : HandlerInterceptor {
-    private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey)
+    private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey, jsonMapper)
 
     companion object {
         const val CLIENT_INFO_ATTRIBUTE = "v1compat.clientInfo"

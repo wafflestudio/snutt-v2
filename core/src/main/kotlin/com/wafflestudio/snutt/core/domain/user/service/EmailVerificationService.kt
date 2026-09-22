@@ -11,14 +11,16 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.databind.json.JsonMapper
 
 @Service
 class EmailVerificationService(
     redisTemplate: StringRedisTemplate,
+    jsonMapper: JsonMapper,
     private val userRepository: UserRepository,
     private val userMailService: UserMailService,
 ) {
-    private val store = CodeChallengeStore(redisTemplate, "verification")
+    private val store = CodeChallengeStore(redisTemplate, jsonMapper, "verification")
 
     companion object {
         private val snuMailRegex = Regex("^[a-zA-Z0-9._%+-]+@snu\\.ac\\.kr$")

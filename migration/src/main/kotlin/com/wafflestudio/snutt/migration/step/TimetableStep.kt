@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
-import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationSupport
@@ -25,6 +24,7 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import tools.jackson.databind.json.JsonMapper
 import java.sql.Timestamp
 import java.time.Instant
 
@@ -33,6 +33,7 @@ class TimetableStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
+    private val jsonMapper: JsonMapper,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "timetable"
     override val tables = listOf("timetable_lecture_reminder_schedule", "timetable_lecture_reminder", "timetable_lecture", "timetable")
@@ -212,9 +213,9 @@ class TimetableStep(
             id,
             timetableId,
             lectureId,
-            color?.takeIf { matchedIndex == null }?.let(Json::writeRequired),
+            color?.takeIf { matchedIndex == null }?.let(jsonMapper::writeValueAsString),
             matchedIndex ?: (oldIndex % palette.size),
-            if (overrides.isEmpty()) null else Json.writeRequired(overrides),
+            if (overrides.isEmpty()) null else jsonMapper.writeValueAsString(overrides),
             updatedAt,
             updatedAt,
         )

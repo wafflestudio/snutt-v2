@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
-import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
@@ -23,6 +22,7 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 
 @Component
@@ -30,6 +30,7 @@ class CatalogStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
+    private val jsonMapper: JsonMapper,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "catalog"
     override val tables =
@@ -105,7 +106,7 @@ class CatalogStep(
     private fun Document.toGeoJson(): String? {
         val latitude = dbl("latitude") ?: return null
         val longitude = dbl("longitude") ?: return null
-        return Json.writeRequired(mapOf("latitude" to latitude, "longitude" to longitude))
+        return jsonMapper.writeValueAsString(mapOf("latitude" to latitude, "longitude" to longitude))
     }
 
     private fun migrateRegistrationPeriods() {
@@ -129,7 +130,7 @@ class CatalogStep(
                             "phase" to period.requireStr("phase"),
                         )
                     }
-                out.add(ids.next(), doc.requireInt("year"), doc.requireInt("semester"), Json.writeRequired(periods), now, now)
+                out.add(ids.next(), doc.requireInt("year"), doc.requireInt("semester"), jsonMapper.writeValueAsString(periods), now, now)
             }
         }
         alignAutoIncrement("semester_registration_period", ids.peek())
@@ -244,8 +245,8 @@ class CatalogStep(
                         id,
                         doc.requireStr("question"),
                         doc.requireStr("shortQuestion"),
-                        Json.writeRequired(doc.strings("answers")),
-                        Json.writeRequired(doc.strings("shortAnswers")),
+                        jsonMapper.writeValueAsString(doc.strings("answers")),
+                        jsonMapper.writeValueAsString(doc.strings("shortAnswers")),
                         doc.bool("active"),
                         now,
                         now,

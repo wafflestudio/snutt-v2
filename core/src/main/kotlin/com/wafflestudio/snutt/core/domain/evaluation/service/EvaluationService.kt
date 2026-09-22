@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
@@ -76,6 +75,7 @@ class EvaluationService(
     private val lectureRepository: LectureRepository,
     private val courseRepository: CourseRepository,
     private val courseAggregateUpdater: CourseAggregateUpdater,
+    private val cursorCodec: CursorCodec,
 ) {
     companion object {
         private const val PAGE_SIZE = 20
@@ -156,7 +156,7 @@ class EvaluationService(
                 pageSize = PAGE_SIZE + 1,
                 sort = sort,
             )
-        return page.toCursorPage(PAGE_SIZE, totalCount, { it.toCursor(sort) }) { it.toDisplays(userId) }
+        return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { it.toCursor(sort) }) { it.toDisplays(userId) }
     }
 
     fun getMyEvaluationsOfCourse(
@@ -175,7 +175,7 @@ class EvaluationService(
     ): CursorPage<EvaluationDisplay> {
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
         val page = evaluationRepository.findMine(userId, decodeEvaluationIdCursor(cursor), PAGE_SIZE + 1)
-        return page.toCursorPage(PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
+        return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
     }
 
     fun getEvaluationsByTag(
@@ -184,7 +184,7 @@ class EvaluationService(
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
         val page = evaluationRepository.findByTag(tag, decodeEvaluationIdCursor(cursor), PAGE_SIZE + 1)
-        return page.toCursorPage(PAGE_SIZE, null, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
+        return cursorCodec.pageOf(page, PAGE_SIZE, null, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
     }
 
     fun getEvaluation(
@@ -339,7 +339,7 @@ class EvaluationService(
         cursor: String?,
         sort: EvaluationSort,
     ): EvaluationCursor? =
-        CursorCodec.decode<EvaluationCursor>(cursor)?.also {
+        cursorCodec.decode<EvaluationCursor>(cursor)?.also {
             val validSortKey =
                 when (sort) {
                     EvaluationSort.LATEST -> it.year > 0
@@ -349,7 +349,7 @@ class EvaluationService(
         }
 
     private fun decodeEvaluationIdCursor(cursor: String?): Long? =
-        CursorCodec.decode<EvaluationIdCursor>(cursor)?.let {
+        cursorCodec.decode<EvaluationIdCursor>(cursor)?.let {
             if (it.evaluationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
             it.evaluationId
         }

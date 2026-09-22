@@ -9,6 +9,7 @@ import javax.crypto.spec.SecretKeySpec
 
 class LegacyApiKeyVerifier(
     secretKey: String,
+    private val jsonMapper: JsonMapper,
 ) {
     private val key: SecretKeySpec? =
         secretKey.takeIf { it.isNotBlank() }?.let { SecretKeySpec(it.toByteArray(), MAC_ALGORITHM) }
@@ -48,6 +49,5 @@ class LegacyApiKeyVerifier(
     private companion object {
         const val ALGORITHM_ID = "HS256"
         const val MAC_ALGORITHM = "HmacSHA256"
-        val jsonMapper: JsonMapper = JsonMapper.builder().build()
     }
 }

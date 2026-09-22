@@ -15,7 +15,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
-import com.wafflestudio.snutt.core.common.json.Json as CoreJson
 
 interface MigrationStep {
     val name: String
@@ -252,9 +251,3 @@ fun Document.instant(key: String): Instant? =
 fun Instant?.orNow(): Instant = this ?: Instant.now()
 
 fun Instant.toSqlTimestamp(): Timestamp = Timestamp.from(this)
-
-object Json {
-    fun write(value: Any?): String? = value?.let { CoreJson.mapper.writeValueAsString(it) }
-
-    fun writeRequired(value: Any): String = CoreJson.mapper.writeValueAsString(value)
-}

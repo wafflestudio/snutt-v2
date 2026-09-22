@@ -29,6 +29,7 @@ import org.springframework.boot.jdbc.DataSourceBuilder
 import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.mysql.MySQLContainer
+import tools.jackson.databind.json.JsonMapper
 import java.security.MessageDigest
 import java.util.Date
 import java.util.HexFormat
@@ -74,14 +75,15 @@ class MigrationIntegrationTest {
 
         context = MigrationContext()
         val mongoSource = MongoSource(mongoClient, "snutt")
+        val jsonMapper = JsonMapper.builder().findAndAddModules().build()
         val steps =
             listOf<MigrationStep>(
-                CatalogStep(jdbc, context, mongoSource),
+                CatalogStep(jdbc, context, mongoSource, jsonMapper),
                 UserStep(jdbc, context, mongoSource),
                 CourseStep(jdbc, context, mongoSource, ev),
                 LectureStep(jdbc, context, mongoSource),
-                ThemeStep(jdbc, context, mongoSource),
-                TimetableStep(jdbc, context, mongoSource),
+                ThemeStep(jdbc, context, mongoSource, jsonMapper),
+                TimetableStep(jdbc, context, mongoSource, jsonMapper),
                 UserDataStep(jdbc, context, mongoSource),
                 NotificationStep(jdbc, context, mongoSource),
                 EvaluationStep(jdbc, context, ev),

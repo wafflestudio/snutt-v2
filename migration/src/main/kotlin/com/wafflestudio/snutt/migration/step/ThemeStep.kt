@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
-import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -20,12 +19,14 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import tools.jackson.databind.json.JsonMapper
 
 @Component
 class ThemeStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
+    private val jsonMapper: JsonMapper,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "theme"
     override val tables = listOf("user_preference", "published_theme", "timetable_theme")
@@ -70,7 +71,7 @@ class ThemeStep(
                     source.id,
                     source.userId,
                     source.name,
-                    Json.writeRequired(source.palette),
+                    jsonMapper.writeValueAsString(source.palette),
                     null,
                     d.instant("createdAt").orNow().toSqlTimestamp(),
                     d.instant("updatedAt").orNow().toSqlTimestamp(),
@@ -92,7 +93,7 @@ class ThemeStep(
                     source.userId,
                     source.id,
                     name,
-                    Json.writeRequired(source.palette),
+                    jsonMapper.writeValueAsString(source.palette),
                     info.bool("authorAnonymous"),
                     d.str("status") == "PUBLISHED",
                     info.long("downloads") ?: 0L,
@@ -112,7 +113,7 @@ class ThemeStep(
                         if (current != null && current.name == source.name && current.palette == source.palette) {
                             current
                         } else {
-                            val key = "${originId.orEmpty()}\u0000${source.name}\u0000${Json.writeRequired(source.palette)}"
+                            val key = "${originId.orEmpty()}\u0000${source.name}\u0000${jsonMapper.writeValueAsString(source.palette)}"
                             archives.getOrPut(key) {
                                 context.resolved("기존 다운로드 내용을 비공개 스냅샷으로 보존")
                                 val archived = Publication(publicationIds.next(), source.name, source.palette)
@@ -121,7 +122,7 @@ class ThemeStep(
                                     origin?.oid("authorId")?.let(context.userIds::get),
                                     null,
                                     archived.name,
-                                    Json.writeRequired(archived.palette),
+                                    jsonMapper.writeValueAsString(archived.palette),
                                     true,
                                     false,
                                     0L,
@@ -176,7 +177,7 @@ class ThemeStep(
                 index + 1L,
                 builtin.first,
                 builtin.second,
-                Json.writeRequired(palette),
+                jsonMapper.writeValueAsString(palette),
             )
             context.themePalettes[index + 1L] = palette
         }

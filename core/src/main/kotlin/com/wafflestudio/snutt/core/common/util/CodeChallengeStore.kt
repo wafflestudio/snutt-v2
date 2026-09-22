@@ -2,12 +2,13 @@ package com.wafflestudio.snutt.core.common.util
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.json.Json
 import org.springframework.data.redis.core.StringRedisTemplate
+import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 
 class CodeChallengeStore(
     private val redisTemplate: StringRedisTemplate,
+    private val jsonMapper: JsonMapper,
     namespace: String,
     private val ttl: Duration = Duration.ofMinutes(3),
     private val maxSendsPerHour: Int = 5,
@@ -42,7 +43,7 @@ class CodeChallengeStore(
     ) {
         throttleSend(key)
         val stored = Stored(payload = payload, code = code)
-        redisTemplate.opsForValue().set(codePrefix + key, Json.mapper.writeValueAsString(stored), ttl)
+        redisTemplate.opsForValue().set(codePrefix + key, jsonMapper.writeValueAsString(stored), ttl)
         redisTemplate.delete(attemptPrefix + key)
     }
 
@@ -68,5 +69,5 @@ class CodeChallengeStore(
         redisTemplate
             .opsForValue()
             .get(codePrefix + key)
-            ?.let { Json.mapper.readValue(it, Stored::class.java) }
+            ?.let { jsonMapper.readValue(it, Stored::class.java) }
 }

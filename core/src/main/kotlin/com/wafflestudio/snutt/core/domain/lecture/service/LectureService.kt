@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCursor
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -21,6 +20,7 @@ class LectureService(
     private val lectureRepository: LectureRepository,
     private val lectureSearchRepository: LectureSearchRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
+    private val cursorCodec: CursorCodec,
 ) {
     fun search(
         criteria: LectureSearchCriteria,
@@ -29,13 +29,13 @@ class LectureService(
     ): CursorPage<LectureSearchRow> {
         if (limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val decoded =
-            CursorCodec.decode<LectureSearchCursor>(cursor)?.also {
+            cursorCodec.decode<LectureSearchCursor>(cursor)?.also {
                 if (it.sort != criteria.sort || it.lectureId <= 0) {
                     throw SnuttException(ErrorType.INVALID_CURSOR)
                 }
             }
         val results = lectureSearchRepository.search(criteria, decoded?.lectureId, limit + 1)
-        return results.toCursorPage(limit, cursorOf = { LectureSearchCursor(criteria.sort, it.lecture.id!!) }) { it }
+        return cursorCodec.pageOf(results, limit, cursorOf = { LectureSearchCursor(criteria.sort, it.lecture.id!!) }) { it }
     }
 
     fun searchByOffset(

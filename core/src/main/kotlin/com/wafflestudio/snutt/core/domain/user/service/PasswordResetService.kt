@@ -18,11 +18,13 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 
 @Service
 class PasswordResetService(
     redisTemplate: StringRedisTemplate,
+    jsonMapper: JsonMapper,
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
@@ -30,7 +32,7 @@ class PasswordResetService(
     private val passwordEncoder: PasswordEncoder,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
-    private val store = CodeChallengeStore(redisTemplate, "reset-password", ttl = Duration.ofMinutes(15))
+    private val store = CodeChallengeStore(redisTemplate, jsonMapper, "reset-password", ttl = Duration.ofMinutes(15))
 
     private data class FoundAccount(
         val user: User,

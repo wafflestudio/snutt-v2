@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.wafflestudio.snutt.core.common.json.Json
 import com.wafflestudio.snutt.core.domain.building.model.Campus
 import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
@@ -12,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.json.JsonMapper
 
 data class SnuMapSearchResult(
     @param:JsonProperty("search_list")
@@ -42,6 +42,7 @@ data class SnuMapSearchItem(
 class SnuMapClient(
     @Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") baseUrl: String,
     restClientBuilder: RestClient.Builder,
+    private val jsonMapper: JsonMapper,
 ) {
     private val restClient = restClientBuilder.baseUrl(baseUrl).build()
 
@@ -58,7 +59,7 @@ class SnuMapClient(
                 }.retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("SNU 지도 검색 실패: $buildingNumber")
-        return Json.mapper.readValue(body, SnuMapSearchResult::class.java)
+        return jsonMapper.readValue(body, SnuMapSearchResult::class.java)
     }
 }
 
