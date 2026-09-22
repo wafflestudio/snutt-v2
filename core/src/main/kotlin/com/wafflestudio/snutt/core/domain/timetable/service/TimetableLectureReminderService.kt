@@ -221,13 +221,18 @@ class TimetableLectureReminderService(
             deleteReminder(reminder)
             return
         }
-        replaceSchedules(reminder.id!!, schedulesOf(times, reminder.offsetMinutes))
+        val notifiedAtBySchedule =
+            timetableLectureReminderScheduleRepository
+                .findByReminderId(reminder.id!!)
+                .mapNotNull { schedule -> schedule.recentNotifiedAt?.let { schedule.toSchedule() to it } }
+                .toMap()
+        replaceSchedules(reminder.id!!, schedulesOf(times, reminder.offsetMinutes), notifiedAtBySchedule)
     }
 
     private fun schedulesOf(
         times: List<ClassPlaceAndTime>,
         offsetMinutes: Int,
-    ): List<Schedule> = times.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }
+    ): List<Schedule> = times.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }.distinct()
 
     private fun deleteReminder(reminder: TimetableLectureReminder) {
         timetableLectureReminderScheduleRepository.deleteByReminderId(reminder.id!!)
@@ -237,15 +242,12 @@ class TimetableLectureReminderService(
     private fun replaceSchedules(
         reminderId: Long,
         schedules: List<Schedule>,
+        notifiedAtBySchedule: Map<Schedule, Instant> = emptyMap(),
     ) {
-        val existing =
-            timetableLectureReminderScheduleRepository
-                .findByReminderId(reminderId)
-                .associateBy { it.toSchedule() }
         timetableLectureReminderScheduleRepository.deleteByReminderId(reminderId)
         timetableLectureReminderScheduleRepository.saveAll(
             schedules.map { schedule ->
-                TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, existing[schedule]?.recentNotifiedAt)
+                TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, notifiedAtBySchedule[schedule])
             },
         )
     }
