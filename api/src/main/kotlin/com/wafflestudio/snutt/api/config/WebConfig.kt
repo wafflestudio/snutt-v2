@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.api.config
 import com.wafflestudio.snutt.api.auth.CurrentUserArgumentResolver
 import com.wafflestudio.snutt.api.auth.PlatformKeyInterceptor
 import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
-import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
@@ -36,14 +35,9 @@ class WebConfig(
 
     override fun addFormatters(registry: FormatterRegistry) {
         registry.addConverter(SemesterConverter)
-        registry.addConverter(DayOfWeekConverter)
     }
 
-    private object SemesterConverter : Converter<String, Semester?> {
-        override fun convert(source: String): Semester? = source.toIntOrNull()?.let(Semester::fromValue)
-    }
-
-    private object DayOfWeekConverter : Converter<String, DayOfWeek?> {
-        override fun convert(source: String): DayOfWeek? = source.toIntOrNull()?.let(DayOfWeek::fromValue)
+    private object SemesterConverter : Converter<String, Semester> {
+        override fun convert(source: String): Semester = Semester.fromValue(source.toInt())
     }
 }

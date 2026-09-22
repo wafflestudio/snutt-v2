@@ -216,7 +216,8 @@ class TimetableController(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @RequestBody body: TimetableModifyThemeRequest,
-    ): TimetableResponse = timetableService.modifyTimetableTheme(userId, timetableId, body.themeId).toResponse()
+        @RequestAttribute clientInfo: ClientInfo,
+    ): TimetableResponse = timetableService.modifyTimetableTheme(userId, timetableId, body.themeId).toResponse(clientInfo.language)
 
     @PutMapping("/{timetableId}/primary")
     fun setPrimary(
