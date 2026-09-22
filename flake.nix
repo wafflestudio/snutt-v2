@@ -24,6 +24,7 @@
             jdk
             pkgs.mongodb-tools
             pkgs.mysql84
+            pkgs.valkey
           ];
 
           JAVA_HOME = "${jdk}";
