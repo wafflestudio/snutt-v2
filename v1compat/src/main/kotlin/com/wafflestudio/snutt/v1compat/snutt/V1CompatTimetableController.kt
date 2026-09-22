@@ -412,7 +412,6 @@ data class LegacyCustomLectureRequest(
     val classPlaceAndTimes: List<LegacyClassTimeRequest>? = null,
     val remark: String? = null,
     val color: LegacyColorRequest? = null,
-    @param:JsonProperty("color_index")
     val colorIndex: Int? = null,
     @param:JsonProperty("is_forced")
     val isForced: Boolean? = null,
@@ -432,7 +431,6 @@ data class LegacyModifyLectureRequest(
     val classPlaceAndTimes: List<LegacyClassTimeRequest>? = null,
     val remark: String? = null,
     val color: LegacyColorRequest? = null,
-    @param:JsonProperty("color_index")
     val colorIndex: Int? = null,
     @param:JsonProperty("is_forced")
     val isForced: Boolean? = null,

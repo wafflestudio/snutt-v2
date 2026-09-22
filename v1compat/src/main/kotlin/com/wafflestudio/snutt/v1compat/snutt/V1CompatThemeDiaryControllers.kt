@@ -430,11 +430,11 @@ class V1CompatDiaryController(
     fun getRandomTargetLecture(
         @V1CurrentUser user: User,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyDiaryTargetLectureDto {
         val target =
-            diaryService.getDiaryTargetLecture(user.id!!, year, Semester.fromValue(semester), emptyList())
+            diaryService.getDiaryTargetLecture(user.id!!, year, semester, emptyList())
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         return LegacyDiaryTargetLectureDto(
             lectureId = target.lectureId?.toString(),
@@ -520,11 +520,11 @@ class V1CompatTagUpdateTimeController(
     @GetMapping("/{year}/{semester}/update_time")
     fun getTagListUpdateTime(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
+        @PathVariable semester: Semester,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyTagUpdateTimeResponse {
         val vocabulary =
-            lectureVocabularyService.getVocabulary(year, Semester.fromValue(semester), clientInfo.language)
+            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
         return LegacyTagUpdateTimeResponse(updatedAt = vocabulary.updatedAt?.toEpochMilli())
     }
 }

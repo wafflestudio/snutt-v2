@@ -227,7 +227,15 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `ev 경로는 ev 에러 봉투를 사용한다`() {
+    fun `v1 파라미터가 잘못되면 레거시 오류 형식으로 400을 응답한다`() {
+        val invalidSemester = get("/v1/bookmarks?year=2026&semester=9", legacyToken)
+        assertEquals(400, invalidSemester.statusCode.value())
+        assertEquals(40001L, body(invalidSemester)["errcode"].asLong())
+        assertTrue(body(invalidSemester).has("message"))
+    }
+
+    @Test
+    fun `ev 경로는 ev 에러 형식으로 응답한다`() {
         val notVerified =
             post(
                 "/v1/ev-service/v1/semester-lectures/$lectureId/evaluations",

@@ -65,7 +65,6 @@ data class LegacyLectureDto(
     @param:JsonProperty("lecture_number")
     val lectureNumber: String,
     val quota: Int,
-    @param:JsonProperty("freshman_quota")
     val freshmanQuota: Int?,
     val remark: String?,
     val semester: Semester,

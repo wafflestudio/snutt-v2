@@ -294,11 +294,11 @@ class V1CompatFriendController(
         @V1CurrentUser user: User,
         @PathVariable friendId: Long,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyFriendTimetableDto {
         val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
-        val timetable = timetableService.getUserPrimaryTable(partnerId, year, Semester.fromValue(semester))
+        val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         val display = timetableService.getTimetableDisplay(partnerId, timetable.id!!)
         return display.toLegacyFriendTimetable(partnerId, clientInfo)
     }
@@ -402,15 +402,15 @@ class V1CompatBookmarkController(
     fun getBookmarks(
         @V1CurrentUser user: User,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
+        @RequestParam semester: Semester,
         @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
     ): LegacyBookmarksResponse {
-        val display = bookmarkService.getBookmark(user.id!!, year, Semester.fromValue(semester))
+        val display = bookmarkService.getBookmark(user.id!!, year, semester)
         val summaries = evaluationService.findSummariesByLectureIds(display.lectures.mapNotNull { it.id })
         val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
         return LegacyBookmarksResponse(
             year = year,
-            semester = semester,
+            semester = semester.value,
             lectures =
                 display.lectures.map { lecture ->
                     LegacyBookmarkLectureDto(
