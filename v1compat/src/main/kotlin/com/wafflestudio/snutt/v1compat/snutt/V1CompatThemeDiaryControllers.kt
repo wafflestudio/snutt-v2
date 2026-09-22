@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -23,7 +24,6 @@ import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
@@ -38,7 +38,6 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -400,7 +399,7 @@ class V1CompatDiaryController(
     fun getQuestionnaire(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyDiaryQuestionnaireRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyDiaryQuestionnaireResponse {
         val display =
             diaryService.generateQuestionnaire(
@@ -431,7 +430,7 @@ class V1CompatDiaryController(
         @V1CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyDiaryTargetLectureDto {
         val target =
             diaryService.getDiaryTargetLecture(user.id!!, year, semester, emptyList())
@@ -521,7 +520,7 @@ class V1CompatTagUpdateTimeController(
     fun getTagListUpdateTime(
         @PathVariable year: Int,
         @PathVariable semester: Semester,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTagUpdateTimeResponse {
         val vocabulary =
             lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)

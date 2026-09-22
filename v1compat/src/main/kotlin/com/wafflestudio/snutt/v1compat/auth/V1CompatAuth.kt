@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.auth
 
+import com.wafflestudio.snutt.core.common.client.CLIENT_INFO_ATTRIBUTE
 import com.wafflestudio.snutt.core.common.client.PlatformKeys
 import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -67,7 +68,6 @@ class V1ApiKeyInterceptor(
     private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey, jsonMapper)
 
     companion object {
-        const val CLIENT_INFO_ATTRIBUTE = "v1compat.clientInfo"
         private const val LEGACY_KEY_VERSION = "0"
         private val LEGACY_PLATFORMS = setOf("ios", "web", "android", "test")
     }

@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
@@ -20,7 +21,6 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureModi
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureService
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyTimetableDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
@@ -94,7 +93,7 @@ class V1CompatTimetableController(
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
         @V1CurrentUser user: User,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getMostRecentlyUpdatedTimetable(user.id!!)
         return toLegacy(user, timetable, clientInfo.language)
@@ -105,7 +104,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Semester,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): List<LegacyTimetableDto> =
         timetableService
             .getTimetablesBySemester(user.id!!, year, semester)
@@ -130,7 +129,7 @@ class V1CompatTimetableController(
     fun getTimetable(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId), clientInfo.language)
 
     @RequestMapping(
@@ -169,7 +168,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
         @RequestBody body: LegacyTimetableModifyThemeRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         if ((body.themeId == null) == (body.theme == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val themeId =
@@ -200,7 +199,7 @@ class V1CompatTimetableController(
         @PathVariable timetableId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyCustomLectureRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val (paletteIndex, customColor) = colorSelection(user.id!!, timetable, body.color, body.colorIndex)
@@ -229,7 +228,7 @@ class V1CompatTimetableController(
         @PathVariable lectureId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -252,7 +251,7 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody(required = false) body: LegacyForcedRequest?,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
@@ -272,7 +271,7 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: Long,
         @RequestParam(required = false) isForced: Boolean?,
         @RequestBody body: LegacyModifyLectureRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val (paletteIndex, customColor) = colorSelection(user.id!!, timetable, body.color, body.colorIndex)
@@ -325,7 +324,7 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
         @PathVariable timetableLectureId: Long,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display = timetableLectureService.deleteLecture(user.id!!, timetableId, timetableLectureId)

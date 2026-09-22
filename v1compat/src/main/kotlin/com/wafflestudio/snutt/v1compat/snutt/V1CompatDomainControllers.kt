@@ -2,6 +2,8 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
@@ -29,7 +31,6 @@ import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
-import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
@@ -45,7 +46,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -140,9 +140,8 @@ data class LegacyFriendEvLectureIdDto(
 
 private fun TimetableDisplay.toLegacyFriendTimetable(
     userId: Long,
-    clientInfo: ClientInfo,
+    language: Language,
 ): LegacyFriendTimetableDto {
-    val language = clientInfo.language
     val themeId = timetable.themeId
     return LegacyFriendTimetableDto(
         id = timetable.id?.toString(),
@@ -295,12 +294,12 @@ class V1CompatFriendController(
         @PathVariable friendId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyFriendTimetableDto {
         val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         val display = timetableService.getTimetableDisplay(partnerId, timetable.id!!)
-        return display.toLegacyFriendTimetable(partnerId, clientInfo)
+        return display.toLegacyFriendTimetable(partnerId, clientInfo.language)
     }
 
     @GetMapping("/{friendId}/coursebooks", "/{friendId}/registered-course-books")
@@ -403,7 +402,7 @@ class V1CompatBookmarkController(
         @V1CurrentUser user: User,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyBookmarksResponse {
         val display = bookmarkService.getBookmark(user.id!!, year, semester)
         val summaries = evaluationService.findSummariesByLectureIds(display.lectures.mapNotNull { it.id })
@@ -460,7 +459,7 @@ class V1CompatVacancyNotificationController(
     @GetMapping("/lectures")
     fun getLectures(
         @V1CurrentUser user: User,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyVacancyLecturesResponse {
         val displays = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
         val lectureIds = displays.mapNotNull { it.lecture.id }
@@ -528,9 +527,7 @@ class V1CompatPopupController(
     private val storageUriResolver: StorageUriResolver,
 ) {
     @GetMapping("")
-    fun getPopups(
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
-    ): LegacyListResponse<LegacyPopupDto> =
+    fun getPopups(): LegacyListResponse<LegacyPopupDto> =
         LegacyListResponse(
             content =
                 popupService.getPopups().map {
@@ -557,7 +554,7 @@ class V1CompatConfigController(
 ) {
     @GetMapping("")
     fun getConfigs(
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): Map<String, JsonNode> {
         val osType = OsType.from(clientInfo.osType) ?: return emptyMap()
         val appVersion = clientInfo.appVersion ?: return emptyMap()
@@ -596,7 +593,7 @@ class V1CompatFeedbackController(
     @PostMapping("")
     fun postFeedback(
         @RequestBody body: LegacyFeedbackRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyOkResponse {
         feedbackService.postFeedback(
             email = body.email.orEmpty(),

@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v2.tag
 
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -9,7 +10,6 @@ import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -56,7 +56,7 @@ class TagController(
     fun getTagList(
         @PathVariable year: Int,
         @PathVariable semester: Semester,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): TagListResponse {
         val vocabulary = lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
         return TagListResponse(
@@ -80,7 +80,7 @@ class TagController(
 
     @GetMapping("/courses")
     fun getCourseTagList(
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): CourseTagListResponse {
         val vocabulary = courseVocabularyService.getVocabulary(clientInfo.language)
         return CourseTagListResponse(

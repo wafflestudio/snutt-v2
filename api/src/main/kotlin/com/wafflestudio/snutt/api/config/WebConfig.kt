@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.config
 import com.wafflestudio.snutt.api.auth.CurrentUserArgumentResolver
 import com.wafflestudio.snutt.api.auth.PlatformKeyInterceptor
 import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
+import com.wafflestudio.snutt.core.common.client.CurrentClientArgumentResolver
 import com.wafflestudio.snutt.core.common.enums.Semester
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.convert.converter.Converter
@@ -31,6 +32,7 @@ class WebConfig(
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(currentUserArgumentResolver)
+        resolvers.add(CurrentClientArgumentResolver)
     }
 
     override fun addFormatters(registry: FormatterRegistry) {

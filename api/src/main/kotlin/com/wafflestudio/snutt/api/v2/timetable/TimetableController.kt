@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.v2.timetable
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -144,7 +144,7 @@ class TimetableController(
     @GetMapping("/recent")
     fun getMostRecentlyUpdatedTimetable(
         @CurrentUserId userId: Long,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): TimetableResponse =
         timetableService
             .displayOf(timetableService.getMostRecentlyUpdatedTimetable(userId))
@@ -155,7 +155,7 @@ class TimetableController(
         @CurrentUserId userId: Long,
         @PathVariable year: Int,
         @PathVariable semester: Semester,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): List<TimetableResponse> =
         timetableService
             .displaysOf(timetableService.getTimetablesBySemester(userId, year, semester))
@@ -180,7 +180,7 @@ class TimetableController(
     fun getTimetable(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): TimetableResponse = timetableService.getTimetableDisplay(userId, timetableId).toResponse(clientInfo.language)
 
     @PatchMapping("/{timetableId}")
@@ -216,7 +216,7 @@ class TimetableController(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
         @RequestBody body: TimetableModifyThemeRequest,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): TimetableResponse = timetableService.modifyTimetableTheme(userId, timetableId, body.themeId).toResponse(clientInfo.language)
 
     @PutMapping("/{timetableId}/primary")

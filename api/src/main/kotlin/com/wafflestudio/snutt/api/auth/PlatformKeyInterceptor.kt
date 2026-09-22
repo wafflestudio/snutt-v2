@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.api.auth
 
+import com.wafflestudio.snutt.core.common.client.CLIENT_INFO_ATTRIBUTE
 import com.wafflestudio.snutt.core.common.client.PlatformKeys
 import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -16,7 +17,6 @@ class PlatformKeyInterceptor(
     companion object {
         const val PLATFORM_HEADER = "x-client-platform"
         const val KEY_HEADER = "x-client-key"
-        const val CLIENT_INFO_ATTRIBUTE = "clientInfo"
     }
 
     override fun preHandle(
