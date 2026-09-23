@@ -70,9 +70,8 @@ interface EvaluationCustomRepository {
 
     fun findCourseAggregate(courseId: Long): CourseAggregate
 
-    fun countOthers(
+    fun countVisible(
         courseId: Long,
-        userId: Long,
         year: Int?,
         semester: Semester?,
     ): Long
