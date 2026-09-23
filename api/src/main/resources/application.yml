@@ -4,6 +4,10 @@ spring:
   jackson:
     default-property-inclusion: non_null
     time-zone: UTC
+  http:
+    clients:
+      connect-timeout: 2s
+      read-timeout: 5s
   config:
     import: classpath:application-core.yml
 
@@ -17,7 +21,6 @@ management:
         include: health
 
 springdoc:
-  paths-to-match: /v2/**
   swagger-ui:
     enabled: true
 

@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.v2.lecture.LectureResponse
 import com.wafflestudio.snutt.api.v2.lecture.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkDisplay
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -45,7 +45,7 @@ class BookmarkController(
         @CurrentUserId userId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): BookmarkResponse {
         val display = bookmarkService.getBookmark(userId, year, semester)
         val classTimesMap = lectureService.classTimesByLectureId(display.lectures.map { it.id!! })

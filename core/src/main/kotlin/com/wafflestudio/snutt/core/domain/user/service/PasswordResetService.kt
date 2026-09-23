@@ -8,29 +8,28 @@ import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
-import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
-import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
+import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 
 @Service
 class PasswordResetService(
     redisTemplate: StringRedisTemplate,
+    jsonMapper: JsonMapper,
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val refreshTokenRepository: RefreshTokenRepository,
     private val userMailService: UserMailService,
     private val passwordEncoder: PasswordEncoder,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val authService: AuthService,
 ) {
-    private val store = CodeChallengeStore(redisTemplate, "reset-password", ttl = Duration.ofMinutes(15))
+    private val store = CodeChallengeStore(redisTemplate, jsonMapper, "reset-password", ttl = Duration.ofMinutes(15))
 
     private data class FoundAccount(
         val user: User,
@@ -80,7 +79,7 @@ class PasswordResetService(
     fun requestReset(email: String) {
         val trimmed = email.trim()
         val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) ?: return
-        val code = VerificationCode.generate()
+        val code = VerificationCode.generatePasswordResetCode()
         store.store(user.id!!, code)
         userMailService.sendPasswordResetCode(trimmed, code)
     }
@@ -99,6 +98,7 @@ class PasswordResetService(
     ) {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         store.verify(user.id!!, code)
+        store.extend(user.id!!, Duration.ofHours(1))
     }
 
     @Transactional
@@ -107,7 +107,8 @@ class PasswordResetService(
         code: String,
         newPassword: String,
     ) {
-        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user =
+            userRepository.findForUpdateByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         confirmReset(user, code, newPassword)
     }
 
@@ -118,7 +119,7 @@ class PasswordResetService(
         newPassword: String,
     ) {
         val user =
-            userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
+            userRepository.findForUpdateByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
                 ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
         confirmReset(user, code, newPassword)
     }
@@ -132,9 +133,7 @@ class PasswordResetService(
         store.verify(userId, code)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
-        userRepository.save(user)
         store.clear(userId)
-        refreshTokenRepository.deleteAllByUserId(userId)
-        eventPublisher.publishEvent(UserCredentialChangedEvent(userId))
+        authService.revokeSessions(user)
     }
 }

@@ -2,12 +2,13 @@ package com.wafflestudio.snutt.core.common.util
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.json.Json
 import org.springframework.data.redis.core.StringRedisTemplate
+import tools.jackson.databind.json.JsonMapper
 import java.time.Duration
 
 class CodeChallengeStore(
     private val redisTemplate: StringRedisTemplate,
+    private val jsonMapper: JsonMapper,
     namespace: String,
     private val ttl: Duration = Duration.ofMinutes(3),
     private val maxSendsPerHour: Int = 5,
@@ -16,6 +17,7 @@ class CodeChallengeStore(
     private val attemptPrefix = "$namespace:attempt:"
     private val sendMinutePrefix = "$namespace:send-minute:"
     private val sendHourPrefix = "$namespace:send-hour:"
+    private val window = Duration.ofHours(1)
 
     private data class Stored(
         val payload: String,
@@ -30,7 +32,7 @@ class CodeChallengeStore(
         val hourKey = sendHourPrefix + key
         val sendsThisHour = redisTemplate.opsForValue().increment(hourKey) ?: 1L
         if (sendsThisHour == 1L) {
-            redisTemplate.expire(hourKey, Duration.ofHours(1))
+            redisTemplate.expire(hourKey, window)
         }
         if (sendsThisHour > maxSendsPerHour) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
     }
@@ -42,8 +44,7 @@ class CodeChallengeStore(
     ) {
         throttleSend(key)
         val stored = Stored(payload = payload, code = code)
-        redisTemplate.opsForValue().set(codePrefix + key, Json.mapper.writeValueAsString(stored), ttl)
-        redisTemplate.delete(attemptPrefix + key)
+        redisTemplate.opsForValue().set(codePrefix + key, jsonMapper.writeValueAsString(stored), ttl)
     }
 
     fun verify(
@@ -52,11 +53,19 @@ class CodeChallengeStore(
     ): String {
         val attemptKey = attemptPrefix + key
         val attempts = redisTemplate.opsForValue().increment(attemptKey) ?: 1L
-        redisTemplate.expire(attemptKey, ttl)
+        redisTemplate.expire(attemptKey, window)
         if (attempts > VerificationCode.MAX_ATTEMPTS) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
-        val stored = read(key) ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
-        if (stored.code != code) throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+        val stored =
+            read(key)?.takeIf { it.code == code } ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+        redisTemplate.opsForValue().decrement(attemptKey)
         return stored.payload
+    }
+
+    fun extend(
+        key: Any,
+        ttl: Duration,
+    ) {
+        redisTemplate.expire(codePrefix + key, ttl)
     }
 
     fun clear(key: Any) {
@@ -68,5 +77,5 @@ class CodeChallengeStore(
         redisTemplate
             .opsForValue()
             .get(codePrefix + key)
-            ?.let { Json.mapper.readValue(it, Stored::class.java) }
+            ?.let { jsonMapper.readValue(it, Stored::class.java) }
 }

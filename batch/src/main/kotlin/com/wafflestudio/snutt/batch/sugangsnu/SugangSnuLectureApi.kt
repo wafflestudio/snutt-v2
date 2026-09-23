@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.batch.sugangsnu
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.batch.sugangsnu.data.SugangSnuLectureInfo
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.json.Json
 import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.io.ByteArrayResource
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Component
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.util.MultiValueMap
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.json.JsonMapper
 
 data class SugangSnuCoursebookCondition(
     @param:JsonProperty("currSchyy")
@@ -28,10 +28,11 @@ data class SugangSnuCoursebookCondition(
 @Component
 class SugangSnuLectureApi(
     @Value("\${snutt.sugang.base-url:https://sugang.snu.ac.kr}") baseUrl: String,
+    restClientBuilder: RestClient.Builder,
+    private val jsonMapper: JsonMapper,
 ) {
     private val restClient: RestClient =
-        RestClient
-            .builder()
+        restClientBuilder
             .baseUrl(baseUrl)
             .defaultHeader("User-Agent", USER_AGENT)
             .defaultHeader("Referer", REFERER)
@@ -62,7 +63,7 @@ class SugangSnuLectureApi(
                 .retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("수강스누 강좌 상세 조회 실패: $courseNumber-$lectureNumber")
-        return Json.mapper.readValue(body, SugangSnuLectureInfo::class.java)
+        return jsonMapper.readValue(body, SugangSnuLectureInfo::class.java)
     }
 
     fun getCoursebookCondition(): SugangSnuCoursebookCondition {
@@ -74,7 +75,7 @@ class SugangSnuLectureApi(
                 .retrieve()
                 .body(String::class.java)
                 ?: throw IllegalStateException("수강스누 수강편람 조건 조회 실패")
-        return Json.mapper.readValue(body, SugangSnuCoursebookCondition::class.java)
+        return jsonMapper.readValue(body, SugangSnuCoursebookCondition::class.java)
     }
 
     fun getMainPageHtml(): String =

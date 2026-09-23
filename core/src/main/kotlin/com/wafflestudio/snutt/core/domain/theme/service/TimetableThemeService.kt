@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.common.util.CopyTitle
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
@@ -35,6 +34,7 @@ class TimetableThemeService(
     private val timetableLectureRepository: TimetableLectureRepository,
     private val userRepository: UserRepository,
     private val friendRepository: FriendRepository,
+    private val cursorCodec: CursorCodec,
 ) {
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
         val defaultId = getDefaultThemeId(userId)
@@ -80,8 +80,8 @@ class TimetableThemeService(
         }
         colors?.let { palette ->
             validatePalette(palette)
-            val timetableIds = timetableRepository.findByUserIdAndThemeId(userId, themeId).map { it.id!! }
-            timetableLectureRepository.findByTimetableIdIn(timetableIds).forEach { lecture ->
+            val timetableIds = timetableRepository.findForUpdateByUserIdAndThemeId(userId, themeId).map { it.id!! }
+            timetableLectureRepository.findForUpdateByTimetableIdIn(timetableIds).forEach { lecture ->
                 if (lecture.paletteIndex >= palette.size) lecture.paletteIndex %= palette.size
             }
             theme.colors = palette.toList()
@@ -114,10 +114,10 @@ class TimetableThemeService(
                 userPreferenceRepository.saveAndFlush(preference)
             }
         }
-        val timetables = timetableRepository.findByUserIdAndThemeId(userId, themeId)
+        val timetables = timetableRepository.findForUpdateByUserIdAndThemeId(userId, themeId)
         timetables.forEach { it.themeId = fallbackId }
         val paletteSize = checkNotNull(fallback.colors).size
-        timetableLectureRepository.findByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
+        timetableLectureRepository.findForUpdateByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
             if (lecture.paletteIndex >= paletteSize) lecture.paletteIndex %= paletteSize
         }
         timetableRepository.flush()
@@ -297,10 +297,15 @@ class TimetableThemeService(
     }
 
     private fun List<PublishedTheme>.toPublicationPage(): CursorPage<ThemePublicationDisplay> =
-        toCursorPage(PAGE_SIZE, cursorOf = { PublishedThemeCursor(it.downloadCount, it.id!!) }, transform = ::publicationDisplays)
+        cursorCodec.pageOf(
+            items = this,
+            pageSize = PAGE_SIZE,
+            cursorOf = { PublishedThemeCursor(it.downloadCount, it.id!!) },
+            transform = ::publicationDisplays,
+        )
 
     private fun decodeCursor(cursor: String?): PublishedThemeCursor? =
-        CursorCodec.decode<PublishedThemeCursor>(cursor)?.also {
+        cursorCodec.decode<PublishedThemeCursor>(cursor)?.also {
             if (it.downloadCount < 0 || it.publicationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
         }
 

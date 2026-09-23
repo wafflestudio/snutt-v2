@@ -6,17 +6,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
 import tools.jackson.databind.PropertyNamingStrategies
 import tools.jackson.databind.annotation.JsonNaming
 
-private val EvaluationTag.legacyId: Long
-    get() =
-        when (this) {
-            EvaluationTag.RECENT -> 1L
-            EvaluationTag.LIBERAL_EDUCATION -> 317L
-            EvaluationTag.RECOMMENDED -> 2L
-            EvaluationTag.WELL_TAUGHT -> 3L
-            EvaluationTag.SWEET -> 4L
-            EvaluationTag.HARD_BUT_WORTH -> 5L
-        }
-
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvTagGroupDto(
     val id: Int,
@@ -101,30 +90,28 @@ data class LegacyEvaluationCreateResponse(
     val fromSnuev: Boolean,
 )
 
+private val legacyMainTags: List<Pair<EvaluationTag, LegacyEvTagDto>> =
+    listOf(
+        EvaluationTag.RECENT to LegacyEvTagDto(id = 1, name = "최신", description = "최근 등록된 강의평", ordering = 1),
+        EvaluationTag.LIBERAL_EDUCATION to LegacyEvTagDto(id = 317, name = "교양", description = "전체 교양 강의평 모음", ordering = 2),
+        EvaluationTag.RECOMMENDED to LegacyEvTagDto(id = 2, name = "추천", description = "학우들의 추천 강의", ordering = 3),
+        EvaluationTag.WELL_TAUGHT to
+            LegacyEvTagDto(id = 3, name = "명강", description = "졸업하기 전에 꼭 한 번 들어볼 만한 강의", ordering = 4),
+        EvaluationTag.SWEET to LegacyEvTagDto(id = 4, name = "꿀강", description = "수업 부담이 크지 않고, 성적도 잘 주는 강의", ordering = 5),
+        EvaluationTag.HARD_BUT_WORTH to
+            LegacyEvTagDto(id = 5, name = "고진감래", description = "공과 시간을 들인 만큼 거두는 것이 많은 강의", ordering = 6),
+    )
+
 internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
     LegacyEvTagGroupDto(
         id = 1,
         name = "main",
         ordering = -1,
         color = null,
-        tags =
-            listOf(
-                EvaluationTag.RECENT,
-                EvaluationTag.RECOMMENDED,
-                EvaluationTag.WELL_TAUGHT,
-                EvaluationTag.SWEET,
-                EvaluationTag.HARD_BUT_WORTH,
-            ).mapIndexed { index, tag ->
-                LegacyEvTagDto(
-                    id = tag.legacyId,
-                    name = tag.title,
-                    description = tag.description,
-                    ordering = index + 1,
-                )
-            },
+        tags = legacyMainTags.map { it.second },
     )
 
-internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = EvaluationTag.entries.firstOrNull { it.legacyId == tagId }
+internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.second.id == tagId }?.first
 
 internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemesterDto {
     val e = evaluation

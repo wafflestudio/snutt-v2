@@ -2,13 +2,13 @@ package com.wafflestudio.snutt.core.domain.auth.oidc
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.UpstreamException
-import com.wafflestudio.snutt.core.common.http.TimedRestClients
-import com.wafflestudio.snutt.core.common.json.Json
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.readValue
 import java.math.BigInteger
 import java.security.KeyFactory
@@ -42,8 +42,10 @@ private data class OidcJwtHeader(
 )
 
 @Component
-class OidcJwtVerifier {
-    private val restClient = TimedRestClients.restClient()
+class OidcJwtVerifier(
+    private val restClient: RestClient,
+    private val jsonMapper: JsonMapper,
+) {
     private val jwkSets = ConcurrentHashMap<String, OidcJwkSet>()
 
     fun verifyAndDecodeToken(
@@ -101,7 +103,7 @@ class OidcJwtVerifier {
         if (!looksLikeJwt(token)) return null
 
         val headerJson = Base64.getUrlDecoder().decode(token.substringBefore(".")).toString(Charsets.UTF_8)
-        val headerMap: Map<String, String?> = Json.mapper.readValue(headerJson)
+        val headerMap: Map<String, String?> = jsonMapper.readValue(headerJson)
         val kid = headerMap["kid"] ?: return null
         val alg = headerMap["alg"] ?: return null
 

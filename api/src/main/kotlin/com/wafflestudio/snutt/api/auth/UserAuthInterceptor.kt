@@ -34,15 +34,12 @@ class UserAuthInterceptor(
                 ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
 
         val payload = accessTokenService.verify(token)
-
-        val isAdminOnly = handler.has(AdminOnly::class.java)
-        val isEmailVerifiedRequired = handler.has(EmailVerifiedRequired::class.java)
-        if (isAdminOnly || isEmailVerifiedRequired) {
-            val user = userService.findActive(payload.userId) ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
-            if (isAdminOnly && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
-            if (isEmailVerifiedRequired && !user.isEmailVerified) {
-                throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
-            }
+        val user =
+            userService.findActive(payload.userId)?.takeIf { it.tokenVersion == payload.tokenVersion }
+                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        if (handler.has(AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
+        if (handler.has(EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
+            throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
         }
 
         request.setAttribute(USER_ID_ATTRIBUTE, payload.userId)

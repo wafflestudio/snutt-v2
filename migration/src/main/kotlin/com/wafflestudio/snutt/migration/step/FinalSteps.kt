@@ -1,15 +1,20 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.mongodb.client.model.Accumulators
+import com.mongodb.client.model.Aggregates
+import com.mongodb.client.model.Filters
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
-import com.wafflestudio.snutt.migration.MigrationSupport
+import com.wafflestudio.snutt.migration.MigrationSupport.ResolutionReasons
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
+import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.str
+import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.security.MessageDigest
@@ -26,6 +31,12 @@ class AggregateStep(
     override val tables = emptyList<String>()
 
     override fun run() {
+        val unused =
+            jdbc.update(
+                "DELETE FROM course c WHERE NOT EXISTS (SELECT 1 FROM lecture l WHERE l.course_id = c.id) " +
+                    "AND NOT EXISTS (SELECT 1 FROM evaluation e WHERE e.course_id = c.id)",
+            )
+        context.resolved(ResolutionReasons.COURSE_UNUSED, unused)
         jdbc.update(
             """
             UPDATE course c JOIN (
@@ -72,27 +83,24 @@ class LegacyTokenStep(
     override fun run() {
         jdbc.execute("DELETE FROM legacy_access_token")
 
-        val owners = HashMap<String, String?>()
+        val owners = HashMap<String, MutableList<String>>()
         mongo.each("users") { doc ->
-            if (!doc.bool("active")) return@each
-            if (!doc.hasCredential()) return@each
-            val hash = doc.str("credentialHash")?.takeIf { it.isNotBlank() } ?: return@each
-            owners[hash] = if (owners.containsKey(hash)) null else doc.id()
+            val hash = legacyTokenHash(doc) ?: return@each
+            owners.getOrPut(hash) { mutableListOf() } += doc.id()
         }
 
         val ids = IdSequence()
         var count = 0L
         var ambiguous = 0L
         writer("legacy_access_token", listOf("id", "user_id", "token_hash", "created_at", "updated_at")).use { out ->
-            owners.forEach { (token, externalId) ->
-                if (externalId == null) {
+            owners.forEach { (token, externalIds) ->
+                if (externalIds.size > 1) {
                     ambiguous++
-                    context.resolved("같은 구 토큰을 가진 활성 계정이 여럿이라 토큰을 이관하지 않음")
+                    context.resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS, externalIds.size)
                     return@forEach
                 }
-                val userId = context.userIds[externalId] ?: return@forEach
                 val now = Timestamp.from(Instant.now())
-                out.add(ids.next(), userId, sha256Hex(token), now, now)
+                out.add(ids.next(), context.userIds.getValue(externalIds.single()), sha256Hex(token), now, now)
                 count++
             }
         }
@@ -100,16 +108,18 @@ class LegacyTokenStep(
         log.info("구 토큰 이관: {}건 (특정 불가로 제외 {}건)", count, ambiguous)
     }
 
-    private fun org.bson.Document.hasCredential(): Boolean {
-        val credential = doc("credential") ?: return false
-        return CREDENTIAL_KEYS.any { credential.str(it) != null }
-    }
-
     private fun sha256Hex(value: String): String =
         HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))
 
     companion object {
         private val CREDENTIAL_KEYS = listOf("localId", "fbId", "appleSub", "googleSub", "kakaoSub")
+
+        fun legacyTokenHash(doc: Document): String? {
+            if (!doc.bool("active")) return null
+            val credential = doc.doc("credential") ?: return null
+            if (CREDENTIAL_KEYS.none { credential.str(it) != null }) return null
+            return doc.str("credentialHash")?.takeIf { it.isNotBlank() }
+        }
     }
 }
 
@@ -129,49 +139,142 @@ class ValidateStep(
         compare(failures, "user", mongo.count("users"), count("user"))
         compare(
             failures,
+            "lecture",
+            mongo.count("lectures") + evOnlyLectures(),
+            count("lecture"),
+            tolerated = resolved(ResolutionReasons.LECTURE_DUPLICATE, ResolutionReasons.EV_LECTURE_DUPLICATE),
+        )
+        compare(
+            failures,
+            "user_social_auth",
+            socialCredentials(),
+            count("user_social_auth"),
+            tolerated = resolved(ResolutionReasons.SOCIAL_AUTH_DUPLICATE),
+        )
+        compare(
+            failures,
+            "legacy_access_token",
+            legacyTokenOwners(),
+            count("legacy_access_token"),
+            tolerated = resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS),
+        )
+        compare(
+            failures,
+            "timetable_theme",
+            mongo.count("timetableTheme", Filters.eq("isCustom", true)),
+            count("timetable_theme", "builtin_code IS NULL"),
+            tolerated = resolved(ResolutionReasons.THEME_USER_MISSING, ResolutionReasons.THEME_DOWNLOAD_MERGED),
+        )
+        compare(
+            failures,
+            "published_theme",
+            mongo.count(
+                "timetableTheme",
+                Filters.and(
+                    Filters.eq("isCustom", true),
+                    Filters.ne("status", "DOWNLOADED"),
+                    Filters.ne("publishInfo.publishName", null),
+                ),
+            ),
+            count("published_theme"),
+            tolerated = resolved(ResolutionReasons.PUBLISHED_THEME_USER_MISSING),
+            added = resolved(ResolutionReasons.PUBLISHED_THEME_ARCHIVED),
+        )
+        compare(
+            failures,
             "timetable",
             mongo.count("timetables"),
             count("timetable"),
-            tolerated = context.resolutions[MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING] ?: 0L,
+            tolerated = resolved(ResolutionReasons.TIMETABLE_USER_MISSING),
         )
-        if (ev.available) {
-            compare(
-                failures,
-                "evaluation",
-                ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java) ?: 0L,
-                count("evaluation"),
-            )
-        }
-
-        orphans(failures, "timetable", "SELECT COUNT(*) FROM timetable t LEFT JOIN `user` u ON u.id = t.user_id WHERE u.id IS NULL")
-        orphans(
+        compare(
             failures,
             "timetable_lecture",
-            "SELECT COUNT(*) FROM timetable_lecture tl LEFT JOIN timetable t ON t.id = tl.timetable_id WHERE t.id IS NULL",
+            timetableLectureEntries(),
+            count("timetable_lecture"),
+            tolerated = resolved(ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING),
         )
-        orphans(
+        compare(
+            failures,
+            "timetable_lecture_reminder",
+            mongo.count("timetableLectureReminder"),
+            count("timetable_lecture_reminder"),
+            tolerated = resolved(ResolutionReasons.REMINDER_TIMETABLE_LECTURE_MISSING),
+        )
+        compare(
             failures,
             "bookmark_lecture",
-            "SELECT COUNT(*) FROM bookmark_lecture bl LEFT JOIN lecture l ON l.id = bl.lecture_id WHERE l.id IS NULL",
+            bookmarkLectureEntries(),
+            count("bookmark_lecture"),
+            tolerated =
+                resolved(
+                    ResolutionReasons.BOOKMARK_USER_MISSING,
+                    ResolutionReasons.BOOKMARK_LECTURE_MISSING,
+                    ResolutionReasons.BOOKMARK_LECTURE_MERGED,
+                ),
         )
-        orphans(
+        compare(
             failures,
-            "evaluation",
-            "SELECT COUNT(*) FROM evaluation e LEFT JOIN course c ON c.id = e.course_id WHERE c.id IS NULL",
+            "vacancy_notification",
+            mongo.count("vacancy_notifications"),
+            count("vacancy_notification"),
+            tolerated =
+                resolved(
+                    ResolutionReasons.VACANCY_USER_MISSING,
+                    ResolutionReasons.VACANCY_LECTURE_MISSING,
+                    ResolutionReasons.VACANCY_DUPLICATE,
+                ),
         )
-
-        val aggregateMismatch =
-            jdbc.queryForObject(
-                """
-                SELECT COUNT(*) FROM course c
-                LEFT JOIN (
-                    SELECT course_id, COUNT(*) AS cnt FROM evaluation WHERE is_hidden = FALSE GROUP BY course_id
-                ) e ON e.course_id = c.id
-                WHERE c.eval_count <> COALESCE(e.cnt, 0)
-                """.trimIndent(),
-                Long::class.java,
-            ) ?: 0L
-        if (aggregateMismatch > 0L) failures += "course 집계가 강의평과 어긋난다: ${aggregateMismatch}건"
+        compare(
+            failures,
+            "user_device",
+            mongo.count("userDevice"),
+            count("user_device"),
+            tolerated = resolved(ResolutionReasons.DEVICE_USER_MISSING),
+        )
+        compare(
+            failures,
+            "push_preference",
+            pushPreferenceEntries(),
+            count("push_preference"),
+            tolerated = resolved(ResolutionReasons.PUSH_PREFERENCE_USER_MISSING),
+        )
+        compare(
+            failures,
+            "friend",
+            mongo.count("friend"),
+            count("friend"),
+            tolerated = resolved(ResolutionReasons.FRIEND_USER_MISSING, ResolutionReasons.FRIEND_DUPLICATE),
+        )
+        compare(
+            failures,
+            "diary_submission",
+            mongo.count("diarySubmission"),
+            count("diary_submission"),
+            tolerated = resolved(ResolutionReasons.DIARY_USER_MISSING),
+        )
+        compare(
+            failures,
+            "notification",
+            mongo.count("notifications"),
+            count("notification"),
+            tolerated = resolved(ResolutionReasons.NOTIFICATION_USER_MISSING),
+        )
+        compare(failures, "evaluation", evCount("lecture_evaluation"), count("evaluation"))
+        compare(
+            failures,
+            "evaluation_like",
+            evCount("evaluation_like"),
+            count("evaluation_like"),
+            tolerated = resolved(ResolutionReasons.EVALUATION_LIKE_USER_MISSING),
+        )
+        compare(
+            failures,
+            "evaluation_report",
+            evCount("evaluation_report"),
+            count("evaluation_report"),
+            tolerated = resolved(ResolutionReasons.EVALUATION_REPORT_USER_MISSING),
+        )
 
         val leakedObjectIds =
             jdbc.queryForObject(
@@ -188,7 +291,63 @@ class ValidateStep(
         log.info("검증 통과")
     }
 
-    private fun count(table: String): Long = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java) ?: 0L
+    private fun count(
+        table: String,
+        condition: String = "TRUE",
+    ): Long = jdbc.queryForObject("SELECT COUNT(*) FROM `$table` WHERE $condition", Long::class.java)!!
+
+    private fun evCount(table: String): Long = ev.jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java)!!
+
+    private fun resolved(vararg reasons: String): Long = reasons.sumOf { context.resolutions[it] ?: 0L }
+
+    private fun evOnlyLectures(): Long {
+        var total = 0L
+        ev.jdbc.query("SELECT year, semester, COUNT(*) AS cnt FROM semester_lecture GROUP BY year, semester") { rs ->
+            if (rs.getInt("year") to rs.getInt("semester") !in context.lectureSemesters) total += rs.getLong("cnt")
+        }
+        return total
+    }
+
+    private fun socialCredentials(): Long {
+        var total = 0L
+        mongo.each("users") { doc ->
+            if (!doc.bool("active")) return@each
+            val credential = doc.doc("credential") ?: return@each
+            total += SOCIAL_KEYS.count { credential.str(it) != null }
+        }
+        return total
+    }
+
+    private fun legacyTokenOwners(): Long {
+        var total = 0L
+        mongo.each("users") { doc -> if (LegacyTokenStep.legacyTokenHash(doc) != null) total++ }
+        return total
+    }
+
+    private fun timetableLectureEntries(): Long =
+        mongo
+            .collection("timetables")
+            .aggregate(
+                listOf(
+                    Aggregates.group(
+                        null,
+                        Accumulators.sum("count", Document("\$size", Document("\$ifNull", listOf("\$lecture_list", emptyList<Any>())))),
+                    ),
+                ),
+            ).first()
+            ?.let { (it["count"] as Number).toLong() } ?: 0L
+
+    private fun bookmarkLectureEntries(): Long {
+        var total = 0L
+        mongo.each("bookmarks") { doc -> total += doc.docs("lectures").distinctBy { it.id() }.size }
+        return total
+    }
+
+    private fun pushPreferenceEntries(): Long {
+        var total = 0L
+        mongo.each("pushPreference") { doc -> total += doc.docs("pushPreferences").size }
+        return total
+    }
 
     private fun compare(
         failures: MutableList<String>,
@@ -196,20 +355,16 @@ class ValidateStep(
         expected: Long,
         actual: Long,
         tolerated: Long = 0L,
+        added: Long = 0L,
     ) {
-        if (actual + tolerated < expected) {
-            failures += "$label 행 수 부족: 원본 $expected, 대상 $actual (허용 $tolerated)"
+        if (actual + tolerated != expected + added) {
+            failures += "$label 행 수가 어긋난다: 원본 $expected, 대상 $actual (제외 $tolerated, 추가 $added)"
         } else {
-            log.info("{} 행 수: 원본 {}, 대상 {}", label, expected, actual)
+            log.info("{} 행 수: 원본 {}, 대상 {} (제외 {}, 추가 {})", label, expected, actual, tolerated, added)
         }
     }
 
-    private fun orphans(
-        failures: MutableList<String>,
-        label: String,
-        sql: String,
-    ) {
-        val count = jdbc.queryForObject(sql, Long::class.java) ?: 0L
-        if (count > 0L) failures += "$label 의 고아 참조 ${count}건"
+    companion object {
+        private val SOCIAL_KEYS = listOf("fbId", "appleSub", "googleSub", "kakaoSub")
     }
 }

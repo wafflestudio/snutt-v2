@@ -9,9 +9,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepo
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
-import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
@@ -57,7 +55,6 @@ private data class FieldChange(
 class SugangSnuSyncService(
     private val lectureRepository: LectureRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
-    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val courseRepository: CourseRepository,
     private val courseSearchRepository: CourseSearchRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
@@ -77,21 +74,21 @@ class SugangSnuSyncService(
         semester: Semester,
         rows: List<SugangLectureRow>,
     ): SugangSnuSyncResult {
+        val newMap = rows.associateBy { it.courseNumber to it.lectureNumber }
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
         val oldMap = oldLectures.associateBy { it.courseNumber to it.lectureNumber }
-        val newKeys = rows.map { it.courseNumber to it.lectureNumber }.toSet()
         val oldClassTimesMap =
             lectureClassTimeRepository
                 .findAllByLectureIdInOrderById(oldLectures.mapNotNull { it.id })
                 .groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
 
         val created =
-            rows
-                .filter { (it.courseNumber to it.lectureNumber) !in oldMap }
+            (newMap - oldMap.keys)
+                .values
                 .map { LectureInput(it.toLecture(year, semester), it.classPlaceAndTimes) }
         val updated =
-            rows.mapNotNull { row ->
-                val old = oldMap[row.courseNumber to row.lectureNumber] ?: return@mapNotNull null
+            newMap.mapNotNull { (key, row) ->
+                val old = oldMap[key] ?: return@mapNotNull null
                 val new = row.toLecture(year, semester)
                 val oldTimes = oldClassTimesMap[old.id].orEmpty()
                 val changes = changedFields(old, new, oldTimes, row.classPlaceAndTimes)
@@ -104,16 +101,13 @@ class SugangSnuSyncService(
                     classTimesChanged = oldTimes != row.classPlaceAndTimes,
                 )
             }
-        val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
+        val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newMap }
 
         val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
         val timetableChangeCounts =
             transactionTemplate
                 .execute {
                     upsertLectures(created, updated)
-                    val lectureByKey =
-                        oldMap + created.associateBy { it.lecture.courseNumber to it.lecture.lectureNumber }.mapValues { it.value.lecture }
-                    syncRegistrationCounts(year, semester, rows, lectureByKey)
                     val changeCounts = syncUserLectures(updated, deleted)
                     deleted.forEach(lectureRepository::delete)
                     lectureRepository.flush()
@@ -167,26 +161,6 @@ class SugangSnuSyncService(
         }
     }
 
-    private fun syncRegistrationCounts(
-        year: Int,
-        semester: Semester,
-        rows: List<SugangLectureRow>,
-        lectureByKey: Map<Pair<String, String>, Lecture>,
-    ) {
-        val statuses = lectureRegistrationStatusRepository.findByYearAndSemester(year, semester).associateBy { it.lectureId }
-        rows.forEach { row ->
-            val lectureId = lectureByKey[row.courseNumber to row.lectureNumber]?.id ?: return@forEach
-            val status = statuses[lectureId]
-            if (status == null) {
-                lectureRegistrationStatusRepository.save(
-                    LectureRegistrationStatus(lectureId = lectureId, registrationCount = row.registrationCount),
-                )
-            } else {
-                status.registrationCount = row.registrationCount
-            }
-        }
-    }
-
     private fun loadCourses(lectures: List<Lecture>): MutableMap<Pair<String, String>, Course> =
         lectures
             .map { it.courseNumber }
@@ -200,16 +174,17 @@ class SugangSnuSyncService(
         lecture: Lecture,
         courses: MutableMap<Pair<String, String>, Course>,
     ): Long? {
-        val instructor = lecture.instructor?.takeIf { it.isNotBlank() } ?: return null
+        val instructor = lecture.instructor.orEmpty()
         val course =
             courses.getOrPut(lecture.courseNumber to instructor) {
-                courseRepository.save(
-                    Course(
-                        courseNumber = lecture.courseNumber,
-                        instructor = instructor,
-                        title = lecture.courseTitle,
-                    ),
-                )
+                courseRepository.findByCourseNumberAndInstructor(lecture.courseNumber, instructor)
+                    ?: courseRepository.save(
+                        Course(
+                            courseNumber = lecture.courseNumber,
+                            instructor = instructor,
+                            title = lecture.courseTitle,
+                        ),
+                    )
             }
         return course.id
     }
@@ -450,24 +425,26 @@ class SugangSnuSyncService(
         courseNumber = courseNumber,
         lectureNumber = lectureNumber,
         courseTitle = courseTitle,
-        instructor = instructor,
-        department = department,
-        academicYear = academicYear,
-        category = category,
-        classification = classification,
+        instructor = instructor.nullIfBlank(),
+        department = department.nullIfBlank(),
+        academicYear = academicYear.nullIfBlank(),
+        category = category.nullIfBlank(),
+        classification = classification.nullIfBlank(),
         credit = credit,
         quota = quota,
         freshmanQuota = freshmanQuota,
-        remark = remark,
-        categoryPre2025 = categoryPre2025,
-        courseTitleEn = courseTitleEn,
-        instructorEn = instructorEn,
-        departmentEn = departmentEn,
-        academicYearEn = academicYearEn,
-        categoryEn = categoryEn,
-        classificationEn = classificationEn,
-        remarkEn = remarkEn,
+        remark = remark.nullIfBlank(),
+        categoryPre2025 = categoryPre2025.nullIfBlank(),
+        courseTitleEn = courseTitleEn.nullIfBlank(),
+        instructorEn = instructorEn.nullIfBlank(),
+        departmentEn = departmentEn.nullIfBlank(),
+        academicYearEn = academicYearEn.nullIfBlank(),
+        categoryEn = categoryEn.nullIfBlank(),
+        classificationEn = classificationEn.nullIfBlank(),
+        remarkEn = remarkEn.nullIfBlank(),
     )
+
+    private fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
 
     companion object {
         private const val COURSE_LOOKUP_CHUNK_SIZE = 500

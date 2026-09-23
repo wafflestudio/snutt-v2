@@ -51,9 +51,18 @@ class EvaluationRepositoryImpl(
         semester: Semester?,
     ): Predicate =
         and(
+            visibleOf(courseId, year, semester),
+            or(path(Evaluation::userId).isNull(), path(Evaluation::userId).notEqual(userId)),
+        )
+
+    private fun Jpql.visibleOf(
+        courseId: Long,
+        year: Int?,
+        semester: Semester?,
+    ): Predicate =
+        and(
             path(Evaluation::courseId).equal(courseId),
             path(Evaluation::isHidden).equal(false),
-            or(path(Evaluation::userId).isNull(), path(Evaluation::userId).notEqual(userId)),
             year?.let { path(Evaluation::year).equal(it) },
             semester?.let { path(Evaluation::semester).equal(it) },
         )
@@ -96,9 +105,8 @@ class EvaluationRepositoryImpl(
             }
         }.filterNotNull()
 
-    override fun countOthers(
+    override fun countVisible(
         courseId: Long,
-        userId: Long,
         year: Int?,
         semester: Semester?,
     ): Long =
@@ -106,15 +114,11 @@ class EvaluationRepositoryImpl(
             jpql {
                 select(count(path(Evaluation::id)))
                     .from(entity(Evaluation::class))
-                    .where(othersOf(courseId, userId, year, semester))
+                    .where(visibleOf(courseId, year, semester))
             }
         }.firstOrNull() ?: 0L
 
-    override fun findCourseAggregate(
-        courseId: Long,
-        year: Int?,
-        semester: Semester?,
-    ): CourseAggregate {
+    override fun findCourseAggregate(courseId: Long): CourseAggregate {
         val row =
             findAll(offset = null, limit = 1) {
                 jpql {
@@ -130,8 +134,6 @@ class EvaluationRepositoryImpl(
                             and(
                                 path(Evaluation::courseId).equal(courseId),
                                 path(Evaluation::isHidden).equal(false),
-                                year?.let { path(Evaluation::year).equal(it) },
-                                semester?.let { path(Evaluation::semester).equal(it) },
                             ),
                         )
                 }

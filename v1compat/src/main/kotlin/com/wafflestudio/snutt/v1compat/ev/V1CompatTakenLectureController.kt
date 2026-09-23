@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.v1compat.ev
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.coursebook.service.SemesterService
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.PropertyNamingStrategies
 import tools.jackson.databind.annotation.JsonNaming
+import java.time.Instant
 
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLecturesResponse(
@@ -150,6 +152,7 @@ class V1CompatCourseSearchController(
     private val legacyCourseRepository: LegacyCourseRepository,
     private val courseRepository: CourseRepository,
     private val lectureRepository: LectureRepository,
+    private val semesterService: SemesterService,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -203,6 +206,7 @@ class V1CompatCourseSearchController(
     ): LegacyCourseWithSemestersResponse {
         val result = courseSearchService.getCourseWithLectures(courseId, user.id!!)
         val course = legacyCourseRepository.get(courseId)
+        val next = semesterService.getNextYearAndSemester(Instant.now())
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = course.title,
@@ -214,21 +218,25 @@ class V1CompatCourseSearchController(
             category = course.category,
             classification = course.classification,
             semesterLectures =
-                result.lectures.groupBy { it.lecture.year to it.lecture.semester }.values.map { group ->
-                    val display = group.minBy { it.lecture.id!! }
-                    val lecture = display.lecture
-                    LegacySemesterLectureDto(
-                        id = lecture.id!!,
-                        year = lecture.year,
-                        semester = lecture.semester.value,
-                        credit = lecture.credit,
-                        extraInfo = lecture.remark.orEmpty(),
-                        academicYear = lecture.academicYear.orEmpty(),
-                        category = lecture.category.orEmpty(),
-                        classification = lecture.classification.orEmpty(),
-                        myEvaluationExists = display.myEvaluationExists,
-                    )
-                },
+                result.lectures
+                    .filterNot { it.lecture.year == next.year && it.lecture.semester == next.semester }
+                    .groupBy { it.lecture.year to it.lecture.semester }
+                    .values
+                    .map { group ->
+                        val display = group.minBy { it.lecture.id!! }
+                        val lecture = display.lecture
+                        LegacySemesterLectureDto(
+                            id = lecture.id!!,
+                            year = lecture.year,
+                            semester = lecture.semester.value,
+                            credit = lecture.credit,
+                            extraInfo = lecture.remark.orEmpty(),
+                            academicYear = lecture.academicYear.orEmpty(),
+                            category = lecture.category.orEmpty(),
+                            classification = lecture.classification.orEmpty(),
+                            myEvaluationExists = display.myEvaluationExists,
+                        )
+                    },
         )
     }
 }

@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.v1compat.auth
 
-import com.wafflestudio.snutt.core.common.client.PlatformKeys
+import com.wafflestudio.snutt.core.common.client.CLIENT_INFO_ATTRIBUTE
 import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.servlet.HandlerInterceptor
+import tools.jackson.databind.json.JsonMapper
 
 @Target(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
@@ -59,13 +60,12 @@ class V1UserAuthInterceptor(
 
 @Component
 class V1ApiKeyInterceptor(
-    private val platformKeys: PlatformKeys,
     @Value("\${snutt.auth.legacy-secret-key:}") legacySecretKey: String,
+    jsonMapper: JsonMapper,
 ) : HandlerInterceptor {
-    private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey)
+    private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey, jsonMapper)
 
     companion object {
-        const val CLIENT_INFO_ATTRIBUTE = "v1compat.clientInfo"
         private const val LEGACY_KEY_VERSION = "0"
         private val LEGACY_PLATFORMS = setOf("ios", "web", "android", "test")
     }
@@ -76,14 +76,8 @@ class V1ApiKeyInterceptor(
         handler: Any,
     ): Boolean {
         val apiKey = request.getHeader("x-access-apikey")
-        val authorized =
-            if (apiKey != null) {
-                isLegacyApiKey(apiKey)
-            } else {
-                platformKeys.matches(request.getHeader("x-client-platform"), request.getHeader("x-client-key"))
-            }
-        if (!authorized) throw SnuttException(ErrorType.WRONG_API_KEY)
-        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, defaultOsType = "unknown"))
+        if (apiKey == null || !isLegacyApiKey(apiKey)) throw SnuttException(ErrorType.WRONG_API_KEY)
+        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, osType = request.getHeader("x-os-type") ?: "unknown"))
         return true
     }
 

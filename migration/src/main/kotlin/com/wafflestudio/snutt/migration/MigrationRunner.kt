@@ -49,6 +49,7 @@ class MigrationRunner(
                 "user",
                 "course",
                 "lecture",
+                "evlecture",
                 "theme",
                 "timetable",
                 "userdata",

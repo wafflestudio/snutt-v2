@@ -2,7 +2,8 @@ package com.wafflestudio.snutt.core.common.pagination
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.json.Json
+import org.springframework.stereotype.Component
+import tools.jackson.databind.json.JsonMapper
 import java.util.Base64
 
 data class CursorPage<T>(
@@ -37,31 +38,35 @@ data class CursorPage<T>(
     }
 }
 
-fun <T, R> List<T>.toCursorPage(
-    pageSize: Int,
-    totalCount: Long? = null,
-    cursorOf: (T) -> Any,
-    transform: (List<T>) -> List<R>,
-): CursorPage<R> {
-    val hasMore = size > pageSize
-    val content = if (hasMore) take(pageSize) else this
-    val nextCursor = if (hasMore) CursorCodec.encode(cursorOf(content.last())) else null
-    return CursorPage.of(transform(content), nextCursor, pageSize, totalCount)
-}
-
-object CursorCodec {
+@Component
+class CursorCodec(
+    val jsonMapper: JsonMapper,
+) {
     fun encode(value: Any): String =
         Base64
             .getUrlEncoder()
             .withoutPadding()
-            .encodeToString(Json.mapper.writeValueAsBytes(value))
+            .encodeToString(jsonMapper.writeValueAsBytes(value))
 
-    inline fun <reified T> decode(cursor: String?): T? =
+    final inline fun <reified T : Any> decode(cursor: String?): T? =
         cursor?.let {
             try {
-                Json.mapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java)
+                jsonMapper.readValue(Base64.getUrlDecoder().decode(it), T::class.java)
             } catch (_: Exception) {
                 throw SnuttException(ErrorType.INVALID_CURSOR)
             }
         }
+
+    fun <T, R> pageOf(
+        items: List<T>,
+        pageSize: Int,
+        totalCount: Long? = null,
+        cursorOf: (T) -> Any,
+        transform: (List<T>) -> List<R>,
+    ): CursorPage<R> {
+        val hasMore = items.size > pageSize
+        val content = if (hasMore) items.take(pageSize) else items
+        val nextCursor = if (hasMore) encode(cursorOf(content.last())) else null
+        return CursorPage.of(transform(content), nextCursor, pageSize, totalCount)
+    }
 }

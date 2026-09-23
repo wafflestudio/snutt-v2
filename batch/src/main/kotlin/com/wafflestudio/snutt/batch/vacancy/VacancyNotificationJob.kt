@@ -106,30 +106,28 @@ class VacancyNotificationJob(
         crawled: List<RegistrationStatus>,
         window: RegistrationWindow,
     ): List<PendingVacancyPush> {
-        val rows =
-            crawled.mapNotNull { status ->
-                val lecture = lectureMap[status.courseNumber + "##" + status.lectureNumber] ?: return@mapNotNull null
-                val stored = storedStatuses[lecture.id] ?: return@mapNotNull null
-                Triple(lecture, stored, status)
+        val updates = mutableListOf<LectureRegistrationStatus>()
+        val notiTargets = mutableListOf<Lecture>()
+        crawled.forEach { status ->
+            val lecture = lectureMap[status.courseNumber + "##" + status.lectureNumber] ?: return@forEach
+            val stored = storedStatuses[lecture.id]
+            if (stored == null) {
+                updates +=
+                    LectureRegistrationStatus(
+                        lectureId = lecture.id!!,
+                        registrationCount = status.registrationCount,
+                        wasFull = status.wasFull,
+                    )
+                return@forEach
             }
-        val notiTargets =
-            rows
-                .filter { (lecture, stored, _) -> stored.registrationCount == lecture.effectiveQuota(window.phase) }
-                .filter { (_, _, status) -> status.wasFull }
-                .filter { (_, stored, status) -> stored.registrationCount > status.registrationCount }
-                .map { (lecture, _, _) -> lecture }
-
-        val updated =
-            rows
-                .filter { (_, stored, status) ->
-                    stored.registrationCount != status.registrationCount || stored.wasFull != status.wasFull
-                }.map { (_, stored, status) ->
-                    stored.apply {
-                        registrationCount = status.registrationCount
-                        wasFull = status.wasFull
-                    }
-                }
-        lectureRegistrationStatusRepository.saveAll(updated)
+            if (becameVacant(lecture, stored, status, window.phase)) notiTargets += lecture
+            if (stored.registrationCount != status.registrationCount || stored.wasFull != status.wasFull) {
+                stored.registrationCount = status.registrationCount
+                stored.wasFull = status.wasFull
+                updates += stored
+            }
+        }
+        lectureRegistrationStatusRepository.saveAll(updates)
 
         val targetTimeString = window.nextOpenTimeString(ZonedDateTime.now(clock).withZoneSameInstant(KST))
         return notiTargets.map { lecture ->
@@ -172,6 +170,16 @@ class VacancyNotificationJob(
             .firstOrNull { it.date == now.toLocalDate() }
             ?.let { RegistrationWindow(it.phase, it.vacantSeatRegistrationTimes) }
     }
+
+    private fun becameVacant(
+        lecture: Lecture,
+        stored: LectureRegistrationStatus,
+        crawled: RegistrationStatus,
+        phase: RegistrationPhase,
+    ): Boolean =
+        stored.registrationCount == lecture.effectiveQuota(phase) &&
+            crawled.wasFull &&
+            stored.registrationCount > crawled.registrationCount
 
     private fun Lecture.effectiveQuota(phase: RegistrationPhase): Int =
         if (semester == Semester.SPRING && phase == RegistrationPhase.CURRENT_STUDENT) {

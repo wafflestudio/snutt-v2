@@ -1,10 +1,10 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
-import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
@@ -12,13 +12,13 @@ import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.long
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import java.time.Instant
-import kotlin.random.Random
 
 @Component
 class UserStep(
@@ -46,7 +46,6 @@ class UserStep(
         val ids = IdSequence()
         val socialIds = IdSequence()
         val socialRows = mutableListOf<Pair<String, SocialCredential>>()
-        val takenNicknames = HashSet<String>(256_000)
         writer("user", COLUMNS).use { out ->
             mongo.each("users") { doc ->
                 val externalId = doc.id()
@@ -60,14 +59,14 @@ class UserStep(
                 if (active && localId != null && localIdOwner[localId] != externalId) {
                     localId = null
                     localPw = null
-                    context.resolved("같은 아이디를 쓰는 활성 계정이 여럿이라 로컬 로그인 수단을 제거")
+                    context.resolved(MigrationSupport.ResolutionReasons.LOCAL_ID_DUPLICATE)
                 }
 
                 val email = doc.str("email")
                 var isEmailVerified = doc.bool("isEmailVerified")
                 if (active && isEmailVerified && email != null && emailOwner[email.lowercase()] != externalId) {
                     isEmailVerified = false
-                    context.resolved("같은 이메일이 인증된 활성 계정이 여럿이라 인증 상태를 해제")
+                    context.resolved(MigrationSupport.ResolutionReasons.VERIFIED_EMAIL_DUPLICATE)
                 }
 
                 val social = socialCredentials(credential)
@@ -75,18 +74,18 @@ class UserStep(
                     if (active && socialOwner[credentialEntry.subKey] == externalId) {
                         socialRows += externalId to credentialEntry
                     } else if (active) {
-                        context.resolved("같은 소셜 계정을 쓰는 활성 계정이 여럿이라 소셜 로그인 수단을 제거")
+                        context.resolved(MigrationSupport.ResolutionReasons.SOCIAL_AUTH_DUPLICATE)
                     }
                 }
 
                 val registeredAt = doc.instant("regDate").orNow()
-                val nickname = uniqueNickname(doc.str("nickname"), takenNicknames)
+                val nickname = doc.requireStr("nickname")
                 out.add(
                     id,
                     email,
                     isEmailVerified,
-                    nickname.name,
-                    nickname.tag,
+                    nickname.substringBeforeLast(TAG_DELIMITER),
+                    nickname.substringAfterLast(TAG_DELIMITER),
                     localId,
                     localPw,
                     active,
@@ -183,25 +182,8 @@ class UserStep(
         fallback: Instant,
     ): Instant = doc.long("lastLoginTimestamp")?.let(Instant::ofEpochMilli) ?: fallback
 
-    private fun uniqueNickname(
-        nickname: String?,
-        taken: HashSet<String>,
-    ): Nickname {
-        val base = nickname?.substringBeforeLast(TAG_DELIMITER)?.takeIf { it.isNotBlank() } ?: "스누티"
-        val tag = nickname?.substringAfterLast(TAG_DELIMITER, "")?.takeIf { it.matches(Regex("[0-9]{4}")) }
-        if (tag != null && taken.add("$base$TAG_DELIMITER$tag")) return Nickname(base, tag)
-        while (true) {
-            val replacement = Random.nextInt(TAG_BOUND).toString().padStart(4, '0')
-            if (taken.add("$base$TAG_DELIMITER$replacement")) {
-                context.resolved("누락되었거나 중복된 닉네임 태그를 재배정")
-                return Nickname(base, replacement)
-            }
-        }
-    }
-
     companion object {
         private const val TAG_DELIMITER = "#"
-        private const val TAG_BOUND = 10_000
         private val COLUMNS =
             listOf(
                 "id",

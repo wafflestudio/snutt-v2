@@ -62,7 +62,6 @@ object SugangXlsxFixture {
         val place: String = "302-310-2",
         val instructor: String = "이제희",
         val quota: Int = 20,
-        val registrationCount: Int = 10,
         val remark: String = "",
     )
 
@@ -139,7 +138,7 @@ object SugangXlsxFixture {
                 "0",
                 "0",
                 data.quota.toString(),
-                data.registrationCount.toString(),
+                "10",
                 data.remark,
                 "한국어",
                 "정상",

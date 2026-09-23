@@ -21,7 +21,6 @@ data class SugangLectureRow(
     val remark: String?,
     val quota: Int,
     val freshmanQuota: Int?,
-    val registrationCount: Int,
     val classPlaceAndTimes: List<ClassPlaceAndTime>,
     val categoryPre2025: String? = null,
     val courseTitleEn: String? = null,
@@ -49,46 +48,48 @@ class SugangSnuXlsxParser {
         val remarkEn: String?,
     )
 
-    fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
-        val sheet = WorkbookFactory.create(englishXlsx.inputStream).getSheetAt(0)
-        val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
-        return (3..sheet.lastRowNum)
-            .mapNotNull { rowNum ->
-                val row = sheet.getRow(rowNum) ?: return@mapNotNull null
-
-                fun get(key: String): String = headerIndex[key]?.let { row.getCell(it)?.stringCellValue }?.trim().orEmpty()
-                val courseNumber = get("Course Number")
-                val lectureNumber = get("Lecture Number")
-                val courseTitle = get("Course Title")
-                val subtitle = get("Course Subtitle")
-                val college = get("College")
-                val department = get("Department")
-                val academicCourse = get("Degree Program")
-                val academicYear = get("Academic Year")
-                if (courseTitle.isEmpty()) return@mapNotNull null
-                (courseNumber to lectureNumber) to
-                    SugangLectureRowEnglish(
-                        courseNumber = courseNumber,
-                        lectureNumber = lectureNumber,
-                        courseTitleEn = if (subtitle.isEmpty()) courseTitle else "$courseTitle ($subtitle)",
-                        instructorEn = get("Instructor").ifEmpty { null },
-                        departmentEn = department.replace("null", "").ifEmpty { college }.ifEmpty { null },
-                        academicYearEn = academicCourse.takeIf { it != "Bachelor" } ?: academicYear.ifEmpty { null },
-                        classificationEn = get("Course Classification").ifEmpty { null },
-                        remarkEn = get("Remark").ifEmpty { null },
-                    )
-            }.toMap()
-    }
-
-    fun parse(koreanXlsx: Resource): List<SugangLectureRow> {
-        val sheet = WorkbookFactory.create(koreanXlsx.inputStream).getSheetAt(0)
-        val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
-        val rows =
+    fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> =
+        WorkbookFactory.create(englishXlsx.inputStream).use { workbook ->
+            val sheet = workbook.getSheetAt(0)
+            val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
             (3..sheet.lastRowNum)
-                .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex) }
-        log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
-        return rows
-    }
+                .mapNotNull { rowNum ->
+                    val row = sheet.getRow(rowNum) ?: return@mapNotNull null
+
+                    fun get(key: String): String = headerIndex[key]?.let { row.getCell(it)?.stringCellValue }?.trim().orEmpty()
+                    val courseNumber = get("Course Number")
+                    val lectureNumber = get("Lecture Number")
+                    val courseTitle = get("Course Title")
+                    val subtitle = get("Course Subtitle")
+                    val college = get("College")
+                    val department = get("Department")
+                    val academicCourse = get("Degree Program")
+                    val academicYear = get("Academic Year")
+                    if (courseTitle.isEmpty()) return@mapNotNull null
+                    (courseNumber to lectureNumber) to
+                        SugangLectureRowEnglish(
+                            courseNumber = courseNumber,
+                            lectureNumber = lectureNumber,
+                            courseTitleEn = if (subtitle.isEmpty()) courseTitle else "$courseTitle ($subtitle)",
+                            instructorEn = get("Instructor").ifEmpty { null },
+                            departmentEn = department.replace("null", "").ifEmpty { college }.ifEmpty { null },
+                            academicYearEn = academicCourse.takeIf { it != "Bachelor" } ?: academicYear.ifEmpty { null },
+                            classificationEn = get("Course Classification").ifEmpty { null },
+                            remarkEn = get("Remark").ifEmpty { null },
+                        )
+                }.toMap()
+        }
+
+    fun parse(koreanXlsx: Resource): List<SugangLectureRow> =
+        WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
+            val sheet = workbook.getSheetAt(0)
+            val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
+            val rows =
+                (3..sheet.lastRowNum)
+                    .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex) }
+            log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
+            rows
+        }
 
     private fun headerIndex(
         sheet: Sheet,
@@ -123,7 +124,7 @@ class SugangSnuXlsxParser {
         val courseTitle = get("교과목명")
         val courseSubtitle = get("부제명")
         val fullTitle = if (courseSubtitle.isEmpty()) courseTitle else "$courseTitle ($courseSubtitle)"
-        val credit = get("학점").toIntOrNull() ?: 0
+        val credit = get("학점").toInt()
         val classTimeTexts = get("수업교시").split("/")
         val locationTexts = get("강의실(동-호)(#연건, *평창)").split("/")
         val instructor = get("주담당교수")
@@ -142,7 +143,6 @@ class SugangSnuXlsxParser {
                 ?.toInt()
                 ?.let { (quota - it).takeIf { diff -> diff > 0 } }
         val remark = get("비고").ifEmpty { null }
-        val registrationCount = get("수강신청인원").toIntOrNull() ?: 0
 
         return SugangLectureRow(
             classification = classification,
@@ -157,7 +157,6 @@ class SugangSnuXlsxParser {
             remark = remark,
             quota = quota,
             freshmanQuota = freshmanQuota,
-            registrationCount = registrationCount,
             classPlaceAndTimes = SugangSnuClassTimeUtils.convertTextToClassTimeObject(classTimeTexts, locationTexts),
         )
     }
@@ -194,7 +193,6 @@ class SugangSnuXlsxParser {
                 "주담당교수",
                 "정원",
                 "비고",
-                "수강신청인원",
             )
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
@@ -15,6 +16,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 data class V1ErrorResponse(
     val errcode: Long,
     val title: String,
+    val message: String,
     val displayMessage: String,
 )
 
@@ -53,6 +55,7 @@ fun SnuttException.toV1ErrorResponse(): ResponseEntity<V1ErrorResponse> =
             V1ErrorResponse(
                 errcode = V1_ERROR_CODE_MAP[error] ?: error.errorCode,
                 title = title,
+                message = displayMessage,
                 displayMessage = displayMessage,
             ),
         )
@@ -68,8 +71,8 @@ class V1CompatExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableBody(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE).toV1ErrorResponse()
 
-    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun handleArgumentTypeMismatch(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_PARAMETER).toV1ErrorResponse()
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
+    fun handleInvalidParameter(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_PARAMETER).toV1ErrorResponse()
 
     @ExceptionHandler(UpstreamException::class)
     fun handleUpstreamException(e: UpstreamException): ResponseEntity<V1ErrorResponse> {
@@ -77,6 +80,6 @@ class V1CompatExceptionHandler {
         val legacy = if (e.error == ErrorType.SOCIAL_PROVIDER_UNAVAILABLE) ErrorType.SOCIAL_CONNECT_FAIL else e.error
         return ResponseEntity
             .status(legacy.httpStatus)
-            .body(V1ErrorResponse(legacy.errorCode, legacy.title, legacy.displayMessage))
+            .body(V1ErrorResponse(legacy.errorCode, legacy.title, legacy.displayMessage, legacy.displayMessage))
     }
 }

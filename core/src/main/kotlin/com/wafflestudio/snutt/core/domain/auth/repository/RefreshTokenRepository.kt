@@ -23,7 +23,7 @@ interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {
         now: Instant,
     ): Int
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query("DELETE FROM RefreshToken t WHERE t.user.id = :userId")
     fun deleteAllByUserId(userId: Long): Int
 }

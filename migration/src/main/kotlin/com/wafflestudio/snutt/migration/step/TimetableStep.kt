@@ -1,11 +1,13 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.mongodb.client.model.Filters
+import com.mongodb.client.model.Projections
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
-import com.wafflestudio.snutt.migration.Json
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationSupport
@@ -16,13 +18,18 @@ import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
+import com.wafflestudio.snutt.migration.nullIfBlank
 import com.wafflestudio.snutt.migration.oid
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireOid
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import tools.jackson.databind.json.JsonMapper
 import java.sql.Timestamp
 import java.time.Instant
 
@@ -31,6 +38,7 @@ class TimetableStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
+    private val jsonMapper: JsonMapper,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "timetable"
     override val tables = listOf("timetable_lecture_reminder_schedule", "timetable_lecture_reminder", "timetable_lecture", "timetable")
@@ -41,6 +49,7 @@ class TimetableStep(
         val takenTitles = HashSet<String>(1_024_000)
         var lectureCount = 0L
         var skipped = 0L
+        val primaries = primaryTimetableIds()
 
         writer("timetable", TIMETABLE_COLUMNS).use { timetables ->
             writer("timetable_lecture", TIMETABLE_LECTURE_COLUMNS, parent = timetables).use { lectures ->
@@ -49,32 +58,39 @@ class TimetableStep(
                     if (userId == null) {
                         skipped++
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
+                        context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING, doc.docs("lecture_list").size)
                         return@each
                     }
                     val id = timetableIds.next()
-                    context.timetableIds[doc.id()] = id
-                    val year = doc.int("year") ?: 0
-                    val semester = doc.int("semester") ?: 1
+                    val externalId = doc.id()
+                    context.timetableIds[externalId] = id
+                    val year = doc.requireInt("year")
+                    val semester = doc.requireInt("semester")
                     val updatedAt = doc.instant("updated_at").orNow().toSqlTimestamp()
-                    val themeId =
-                        doc.oid("themeId")?.let(context.themeIds::get)
-                            ?: ((doc.int("theme") ?: 0) + 1L)
+                    val themeId = resolveThemeId(doc)
+                    val isPrimary = doc.bool("is_primary") && externalId in primaries
+                    if (doc.bool("is_primary") && !isPrimary) {
+                        context.resolved(MigrationSupport.ResolutionReasons.PRIMARY_TIMETABLE_DUPLICATE)
+                    }
 
                     timetables.add(
                         id,
                         userId,
                         year,
                         semester,
-                        uniqueTitle(userId, year, semester, doc.str("title").orEmpty(), takenTitles),
+                        uniqueTitle(userId, year, semester, doc.requireStr("title"), takenTitles),
                         themeId,
-                        doc.bool("is_primary"),
+                        isPrimary,
                         updatedAt,
                         updatedAt,
                     )
 
                     doc.docs("lecture_list").forEach { item ->
                         val lectureId = lectureIds.next()
-                        context.timetableLectureIds[item.id()] = lectureId
+                        context.timetableLectureIds[externalId to item.id()] = lectureId
+                        item.oid("lecture_id")?.let(context.lectureIds::get)?.let {
+                            context.timetableLectureIdsByLecture.putIfAbsent(id to it, lectureId)
+                        }
                         lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
                         lectureCount++
                     }
@@ -85,6 +101,27 @@ class TimetableStep(
         alignAutoIncrement("timetable_lecture", lectureIds.peek())
         log.info("시간표 이관: {}건 (제외 {}건), 시간표 강의 {}건", timetableIds.peek() - 1, skipped, lectureCount)
         migrateReminders()
+    }
+
+    private fun primaryTimetableIds(): Set<String> {
+        val latest = HashMap<String, Document>()
+        mongo
+            .collection("timetables")
+            .find(Filters.eq("is_primary", true))
+            .projection(Projections.include("user_id", "year", "semester", "updated_at"))
+            .forEach { doc ->
+                val key = "${doc.oid("user_id")}\u0000${doc.requireInt("year")}\u0000${doc.requireInt("semester")}"
+                latest.merge(key, doc) { previous, current -> maxOf(previous, current, PRIMARY_ORDER) }
+            }
+        return latest.values.mapTo(HashSet()) { it.id() }
+    }
+
+    private fun resolveThemeId(doc: Document): Long {
+        val externalThemeId = doc.oid("themeId") ?: return doc.requireInt("theme") + 1L
+        return context.themeIds[externalThemeId] ?: run {
+            context.resolved(MigrationSupport.ResolutionReasons.THEME_MISSING)
+            DEFAULT_THEME_ID
+        }
     }
 
     private fun migrateReminders() {
@@ -117,26 +154,25 @@ class TimetableStep(
             ).use { scheduleOut ->
                 mongo.each("timetableLectureReminder") { doc ->
                     val timetableLectureId =
-                        doc.oid("timetableLectureId")?.let(context.timetableLectureIds::get) ?: return@each
+                        context.timetableLectureIds[
+                            doc.requireOid("timetableId") to
+                                doc.requireOid("timetableLectureId"),
+                        ]
+                    if (timetableLectureId == null) {
+                        context.resolved(MigrationSupport.ResolutionReasons.REMINDER_TIMETABLE_LECTURE_MISSING)
+                        return@each
+                    }
                     val schedules =
-                        doc.docs("schedules").mapNotNull { schedule ->
-                            val day =
-                                when (val raw = schedule.get("day")) {
-                                    is String -> DayOfWeek.valueOf(raw)
-                                    is Number -> DayOfWeek.entries.firstOrNull { it.value == raw.toInt() }
-                                    else -> null
-                                } ?: return@mapNotNull null
-                            val minute = schedule.int("minute") ?: return@mapNotNull null
-                            Schedule(day, minute)
+                        doc.docs("schedules").map { schedule ->
+                            Schedule(DayOfWeek.fromValue(schedule.requireInt("day")), schedule.requireInt("minute"))
                         }
-                    if (schedules.isEmpty()) return@each
 
                     val now = Instant.now().toSqlTimestamp()
                     val reminderId = ids.next()
                     reminderOut.add(
                         reminderId,
                         timetableLectureId,
-                        doc.int("offsetMinutes") ?: 0,
+                        doc.requireInt("offsetMinutes"),
                         now,
                         now,
                     )
@@ -176,25 +212,33 @@ class TimetableStep(
             original: (LectureSnapshot) -> T?,
         ): T? = if (snapshot == null) value else value.takeIf { it != original(snapshot) }
 
+        fun textOverride(
+            value: String?,
+            original: (LectureSnapshot) -> String?,
+        ): String? =
+            if (snapshot == null) {
+                value.nullIfBlank()
+            } else {
+                value.takeIf { it.nullIfBlank() != original(snapshot) }
+            }
+
         val classTimeChanged = snapshot == null || LectureStep.classTimeKey(places) != snapshot.classTimeKey
         val overrides =
             buildMap<String, Any?> {
                 override(str("course_title")) { it.courseTitle }?.let { put("courseTitle", it) }
-                override(str("instructor")) { it.instructor }?.let { put("instructor", it) }
+                textOverride(str("instructor")) { it.instructor }?.let { put("instructor", it) }
                 override(int("credit")) { it.credit }?.let { put("credit", it) }
-                override(str("remark")) { it.remark }?.let { put("remark", it) }
+                textOverride(str("remark")) { it.remark }?.let { put("remark", it) }
                 if (classTimeChanged) {
                     put("classPlaceAndTimes", places.map { it.toClassPlaceAndTime() })
                 }
-                override(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
-                override(str("category")) { it.category }?.let { put("category", it) }
-                override(str("classification")) { it.classification }?.let { put("classification", it) }
-                override(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
+                textOverride(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
+                textOverride(str("category")) { it.category }?.let { put("category", it) }
+                textOverride(str("classification")) { it.classification }?.let { put("classification", it) }
+                textOverride(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
             }
-        val color =
-            doc("color")?.takeIf { it.isNotEmpty() }?.let {
-                ColorSet(checkNotNull(it.str("bg")), checkNotNull(it.str("fg")))
-            }
+        val colorIndex = requireInt("colorIndex")
+        val color = if (colorIndex == 0) customColor() else null
         val matchedIndex =
             color?.let { old ->
                 palette.indices
@@ -203,26 +247,44 @@ class TimetableStep(
                             palette[it].foregroundColor.equals(old.foregroundColor, true)
                     }.singleOrNull()
             }
-        val oldIndex = ((int("colorIndex") ?: 1) - 1).coerceAtLeast(0)
-        if (matchedIndex == null && oldIndex >= palette.size) context.resolved("범위 밖의 구 팔레트 번호를 정규화")
+        val oldIndex = (colorIndex - 1).coerceAtLeast(0)
+        if (matchedIndex == null && oldIndex >= palette.size) {
+            context.resolved(MigrationSupport.ResolutionReasons.PALETTE_INDEX_OUT_OF_RANGE)
+        }
         return arrayOf(
             id,
             timetableId,
             lectureId,
-            color?.takeIf { matchedIndex == null }?.let(Json::writeRequired),
+            color?.takeIf { matchedIndex == null }?.let(jsonMapper::writeValueAsString),
             matchedIndex ?: (oldIndex % palette.size),
-            if (overrides.isEmpty()) null else Json.write(overrides),
+            if (overrides.isEmpty()) null else jsonMapper.writeValueAsString(overrides),
             updatedAt,
             updatedAt,
         )
     }
 
+    private fun Document.customColor(): ColorSet? {
+        val color = doc("color")?.takeIf { it.isNotEmpty() } ?: return null
+        val backgroundColor = color.str("bg")
+        val foregroundColor = color.str("fg")
+        if (backgroundColor == null || foregroundColor == null) {
+            context.resolved(MigrationSupport.ResolutionReasons.INVALID_CUSTOM_COLOR)
+            return null
+        }
+        return try {
+            ColorSet(backgroundColor, foregroundColor)
+        } catch (e: SnuttException) {
+            context.resolved(MigrationSupport.ResolutionReasons.INVALID_CUSTOM_COLOR)
+            null
+        }
+    }
+
     private fun Document.toClassPlaceAndTime(): Map<String, Any?> =
         mapOf(
-            "day" to (int("day") ?: 0),
-            "place" to str("place").orEmpty(),
-            "startMinute" to (int("startMinute") ?: 0),
-            "endMinute" to (int("endMinute") ?: 0),
+            "day" to requireInt("day"),
+            "place" to requireStr("place"),
+            "startMinute" to requireInt("startMinute"),
+            "endMinute" to requireInt("endMinute"),
         )
 
     private fun uniqueTitle(
@@ -236,11 +298,14 @@ class TimetableStep(
         if (taken.add(key(title))) return title
         var suffix = 2
         while (!taken.add(key("$title ($suffix)"))) suffix++
-        context.resolved("같은 학기에 제목이 중복되어 번호를 붙임")
+        context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_TITLE_DUPLICATE)
         return "$title ($suffix)"
     }
 
     companion object {
+        private const val DEFAULT_THEME_ID = 1L
+        private val PRIMARY_ORDER = compareBy<Document>({ it.instant("updated_at") ?: Instant.EPOCH }, { it.id() })
+
         private val TIMETABLE_COLUMNS =
             listOf(
                 "id",

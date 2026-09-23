@@ -62,7 +62,9 @@ data class LegacyAttachLocalRequest(
 )
 
 data class LegacyChangePasswordRequest(
+    @param:JsonProperty("old_password")
     val currentPassword: String,
+    @param:JsonProperty("new_password")
     val newPassword: String,
 )
 

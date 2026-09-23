@@ -132,6 +132,8 @@ class UserController(
 
     data class AuthProvidersResponse(
         val authProviders: List<String>,
+        val accessToken: String,
+        val refreshToken: String,
     )
 
     @PostMapping("/me/password")
@@ -139,8 +141,8 @@ class UserController(
         @CurrentUserId userId: Long,
         @RequestBody body: AttachLocalRequest,
     ): AuthProvidersResponse {
-        authService.attachLocal(userId, body.localId, body.password)
-        return AuthProvidersResponse(authService.getAuthProviders(userId).map { it.value })
+        val user = authService.attachLocal(userId, body.localId, body.password)
+        return authProvidersResponse(user)
     }
 
     @PatchMapping("/me/password")
@@ -148,7 +150,8 @@ class UserController(
         @CurrentUserId userId: Long,
         @RequestBody body: ChangePasswordRequest,
     ): ChangePasswordResponse {
-        val tokens = authService.changePassword(userId, body.currentPassword, body.newPassword)
+        val user = authService.changePassword(userId, body.currentPassword, body.newPassword)
+        val tokens = authService.issueTokens(user)
         return ChangePasswordResponse(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
     }
 
@@ -158,8 +161,8 @@ class UserController(
         @PathVariable provider: String,
         @RequestBody body: SocialTokenRequest,
     ): AuthProvidersResponse {
-        authService.attachSocial(userId, parseSocialProvider(provider), body.token)
-        return AuthProvidersResponse(authService.getAuthProviders(userId).map { it.value })
+        val user = authService.attachSocial(userId, parseSocialProvider(provider), body.token)
+        return authProvidersResponse(user)
     }
 
     @DeleteMapping("/me/social/{provider}")
@@ -167,8 +170,17 @@ class UserController(
         @CurrentUserId userId: Long,
         @PathVariable provider: String,
     ): AuthProvidersResponse {
-        authService.detachSocial(userId, parseSocialProvider(provider))
-        return AuthProvidersResponse(authService.getAuthProviders(userId).map { it.value })
+        val user = authService.detachSocial(userId, parseSocialProvider(provider))
+        return authProvidersResponse(user)
+    }
+
+    private fun authProvidersResponse(user: User): AuthProvidersResponse {
+        val tokens = authService.issueTokens(user)
+        return AuthProvidersResponse(
+            authProviders = authService.getAuthProviders(user.id!!).map { it.value },
+            accessToken = tokens.accessToken,
+            refreshToken = tokens.refreshToken,
+        )
     }
 
     private fun parseSocialProvider(value: String): AuthProvider =

@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.coverage
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -126,7 +127,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             .builder()
             .baseUrl("http://localhost:$port")
             .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-client-platform", "ios")
+            .defaultHeader("x-os-type", "ios")
             .defaultHeader("x-client-key", "test-ios-key")
             .defaultHeader("Content-Type", "application/json")
             .build()
@@ -173,7 +174,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             post(
                 "/v2/users/me/devices/$registrationId",
                 token = userAToken,
-                headers = mapOf("x-device-id" to "device-1", "x-os-type" to "ios", "x-app-type" to "release"),
+                headers = mapOf("x-device-id" to "device-1", "x-app-type" to "release"),
             )
         assertEquals(200, register.statusCode.value())
         assertTrue(recordingPushClient.globalTopicSubscriptions.contains(registrationId))
@@ -181,7 +182,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         post(
             "/v2/users/me/devices/fcm-token-def",
             token = userAToken,
-            headers = mapOf("x-device-id" to "device-1", "x-os-type" to "ios"),
+            headers = mapOf("x-device-id" to "device-1"),
         )
         val userId = userRepository.findByLocalIdAndActiveTrue("coverusera")!!.id!!
         assertEquals(1, deviceCount(userId, "device-1"))
@@ -210,6 +211,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             client()
                 .post()
                 .uri("/v1/user/device/legacy-fcm-token")
+                .header("x-access-apikey", legacyApiKey())
                 .header("x-access-token", legacyToken)
                 .header("x-device-id", "legacy-device")
                 .retrieve()

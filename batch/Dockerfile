@@ -3,7 +3,7 @@ WORKDIR /workspace
 COPY . .
 RUN ./gradlew :batch:bootJar
 
-FROM eclipse-temurin:25-jdk
+FROM eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=builder /workspace/batch/build/libs/snutt-batch.jar app.jar
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

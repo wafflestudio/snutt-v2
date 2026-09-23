@@ -15,7 +15,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
-import com.wafflestudio.snutt.core.common.json.Json as CoreJson
 
 interface MigrationStep {
     val name: String
@@ -34,18 +33,24 @@ class MigrationContext {
     val themePalettes = HashMap<Long, List<ColorSet>>()
     val diaryClassTypeIds = HashMap<String, Long>()
     val diaryQuestionIds = HashMap<String, Long>()
-    val timetableLectureIds = HashMap<String, Long>(1_024_000)
+    val timetableLectureIds = HashMap<Pair<String, String>, Long>(1_024_000)
+    val timetableLectureIdsByLecture = HashMap<Pair<Long, Long>, Long>(1_024_000)
 
     val courseIds = HashMap<String, Long>(64_000)
+    val courseIdRemap = HashMap<Long, Long>()
 
     val lectureSnapshots = HashMap<Long, LectureSnapshot>(256_000)
+    val lectureSemesters = HashSet<Pair<Int, Int>>()
 
     val resolutions = LinkedHashMap<String, Long>()
 
     private val stringPool = HashMap<String, String>(64_000)
 
-    fun resolved(reason: String) {
-        resolutions[reason] = (resolutions[reason] ?: 0L) + 1L
+    fun resolved(
+        reason: String,
+        count: Int = 1,
+    ) {
+        resolutions.merge(reason, count.toLong(), Long::plus)
     }
 
     fun intern(value: String?): String? {
@@ -153,7 +158,42 @@ object MigrationSupport {
 
     object ResolutionReasons {
         const val TIMETABLE_USER_MISSING = "사용자가 없는 시간표를 제외"
-        const val EVALUATION_ANCHOR_MISSING = "개설을 찾을 수 없는 강의평을 제외"
+        const val BOOKMARK_USER_MISSING = "사용자가 없는 북마크 항목을 제외"
+        const val BOOKMARK_LECTURE_MISSING = "강의를 찾을 수 없는 북마크 항목을 제외"
+        const val BOOKMARK_LECTURE_MERGED = "하나로 합쳐진 강의를 가리키는 북마크 항목을 제외"
+        const val VACANCY_USER_MISSING = "사용자가 없는 빈자리 알림을 제외"
+        const val VACANCY_LECTURE_MISSING = "강의를 찾을 수 없는 빈자리 알림을 제외"
+        const val VACANCY_DUPLICATE = "같은 사용자·강의의 빈자리 알림이 중복되어 제외"
+        const val DIARY_USER_MISSING = "사용자가 없는 강의 일기장 기록을 제외"
+        const val LOCAL_ID_DUPLICATE = "같은 아이디를 쓰는 활성 계정이 여럿이라 로컬 로그인 수단을 제거"
+        const val VERIFIED_EMAIL_DUPLICATE = "같은 이메일이 인증된 활성 계정이 여럿이라 인증 상태를 해제"
+        const val SOCIAL_AUTH_DUPLICATE = "같은 소셜 계정을 쓰는 활성 계정이 여럿이라 소셜 로그인 수단을 제거"
+        const val EV_COURSE_DUPLICATE = "구 ev course 중복을 하나로 합쳐 이관"
+        const val LECTURE_DUPLICATE = "같은 (연도, 학기, 교과목번호, 분반)의 강의가 중복되어 하나로 합침"
+        const val EV_LECTURE_DUPLICATE = "하나로 합쳐진 구 ev course의 같은 학기 강의가 중복되어 하나로 합침"
+        const val COURSE_UNUSED = "강의와 강의평이 모두 없는 course를 제외"
+        const val THEME_USER_MISSING = "사용자가 없는 테마를 제외"
+        const val PUBLISHED_THEME_USER_MISSING = "사용자가 없는 공개 테마를 제외"
+        const val PUBLISHED_THEME_ARCHIVED = "기존 다운로드 내용을 비공개 스냅샷으로 보존"
+        const val THEME_DOWNLOAD_MERGED = "동일한 온라인 테마의 중복 다운로드를 합침"
+        const val THEME_MISSING = "테마를 찾을 수 없어 기본 테마로 대체"
+        const val TIMETABLE_TITLE_DUPLICATE = "같은 학기에 제목이 중복되어 번호를 붙임"
+        const val TIMETABLE_LECTURE_USER_MISSING = "사용자가 없는 시간표의 강의를 제외"
+        const val DEVICE_USER_MISSING = "사용자가 없는 기기를 제외"
+        const val DEVICE_REGISTRATION_DUPLICATE = "같은 FCM 등록 토큰의 활성 기기가 중복되어 이전 항목을 비활성화"
+        const val DEVICE_REGISTRATION_MISSING = "FCM 등록 토큰이 없는 기기를 비활성화"
+        const val PUSH_PREFERENCE_USER_MISSING = "사용자가 없는 푸시 설정을 제외"
+        const val FRIEND_USER_MISSING = "사용자를 찾을 수 없는 친구 관계를 제외"
+        const val FRIEND_DUPLICATE = "같은 사용자 쌍의 친구 관계가 중복되어 하나만 남김"
+        const val NOTIFICATION_USER_MISSING = "사용자가 없는 알림을 제외"
+        const val EVALUATION_LIKE_USER_MISSING = "사용자가 없는 강의평 공감을 제외"
+        const val EVALUATION_REPORT_USER_MISSING = "사용자가 없는 강의평 신고를 제외"
+        const val LEGACY_TOKEN_AMBIGUOUS = "같은 구 토큰을 가진 활성 계정이 여럿이라 토큰을 이관하지 않음"
+        const val PALETTE_INDEX_OUT_OF_RANGE = "범위 밖의 구 팔레트 번호를 정규화"
+        const val REMINDER_TIMETABLE_LECTURE_MISSING = "시간표 강의를 찾을 수 없는 리마인더를 제외"
+        const val DEEPLINK_TARGET_MISSING = "대상을 찾을 수 없는 알림 deeplink를 제거"
+        const val PRIMARY_TIMETABLE_DUPLICATE = "같은 학기의 대표 시간표가 여럿이라 가장 최근에 수정한 시간표만 대표로 남김"
+        const val INVALID_CUSTOM_COLOR = "올바르지 않은 사용자 지정 색상 대신 팔레트 색상을 사용"
     }
 
     fun truncate(
@@ -184,7 +224,8 @@ object MigrationSupport {
         tables: List<String>,
     ) {
         tables.forEach { table ->
-            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java) ?: 0L
+            val filter = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
+            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`$filter", Long::class.java)!!
             check(count == 0L) {
                 "$table 에 이미 $count 행이 있다. 부분 재실행은 행을 중복시키므로 --truncate 로 비우고 다시 실행한다"
             }
@@ -201,11 +242,19 @@ fun Document.oid(key: String): String? =
         else -> null
     }
 
-fun Document.id(): String = oid("_id") ?: error("_id 없는 문서: ${toJson()}")
+fun Document.requireOid(key: String): String = oid(key) ?: missing(key)
+
+fun Document.id(): String = oid("_id") ?: missing("_id")
+
+private fun Document.missing(key: String): Nothing = error("$key 없는 문서: ${oid("_id") ?: toJson()}")
 
 fun Document.str(key: String): String? = get(key)?.takeIf { it !is Document && it !is List<*> }?.toString()
 
+fun Document.requireStr(key: String): String = str(key) ?: missing(key)
+
 fun Document.int(key: String): Int? = (get(key) as? Number)?.toInt()
+
+fun Document.requireInt(key: String): Int = int(key) ?: missing(key)
 
 fun Document.long(key: String): Long? = (get(key) as? Number)?.toLong()
 
@@ -238,12 +287,8 @@ fun Document.instant(key: String): Instant? =
         else -> null
     }
 
+fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
+
 fun Instant?.orNow(): Instant = this ?: Instant.now()
 
 fun Instant.toSqlTimestamp(): Timestamp = Timestamp.from(this)
-
-object Json {
-    fun write(value: Any?): String? = value?.let { CoreJson.mapper.writeValueAsString(it) }
-
-    fun writeRequired(value: Any): String = CoreJson.mapper.writeValueAsString(value)
-}

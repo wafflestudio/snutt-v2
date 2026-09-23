@@ -46,9 +46,11 @@ class UserNicknameService(
                 .map { it.nicknameTag }
                 .toSet()
         val newTag =
-            generateSequence { (0 until NICKNAME_TAG_LENGTH_BOUND).random().toString().padStart(4, '0') }
-                .filter { it !in existingTags }
-                .first()
+            (0 until NICKNAME_TAG_LENGTH_BOUND)
+                .map { it.toString().padStart(4, '0') }
+                .filterNot { it in existingTags }
+                .randomOrNull()
+                ?: throw SnuttException(ErrorType.DUPLICATE_NICKNAME)
 
         return Nickname(nickname, newTag)
     }

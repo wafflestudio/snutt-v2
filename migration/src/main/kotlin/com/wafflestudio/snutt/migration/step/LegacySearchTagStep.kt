@@ -16,10 +16,6 @@ class LegacySearchTagStep(
     override val tables = emptyList<String>()
 
     override fun run() {
-        if (!ev.available) {
-            log.info("구 ev DB가 없어 검색 태그 이관을 건너뛴다")
-            return
-        }
         jdbc.execute("DELETE FROM legacy_search_tag")
 
         var count = 0

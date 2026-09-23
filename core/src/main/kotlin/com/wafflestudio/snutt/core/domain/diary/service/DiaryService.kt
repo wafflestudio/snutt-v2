@@ -20,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -56,6 +57,7 @@ class DiaryService(
     private val timetableRepository: TimetableRepository,
     private val lectureRepository: LectureRepository,
     private val timetableService: TimetableService,
+    private val userRepository: UserRepository,
 ) {
     companion object {
         const val COMMENT_MAX_LENGTH = 1000
@@ -128,6 +130,7 @@ class DiaryService(
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (diarySubmissionRepository.existsByUserIdAndLectureIdAndCreatedAtAfter(
                 userId,
                 lecture.id!!,

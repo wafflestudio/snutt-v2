@@ -23,6 +23,7 @@ class User(
     var localPw: String? = null,
     var active: Boolean = true,
     var isAdmin: Boolean = false,
+    var tokenVersion: Int = 0,
     var lastLoginAt: Instant = Instant.now(),
     var notificationCheckedAt: Instant = Instant.now(),
 ) : BaseEntity() {

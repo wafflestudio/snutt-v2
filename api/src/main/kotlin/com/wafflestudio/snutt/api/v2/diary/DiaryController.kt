@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.v2.diary
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -124,7 +124,7 @@ class DiaryController(
     fun getQuestionnaire(
         @CurrentUserId userId: Long,
         @RequestBody body: DiaryQuestionnaireRequestDto,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): DiaryQuestionnaireResponse =
         diaryService
             .generateQuestionnaire(
@@ -137,7 +137,7 @@ class DiaryController(
         @CurrentUserId userId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): DiaryTargetLectureResponse {
         val target =
             diaryService.getDiaryTargetLecture(userId, year, semester, emptyList())

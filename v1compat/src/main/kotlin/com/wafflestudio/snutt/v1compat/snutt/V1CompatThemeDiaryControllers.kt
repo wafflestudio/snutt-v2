@@ -2,6 +2,9 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.OsType
+import com.wafflestudio.snutt.core.common.client.compareAppVersions
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -13,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireReques
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
@@ -23,7 +27,6 @@ import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
@@ -38,12 +41,12 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 enum class LegacyThemeStatus { BASIC, PRIVATE, PUBLISHED, DOWNLOADED }
 
@@ -64,7 +67,7 @@ data class LegacyThemeDto(
 
 data class LegacyThemeOriginDto(
     val originId: String,
-    val authorId: String?,
+    val authorId: String,
 )
 
 data class LegacyThemePublishInfoDto(
@@ -74,6 +77,7 @@ data class LegacyThemePublishInfoDto(
 )
 
 private const val LEGACY_THEME_PAGE_SIZE = 10
+private const val ANDROID_LEGACY_DIARY_DATE_MAX_VERSION = "3.12.4"
 
 private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
@@ -153,7 +157,7 @@ class V1CompatThemeController(
         return themes.map { theme ->
             val origin =
                 theme.publicationId?.let { id ->
-                    sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString()) }
+                    sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString().orEmpty()) }
                 }
             theme.toLegacy(user.id!!.toString(), origin, ownPublications[theme.id])
         }
@@ -356,7 +360,7 @@ data class LegacyDiaryQuestionnaireResponse(
 )
 
 data class LegacyDiaryQuestionDto(
-    val id: Long?,
+    val id: String,
     val question: String,
     val answers: List<String>,
 )
@@ -379,8 +383,8 @@ data class LegacyDiarySemesterSubmissionsDto(
 
 data class LegacyDiarySubmissionDto(
     val id: String,
-    val lectureId: String?,
-    val date: Instant,
+    val lectureId: String,
+    val date: String,
     val courseTitle: String,
     val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
     val comment: String,
@@ -400,7 +404,7 @@ class V1CompatDiaryController(
     fun getQuestionnaire(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyDiaryQuestionnaireRequest,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyDiaryQuestionnaireResponse {
         val display =
             diaryService.generateQuestionnaire(
@@ -414,7 +418,7 @@ class V1CompatDiaryController(
             courseTitle = clientInfo.language.select(display.courseTitle, display.courseTitleEn),
             questions =
                 display.questions.map {
-                    LegacyDiaryQuestionDto(id = it.id, question = it.question, answers = it.answerList)
+                    LegacyDiaryQuestionDto(id = it.id!!.toString(), question = it.question, answers = it.answerList)
                 },
             nextLecture =
                 display.nextLecture?.let {
@@ -430,11 +434,11 @@ class V1CompatDiaryController(
     fun getRandomTargetLecture(
         @V1CurrentUser user: User,
         @RequestParam year: Int,
-        @RequestParam semester: Int,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @RequestParam semester: Semester,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyDiaryTargetLectureDto {
         val target =
-            diaryService.getDiaryTargetLecture(user.id!!, year, Semester.fromValue(semester), emptyList())
+            diaryService.getDiaryTargetLecture(user.id!!, year, semester, emptyList())
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         return LegacyDiaryTargetLectureDto(
             lectureId = target.lectureId?.toString(),
@@ -453,7 +457,18 @@ class V1CompatDiaryController(
     @GetMapping("/my")
     fun getMySubmissions(
         @V1CurrentUser user: User,
+        @CurrentClient clientInfo: ClientInfo,
     ): List<LegacyDiarySemesterSubmissionsDto> {
+        val appVersion = clientInfo.appVersion
+        val dateFormatter =
+            if (OsType.from(clientInfo.osType) == OsType.ANDROID &&
+                appVersion != null &&
+                compareAppVersions(appVersion, ANDROID_LEGACY_DIARY_DATE_MAX_VERSION) <= 0
+            ) {
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneOffset.UTC)
+            } else {
+                DateTimeFormatter.ISO_INSTANT
+            }
         val submissions = diaryService.getMySubmissions(user.id!!)
         val replies = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
         return submissions
@@ -466,8 +481,8 @@ class V1CompatDiaryController(
                         group.map { submission ->
                             LegacyDiarySubmissionDto(
                                 id = submission.id!!.toString(),
-                                lectureId = submission.lectureId?.toString(),
-                                date = checkNotNull(submission.createdAt),
+                                lectureId = submission.lectureId?.toString().orEmpty(),
+                                date = dateFormatter.format(checkNotNull(submission.createdAt)),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
                                     (replies[submission.id] ?: emptyList()).map {
@@ -509,7 +524,7 @@ class V1CompatDiaryController(
 
 data class LegacyTagUpdateTimeResponse(
     @param:JsonProperty("updated_at")
-    val updatedAt: Long?,
+    val updatedAt: Long,
 )
 
 @RestController
@@ -520,12 +535,13 @@ class V1CompatTagUpdateTimeController(
     @GetMapping("/{year}/{semester}/update_time")
     fun getTagListUpdateTime(
         @PathVariable year: Int,
-        @PathVariable semester: Int,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @PathVariable semester: Semester,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTagUpdateTimeResponse {
-        val vocabulary =
-            lectureVocabularyService.getVocabulary(year, Semester.fromValue(semester), clientInfo.language)
-        return LegacyTagUpdateTimeResponse(updatedAt = vocabulary.updatedAt?.toEpochMilli())
+        val updatedAt =
+            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language).updatedAt
+                ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
+        return LegacyTagUpdateTimeResponse(updatedAt = updatedAt.toEpochMilli())
     }
 }
 
@@ -595,16 +611,17 @@ data class LegacyLectureEvSummaryResponse(
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
     private val evaluationService: EvaluationService,
+    private val lectureService: LectureService,
 ) {
     @V1Public
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: Long,
     ): LegacyLectureEvSummaryResponse {
-        val lecture = evaluationService.getEvaluationSummaryOfLecture(lectureId).lecture
-        val summary = lecture.id?.let { evaluationService.findSummariesByLectureIds(listOf(it))[it] }
+        val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+        val summary = evaluationService.findSummariesByLectureIds(listOf(lectureId))[lectureId]
         return LegacyLectureEvSummaryResponse(
-            evLectureId = lecture.courseId,
+            evLectureId = courseId,
             avgRating = summary?.avgRating,
             evaluationCount = summary?.evalCount ?: 0L,
         )

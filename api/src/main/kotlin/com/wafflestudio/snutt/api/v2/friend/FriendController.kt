@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.v2.timetable.TimetableResponse
 import com.wafflestudio.snutt.api.v2.timetable.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -22,7 +23,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -151,7 +151,7 @@ class FriendController(
         @PathVariable friendId: Long,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): TimetableResponse {
         val friend = getAcceptedFriend(userId, friendId)
         val partnerId = friend.getPartnerUserId(userId)

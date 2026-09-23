@@ -4,13 +4,17 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
+import com.wafflestudio.snutt.migration.nullIfBlank
 import com.wafflestudio.snutt.migration.orNow
+import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
@@ -41,15 +45,16 @@ class LectureStep(
                         val existing = offerings[offeringKey]
                         if (existing != null) {
                             context.lectureIds[externalId] = existing
-                            context.resolved("같은 (연도, 학기, 교과목번호, 분반)의 강의가 중복되어 하나로 합침")
+                            context.resolved(MigrationSupport.ResolutionReasons.LECTURE_DUPLICATE)
                             return@each
                         }
 
                         val id = ids.next()
                         offerings[offeringKey] = id
                         context.lectureIds[externalId] = id
+                        context.lectureSemesters += doc.requireInt("year") to doc.requireInt("semester")
 
-                        val instructor = context.intern(doc.str("instructor"))
+                        val instructor = context.intern(doc.str("instructor").nullIfBlank())
                         val courseId =
                             context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
                         val createdAt = doc.instant("created_at").orNow()
@@ -60,33 +65,33 @@ class LectureStep(
                             courseId,
                             doc.int("year"),
                             doc.int("semester"),
-                            doc.str("course_number").orEmpty(),
-                            doc.str("lecture_number").orEmpty(),
-                            doc.str("course_title").orEmpty(),
+                            doc.requireStr("course_number"),
+                            doc.requireStr("lecture_number"),
+                            doc.requireStr("course_title"),
                             instructor,
-                            context.intern(doc.str("department")),
-                            context.intern(doc.str("academic_year")),
-                            context.intern(doc.str("category")),
-                            context.intern(doc.str("categoryPre2025")),
-                            context.intern(doc.str("classification")),
-                            doc.str("course_title_en"),
-                            doc.str("instructor_en"),
-                            context.intern(doc.str("department_en")),
-                            context.intern(doc.str("academic_year_en")),
-                            context.intern(doc.str("category_en")),
-                            context.intern(doc.str("classification_en")),
-                            doc.str("remark_en"),
-                            doc.int("credit") ?: 0,
-                            doc.int("quota") ?: 0,
+                            context.intern(doc.str("department").nullIfBlank()),
+                            context.intern(doc.str("academic_year").nullIfBlank()),
+                            context.intern(doc.str("category").nullIfBlank()),
+                            context.intern(doc.str("categoryPre2025").nullIfBlank()),
+                            context.intern(doc.str("classification").nullIfBlank()),
+                            doc.str("course_title_en").nullIfBlank(),
+                            doc.str("instructor_en").nullIfBlank(),
+                            context.intern(doc.str("department_en").nullIfBlank()),
+                            context.intern(academicYearEn(doc.str("academic_year_en"))),
+                            context.intern(doc.str("category_en").nullIfBlank()),
+                            context.intern(doc.str("classification_en").nullIfBlank()),
+                            doc.str("remark_en").nullIfBlank(),
+                            doc.requireInt("credit"),
+                            doc.requireInt("quota"),
                             doc.int("freshmanQuota"),
-                            doc.str("remark"),
+                            doc.str("remark").nullIfBlank(),
                             createdAt.toSqlTimestamp(),
                             createdAt.toSqlTimestamp(),
                         )
 
                         statuses.add(
                             id,
-                            doc.int("registrationCount") ?: 0,
+                            doc.requireInt("registrationCount"),
                             doc.bool("wasFull"),
                             createdAt.toSqlTimestamp(),
                         )
@@ -95,10 +100,10 @@ class LectureStep(
                             classTimes.add(
                                 classTimeIds.next(),
                                 id,
-                                place.int("day") ?: 0,
+                                place.requireInt("day"),
                                 place.str("place"),
-                                place.int("startMinute") ?: 0,
-                                place.int("endMinute") ?: 0,
+                                place.requireInt("startMinute"),
+                                place.requireInt("endMinute"),
                             )
                             classTimeCount++
                         }
@@ -117,31 +122,36 @@ class LectureStep(
         listOf(
             doc.int("year").toString(),
             doc.int("semester").toString(),
-            doc.str("course_number").orEmpty(),
-            doc.str("lecture_number").orEmpty(),
+            doc.requireStr("course_number"),
+            doc.requireStr("lecture_number"),
         ).joinToString("\u0000")
 
     private fun Document.toSnapshot(places: List<Document>) =
         LectureSnapshot(
             courseTitle = str("course_title"),
-            instructor = context.intern(str("instructor")),
+            instructor = context.intern(str("instructor").nullIfBlank()),
             credit = int("credit"),
-            remark = str("remark"),
-            academicYear = context.intern(str("academic_year")),
-            category = context.intern(str("category")),
-            classification = context.intern(str("classification")),
-            categoryPre2025 = context.intern(str("categoryPre2025")),
+            remark = str("remark").nullIfBlank(),
+            academicYear = context.intern(str("academic_year").nullIfBlank()),
+            category = context.intern(str("category").nullIfBlank()),
+            classification = context.intern(str("classification").nullIfBlank()),
+            categoryPre2025 = context.intern(str("categoryPre2025").nullIfBlank()),
             classTimeKey = context.intern(classTimeKey(places))!!,
         )
 
     companion object {
+        private val ACADEMIC_YEAR_NUMBER = Regex("^[0-9]+$")
+
+        private fun academicYearEn(value: String?): String? =
+            value.nullIfBlank()?.let { if (ACADEMIC_YEAR_NUMBER.matches(it)) "Year $it" else it }
+
         fun classTimeKey(places: List<Document>): String =
             places.joinToString("|") { place ->
                 listOf(
-                    place.int("day") ?: 0,
-                    place.str("place").orEmpty(),
-                    place.int("startMinute") ?: 0,
-                    place.int("endMinute") ?: 0,
+                    place.requireInt("day"),
+                    place.requireStr("place"),
+                    place.requireInt("startMinute"),
+                    place.requireInt("endMinute"),
                 ).joinToString(",")
             }
 

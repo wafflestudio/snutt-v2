@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -21,6 +20,7 @@ data class NotificationCursor(
 class NotificationService(
     private val notificationRepository: NotificationRepository,
     private val userRepository: UserRepository,
+    private val cursorCodec: CursorCodec,
 ) {
     @Transactional
     fun getNotifications(
@@ -32,7 +32,7 @@ class NotificationService(
         if (limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val decoded =
-            CursorCodec.decode<NotificationCursor>(cursor)?.also {
+            cursorCodec.decode<NotificationCursor>(cursor)?.also {
                 if (it.notificationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
             }
         val results =
@@ -47,8 +47,9 @@ class NotificationService(
             user.notificationCheckedAt = Instant.now()
             userRepository.save(user)
         }
-        return results.toCursorPage(
-            limit,
+        return cursorCodec.pageOf(
+            items = results,
+            pageSize = limit,
             cursorOf = { NotificationCursor(checkNotNull(it.createdAt), it.id!!) },
             transform = { it },
         )

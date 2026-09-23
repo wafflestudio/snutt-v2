@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.timetable.repository
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminderSchedule
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface TimetableLectureReminderScheduleRepository : JpaRepository<TimetableLectureReminderSchedule, Long> {
@@ -10,6 +11,8 @@ interface TimetableLectureReminderScheduleRepository : JpaRepository<TimetableLe
 
     fun findByReminderIdIn(reminderIds: Collection<Long>): List<TimetableLectureReminderSchedule>
 
+    @Modifying
+    @Query("DELETE FROM TimetableLectureReminderSchedule s WHERE s.reminderId = :reminderId")
     fun deleteByReminderId(reminderId: Long)
 
     @Query(

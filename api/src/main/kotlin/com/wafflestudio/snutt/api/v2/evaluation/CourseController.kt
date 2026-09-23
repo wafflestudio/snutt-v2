@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v2.evaluation
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -15,7 +16,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -80,7 +80,7 @@ class CourseController(
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Semester?,
         @RequestParam(required = false) cursor: String?,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): CursorPage<CourseResponse> {
         if ((year == null) != (semester == null)) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val yearSemesters = if (year != null && semester != null) listOf(YearAndSemester(year, semester)) else emptyList()
@@ -106,7 +106,7 @@ class CourseController(
     fun getCourse(
         @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): CourseDetailResponse {
         val result = courseSearchService.getCourseWithLectures(courseId, userId)
         return CourseDetailResponse(

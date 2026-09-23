@@ -67,7 +67,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     private lateinit var unverifiedToken: String
     private lateinit var secondVerifiedToken: String
     private var lectureId: Long = 0L
-    private var cursorLectureId: Long = 0L
+    private var courseId: Long = 0L
 
     @BeforeAll
     fun seedDatabase() {
@@ -103,6 +103,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                 ),
             )
         lectureId = lecture.id!!
+        courseId = course.id!!
         val cursorCourse =
             courseRepository.save(
                 Course(
@@ -111,24 +112,22 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     title = "HCI이론 및 실습",
                 ),
             )
-        cursorLectureId =
-            lectureRepository
-                .save(
-                    Lecture(
-                        year = 2026,
-                        semester = Semester.AUTUMN,
-                        courseNumber = "2114.408A",
-                        lectureNumber = "001",
-                        courseTitle = "HCI이론 및 실습",
-                        instructor = "임하진",
-                        department = "언론정보학과(연합전공 정보문화학)",
-                        academicYear = "4학년",
-                        classification = "전필",
-                        credit = 3,
-                        quota = 25,
-                        courseId = cursorCourse.id,
-                    ),
-                ).id!!
+        lectureRepository.save(
+            Lecture(
+                year = 2026,
+                semester = Semester.AUTUMN,
+                courseNumber = "2114.408A",
+                lectureNumber = "001",
+                courseTitle = "HCI이론 및 실습",
+                instructor = "임하진",
+                department = "언론정보학과(연합전공 정보문화학)",
+                academicYear = "4학년",
+                classification = "전필",
+                credit = 3,
+                quota = 25,
+                courseId = cursorCourse.id,
+            ),
+        )
 
         verifiedToken = register("evaluser1", "eval1@snu.ac.kr")
         unverifiedToken = register("evaluser2", "eval2@snu.ac.kr")
@@ -175,7 +174,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
             .builder()
             .baseUrl("http://localhost:$port")
             .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-client-platform", "ios")
+            .defaultHeader("x-os-type", "ios")
             .defaultHeader("x-client-key", "test-ios-key")
             .defaultHeader("Content-Type", "application/json")
             .build()
@@ -254,7 +253,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `공감 추가와 취소`() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
-        val list = get("/v2/lectures/$lectureId/evaluations", secondVerifiedToken)
+        val list = get("/v2/courses/$courseId/evaluations", secondVerifiedToken)
         val evaluationId = body(list)["content"][0]["id"].asInt()
 
         val like = post("/v2/evaluations/$evaluationId/like", """{}""", secondVerifiedToken)
@@ -277,7 +276,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(rating = 3.0), verifiedToken)
         post("/v2/lectures/$lectureId/evaluations", evalBody(rating = 5.0), secondVerifiedToken)
 
-        val list = get("/v2/lectures/$lectureId/evaluations", verifiedToken)
+        val list = get("/v2/courses/$courseId/evaluations", verifiedToken)
         val otherEvaluation = body(list)["content"][0]
         val otherId = otherEvaluation["id"].asInt()
         post("/v2/evaluations/$otherId/like", """{}""", verifiedToken)
@@ -299,7 +298,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `신고는 내 강의평이 아니어야 하고 중복 신고는 거부된다`() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
-        val list = get("/v2/lectures/$lectureId/evaluations", secondVerifiedToken)
+        val list = get("/v2/courses/$courseId/evaluations", secondVerifiedToken)
         val evaluationId = body(list)["content"][0]["id"].asInt()
 
         val selfReport = post("/v2/evaluations/$evaluationId/report", """{"content":"신고"}""", verifiedToken)
@@ -352,13 +351,13 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
             )
         }
 
-        val page1 = get("/v2/lectures/$cursorLectureId/evaluations", verifiedToken)
+        val page1 = get("/v2/courses/${cursorCourse.id}/evaluations", verifiedToken)
         val page1Node = body(page1)
         assertEquals(20, page1Node["content"].size())
         assertEquals(false, page1Node["last"].asBoolean())
         val cursor = page1Node["cursor"].asString()
 
-        val page2 = get("/v2/lectures/$cursorLectureId/evaluations?cursor=$cursor", verifiedToken)
+        val page2 = get("/v2/courses/${cursorCourse.id}/evaluations?cursor=$cursor", verifiedToken)
         val page2Node = body(page2)
         assertEquals(2, page2Node["content"].size())
         assertEquals(true, page2Node["last"].asBoolean())

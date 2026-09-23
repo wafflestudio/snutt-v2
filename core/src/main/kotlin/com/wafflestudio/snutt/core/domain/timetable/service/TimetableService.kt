@@ -112,6 +112,7 @@ class TimetableService(
         timetableId: Long,
         title: String,
     ): Timetable {
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val timetable = getTimetable(userId, timetableId)
         validateTimetableTitle(userId, timetable.year, timetable.semester, title, timetable.id)
         timetable.title = title
@@ -134,6 +135,7 @@ class TimetableService(
         timetableId: Long,
         title: String? = null,
     ): Timetable {
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val timetable = getTimetable(userId, timetableId)
         val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
         val copied =
@@ -160,11 +162,13 @@ class TimetableService(
         timetableId: Long,
         themeId: Long,
     ): TimetableDisplay {
-        val timetable = getTimetable(userId, timetableId)
+        val timetable =
+            timetableRepository.findForUpdateByIdAndUserId(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val theme = timetableThemeService.getTheme(userId, themeId)
         timetable.themeId = theme.id
 
-        val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        val lectures = timetableLectureRepository.findForUpdateByTimetableIdIn(listOf(timetable.id!!))
         lectures.forEachIndexed { index, timetableLecture ->
             timetableLecture.paletteIndex = index % theme.colors.size
             timetableLecture.customColor = null

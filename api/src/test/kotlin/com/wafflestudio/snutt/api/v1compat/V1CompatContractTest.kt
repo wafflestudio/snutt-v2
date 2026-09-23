@@ -1,19 +1,29 @@
 package com.wafflestudio.snutt.api.v1compat
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
+import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestionTarget
+import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmission
+import com.wafflestudio.snutt.core.domain.diary.repository.DiaryDailyClassTypeRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionTargetRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.notification.model.Notification
+import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
-import io.jsonwebtoken.Jwts
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -23,13 +33,16 @@ import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
-import javax.crypto.spec.SecretKeySpec
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -57,6 +70,21 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var timetableRepository: TimetableRepository
+
+    @Autowired
+    lateinit var notificationRepository: NotificationRepository
+
+    @Autowired
+    lateinit var diaryDailyClassTypeRepository: DiaryDailyClassTypeRepository
+
+    @Autowired
+    lateinit var diaryQuestionRepository: DiaryQuestionRepository
+
+    @Autowired
+    lateinit var diaryQuestionTargetRepository: DiaryQuestionTargetRepository
+
+    @Autowired
+    lateinit var diarySubmissionRepository: DiarySubmissionRepository
 
     @LocalServerPort
     var port = 0
@@ -126,19 +154,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("Content-Type", "application/json")
             .build()
 
-    private fun legacyApiKey(
-        platform: String,
-        keyVersion: String,
-    ): String =
-        Jwts
-            .builder()
-            .claim("string", platform)
-            .claim("key_version", keyVersion)
-            .signWith(
-                SecretKeySpec("test-legacy-secret-key-0123456789abcdef".toByteArray(), "HmacSHA256"),
-                Jwts.SIG.HS256,
-            ).compact()
-
     private fun post(
         uri: String,
         body: String,
@@ -148,6 +163,20 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
         legacyToken?.let { spec.headers { h -> h.set("x-access-token", it) } }
         return spec.body(body).retrieve().toEntity(String::class.java)
     }
+
+    private fun send(
+        method: HttpMethod,
+        uri: String,
+        body: String,
+        legacyToken: String,
+    ): ResponseEntity<String> =
+        client()
+            .method(method)
+            .uri(uri)
+            .headers { it.set("x-access-token", legacyToken) }
+            .body(body)
+            .retrieve()
+            .toEntity(String::class.java)
 
     private fun get(
         uri: String,
@@ -175,7 +204,7 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
                 .builder()
                 .baseUrl("http://localhost:$port")
                 .defaultStatusHandler({ true }) { _, _ -> }
-                .defaultHeader("x-client-platform", "ios")
+                .defaultHeader("x-os-type", "ios")
                 .defaultHeader("x-client-key", "test-ios-key")
                 .defaultHeader("Content-Type", "application/json")
                 .build()
@@ -227,7 +256,15 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     }
 
     @Test
-    fun `ev 경로는 ev 에러 봉투를 사용한다`() {
+    fun `v1 파라미터가 잘못되면 레거시 오류 형식으로 400을 응답한다`() {
+        val invalidSemester = get("/v1/bookmarks?year=2026&semester=9", legacyToken)
+        assertEquals(400, invalidSemester.statusCode.value())
+        assertEquals(40001L, body(invalidSemester)["errcode"].asLong())
+        assertTrue(body(invalidSemester).has("message"))
+    }
+
+    @Test
+    fun `ev 경로는 ev 에러 형식으로 응답한다`() {
         val notVerified =
             post(
                 "/v1/ev-service/v1/semester-lectures/$lectureId/evaluations",
@@ -236,5 +273,124 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
             )
         assertEquals(403, notVerified.statusCode.value())
         assertTrue(body(notVerified).has("errcode"))
+    }
+
+    @Test
+    fun `iOS 요청 필드명으로 북마크를 추가하고 삭제한다`() {
+        val added = send(HttpMethod.POST, "/v1/bookmarks/lecture", """{"lecture_id":"$lectureId"}""", legacyToken)
+        assertEquals(200, added.statusCode.value(), "body=${added.body}")
+        assertEquals(lectureId, body(get("/v1/bookmarks?year=2026&semester=3", legacyToken))["lectures"][0]["_id"].asString())
+
+        val removed = send(HttpMethod.DELETE, "/v1/bookmarks/lecture", """{"lecture_id":"$lectureId"}""", legacyToken)
+        assertEquals(200, removed.statusCode.value(), "body=${removed.body}")
+        assertTrue(body(get("/v1/bookmarks?year=2026&semester=3", legacyToken))["lectures"].isEmpty)
+    }
+
+    @Test
+    fun `iOS 요청 필드명으로 비밀번호를 변경한다`() {
+        val register = post("/v1/auth/register_local", """{"id":"v1pwuser","password":"password1","email":"v1pw@snu.ac.kr"}""")
+        val changed =
+            send(
+                HttpMethod.PUT,
+                "/v1/user/password",
+                """{"old_password":"password1","new_password":"password2"}""",
+                body(register)["token"].asString(),
+            )
+        assertEquals(200, changed.statusCode.value(), "body=${changed.body}")
+        assertEquals(200, post("/v1/auth/login_local", """{"id":"v1pwuser","password":"password2"}""").statusCode.value())
+    }
+
+    @Test
+    fun `iOS 요청 필드명으로 직접 만든 강의의 시간을 추가하고 수정한다`() {
+        val timetableId =
+            body(post("/v1/tables", """{"year":2026,"semester":3,"title":"커스텀"}""", legacyToken))[0]["_id"].asString()
+        val added =
+            post(
+                "/v1/tables/$timetableId/lecture",
+                """{"course_title":"자율학습","class_time_json":[{"day":0,"place":"301-101","startMinute":600,"endMinute":660}]}""",
+                legacyToken,
+            )
+        assertEquals(200, added.statusCode.value(), "body=${added.body}")
+        val lecture = body(added)["lecture_list"][0]
+        assertEquals(600, lecture["class_time_json"][0]["startMinute"].asInt())
+
+        val modified =
+            send(
+                HttpMethod.PUT,
+                "/v1/tables/$timetableId/lecture/${lecture["_id"].asString()}",
+                """{"class_time_json":[{"day":1,"place":"301-101","startMinute":720,"endMinute":780}]}""",
+                legacyToken,
+            )
+        assertEquals(200, modified.statusCode.value(), "body=${modified.body}")
+        assertEquals(720, body(modified)["lecture_list"][0]["class_time_json"][0]["startMinute"].asInt())
+    }
+
+    @Test
+    fun `알림 목록은 _id를 문자열로 응답한다`() {
+        notificationRepository.save(Notification(userId = userId.toLong(), title = "공지", message = "내용"))
+
+        val notification = body(get("/v1/notification", legacyToken))[0]
+
+        assertTrue(notification["_id"].isString)
+    }
+
+    @Test
+    fun `강의 일기장 질문의 id는 문자열로 응답한다`() {
+        val classType = diaryDailyClassTypeRepository.save(DiaryDailyClassType(name = "수업듣기"))
+        val question =
+            diaryQuestionRepository.save(
+                DiaryQuestion(question = "어땠나요?", shortQuestion = "어땠나", answerList = listOf("좋음"), shortAnswerList = listOf("좋")),
+            )
+        diaryQuestionTargetRepository.save(DiaryQuestionTarget(questionId = question.id!!, dailyClassTypeId = classType.id!!))
+        post("/v1/tables", """{"year":2026,"semester":3,"title":"대표"}""", legacyToken)
+
+        val questionnaire =
+            post("/v1/diary/questionnaire", """{"lectureId":$lectureId,"dailyClassTypes":["수업듣기"]}""", legacyToken)
+
+        assertEquals(200, questionnaire.statusCode.value(), "body=${questionnaire.body}")
+        assertEquals(question.id!!.toString(), body(questionnaire)["questions"][0]["id"].asString())
+        assertTrue(body(questionnaire)["questions"][0]["id"].isString)
+    }
+
+    @Test
+    fun `강의가 없는 학기의 태그 목록은 404로 응답한다`() {
+        assertTrue(body(get("/v1/tags/2026/3", legacyToken))["updated_at"].isNumber)
+        assertEquals(404, get("/v1/tags/2020/2", legacyToken).statusCode.value())
+    }
+
+    @Test
+    fun `Android 3_12_4 이하에는 강의 일기장 기록 날짜를 오프셋 없이 응답한다`() {
+        val submission =
+            diarySubmissionRepository.save(
+                DiarySubmission(
+                    userId = userId.toLong(),
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    lectureId = lectureId.toLong(),
+                    courseTitle = "고급한국어",
+                    comment = "",
+                ),
+            )
+        val createdAt = checkNotNull(submission.createdAt)
+
+        fun diaryDate(
+            osType: String,
+            appVersion: String,
+        ): String =
+            client()
+                .get()
+                .uri("/v1/diary/my")
+                .headers {
+                    it.set("x-access-token", legacyToken)
+                    it.set("x-os-type", osType)
+                    it.set("x-app-version", appVersion)
+                }.retrieve()
+                .toEntity(String::class.java)
+                .let { body(it)[0]["submissions"][0]["date"].asString() }
+
+        val legacy = diaryDate("android", "3.12.4")
+        assertEquals(createdAt, LocalDateTime.parse(legacy).toInstant(ZoneOffset.UTC))
+        assertEquals(createdAt, Instant.parse(diaryDate("android", "3.13.0")))
+        assertEquals(createdAt, Instant.parse(diaryDate("ios", "3.12.4")))
     }
 }

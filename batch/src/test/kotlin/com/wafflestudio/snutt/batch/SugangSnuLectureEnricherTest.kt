@@ -44,7 +44,6 @@ class SugangSnuLectureEnricherTest {
                 remark = null,
                 quota = 40,
                 freshmanQuota = 10,
-                registrationCount = 10,
                 classPlaceAndTimes = emptyList(),
             )
         val enriched = enricher.enrich(2026, Semester.AUTUMN, row)

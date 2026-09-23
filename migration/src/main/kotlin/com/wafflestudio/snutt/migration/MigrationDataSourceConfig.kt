@@ -4,7 +4,10 @@ import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.MongoDatabase
+import com.zaxxer.hikari.HikariDataSource
+import jakarta.annotation.PreDestroy
 import org.bson.Document
+import org.bson.conversions.Bson
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.jdbc.DataSourceBuilder
 import org.springframework.context.annotation.Bean
@@ -62,6 +65,11 @@ class MongoSource(
 
     fun count(name: String): Long = collection(name).countDocuments()
 
+    fun count(
+        name: String,
+        filter: Bson,
+    ): Long = collection(name).countDocuments(filter)
+
     fun each(
         name: String,
         block: (Document) -> Unit,
@@ -78,21 +86,23 @@ class MongoSource(
 
 @Component
 class EvSource(
-    @param:Value("\${migration.old-ev.url:}") private val url: String,
-    @param:Value("\${migration.old-ev.username:}") private val username: String,
-    @param:Value("\${migration.old-ev.password:}") private val password: String,
+    @Value("\${migration.old-ev.url}") url: String,
+    @Value("\${migration.old-ev.username}") username: String,
+    @Value("\${migration.old-ev.password}") password: String,
 ) {
-    val available: Boolean = url.isNotBlank()
+    private val dataSource: HikariDataSource =
+        DataSourceBuilder
+            .create()
+            .type(HikariDataSource::class.java)
+            .url(MigrationDataSourceConfig.jdbcUrl(url))
+            .username(username)
+            .password(password)
+            .build()
 
-    val jdbc: JdbcTemplate by lazy {
-        check(available) { "구 ev DB 접속 정보(migration.old-ev.url)가 없다" }
-        JdbcTemplate(
-            DataSourceBuilder
-                .create()
-                .url(MigrationDataSourceConfig.jdbcUrl(url))
-                .username(username)
-                .password(password)
-                .build(),
-        )
+    val jdbc = JdbcTemplate(dataSource)
+
+    @PreDestroy
+    fun close() {
+        dataSource.close()
     }
 }

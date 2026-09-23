@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.v2.vacancy
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyLectureDisplay
@@ -10,7 +11,6 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -53,7 +53,7 @@ class VacancyNotificationController(
     @GetMapping("/lectures")
     fun getVacancyNotificationLectures(
         @CurrentUserId userId: Long,
-        @RequestAttribute clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): VacancyNotificationLecturesResponse =
         VacancyNotificationLecturesResponse(
             lectures =

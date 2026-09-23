@@ -45,7 +45,7 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
             .builder()
             .baseUrl("http://localhost:$port")
             .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-client-platform", "ios")
+            .defaultHeader("x-os-type", "ios")
             .defaultHeader("x-client-key", "test-ios-key")
             .defaultHeader("Content-Type", "application/json")
             .build()
@@ -123,7 +123,7 @@ class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, attach.statusCode.value(), "body=${attach.body}")
         assertEquals(listOf("LOCAL", "GOOGLE"), providers(attach))
 
-        val detach = delete("/v2/users/me/social/google", accessToken)
+        val detach = delete("/v2/users/me/social/google", body(attach)["accessToken"].asString())
         assertEquals(200, detach.statusCode.value())
         assertEquals(listOf("LOCAL"), providers(detach))
     }

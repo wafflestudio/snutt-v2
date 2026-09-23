@@ -9,10 +9,6 @@ spring:
 migration:
   mongo:
     database: snutt
-  old-ev:
-    url: ""
-    username: ""
-    password: ""
 
 logging:
   level:

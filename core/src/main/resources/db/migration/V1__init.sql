@@ -13,6 +13,7 @@ CREATE TABLE `user`
     notification_checked_at DATETIME(6)  NOT NULL,
     created_at              DATETIME(6)  NOT NULL,
     updated_at              DATETIME(6)  NOT NULL,
+    token_version           INT          NOT NULL DEFAULT 0,
     active_nickname         VARCHAR(64) COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IF(active, nickname, NULL)) VIRTUAL,
     active_local_id         VARCHAR(64) COLLATE utf8mb4_0900_bin GENERATED ALWAYS AS (IF(active, local_id, NULL)) VIRTUAL,
     active_email            VARCHAR(255) GENERATED ALWAYS AS (IF(active AND is_email_verified, LOWER(email), NULL)) VIRTUAL,
@@ -20,7 +21,9 @@ CREATE TABLE `user`
     CONSTRAINT ck_user_nickname_tag CHECK (nickname_tag REGEXP '^[0-9]{4}$'),
     CONSTRAINT uk_user_active_local_id UNIQUE (active_local_id),
     CONSTRAINT uk_user_active_email UNIQUE (active_email),
-    INDEX idx_user_email (email)
+    INDEX idx_user_email (email),
+    INDEX idx_user_local_id (local_id),
+    INDEX idx_user_nickname (nickname, nickname_tag)
 );
 
 CREATE TABLE refresh_token
@@ -96,8 +99,7 @@ CREATE TABLE notification
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    INDEX idx_notification_user_created (user_id, created_at DESC, id DESC),
-    INDEX idx_notification_created (created_at DESC, id DESC)
+    INDEX idx_notification_user_created (user_id, created_at DESC, id DESC)
 );
 
 CREATE TABLE course
@@ -112,6 +114,7 @@ CREATE TABLE course
     avg_teaching_skill     DOUBLE NULL,
     avg_gains              DOUBLE NULL,
     avg_life_balance       DOUBLE NULL,
+    latest_lecture_id      BIGINT NULL,
     created_at     DATETIME(6)  NOT NULL,
     updated_at     DATETIME(6)  NOT NULL,
     CONSTRAINT uk_course_number_instructor UNIQUE (course_number, instructor),
@@ -160,6 +163,9 @@ CREATE TABLE lecture
     INDEX idx_lecture_credit (credit)
 );
 
+ALTER TABLE course
+    ADD CONSTRAINT fk_course_latest_lecture FOREIGN KEY (latest_lecture_id) REFERENCES lecture (id) ON DELETE SET NULL;
+
 CREATE TABLE lecture_registration_status
 (
     lecture_id         BIGINT PRIMARY KEY,
@@ -178,8 +184,7 @@ CREATE TABLE lecture_class_time
     start_minute SMALLINT     NOT NULL,
     end_minute   SMALLINT     NOT NULL,
     CONSTRAINT fk_lecture_class_time_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE,
-    INDEX idx_lecture_class_time_lecture (lecture_id),
-    INDEX idx_lecture_class_time_slot (day, start_minute, end_minute)
+    INDEX idx_lecture_class_time_lecture (lecture_id)
 );
 
 CREATE TABLE coursebook
@@ -216,7 +221,7 @@ CREATE TABLE evaluation
     INDEX idx_evaluation_author (course_id, year, semester, user_id, is_hidden),
     INDEX idx_evaluation_course_semester (course_id, year, semester, id DESC),
     INDEX idx_evaluation_course_recommended (course_id, is_hidden, like_count, id),
-    INDEX idx_evaluation_course_visible (course_id, is_hidden),
+    INDEX idx_evaluation_course_visible (course_id, is_hidden, year, semester, id),
     INDEX idx_evaluation_user (user_id, id DESC)
 );
 
@@ -334,7 +339,8 @@ CREATE TABLE timetable
     CONSTRAINT uk_timetable_title UNIQUE (user_id, year, semester, title),
     CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES timetable_theme (id) ON DELETE RESTRICT,
-    INDEX idx_timetable_user_semester (user_id, year, semester)
+    INDEX idx_timetable_user_semester (user_id, year, semester),
+    INDEX idx_timetable_semester (year, semester)
 );
 
 CREATE TABLE timetable_lecture
@@ -378,7 +384,7 @@ CREATE TABLE timetable_lecture_reminder_schedule
     CONSTRAINT fk_reminder_schedule_reminder FOREIGN KEY (reminder_id)
         REFERENCES timetable_lecture_reminder (id) ON DELETE CASCADE,
     UNIQUE INDEX idx_reminder_schedule_fire (reminder_id, day, minute),
-    INDEX idx_reminder_schedule_slot (day, minute)
+    INDEX idx_reminder_schedule_slot (day, minute, reminder_id)
 );
 
 CREATE TABLE bookmark_lecture

@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.common.pagination.toCursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
@@ -58,11 +57,6 @@ data class EvaluationDisplay(
     val isReportable: Boolean,
 )
 
-data class LectureEvaluationSummary(
-    val lecture: Lecture,
-    val aggregate: CourseAggregate,
-)
-
 data class CourseEvaluationSummary(
     val course: Course,
     val aggregate: CourseAggregate,
@@ -76,6 +70,7 @@ class EvaluationService(
     private val lectureRepository: LectureRepository,
     private val courseRepository: CourseRepository,
     private val courseAggregateUpdater: CourseAggregateUpdater,
+    private val cursorCodec: CursorCodec,
 ) {
     companion object {
         private const val PAGE_SIZE = 20
@@ -114,17 +109,6 @@ class EvaluationService(
         return evaluation.toDisplay(userId)
     }
 
-    fun getEvaluationsOfLecture(
-        userId: Long,
-        lectureId: Long,
-        cursor: String?,
-        sort: EvaluationSort = EvaluationSort.LATEST,
-    ): CursorPage<EvaluationDisplay> {
-        val lecture = getLecture(lectureId)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        return getEvaluationPage(userId, courseId, cursor, sort, lecture.year, lecture.semester)
-    }
-
     fun getEvaluationsOfCourse(
         userId: Long,
         courseId: Long,
@@ -134,18 +118,7 @@ class EvaluationService(
         semester: Semester? = null,
     ): CursorPage<EvaluationDisplay> {
         courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
-        return getEvaluationPage(userId, courseId, cursor, sort, year, semester)
-    }
-
-    private fun getEvaluationPage(
-        userId: Long,
-        courseId: Long,
-        cursor: String?,
-        sort: EvaluationSort,
-        year: Int?,
-        semester: Semester?,
-    ): CursorPage<EvaluationDisplay> {
-        val totalCount = evaluationRepository.countOthers(courseId, userId, year, semester)
+        val totalCount = evaluationRepository.countVisible(courseId, year, semester)
         val page =
             evaluationRepository.findOthers(
                 courseId = courseId,
@@ -156,7 +129,7 @@ class EvaluationService(
                 pageSize = PAGE_SIZE + 1,
                 sort = sort,
             )
-        return page.toCursorPage(PAGE_SIZE, totalCount, { it.toCursor(sort) }) { it.toDisplays(userId) }
+        return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { it.toCursor(sort) }) { it.toDisplays(userId) }
     }
 
     fun getMyEvaluationsOfCourse(
@@ -175,7 +148,7 @@ class EvaluationService(
     ): CursorPage<EvaluationDisplay> {
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
         val page = evaluationRepository.findMine(userId, decodeEvaluationIdCursor(cursor), PAGE_SIZE + 1)
-        return page.toCursorPage(PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
+        return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
     }
 
     fun getEvaluationsByTag(
@@ -184,7 +157,7 @@ class EvaluationService(
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
         val page = evaluationRepository.findByTag(tag, decodeEvaluationIdCursor(cursor), PAGE_SIZE + 1)
-        return page.toCursorPage(PAGE_SIZE, null, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
+        return cursorCodec.pageOf(page, PAGE_SIZE, null, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
     }
 
     fun getEvaluation(
@@ -293,12 +266,6 @@ class EvaluationService(
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> =
         evaluationRepository.findSummariesByLectureIds(lectureIds)
 
-    fun getEvaluationSummaryOfLecture(lectureId: Long): LectureEvaluationSummary {
-        val lecture = getLecture(lectureId)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        return LectureEvaluationSummary(lecture, evaluationRepository.findCourseAggregate(courseId, lecture.year, lecture.semester))
-    }
-
     fun getEvaluationSummaryOfCourse(courseId: Long): CourseEvaluationSummary {
         val course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return CourseEvaluationSummary(course, evaluationRepository.findCourseAggregate(courseId))
@@ -339,7 +306,7 @@ class EvaluationService(
         cursor: String?,
         sort: EvaluationSort,
     ): EvaluationCursor? =
-        CursorCodec.decode<EvaluationCursor>(cursor)?.also {
+        cursorCodec.decode<EvaluationCursor>(cursor)?.also {
             val validSortKey =
                 when (sort) {
                     EvaluationSort.LATEST -> it.year > 0
@@ -349,7 +316,7 @@ class EvaluationService(
         }
 
     private fun decodeEvaluationIdCursor(cursor: String?): Long? =
-        CursorCodec.decode<EvaluationIdCursor>(cursor)?.let {
+        cursorCodec.decode<EvaluationIdCursor>(cursor)?.let {
             if (it.evaluationId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
             it.evaluationId
         }

@@ -2,10 +2,13 @@ package com.wafflestudio.snutt.v1compat.snutt
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
@@ -18,7 +21,6 @@ import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
@@ -28,7 +30,6 @@ import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -44,7 +45,7 @@ data class LegacyTagListResponse(
     val category: List<String>,
     val sortCriteria: List<String>,
     @param:JsonProperty("updated_at")
-    val updatedAt: Long?,
+    val updatedAt: Long,
     val categoryPre2025: List<String>,
 )
 
@@ -58,9 +59,10 @@ class V1CompatTagController(
         @V1CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Semester,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTagListResponse {
         val vocabulary = lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
+        val updatedAt = vocabulary.updatedAt ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
         return LegacyTagListResponse(
             classification = vocabulary.classification,
             department = vocabulary.department,
@@ -79,7 +81,7 @@ class V1CompatTagController(
                 LectureSort.entries
                     .filter { it != LectureSort.DEFAULT }
                     .map { clientInfo.language.select(it.fullName, it.fullNameEn) },
-            updatedAt = vocabulary.updatedAt?.toEpochMilli(),
+            updatedAt = updatedAt.toEpochMilli(),
             categoryPre2025 =
                 vocabulary.categoryPre2025.map {
                     LectureCategoryPre2025.localize(it, clientInfo.language)
@@ -192,7 +194,7 @@ class V1CompatDeviceController(
     fun addRegistrationId(
         @V1CurrentUser user: User,
         @PathVariable registrationId: String,
-        @RequestAttribute(V1ApiKeyInterceptor.CLIENT_INFO_ATTRIBUTE) clientInfo: ClientInfo,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyOkResponse {
         deviceService.addRegistrationId(user.id!!, registrationId, clientInfo)
         return LegacyOkResponse()
