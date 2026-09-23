@@ -180,20 +180,30 @@ class TimetableStep(
             original: (LectureSnapshot) -> T?,
         ): T? = if (snapshot == null) value else value.takeIf { it != original(snapshot) }
 
+        fun textOverride(
+            value: String?,
+            original: (LectureSnapshot) -> String?,
+        ): String? =
+            if (snapshot == null) {
+                LectureStep.optionalText(value)
+            } else {
+                value.takeIf { LectureStep.optionalText(it) != original(snapshot) }
+            }
+
         val classTimeChanged = snapshot == null || LectureStep.classTimeKey(places) != snapshot.classTimeKey
         val overrides =
             buildMap<String, Any?> {
                 override(str("course_title")) { it.courseTitle }?.let { put("courseTitle", it) }
-                override(str("instructor")) { it.instructor }?.let { put("instructor", it) }
+                textOverride(str("instructor")) { it.instructor }?.let { put("instructor", it) }
                 override(int("credit")) { it.credit }?.let { put("credit", it) }
-                override(str("remark")) { it.remark }?.let { put("remark", it) }
+                textOverride(str("remark")) { it.remark }?.let { put("remark", it) }
                 if (classTimeChanged) {
                     put("classPlaceAndTimes", places.map { it.toClassPlaceAndTime() })
                 }
-                override(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
-                override(str("category")) { it.category }?.let { put("category", it) }
-                override(str("classification")) { it.classification }?.let { put("classification", it) }
-                override(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
+                textOverride(str("academic_year")) { it.academicYear }?.let { put("academicYear", it) }
+                textOverride(str("category")) { it.category }?.let { put("category", it) }
+                textOverride(str("classification")) { it.classification }?.let { put("classification", it) }
+                textOverride(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
             }
         val color =
             doc("color")?.takeIf { it.isNotEmpty() }?.let {
