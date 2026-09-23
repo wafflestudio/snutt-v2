@@ -61,6 +61,13 @@ class CodeChallengeStore(
         return stored.payload
     }
 
+    fun extend(
+        key: Any,
+        ttl: Duration,
+    ) {
+        redisTemplate.expire(codePrefix + key, ttl)
+    }
+
     fun clear(key: Any) {
         redisTemplate.delete(codePrefix + key)
         redisTemplate.delete(attemptPrefix + key)

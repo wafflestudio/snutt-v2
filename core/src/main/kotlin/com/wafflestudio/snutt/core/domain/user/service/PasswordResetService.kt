@@ -101,6 +101,7 @@ class PasswordResetService(
     ) {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         store.verify(user.id!!, code)
+        store.extend(user.id!!, Duration.ofHours(1))
     }
 
     @Transactional
