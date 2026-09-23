@@ -35,21 +35,29 @@ class SugangSnuSyncJob(
             return
         }
         val condition = sugangSnuLectureApi.getCoursebookCondition()
+        val sugangSnu = Coursebook(condition.latestYear, condition.latestSemester)
         val latest = coursebookService.findLatestCoursebook()
+        if (latest == null) {
+            log.info("첫 수강편람 생성: {} {}", sugangSnu.year, sugangSnu.semester)
+            syncCoursebook(sugangSnu)
+            coursebookRepository.save(sugangSnu)
+            return
+        }
+        val comparison = compareValuesBy(latest, sugangSnu, Coursebook::year, Coursebook::semester)
         when {
-            latest == null -> {
-                log.info("첫 수강편람 생성: {} {}", condition.latestYear, condition.latestSemester)
-                syncCoursebook(coursebookRepository.save(Coursebook(condition.latestYear, condition.latestSemester)))
-            }
-            condition.latestYear == latest.year && condition.latestSemester == latest.semester -> {
+            comparison > 0 -> throw IllegalStateException(
+                "최신 수강편람(${latest.year} ${latest.semester})이 수강신청 사이트(${sugangSnu.year} ${sugangSnu.semester})보다 최신이다",
+            )
+            comparison == 0 -> {
                 syncCoursebook(latest)
                 coursebookRepository.touchUpdatedAt(latest.id!!)
             }
             else -> {
                 val next = nextCoursebook(latest)
                 log.info("신규 수강편람 감지: {} {}", next.year, next.semester)
+                syncCoursebook(next)
+                coursebookRepository.save(next)
                 vacancyNotificationRepository.deleteAll()
-                syncCoursebook(coursebookRepository.save(next))
                 pushService.sendGlobalPushAndNotification(
                     PushMessage(title = "신규 수강편람", body = "${next.year}년도 ${next.semester.fullName} 수강편람이 추가되었습니다."),
                     NotificationType.COURSEBOOK,
