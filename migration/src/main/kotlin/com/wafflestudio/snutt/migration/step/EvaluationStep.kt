@@ -25,10 +25,6 @@ class EvaluationStep(
     )
 
     override fun run() {
-        if (!ev.available) {
-            log.info("구 ev DB가 없어 강의평 이관을 건너뛴다")
-            return
-        }
         val anchors = loadAnchors()
         val migrated = migrateEvaluations(anchors)
         migrateLikes(migrated)

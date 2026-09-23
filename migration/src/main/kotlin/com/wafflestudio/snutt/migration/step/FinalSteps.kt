@@ -135,14 +135,12 @@ class ValidateStep(
             count("timetable"),
             tolerated = context.resolutions[MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING] ?: 0L,
         )
-        if (ev.available) {
-            compare(
-                failures,
-                "evaluation",
-                ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java)!!,
-                count("evaluation"),
-            )
-        }
+        compare(
+            failures,
+            "evaluation",
+            ev.jdbc.queryForObject("SELECT COUNT(*) FROM lecture_evaluation", Long::class.java)!!,
+            count("evaluation"),
+        )
 
         compare(
             failures,

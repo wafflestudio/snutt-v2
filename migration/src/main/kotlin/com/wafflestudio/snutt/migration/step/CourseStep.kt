@@ -35,10 +35,6 @@ class CourseStep(
     }
 
     private fun migrateEvLectures(): Int {
-        if (!ev.available) {
-            log.info("구 ev DB가 없어 course를 구 SNUTT 강의만으로 만든다")
-            return 0
-        }
         var count = 0
         writer("course", COLUMNS).use { out ->
             ev.jdbc.query(

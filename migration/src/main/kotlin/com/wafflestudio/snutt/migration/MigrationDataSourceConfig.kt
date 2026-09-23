@@ -80,30 +80,23 @@ class MongoSource(
 
 @Component
 class EvSource(
-    @param:Value("\${migration.old-ev.url:}") private val url: String,
-    @param:Value("\${migration.old-ev.username:}") private val username: String,
-    @param:Value("\${migration.old-ev.password:}") private val password: String,
+    @Value("\${migration.old-ev.url}") url: String,
+    @Value("\${migration.old-ev.username}") username: String,
+    @Value("\${migration.old-ev.password}") password: String,
 ) {
-    val available: Boolean = url.isNotBlank()
+    private val dataSource: HikariDataSource =
+        DataSourceBuilder
+            .create()
+            .type(HikariDataSource::class.java)
+            .url(MigrationDataSourceConfig.jdbcUrl(url))
+            .username(username)
+            .password(password)
+            .build()
 
-    private var dataSource: HikariDataSource? = null
-
-    val jdbc: JdbcTemplate by lazy {
-        check(available) { "구 ev DB 접속 정보(migration.old-ev.url)가 없다" }
-        val source =
-            DataSourceBuilder
-                .create()
-                .type(HikariDataSource::class.java)
-                .url(MigrationDataSourceConfig.jdbcUrl(url))
-                .username(username)
-                .password(password)
-                .build()
-        dataSource = source
-        JdbcTemplate(source)
-    }
+    val jdbc = JdbcTemplate(dataSource)
 
     @PreDestroy
     fun close() {
-        dataSource?.close()
+        dataSource.close()
     }
 }
