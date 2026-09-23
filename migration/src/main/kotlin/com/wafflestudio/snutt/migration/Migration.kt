@@ -283,6 +283,8 @@ fun Document.instant(key: String): Instant? =
         else -> null
     }
 
+fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
+
 fun Instant?.orNow(): Instant = this ?: Instant.now()
 
 fun Instant.toSqlTimestamp(): Timestamp = Timestamp.from(this)

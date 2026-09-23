@@ -18,6 +18,7 @@ import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
+import com.wafflestudio.snutt.migration.nullIfBlank
 import com.wafflestudio.snutt.migration.oid
 import com.wafflestudio.snutt.migration.orNow
 import com.wafflestudio.snutt.migration.requireInt
@@ -218,9 +219,9 @@ class TimetableStep(
             original: (LectureSnapshot) -> String?,
         ): String? =
             if (snapshot == null) {
-                LectureStep.optionalText(value)
+                value.nullIfBlank()
             } else {
-                value.takeIf { LectureStep.optionalText(it) != original(snapshot) }
+                value.takeIf { it.nullIfBlank() != original(snapshot) }
             }
 
         val classTimeChanged = snapshot == null || LectureStep.classTimeKey(places) != snapshot.classTimeKey

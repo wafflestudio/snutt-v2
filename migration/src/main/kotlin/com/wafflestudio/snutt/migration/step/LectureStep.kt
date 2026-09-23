@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
+import com.wafflestudio.snutt.migration.nullIfBlank
 import com.wafflestudio.snutt.migration.orNow
 import com.wafflestudio.snutt.migration.requireInt
 import com.wafflestudio.snutt.migration.requireStr
@@ -53,7 +54,7 @@ class LectureStep(
                         context.lectureIds[externalId] = id
                         context.lectureSemesters += doc.requireInt("year") to doc.requireInt("semester")
 
-                        val instructor = context.intern(optionalText(doc.str("instructor")))
+                        val instructor = context.intern(doc.str("instructor").nullIfBlank())
                         val courseId =
                             context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
                         val createdAt = doc.instant("created_at").orNow()
@@ -68,22 +69,22 @@ class LectureStep(
                             doc.requireStr("lecture_number"),
                             doc.requireStr("course_title"),
                             instructor,
-                            context.intern(optionalText(doc.str("department"))),
-                            context.intern(optionalText(doc.str("academic_year"))),
-                            context.intern(optionalText(doc.str("category"))),
-                            context.intern(optionalText(doc.str("categoryPre2025"))),
-                            context.intern(optionalText(doc.str("classification"))),
-                            optionalText(doc.str("course_title_en")),
-                            optionalText(doc.str("instructor_en")),
-                            context.intern(optionalText(doc.str("department_en"))),
+                            context.intern(doc.str("department").nullIfBlank()),
+                            context.intern(doc.str("academic_year").nullIfBlank()),
+                            context.intern(doc.str("category").nullIfBlank()),
+                            context.intern(doc.str("categoryPre2025").nullIfBlank()),
+                            context.intern(doc.str("classification").nullIfBlank()),
+                            doc.str("course_title_en").nullIfBlank(),
+                            doc.str("instructor_en").nullIfBlank(),
+                            context.intern(doc.str("department_en").nullIfBlank()),
                             context.intern(academicYearEn(doc.str("academic_year_en"))),
-                            context.intern(optionalText(doc.str("category_en"))),
-                            context.intern(optionalText(doc.str("classification_en"))),
-                            optionalText(doc.str("remark_en")),
+                            context.intern(doc.str("category_en").nullIfBlank()),
+                            context.intern(doc.str("classification_en").nullIfBlank()),
+                            doc.str("remark_en").nullIfBlank(),
                             doc.requireInt("credit"),
                             doc.requireInt("quota"),
                             doc.int("freshmanQuota"),
-                            optionalText(doc.str("remark")),
+                            doc.str("remark").nullIfBlank(),
                             createdAt.toSqlTimestamp(),
                             createdAt.toSqlTimestamp(),
                         )
@@ -128,23 +129,21 @@ class LectureStep(
     private fun Document.toSnapshot(places: List<Document>) =
         LectureSnapshot(
             courseTitle = str("course_title"),
-            instructor = context.intern(optionalText(str("instructor"))),
+            instructor = context.intern(str("instructor").nullIfBlank()),
             credit = int("credit"),
-            remark = optionalText(str("remark")),
-            academicYear = context.intern(optionalText(str("academic_year"))),
-            category = context.intern(optionalText(str("category"))),
-            classification = context.intern(optionalText(str("classification"))),
-            categoryPre2025 = context.intern(optionalText(str("categoryPre2025"))),
+            remark = str("remark").nullIfBlank(),
+            academicYear = context.intern(str("academic_year").nullIfBlank()),
+            category = context.intern(str("category").nullIfBlank()),
+            classification = context.intern(str("classification").nullIfBlank()),
+            categoryPre2025 = context.intern(str("categoryPre2025").nullIfBlank()),
             classTimeKey = context.intern(classTimeKey(places))!!,
         )
 
     companion object {
         private val ACADEMIC_YEAR_NUMBER = Regex("^[0-9]+$")
 
-        fun optionalText(value: String?): String? = value?.takeIf { it.isNotBlank() }
-
         private fun academicYearEn(value: String?): String? =
-            optionalText(value)?.let { if (ACADEMIC_YEAR_NUMBER.matches(it)) "Year $it" else it }
+            value.nullIfBlank()?.let { if (ACADEMIC_YEAR_NUMBER.matches(it)) "Year $it" else it }
 
         fun classTimeKey(places: List<Document>): String =
             places.joinToString("|") { place ->

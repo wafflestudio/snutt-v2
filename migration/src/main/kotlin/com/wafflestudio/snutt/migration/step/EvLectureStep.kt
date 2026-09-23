@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationSupport
+import com.wafflestudio.snutt.migration.nullIfBlank
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 
@@ -47,13 +48,13 @@ class EvLectureStep(
                     courseNumber,
                     lectureNumber.toString().padStart(3, '0'),
                     rs.getString("title"),
-                    LectureStep.optionalText(rs.getString("instructor").trim()),
-                    LectureStep.optionalText(rs.getString("department")),
-                    LectureStep.optionalText(rs.getString("academic_year")),
-                    LectureStep.optionalText(rs.getString("category")),
-                    LectureStep.optionalText(rs.getString("classification")),
+                    rs.getString("instructor").trim().nullIfBlank(),
+                    rs.getString("department").nullIfBlank(),
+                    rs.getString("academic_year").nullIfBlank(),
+                    rs.getString("category").nullIfBlank(),
+                    rs.getString("classification").nullIfBlank(),
                     rs.getInt("credit"),
-                    LectureStep.optionalText(rs.getString("extra_info")),
+                    rs.getString("extra_info").nullIfBlank(),
                     rs.getTimestamp("created_at"),
                     rs.getTimestamp("updated_at"),
                 )
