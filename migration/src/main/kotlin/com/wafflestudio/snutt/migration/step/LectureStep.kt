@@ -51,6 +51,7 @@ class LectureStep(
                         val id = ids.next()
                         offerings[offeringKey] = id
                         context.lectureIds[externalId] = id
+                        context.lectureSemesters += doc.requireInt("year") to doc.requireInt("semester")
 
                         val instructor = context.intern(optionalText(doc.str("instructor")))
                         val courseId =

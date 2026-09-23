@@ -134,6 +134,13 @@ class ValidateStep(
         compare(failures, "user", mongo.count("users"), count("user"))
         compare(
             failures,
+            "lecture",
+            mongo.count("lectures") + evOnlyLectures(),
+            count("lecture"),
+            tolerated = resolved(ResolutionReasons.LECTURE_DUPLICATE, ResolutionReasons.EV_LECTURE_DUPLICATE),
+        )
+        compare(
+            failures,
             "user_social_auth",
             socialCredentials(),
             count("user_social_auth"),
@@ -287,6 +294,14 @@ class ValidateStep(
     private fun evCount(table: String): Long = ev.jdbc.queryForObject("SELECT COUNT(*) FROM `$table`", Long::class.java)!!
 
     private fun resolved(vararg reasons: String): Long = reasons.sumOf { context.resolutions[it] ?: 0L }
+
+    private fun evOnlyLectures(): Long {
+        var total = 0L
+        ev.jdbc.query("SELECT year, semester, COUNT(*) AS cnt FROM semester_lecture GROUP BY year, semester") { rs ->
+            if (rs.getInt("year") to rs.getInt("semester") !in context.lectureSemesters) total += rs.getLong("cnt")
+        }
+        return total
+    }
 
     private fun socialCredentials(): Long {
         var total = 0L
