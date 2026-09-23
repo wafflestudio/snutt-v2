@@ -162,11 +162,13 @@ class TimetableService(
         timetableId: Long,
         themeId: Long,
     ): TimetableDisplay {
-        val timetable = getTimetable(userId, timetableId)
+        val timetable =
+            timetableRepository.findForUpdateByIdAndUserId(timetableId, userId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val theme = timetableThemeService.getTheme(userId, themeId)
         timetable.themeId = theme.id
 
-        val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        val lectures = timetableLectureRepository.findForUpdateByTimetableIdIn(listOf(timetable.id!!))
         lectures.forEachIndexed { index, timetableLecture ->
             timetableLecture.paletteIndex = index % theme.colors.size
             timetableLecture.customColor = null

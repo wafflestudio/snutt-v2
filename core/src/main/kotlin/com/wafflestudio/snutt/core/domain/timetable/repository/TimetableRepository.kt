@@ -63,7 +63,8 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
 
     fun findByUserIdAndIsPrimaryTrue(userId: Long): List<Timetable>
 
-    fun findByUserIdAndThemeId(
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findForUpdateByUserIdAndThemeId(
         userId: Long,
         themeId: Long,
     ): List<Timetable>

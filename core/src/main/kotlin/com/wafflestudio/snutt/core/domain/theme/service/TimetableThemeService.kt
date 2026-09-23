@@ -80,8 +80,8 @@ class TimetableThemeService(
         }
         colors?.let { palette ->
             validatePalette(palette)
-            val timetableIds = timetableRepository.findByUserIdAndThemeId(userId, themeId).map { it.id!! }
-            timetableLectureRepository.findByTimetableIdIn(timetableIds).forEach { lecture ->
+            val timetableIds = timetableRepository.findForUpdateByUserIdAndThemeId(userId, themeId).map { it.id!! }
+            timetableLectureRepository.findForUpdateByTimetableIdIn(timetableIds).forEach { lecture ->
                 if (lecture.paletteIndex >= palette.size) lecture.paletteIndex %= palette.size
             }
             theme.colors = palette.toList()
@@ -114,10 +114,10 @@ class TimetableThemeService(
                 userPreferenceRepository.saveAndFlush(preference)
             }
         }
-        val timetables = timetableRepository.findByUserIdAndThemeId(userId, themeId)
+        val timetables = timetableRepository.findForUpdateByUserIdAndThemeId(userId, themeId)
         timetables.forEach { it.themeId = fallbackId }
         val paletteSize = checkNotNull(fallback.colors).size
-        timetableLectureRepository.findByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
+        timetableLectureRepository.findForUpdateByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
             if (lecture.paletteIndex >= paletteSize) lecture.paletteIndex %= paletteSize
         }
         timetableRepository.flush()
