@@ -37,7 +37,7 @@ class EmailVerificationService(
         if (userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) != null) {
             throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
-        val code = VerificationCode.generate()
+        val code = VerificationCode.generateEmailVerificationCode()
         store.store(userId, code, payload = trimmed)
         userMailService.sendVerificationCode(trimmed, code)
     }

@@ -82,7 +82,7 @@ class PasswordResetService(
     fun requestReset(email: String) {
         val trimmed = email.trim()
         val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) ?: return
-        val code = VerificationCode.generate()
+        val code = VerificationCode.generatePasswordResetCode()
         store.store(user.id!!, code)
         userMailService.sendPasswordResetCode(trimmed, code)
     }
