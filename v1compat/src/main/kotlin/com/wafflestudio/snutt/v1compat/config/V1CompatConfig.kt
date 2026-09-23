@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.v1compat.config
 
-import com.wafflestudio.snutt.core.common.client.CurrentClientArgumentResolver
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1ApiKeyInterceptor
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
@@ -30,7 +29,6 @@ class V1CompatConfig(
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
         resolvers.add(currentUserArgumentResolver)
-        resolvers.add(CurrentClientArgumentResolver)
     }
 
     companion object {

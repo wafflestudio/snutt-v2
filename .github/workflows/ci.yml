@@ -43,7 +43,6 @@ jobs:
         run: ./gradlew test
 
   deploy:
-    name: ${{ matrix.module }} (${{ github.ref_name == 'prod' && 'prod' || 'dev' }})
     runs-on: ubuntu-24.04-arm
     needs: [ lint, test ]
     if: github.event_name != 'pull_request'
