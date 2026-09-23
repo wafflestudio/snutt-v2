@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.timetable.model
 import com.fasterxml.jackson.annotation.JsonValue
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
@@ -44,6 +45,22 @@ data class LectureOverrides(
             category = category.takeUnless { LectureOverrideField.CATEGORY in fields },
             classification = classification.takeUnless { LectureOverrideField.CLASSIFICATION in fields },
             categoryPre2025 = categoryPre2025.takeUnless { LectureOverrideField.CATEGORY_PRE2025 in fields },
+        )
+
+    fun withoutValuesOf(
+        lecture: Lecture,
+        classTimes: List<ClassPlaceAndTime>,
+    ): LectureOverrides =
+        copy(
+            courseTitle = courseTitle.takeUnless { it == lecture.courseTitle || it == lecture.courseTitleEn },
+            instructor = instructor.takeUnless { it == lecture.instructor || it == lecture.instructorEn },
+            credit = credit.takeUnless { it == lecture.credit },
+            remark = remark.takeUnless { it == lecture.remark || it == lecture.remarkEn },
+            classPlaceAndTimes = classPlaceAndTimes.takeUnless { it == classTimes },
+            academicYear = academicYear.takeUnless { it == lecture.academicYear || it == lecture.academicYearEn },
+            category = category.takeUnless { it == lecture.category || it == lecture.categoryEn },
+            classification = classification.takeUnless { it == lecture.classification || it == lecture.classificationEn },
+            categoryPre2025 = categoryPre2025.takeUnless { it == lecture.categoryPre2025 },
         )
 }
 

@@ -133,13 +133,18 @@ class TimetableLectureService(
         if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
         if (request.courseTitle?.isBlank() == true) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
         val display = timetableService.displayOf(timetable)
+        val lecture =
+            timetableLecture.lectureId?.let {
+                lectureRepository.findByIdOrNull(it) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+            }
+        val lectureTimes = lecture?.let { lectureService.classTimesByLectureId(listOf(it.id!!))[it.id!!] }.orEmpty()
 
         val timesReset = LectureOverrideField.CLASS_PLACE_AND_TIMES in request.resetFields
         val timesChanged = request.classPlaceAndTimes != null || timesReset
         val newTimes =
             request.classPlaceAndTimes
                 ?: if (timesReset) {
-                    timetableLecture.lectureId?.let { lectureService.classTimesByLectureId(listOf(it))[it] }.orEmpty()
+                    lectureTimes
                 } else {
                     display.lectures.first { it.id == timetableLecture.id }.classPlaceAndTimes
                 }
@@ -155,17 +160,19 @@ class TimetableLectureService(
 
         timetableLecture.updateOverrides { previous ->
             val o = previous.without(request.resetFields)
-            o.copy(
-                courseTitle = request.courseTitle ?: o.courseTitle,
-                instructor = request.instructor ?: o.instructor,
-                credit = request.credit ?: o.credit,
-                remark = request.remark ?: o.remark,
-                classPlaceAndTimes = request.classPlaceAndTimes ?: o.classPlaceAndTimes,
-                academicYear = request.academicYear ?: o.academicYear,
-                category = request.category ?: o.category,
-                classification = request.classification ?: o.classification,
-                categoryPre2025 = request.categoryPre2025 ?: o.categoryPre2025,
-            )
+            val merged =
+                o.copy(
+                    courseTitle = request.courseTitle ?: o.courseTitle,
+                    instructor = request.instructor ?: o.instructor,
+                    credit = request.credit ?: o.credit,
+                    remark = request.remark ?: o.remark,
+                    classPlaceAndTimes = request.classPlaceAndTimes ?: o.classPlaceAndTimes,
+                    academicYear = request.academicYear ?: o.academicYear,
+                    category = request.category ?: o.category,
+                    classification = request.classification ?: o.classification,
+                    categoryPre2025 = request.categoryPre2025 ?: o.categoryPre2025,
+                )
+            lecture?.let { merged.withoutValuesOf(it, lectureTimes) } ?: merged
         }
 
         if (timetableLecture.lectureId == null && timetableLecture.overrides?.courseTitle.isNullOrBlank()) {
