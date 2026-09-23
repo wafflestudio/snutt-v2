@@ -6,12 +6,17 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 interface CoursebookRepository : JpaRepository<Coursebook, Long> {
     @Modifying
     @Transactional
-    @Query("UPDATE Coursebook c SET c.updatedAt = CURRENT_TIMESTAMP WHERE c.id = :id")
-    fun touchUpdatedAt(id: Long)
+    @Query("UPDATE Coursebook c SET c.updatedAt = :updatedAt WHERE c.year = :year AND c.semester = :semester")
+    fun touchUpdatedAt(
+        year: Int,
+        semester: Semester,
+        updatedAt: Instant,
+    )
 
     fun findFirstByOrderByYearDescSemesterDesc(): Coursebook?
 
