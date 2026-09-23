@@ -9,9 +9,11 @@ import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookReposi
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestionTarget
+import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmission
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryDailyClassTypeRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionRepository
 import com.wafflestudio.snutt.core.domain.diary.repository.DiaryQuestionTargetRepository
+import com.wafflestudio.snutt.core.domain.diary.repository.DiarySubmissionRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -38,6 +40,9 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import javax.crypto.spec.SecretKeySpec
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -78,6 +83,9 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
 
     @Autowired
     lateinit var diaryQuestionTargetRepository: DiaryQuestionTargetRepository
+
+    @Autowired
+    lateinit var diarySubmissionRepository: DiarySubmissionRepository
 
     @LocalServerPort
     var port = 0
@@ -362,5 +370,41 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
     fun `강의가 없는 학기의 태그 목록은 404로 응답한다`() {
         assertTrue(body(get("/v1/tags/2026/3", legacyToken))["updated_at"].isNumber)
         assertEquals(404, get("/v1/tags/2020/2", legacyToken).statusCode.value())
+    }
+
+    @Test
+    fun `Android 3_12_4 이하에는 강의 일기장 기록 날짜를 오프셋 없이 응답한다`() {
+        val submission =
+            diarySubmissionRepository.save(
+                DiarySubmission(
+                    userId = userId.toLong(),
+                    year = 2026,
+                    semester = Semester.AUTUMN,
+                    lectureId = lectureId.toLong(),
+                    courseTitle = "고급한국어",
+                    comment = "",
+                ),
+            )
+        val createdAt = checkNotNull(submission.createdAt)
+
+        fun diaryDate(
+            osType: String,
+            appVersion: String,
+        ): String =
+            client()
+                .get()
+                .uri("/v1/diary/my")
+                .headers {
+                    it.set("x-access-token", legacyToken)
+                    it.set("x-os-type", osType)
+                    it.set("x-app-version", appVersion)
+                }.retrieve()
+                .toEntity(String::class.java)
+                .let { body(it)[0]["submissions"][0]["date"].asString() }
+
+        val legacy = diaryDate("android", "3.12.4")
+        assertEquals(createdAt, LocalDateTime.parse(legacy).toInstant(ZoneOffset.UTC))
+        assertEquals(createdAt, Instant.parse(diaryDate("android", "3.13.0")))
+        assertEquals(createdAt, Instant.parse(diaryDate("ios", "3.12.4")))
     }
 }

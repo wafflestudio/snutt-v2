@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.v1compat.snutt
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.OsType
+import com.wafflestudio.snutt.core.common.client.compareAppVersions
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -42,7 +44,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 enum class LegacyThemeStatus { BASIC, PRIVATE, PUBLISHED, DOWNLOADED }
 
@@ -73,6 +76,7 @@ data class LegacyThemePublishInfoDto(
 )
 
 private const val LEGACY_THEME_PAGE_SIZE = 10
+private const val ANDROID_LEGACY_DIARY_DATE_MAX_VERSION = "3.12.4"
 
 private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
@@ -379,7 +383,7 @@ data class LegacyDiarySemesterSubmissionsDto(
 data class LegacyDiarySubmissionDto(
     val id: String,
     val lectureId: String,
-    val date: Instant,
+    val date: String,
     val courseTitle: String,
     val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
     val comment: String,
@@ -452,7 +456,18 @@ class V1CompatDiaryController(
     @GetMapping("/my")
     fun getMySubmissions(
         @V1CurrentUser user: User,
+        @CurrentClient clientInfo: ClientInfo,
     ): List<LegacyDiarySemesterSubmissionsDto> {
+        val appVersion = clientInfo.appVersion
+        val dateFormatter =
+            if (OsType.from(clientInfo.osType) == OsType.ANDROID &&
+                appVersion != null &&
+                compareAppVersions(appVersion, ANDROID_LEGACY_DIARY_DATE_MAX_VERSION) <= 0
+            ) {
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME.withZone(ZoneOffset.UTC)
+            } else {
+                DateTimeFormatter.ISO_INSTANT
+            }
         val submissions = diaryService.getMySubmissions(user.id!!)
         val replies = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
         return submissions
@@ -466,7 +481,7 @@ class V1CompatDiaryController(
                             LegacyDiarySubmissionDto(
                                 id = submission.id!!.toString(),
                                 lectureId = submission.lectureId?.toString().orEmpty(),
-                                date = checkNotNull(submission.createdAt),
+                                date = dateFormatter.format(checkNotNull(submission.createdAt)),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
                                     (replies[submission.id] ?: emptyList()).map {
