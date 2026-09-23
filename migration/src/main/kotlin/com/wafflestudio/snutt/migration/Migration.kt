@@ -46,8 +46,11 @@ class MigrationContext {
 
     private val stringPool = HashMap<String, String>(64_000)
 
-    fun resolved(reason: String) {
-        resolutions[reason] = (resolutions[reason] ?: 0L) + 1L
+    fun resolved(
+        reason: String,
+        count: Int = 1,
+    ) {
+        resolutions.merge(reason, count.toLong(), Long::plus)
     }
 
     fun intern(value: String?): String? {

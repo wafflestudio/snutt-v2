@@ -7,7 +7,6 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
-import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MigrationSupport.ResolutionReasons
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -91,7 +90,7 @@ class LegacyTokenStep(
             owners.forEach { (token, externalIds) ->
                 if (externalIds.size > 1) {
                     ambiguous++
-                    repeat(externalIds.size) { context.resolved(MigrationSupport.ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS) }
+                    context.resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS, externalIds.size)
                     return@forEach
                 }
                 val now = Timestamp.from(Instant.now())

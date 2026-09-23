@@ -58,9 +58,7 @@ class TimetableStep(
                     if (userId == null) {
                         skipped++
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
-                        repeat(
-                            doc.docs("lecture_list").size,
-                        ) { context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING) }
+                        context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING, doc.docs("lecture_list").size)
                         return@each
                     }
                     val id = timetableIds.next()

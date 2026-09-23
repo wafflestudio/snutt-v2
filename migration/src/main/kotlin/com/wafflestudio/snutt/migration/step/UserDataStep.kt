@@ -60,17 +60,13 @@ class UserDataStep(
                 val lectureRefs = doc.docs("lectures").map { it.id() }.distinct()
                 val userId = context.userIds[doc.oid("user_id")]
                 if (userId == null) {
-                    repeat(lectureRefs.size) { context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_USER_MISSING) }
+                    context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_USER_MISSING, lectureRefs.size)
                     return@each
                 }
                 val lectureIds = lectureRefs.mapNotNull(context.lectureIds::get)
-                repeat(lectureRefs.size - lectureIds.size) {
-                    context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING)
-                }
+                context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING, lectureRefs.size - lectureIds.size)
                 val distinctLectureIds = lectureIds.distinct()
-                repeat(lectureIds.size - distinctLectureIds.size) {
-                    context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED)
-                }
+                context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED, lectureIds.size - distinctLectureIds.size)
                 val now = Instant.now().toSqlTimestamp()
                 distinctLectureIds.forEach { lectureId ->
                     out.add(ids.next(), userId, doc.requireInt("year"), doc.requireInt("semester"), lectureId, now, now)
@@ -182,7 +178,7 @@ class UserDataStep(
                 val userId = context.userIds[doc.oid("userId")]
                 val preferences = doc.docs("pushPreferences")
                 if (userId == null) {
-                    repeat(preferences.size) { context.resolved(MigrationSupport.ResolutionReasons.PUSH_PREFERENCE_USER_MISSING) }
+                    context.resolved(MigrationSupport.ResolutionReasons.PUSH_PREFERENCE_USER_MISSING, preferences.size)
                     return@each
                 }
                 val now = Instant.now().toSqlTimestamp()
