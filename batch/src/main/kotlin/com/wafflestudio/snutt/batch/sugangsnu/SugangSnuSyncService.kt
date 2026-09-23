@@ -174,16 +174,17 @@ class SugangSnuSyncService(
         lecture: Lecture,
         courses: MutableMap<Pair<String, String>, Course>,
     ): Long? {
-        val instructor = lecture.instructor?.takeIf { it.isNotBlank() } ?: return null
+        val instructor = lecture.instructor.orEmpty()
         val course =
             courses.getOrPut(lecture.courseNumber to instructor) {
-                courseRepository.save(
-                    Course(
-                        courseNumber = lecture.courseNumber,
-                        instructor = instructor,
-                        title = lecture.courseTitle,
-                    ),
-                )
+                courseRepository.findByCourseNumberAndInstructor(lecture.courseNumber, instructor)
+                    ?: courseRepository.save(
+                        Course(
+                            courseNumber = lecture.courseNumber,
+                            instructor = instructor,
+                            title = lecture.courseTitle,
+                        ),
+                    )
             }
         return course.id
     }
