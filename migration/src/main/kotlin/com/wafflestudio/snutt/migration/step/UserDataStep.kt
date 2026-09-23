@@ -63,13 +63,16 @@ class UserDataStep(
                     repeat(lectureRefs.size) { context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_USER_MISSING) }
                     return@each
                 }
+                val lectureIds = lectureRefs.mapNotNull(context.lectureIds::get)
+                repeat(lectureRefs.size - lectureIds.size) {
+                    context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING)
+                }
+                val distinctLectureIds = lectureIds.distinct()
+                repeat(lectureIds.size - distinctLectureIds.size) {
+                    context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED)
+                }
                 val now = Instant.now().toSqlTimestamp()
-                lectureRefs.forEach { ref ->
-                    val lectureId = context.lectureIds[ref]
-                    if (lectureId == null) {
-                        context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING)
-                        return@forEach
-                    }
+                distinctLectureIds.forEach { lectureId ->
                     out.add(ids.next(), userId, doc.requireInt("year"), doc.requireInt("semester"), lectureId, now, now)
                     lectureCount++
                 }

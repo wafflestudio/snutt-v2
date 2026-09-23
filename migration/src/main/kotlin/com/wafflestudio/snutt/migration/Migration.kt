@@ -155,6 +155,7 @@ object MigrationSupport {
         const val TIMETABLE_USER_MISSING = "사용자가 없는 시간표를 제외"
         const val BOOKMARK_USER_MISSING = "사용자가 없는 북마크 항목을 제외"
         const val BOOKMARK_LECTURE_MISSING = "강의를 찾을 수 없는 북마크 항목을 제외"
+        const val BOOKMARK_LECTURE_MERGED = "하나로 합쳐진 강의를 가리키는 북마크 항목을 제외"
         const val VACANCY_USER_MISSING = "사용자가 없는 빈자리 알림을 제외"
         const val VACANCY_LECTURE_MISSING = "강의를 찾을 수 없는 빈자리 알림을 제외"
         const val VACANCY_DUPLICATE = "같은 사용자·강의의 빈자리 알림이 중복되어 제외"

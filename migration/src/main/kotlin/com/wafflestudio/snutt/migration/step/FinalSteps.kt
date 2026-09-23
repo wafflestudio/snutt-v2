@@ -153,6 +153,7 @@ class ValidateStep(
                 resolved(
                     MigrationSupport.ResolutionReasons.BOOKMARK_USER_MISSING,
                     MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING,
+                    MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED,
                 ),
         )
         compare(
