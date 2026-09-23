@@ -21,7 +21,11 @@ management:
         include: health
 
 springdoc:
-  paths-to-match: /v2/**
+  group-configs:
+    - group: v2
+      paths-to-match: /v2/**
+    - group: v1compat
+      paths-to-match: /v1/**, /admin/**, /ev-service/**, /ev/**
   swagger-ui:
     enabled: true
 
