@@ -3,19 +3,19 @@ package com.wafflestudio.snutt.core.common.client
 class PlatformKeys(
     config: String,
 ) {
-    private val keys: Map<String, String> =
+    private val keys: Map<OsType, String> =
         config
             .split(",")
             .filter { it.isNotBlank() }
             .associate { entry ->
                 val (platform, key) = entry.split(":", limit = 2)
-                platform.trim() to key.trim()
+                OsType.fromValue(platform.trim()) to key.trim()
             }
 
     fun matches(
         platform: String?,
         key: String?,
-    ): Boolean = platform != null && key != null && keys[platform] == key
+    ): Boolean = key != null && OsType.from(platform)?.let(keys::get) == key
 }
 
 fun clientInfoOf(
