@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.coverage
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -210,6 +211,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
             client()
                 .post()
                 .uri("/v1/user/device/legacy-fcm-token")
+                .header("x-access-apikey", legacyApiKey())
                 .header("x-access-token", legacyToken)
                 .header("x-device-id", "legacy-device")
                 .retrieve()

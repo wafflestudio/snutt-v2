@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.v1compat.auth
 
 import com.wafflestudio.snutt.core.common.client.CLIENT_INFO_ATTRIBUTE
-import com.wafflestudio.snutt.core.common.client.PlatformKeys
 import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -61,7 +60,6 @@ class V1UserAuthInterceptor(
 
 @Component
 class V1ApiKeyInterceptor(
-    private val platformKeys: PlatformKeys,
     @Value("\${snutt.auth.legacy-secret-key:}") legacySecretKey: String,
     jsonMapper: JsonMapper,
 ) : HandlerInterceptor {
@@ -78,13 +76,7 @@ class V1ApiKeyInterceptor(
         handler: Any,
     ): Boolean {
         val apiKey = request.getHeader("x-access-apikey")
-        val authorized =
-            if (apiKey != null) {
-                isLegacyApiKey(apiKey)
-            } else {
-                platformKeys.matches(request.getHeader("x-os-type"), request.getHeader("x-client-key"))
-            }
-        if (!authorized) throw SnuttException(ErrorType.WRONG_API_KEY)
+        if (apiKey == null || !isLegacyApiKey(apiKey)) throw SnuttException(ErrorType.WRONG_API_KEY)
         request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, osType = request.getHeader("x-os-type") ?: "unknown"))
         return true
     }

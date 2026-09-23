@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.v1compat
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -23,7 +24,6 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
-import io.jsonwebtoken.Jwts
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
@@ -43,7 +43,6 @@ import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import javax.crypto.spec.SecretKeySpec
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -154,19 +153,6 @@ class V1CompatContractTest : AbstractMysqlIntegrationTest() {
             .defaultHeader("x-access-apikey", legacyApiKey("ios", "0"))
             .defaultHeader("Content-Type", "application/json")
             .build()
-
-    private fun legacyApiKey(
-        platform: String,
-        keyVersion: String,
-    ): String =
-        Jwts
-            .builder()
-            .claim("string", platform)
-            .claim("key_version", keyVersion)
-            .signWith(
-                SecretKeySpec("test-legacy-secret-key-0123456789abcdef".toByteArray(), "HmacSHA256"),
-                Jwts.SIG.HS256,
-            ).compact()
 
     private fun post(
         uri: String,

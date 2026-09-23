@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.user
 
 import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.core.common.mail.RecordingMailClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -131,13 +132,20 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `v1 경로에서도 이메일 인증이 동작한다`() {
         val register =
-            post("/v1/auth/register_local", """{"id":"v1emailuser","password":"password1","email":"v1temp@snu.ac.kr"}""")
+            client()
+                .post()
+                .uri("/v1/auth/register_local")
+                .header("x-access-apikey", legacyApiKey())
+                .body("""{"id":"v1emailuser","password":"password1","email":"v1temp@snu.ac.kr"}""")
+                .retrieve()
+                .toEntity(String::class.java)
         val v1Token = body(register)["token"].asString()
 
         val send =
             client()
                 .post()
                 .uri("/v1/user/email/verification")
+                .header("x-access-apikey", legacyApiKey())
                 .header("x-access-token", v1Token)
                 .body("""{"email":"v1email@snu.ac.kr"}""")
                 .retrieve()
@@ -149,6 +157,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
             client()
                 .post()
                 .uri("/v1/user/email/verification/code")
+                .header("x-access-apikey", legacyApiKey())
                 .header("x-access-token", v1Token)
                 .body("""{"code":"$code"}""")
                 .retrieve()

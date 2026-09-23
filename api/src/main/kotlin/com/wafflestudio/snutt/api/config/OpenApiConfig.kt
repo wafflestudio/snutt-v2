@@ -37,7 +37,7 @@ class OpenApiConfig {
             .addOperationCustomizer { operation, handler ->
                 val requirement = SecurityRequirement().addList(OS_TYPE).addList(CLIENT_KEY)
                 if (!handler.has(Public::class.java)) requirement.addList(BEARER)
-                operation.addSecurityItem(requirement).withClientHeaders(handler)
+                operation.addSecurityItem(requirement).withHeaders(handler, CLIENT_HEADERS)
             }.build()
 
     @Bean
@@ -46,23 +46,22 @@ class OpenApiConfig {
             .builder()
             .group("v1compat")
             .pathsToMatch(*V1CompatConfig.PATH_PATTERNS)
-            .addOpenApiCustomizer { it.components(components(LEGACY_API_KEY, OS_TYPE, CLIENT_KEY, LEGACY_TOKEN)) }
+            .addOpenApiCustomizer { it.components(components(LEGACY_API_KEY, LEGACY_TOKEN)) }
             .addOperationCustomizer { operation, handler ->
-                val requirements =
-                    listOf(
-                        SecurityRequirement().addList(LEGACY_API_KEY),
-                        SecurityRequirement().addList(OS_TYPE).addList(CLIENT_KEY),
-                    )
-                if (!handler.has(V1Public::class.java)) requirements.forEach { it.addList(LEGACY_TOKEN) }
-                operation.security(requirements).withClientHeaders(handler)
+                val requirement = SecurityRequirement().addList(LEGACY_API_KEY)
+                if (!handler.has(V1Public::class.java)) requirement.addList(LEGACY_TOKEN)
+                operation.addSecurityItem(requirement).withHeaders(handler, listOf("x-os-type") + CLIENT_HEADERS)
             }.build()
 
     private fun components(vararg names: String): Components =
         Components().securitySchemes(names.associateWith { SECURITY_SCHEMES.getValue(it) })
 
-    private fun Operation.withClientHeaders(handler: HandlerMethod): Operation {
+    private fun Operation.withHeaders(
+        handler: HandlerMethod,
+        headers: List<String>,
+    ): Operation {
         if (handler.methodParameters.any { it.hasParameterAnnotation(CurrentClient::class.java) }) {
-            CLIENT_HEADERS.forEach { addParametersItem(HeaderParameter().name(it).required(false)) }
+            headers.forEach { addParametersItem(HeaderParameter().name(it).required(false)) }
         }
         return this
     }
