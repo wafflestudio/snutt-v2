@@ -388,9 +388,7 @@ fun LegacyColorRequest.requireColorSet(): ColorSet = toColorSet() ?: throw Snutt
 data class LegacyClassTimeRequest(
     val day: DayOfWeek,
     val place: String? = null,
-    @param:JsonProperty("start_minute")
     val startMinute: Int,
-    @param:JsonProperty("end_minute")
     val endMinute: Int,
 )
 

@@ -62,6 +62,7 @@ data class LegacyFriendDisplayNameRequest(
 )
 
 data class LegacyBookmarkLectureRequest(
+    @param:JsonProperty("lecture_id")
     val lectureId: Long,
 )
 
@@ -324,6 +325,7 @@ class V1CompatFriendController(
 }
 
 data class LegacyNotificationDto(
+    @param:JsonProperty("_id")
     val id: String,
     @param:JsonProperty("user_id")
     val userId: String?,

@@ -7,6 +7,8 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
@@ -43,7 +45,7 @@ data class LegacyTagListResponse(
     val category: List<String>,
     val sortCriteria: List<String>,
     @param:JsonProperty("updated_at")
-    val updatedAt: Long?,
+    val updatedAt: Long,
     val categoryPre2025: List<String>,
 )
 
@@ -60,6 +62,7 @@ class V1CompatTagController(
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTagListResponse {
         val vocabulary = lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
+        val updatedAt = vocabulary.updatedAt ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
         return LegacyTagListResponse(
             classification = vocabulary.classification,
             department = vocabulary.department,
@@ -78,7 +81,7 @@ class V1CompatTagController(
                 LectureSort.entries
                     .filter { it != LectureSort.DEFAULT }
                     .map { clientInfo.language.select(it.fullName, it.fullNameEn) },
-            updatedAt = vocabulary.updatedAt?.toEpochMilli(),
+            updatedAt = updatedAt.toEpochMilli(),
             categoryPre2025 =
                 vocabulary.categoryPre2025.map {
                     LectureCategoryPre2025.localize(it, clientInfo.language)

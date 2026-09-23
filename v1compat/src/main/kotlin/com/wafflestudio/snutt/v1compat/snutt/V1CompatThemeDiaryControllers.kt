@@ -63,7 +63,7 @@ data class LegacyThemeDto(
 
 data class LegacyThemeOriginDto(
     val originId: String,
-    val authorId: String?,
+    val authorId: String,
 )
 
 data class LegacyThemePublishInfoDto(
@@ -152,7 +152,7 @@ class V1CompatThemeController(
         return themes.map { theme ->
             val origin =
                 theme.publicationId?.let { id ->
-                    sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString()) }
+                    sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString().orEmpty()) }
                 }
             theme.toLegacy(user.id!!.toString(), origin, ownPublications[theme.id])
         }
@@ -355,7 +355,7 @@ data class LegacyDiaryQuestionnaireResponse(
 )
 
 data class LegacyDiaryQuestionDto(
-    val id: Long?,
+    val id: String,
     val question: String,
     val answers: List<String>,
 )
@@ -378,7 +378,7 @@ data class LegacyDiarySemesterSubmissionsDto(
 
 data class LegacyDiarySubmissionDto(
     val id: String,
-    val lectureId: String?,
+    val lectureId: String,
     val date: Instant,
     val courseTitle: String,
     val shortQuestionReplies: List<LegacyDiaryShortQuestionReplyDto>,
@@ -413,7 +413,7 @@ class V1CompatDiaryController(
             courseTitle = clientInfo.language.select(display.courseTitle, display.courseTitleEn),
             questions =
                 display.questions.map {
-                    LegacyDiaryQuestionDto(id = it.id, question = it.question, answers = it.answerList)
+                    LegacyDiaryQuestionDto(id = it.id!!.toString(), question = it.question, answers = it.answerList)
                 },
             nextLecture =
                 display.nextLecture?.let {
@@ -465,7 +465,7 @@ class V1CompatDiaryController(
                         group.map { submission ->
                             LegacyDiarySubmissionDto(
                                 id = submission.id!!.toString(),
-                                lectureId = submission.lectureId?.toString(),
+                                lectureId = submission.lectureId?.toString().orEmpty(),
                                 date = checkNotNull(submission.createdAt),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
@@ -508,7 +508,7 @@ class V1CompatDiaryController(
 
 data class LegacyTagUpdateTimeResponse(
     @param:JsonProperty("updated_at")
-    val updatedAt: Long?,
+    val updatedAt: Long,
 )
 
 @RestController
@@ -522,9 +522,10 @@ class V1CompatTagUpdateTimeController(
         @PathVariable semester: Semester,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTagUpdateTimeResponse {
-        val vocabulary =
-            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language)
-        return LegacyTagUpdateTimeResponse(updatedAt = vocabulary.updatedAt?.toEpochMilli())
+        val updatedAt =
+            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language).updatedAt
+                ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
+        return LegacyTagUpdateTimeResponse(updatedAt = updatedAt.toEpochMilli())
     }
 }
 
