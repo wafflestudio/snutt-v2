@@ -104,7 +104,6 @@ class LectureVocabularyRepository(
                             year?.let { path(Lecture::year).equal(it) },
                             semester?.let { path(Lecture::semester).equal(it) },
                             path(prop).isNotNull(),
-                            path(prop).notEqual(""),
                         ),
                     ).orderBy(path(prop).asc())
             }

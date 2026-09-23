@@ -52,16 +52,21 @@ data class LectureOverrides(
         classTimes: List<ClassPlaceAndTime>,
     ): LectureOverrides =
         copy(
-            courseTitle = courseTitle.takeUnless { it == lecture.courseTitle || it == lecture.courseTitleEn },
-            instructor = instructor.takeUnless { it == lecture.instructor || it == lecture.instructorEn },
+            courseTitle = courseTitle.unlessValueOf(lecture.courseTitle, lecture.courseTitleEn),
+            instructor = instructor.unlessValueOf(lecture.instructor, lecture.instructorEn),
             credit = credit.takeUnless { it == lecture.credit },
-            remark = remark.takeUnless { it == lecture.remark || it == lecture.remarkEn },
+            remark = remark.unlessValueOf(lecture.remark, lecture.remarkEn),
             classPlaceAndTimes = classPlaceAndTimes.takeUnless { it == classTimes },
-            academicYear = academicYear.takeUnless { it == lecture.academicYear || it == lecture.academicYearEn },
-            category = category.takeUnless { it == lecture.category || it == lecture.categoryEn },
-            classification = classification.takeUnless { it == lecture.classification || it == lecture.classificationEn },
-            categoryPre2025 = categoryPre2025.takeUnless { it == lecture.categoryPre2025 },
+            academicYear = academicYear.unlessValueOf(lecture.academicYear, lecture.academicYearEn),
+            category = category.unlessValueOf(lecture.category, lecture.categoryEn),
+            classification = classification.unlessValueOf(lecture.classification, lecture.classificationEn),
+            categoryPre2025 = categoryPre2025.unlessValueOf(lecture.categoryPre2025, null),
         )
+
+    private fun String?.unlessValueOf(
+        value: String?,
+        valueEn: String?,
+    ): String? = takeUnless { it == value.orEmpty() || it == valueEn }
 }
 
 @Entity
