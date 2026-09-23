@@ -74,21 +74,21 @@ class SugangSnuSyncService(
         semester: Semester,
         rows: List<SugangLectureRow>,
     ): SugangSnuSyncResult {
+        val newMap = rows.associateBy { it.courseNumber to it.lectureNumber }
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
         val oldMap = oldLectures.associateBy { it.courseNumber to it.lectureNumber }
-        val newKeys = rows.map { it.courseNumber to it.lectureNumber }.toSet()
         val oldClassTimesMap =
             lectureClassTimeRepository
                 .findAllByLectureIdInOrderById(oldLectures.mapNotNull { it.id })
                 .groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
 
         val created =
-            rows
-                .filter { (it.courseNumber to it.lectureNumber) !in oldMap }
+            (newMap - oldMap.keys)
+                .values
                 .map { LectureInput(it.toLecture(year, semester), it.classPlaceAndTimes) }
         val updated =
-            rows.mapNotNull { row ->
-                val old = oldMap[row.courseNumber to row.lectureNumber] ?: return@mapNotNull null
+            newMap.mapNotNull { (key, row) ->
+                val old = oldMap[key] ?: return@mapNotNull null
                 val new = row.toLecture(year, semester)
                 val oldTimes = oldClassTimesMap[old.id].orEmpty()
                 val changes = changedFields(old, new, oldTimes, row.classPlaceAndTimes)
@@ -101,7 +101,7 @@ class SugangSnuSyncService(
                     classTimesChanged = oldTimes != row.classPlaceAndTimes,
                 )
             }
-        val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newKeys }
+        val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newMap }
 
         val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
         val timetableChangeCounts =
