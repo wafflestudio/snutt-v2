@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
@@ -304,19 +305,19 @@ class V1CompatTimetableController(
         color: LegacyColorRequest?,
         colorIndex: Int?,
     ): Pair<Int?, ColorSet?> {
-        val value = color?.toColorSet()
-        if (value != null) {
-            val palette = timetableThemeService.getTheme(userId, timetable.themeId).colors
-            val index =
-                palette.indices
-                    .filter {
-                        palette[it].backgroundColor.equals(value.backgroundColor, true) &&
-                            palette[it].foregroundColor.equals(value.foregroundColor, true)
-                    }.singleOrNull()
-            return if (index == null) null to value else index to null
-        }
         if (colorIndex != null && colorIndex < 0) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
-        return colorIndex?.takeIf { it > 0 }?.minus(1) to null
+        if (colorIndex != null && colorIndex > 0) return colorIndex - 1 to null
+        val value = color?.toColorSet() ?: return null to null
+        val theme = timetableThemeService.getTheme(userId, timetable.themeId)
+        if (theme.kind == ThemeKind.BUILTIN) return null to value
+        val palette = theme.colors
+        val index =
+            palette.indices
+                .filter {
+                    palette[it].backgroundColor.equals(value.backgroundColor, true) &&
+                        palette[it].foregroundColor.equals(value.foregroundColor, true)
+                }.singleOrNull()
+        return if (index == null) null to value else index to null
     }
 
     @DeleteMapping("/{timetableId}/lecture/{timetableLectureId}")
