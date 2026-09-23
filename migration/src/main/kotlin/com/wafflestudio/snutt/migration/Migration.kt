@@ -160,6 +160,8 @@ object MigrationSupport {
         const val VACANCY_LECTURE_MISSING = "강의를 찾을 수 없는 빈자리 알림을 제외"
         const val VACANCY_DUPLICATE = "같은 사용자·강의의 빈자리 알림이 중복되어 제외"
         const val DIARY_USER_MISSING = "사용자가 없는 강의 일기장 기록을 제외"
+        const val PALETTE_INDEX_OUT_OF_RANGE = "범위 밖의 구 팔레트 번호를 정규화"
+        const val INVALID_CUSTOM_COLOR = "올바르지 않은 사용자 지정 색상 대신 팔레트 색상을 사용"
     }
 
     fun truncate(

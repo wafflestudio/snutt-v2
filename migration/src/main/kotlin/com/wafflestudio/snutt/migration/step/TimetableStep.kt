@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
@@ -205,10 +206,8 @@ class TimetableStep(
                 textOverride(str("classification")) { it.classification }?.let { put("classification", it) }
                 textOverride(str("categoryPre2025")) { it.categoryPre2025 }?.let { put("categoryPre2025", it) }
             }
-        val color =
-            doc("color")?.takeIf { it.isNotEmpty() }?.let {
-                ColorSet(checkNotNull(it.str("bg")), checkNotNull(it.str("fg")))
-            }
+        val colorIndex = requireInt("colorIndex")
+        val color = if (colorIndex == 0) customColor() else null
         val matchedIndex =
             color?.let { old ->
                 palette.indices
@@ -217,8 +216,10 @@ class TimetableStep(
                             palette[it].foregroundColor.equals(old.foregroundColor, true)
                     }.singleOrNull()
             }
-        val oldIndex = (requireInt("colorIndex") - 1).coerceAtLeast(0)
-        if (matchedIndex == null && oldIndex >= palette.size) context.resolved("범위 밖의 구 팔레트 번호를 정규화")
+        val oldIndex = (colorIndex - 1).coerceAtLeast(0)
+        if (matchedIndex == null && oldIndex >= palette.size) {
+            context.resolved(MigrationSupport.ResolutionReasons.PALETTE_INDEX_OUT_OF_RANGE)
+        }
         return arrayOf(
             id,
             timetableId,
@@ -229,6 +230,22 @@ class TimetableStep(
             updatedAt,
             updatedAt,
         )
+    }
+
+    private fun Document.customColor(): ColorSet? {
+        val color = doc("color")?.takeIf { it.isNotEmpty() } ?: return null
+        val backgroundColor = color.str("bg")
+        val foregroundColor = color.str("fg")
+        if (backgroundColor == null || foregroundColor == null) {
+            context.resolved(MigrationSupport.ResolutionReasons.INVALID_CUSTOM_COLOR)
+            return null
+        }
+        return try {
+            ColorSet(backgroundColor, foregroundColor)
+        } catch (e: SnuttException) {
+            context.resolved(MigrationSupport.ResolutionReasons.INVALID_CUSTOM_COLOR)
+            null
+        }
     }
 
     private fun Document.toClassPlaceAndTime(): Map<String, Any?> =
