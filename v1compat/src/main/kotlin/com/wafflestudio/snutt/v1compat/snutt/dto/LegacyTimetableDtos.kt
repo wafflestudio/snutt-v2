@@ -16,7 +16,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 internal val TimetableLectureDisplay.legacyColorIndex: Int
-    get() = if (themeKind == ThemeKind.BUILTIN) paletteIndex + 1 else 0
+    get() = if (themeKind == ThemeKind.BUILTIN && customColor == null) paletteIndex + 1 else 0
 
 internal val TimetableLectureDisplay.legacyColor: LegacyColorSetDto?
     get() =
