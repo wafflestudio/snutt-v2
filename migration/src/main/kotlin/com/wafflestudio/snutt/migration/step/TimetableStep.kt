@@ -19,6 +19,7 @@ import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.oid
 import com.wafflestudio.snutt.migration.orNow
 import com.wafflestudio.snutt.migration.requireInt
+import com.wafflestudio.snutt.migration.requireOid
 import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
@@ -56,7 +57,8 @@ class TimetableStep(
                         return@each
                     }
                     val id = timetableIds.next()
-                    context.timetableIds[doc.id()] = id
+                    val externalId = doc.id()
+                    context.timetableIds[externalId] = id
                     val year = doc.requireInt("year")
                     val semester = doc.requireInt("semester")
                     val updatedAt = doc.instant("updated_at").orNow().toSqlTimestamp()
@@ -76,7 +78,10 @@ class TimetableStep(
 
                     doc.docs("lecture_list").forEach { item ->
                         val lectureId = lectureIds.next()
-                        context.timetableLectureIds[item.id()] = lectureId
+                        context.timetableLectureIds[externalId to item.id()] = lectureId
+                        item.oid("lecture_id")?.let(context.lectureIds::get)?.let {
+                            context.timetableLectureIdsByLecture.putIfAbsent(id to it, lectureId)
+                        }
                         lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
                         lectureCount++
                     }
@@ -126,9 +131,13 @@ class TimetableStep(
                 parent = reminderOut,
             ).use { scheduleOut ->
                 mongo.each("timetableLectureReminder") { doc ->
-                    val timetableLectureId = doc.oid("timetableLectureId")?.let(context.timetableLectureIds::get)
+                    val timetableLectureId =
+                        context.timetableLectureIds[
+                            doc.requireOid("timetableId") to
+                                doc.requireOid("timetableLectureId"),
+                        ]
                     if (timetableLectureId == null) {
-                        context.resolved("시간표 강의를 찾을 수 없는 리마인더를 제외")
+                        context.resolved(MigrationSupport.ResolutionReasons.REMINDER_TIMETABLE_LECTURE_MISSING)
                         return@each
                     }
                     val schedules =

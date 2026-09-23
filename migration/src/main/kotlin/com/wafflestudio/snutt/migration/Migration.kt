@@ -33,7 +33,8 @@ class MigrationContext {
     val themePalettes = HashMap<Long, List<ColorSet>>()
     val diaryClassTypeIds = HashMap<String, Long>()
     val diaryQuestionIds = HashMap<String, Long>()
-    val timetableLectureIds = HashMap<String, Long>(1_024_000)
+    val timetableLectureIds = HashMap<Pair<String, String>, Long>(1_024_000)
+    val timetableLectureIdsByLecture = HashMap<Pair<Long, Long>, Long>(1_024_000)
 
     val courseIds = HashMap<String, Long>(64_000)
     val courseIdRemap = HashMap<Long, Long>()
@@ -161,6 +162,8 @@ object MigrationSupport {
         const val VACANCY_DUPLICATE = "같은 사용자·강의의 빈자리 알림이 중복되어 제외"
         const val DIARY_USER_MISSING = "사용자가 없는 강의 일기장 기록을 제외"
         const val PALETTE_INDEX_OUT_OF_RANGE = "범위 밖의 구 팔레트 번호를 정규화"
+        const val REMINDER_TIMETABLE_LECTURE_MISSING = "시간표 강의를 찾을 수 없는 리마인더를 제외"
+        const val DEEPLINK_TARGET_MISSING = "대상을 찾을 수 없는 알림 deeplink를 제거"
         const val INVALID_CUSTOM_COLOR = "올바르지 않은 사용자 지정 색상 대신 팔레트 색상을 사용"
     }
 
@@ -209,6 +212,8 @@ fun Document.oid(key: String): String? =
         is String -> value.takeIf { it.length == 24 }
         else -> null
     }
+
+fun Document.requireOid(key: String): String = oid(key) ?: error("$key 없는 문서: ${id()}")
 
 fun Document.id(): String = oid("_id") ?: error("_id 없는 문서: ${toJson()}")
 

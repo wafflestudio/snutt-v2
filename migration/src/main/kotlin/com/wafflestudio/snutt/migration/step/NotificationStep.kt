@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.migration.step
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.oid
@@ -60,19 +61,12 @@ class NotificationStep(
         val scheme = if (deeplink.startsWith(DEV_SCHEME)) DEV_SCHEME else PROD_SCHEME
         return when {
             deeplink.contains("://timetable-lecture") -> {
-                val timetableId =
-                    TIMETABLE_ID
-                        .find(deeplink)
-                        ?.groupValues
-                        ?.get(1)
-                        ?.let(context.timetableIds::get) ?: return null
-                val lectureId =
-                    LECTURE_ID
-                        .find(deeplink)
-                        ?.groupValues
-                        ?.get(1)
-                        ?.let(context.timetableLectureIds::get) ?: return null
-                "${scheme}timetable-lecture?timetableId=$timetableId&lectureId=$lectureId"
+                val timetableId = TIMETABLE_ID.find(deeplink)?.let { context.timetableIds[it.groupValues[1]] }
+                val lectureId = LECTURE_ID.find(deeplink)?.let { context.lectureIds[it.groupValues[1]] }
+                val timetableLectureId =
+                    if (timetableId == null || lectureId == null) null else context.timetableLectureIdsByLecture[timetableId to lectureId]
+                if (timetableLectureId == null) return unresolvedDeeplink()
+                "${scheme}timetable-lecture?timetableId=$timetableId&lectureId=$timetableLectureId"
             }
             deeplink.contains("://bookmarks") -> {
                 val lectureId =
@@ -80,11 +74,16 @@ class NotificationStep(
                         .find(deeplink)
                         ?.groupValues
                         ?.get(1)
-                        ?.let(context.lectureIds::get) ?: return null
+                        ?.let(context.lectureIds::get) ?: return unresolvedDeeplink()
                 deeplink.replace(LECTURE_ID, "lectureId=$lectureId")
             }
-            else -> null
+            else -> unresolvedDeeplink()
         }
+    }
+
+    private fun unresolvedDeeplink(): String? {
+        context.resolved(MigrationSupport.ResolutionReasons.DEEPLINK_TARGET_MISSING)
+        return null
     }
 
     companion object {
