@@ -5,13 +5,11 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
-import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
-import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
+import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.model.UserSocialAuth
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -19,9 +17,8 @@ import org.springframework.transaction.annotation.Transactional
 class UserService(
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val refreshTokenRepository: RefreshTokenRepository,
     private val userNicknameService: UserNicknameService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val authService: AuthService,
 ) {
     fun findActive(userId: Long): User? = userRepository.findByIdAndActiveTrue(userId)
 
@@ -52,12 +49,10 @@ class UserService(
 
     @Transactional
     fun deactivate(userId: Long) {
-        val user = get(userId)
+        val user = userRepository.findForUpdateByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         user.active = false
-        refreshTokenRepository.deleteAllByUserId(userId)
         userSocialAuthRepository.deleteByUserId(userId)
-        userRepository.save(user)
-        eventPublisher.publishEvent(UserCredentialChangedEvent(userId))
+        authService.revokeSessions(user)
     }
 }
 

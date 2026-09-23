@@ -122,7 +122,7 @@ class AuthService(
             )
         if (rotatedCount == 0) throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
 
-        val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!))
+        val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!, tokenVersion = user.tokenVersion))
         return user to TokenPair(accessToken = accessToken, refreshToken = newRefreshToken)
     }
 
@@ -136,7 +136,7 @@ class AuthService(
                 expiresAt = Instant.now() + refreshTokenTtl,
             ),
         )
-        val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!))
+        val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!, tokenVersion = user.tokenVersion))
         return TokenPair(accessToken = accessToken, refreshToken = refreshToken)
     }
 
@@ -159,8 +159,8 @@ class AuthService(
         userId: Long,
         localId: String,
         password: String,
-    ) {
-        val user = getActiveUser(userId)
+    ): User {
+        val user = getActiveUserForUpdate(userId)
         if (user.localId != null) throw SnuttException(ErrorType.ALREADY_LOCAL_ACCOUNT)
         if (!localId.matches(PasswordPolicy.localIdRegex)) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!PasswordPolicy.isValidPassword(password)) throw SnuttException(ErrorType.INVALID_PASSWORD)
@@ -168,7 +168,8 @@ class AuthService(
         user.localId = localId
         user.localPw = passwordEncoder.encode(password)
         conflictAs(ErrorType.DUPLICATE_LOCAL_ID) { userRepository.saveAndFlush(user) }
-        publishCredentialChanged(user)
+        revokeSessions(user)
+        return user
     }
 
     @Transactional
@@ -176,9 +177,9 @@ class AuthService(
         userId: Long,
         provider: AuthProvider,
         token: String,
-    ) {
-        val user = getActiveUser(userId)
+    ): User {
         val response = fetchSocialUser(provider, token)
+        val user = getActiveUserForUpdate(userId)
         if (response.email != null) {
             val presentUser = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(response.email)
             if (presentUser != null && presentUser.id != userId) throw SnuttException(ErrorType.DUPLICATE_EMAIL)
@@ -190,22 +191,24 @@ class AuthService(
             throw SnuttException(ErrorType.DUPLICATE_SOCIAL_ACCOUNT)
         }
         insertSocialAuth(userId, provider, response)
-        publishCredentialChanged(user)
+        revokeSessions(user)
+        return user
     }
 
     @Transactional
     fun detachSocial(
         userId: Long,
         provider: AuthProvider,
-    ) {
-        val user = getActiveUser(userId)
+    ): User {
+        val user = getActiveUserForUpdate(userId)
         val socialProviders = userSocialAuthRepository.findByUserId(userId).map { it.provider }
         if (provider !in socialProviders) throw SnuttException(ErrorType.SOCIAL_PROVIDER_NOT_ATTACHED)
         if (socialProviders.size + (if (user.localId != null) 1 else 0) == 1) {
             throw SnuttException(ErrorType.CANNOT_REMOVE_LAST_AUTH_PROVIDER)
         }
         userSocialAuthRepository.deleteByUserIdAndProvider(userId, provider)
-        publishCredentialChanged(user)
+        revokeSessions(user)
+        return user
     }
 
     @Transactional(readOnly = true)
@@ -217,20 +220,28 @@ class AuthService(
         userId: Long,
         currentPassword: String,
         newPassword: String,
-    ): TokenPair {
-        val user = getActiveUser(userId)
+    ): User {
+        val user = getActiveUserForUpdate(userId)
         if (user.localPw == null) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
-        userRepository.save(user)
+        revokeSessions(user)
+        return user
+    }
+
+    @Transactional
+    fun revokeSessions(user: User) {
+        user.tokenVersion += 1
         refreshTokenRepository.deleteAllByUserId(user.id!!)
-        publishCredentialChanged(user)
-        return issueTokens(user)
+        eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))
     }
 
     private fun getActiveUser(userId: Long): User =
         userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+
+    private fun getActiveUserForUpdate(userId: Long): User =
+        userRepository.findForUpdateByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
     private fun fetchSocialUser(
         provider: AuthProvider,
@@ -247,12 +258,13 @@ class AuthService(
         userSocialAuthRepository.findActiveUserByProviderAndSub(provider, response.socialId)?.let { return it }
         if (provider != AuthProvider.APPLE) return null
         val transferSub = response.transferInfo ?: return null
-        return userSocialAuthRepository.findActiveByProviderAndTransferSub(provider, transferSub)?.let { auth ->
-            auth.sub = response.socialId
-            auth.email = response.email
-            userSocialAuthRepository.save(auth)
-            userRepository.findByIdAndActiveTrue(auth.userId)
-        }
+        val auth = userSocialAuthRepository.findActiveByProviderAndTransferSub(provider, transferSub) ?: return null
+        val user = userRepository.findForUpdateByIdAndActiveTrue(auth.userId) ?: return null
+        auth.sub = response.socialId
+        auth.email = response.email
+        userSocialAuthRepository.save(auth)
+        revokeSessions(user)
+        return user
     }
 
     private fun createSocialUser(
@@ -294,10 +306,6 @@ class AuthService(
                 ),
             )
         }
-
-    private fun publishCredentialChanged(user: User) {
-        eventPublisher.publishEvent(UserCredentialChangedEvent(user.id!!))
-    }
 
     private fun generateRefreshToken(): String {
         val bytes = ByteArray(32)
