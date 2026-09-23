@@ -110,11 +110,7 @@ class EvaluationRepositoryImpl(
             }
         }.firstOrNull() ?: 0L
 
-    override fun findCourseAggregate(
-        courseId: Long,
-        year: Int?,
-        semester: Semester?,
-    ): CourseAggregate {
+    override fun findCourseAggregate(courseId: Long): CourseAggregate {
         val row =
             findAll(offset = null, limit = 1) {
                 jpql {
@@ -130,8 +126,6 @@ class EvaluationRepositoryImpl(
                             and(
                                 path(Evaluation::courseId).equal(courseId),
                                 path(Evaluation::isHidden).equal(false),
-                                year?.let { path(Evaluation::year).equal(it) },
-                                semester?.let { path(Evaluation::semester).equal(it) },
                             ),
                         )
                 }

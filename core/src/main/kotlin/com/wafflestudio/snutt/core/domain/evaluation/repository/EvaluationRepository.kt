@@ -68,11 +68,7 @@ interface EvaluationCustomRepository {
         pageSize: Int,
     ): List<Evaluation>
 
-    fun findCourseAggregate(
-        courseId: Long,
-        year: Int? = null,
-        semester: Semester? = null,
-    ): CourseAggregate
+    fun findCourseAggregate(courseId: Long): CourseAggregate
 
     fun countOthers(
         courseId: Long,

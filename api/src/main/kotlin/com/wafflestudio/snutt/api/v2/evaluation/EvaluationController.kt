@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationReportRequest
@@ -101,19 +100,6 @@ data class EvaluationResponse(
     val isReportable: Boolean,
 )
 
-data class LectureEvaluationSummaryResponse(
-    val id: Long,
-    val title: String,
-    val instructor: String?,
-    val department: String?,
-    val courseNumber: String,
-    val credit: Int,
-    val academicYear: String?,
-    val category: String?,
-    val classification: String?,
-    val evaluation: EvaluationAverages,
-)
-
 data class CourseEvaluationDetailsResponse(
     val courseId: Long,
     val count: Long,
@@ -148,14 +134,6 @@ class EvaluationController(
         evaluationService
             .getEvaluationsOfCourse(userId, courseId, cursor, EvaluationSort.fromParameter(sort), year, semester)
             .let(evaluationResponseMapper::toResponse)
-
-    @GetMapping("/v2/lectures/{lectureId}/evaluations")
-    fun getEvaluationsOfLecture(
-        @CurrentUserId userId: Long,
-        @PathVariable lectureId: Long,
-        @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> =
-        evaluationService.getEvaluationsOfLecture(userId, lectureId, cursor).let(evaluationResponseMapper::toResponse)
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
@@ -198,27 +176,6 @@ class EvaluationController(
             avgGains = averages.avgGains,
             avgLifeBalance = averages.avgLifeBalance,
             avgRating = averages.avgRating,
-        )
-    }
-
-    @GetMapping("/v2/lectures/{lectureId}/evaluation-summary")
-    fun getEvaluationSummaryOfLecture(
-        @CurrentUserId userId: Long,
-        @PathVariable lectureId: Long,
-    ): LectureEvaluationSummaryResponse {
-        val summary = evaluationService.getEvaluationSummaryOfLecture(lectureId)
-        val lecture = summary.lecture
-        return LectureEvaluationSummaryResponse(
-            id = lecture.id!!,
-            title = lecture.courseTitle,
-            instructor = lecture.instructor,
-            department = lecture.department,
-            courseNumber = lecture.courseNumber,
-            credit = lecture.credit,
-            academicYear = lecture.academicYear,
-            category = lecture.category,
-            classification = lecture.classification,
-            evaluation = summary.aggregate.averages,
         )
     }
 

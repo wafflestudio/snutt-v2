@@ -16,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireReques
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
@@ -610,16 +611,17 @@ data class LegacyLectureEvSummaryResponse(
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
     private val evaluationService: EvaluationService,
+    private val lectureService: LectureService,
 ) {
     @V1Public
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: Long,
     ): LegacyLectureEvSummaryResponse {
-        val lecture = evaluationService.getEvaluationSummaryOfLecture(lectureId).lecture
-        val summary = lecture.id?.let { evaluationService.findSummariesByLectureIds(listOf(it))[it] }
+        val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+        val summary = evaluationService.findSummariesByLectureIds(listOf(lectureId))[lectureId]
         return LegacyLectureEvSummaryResponse(
-            evLectureId = lecture.courseId,
+            evLectureId = courseId,
             avgRating = summary?.avgRating,
             evaluationCount = summary?.evalCount ?: 0L,
         )

@@ -57,11 +57,6 @@ data class EvaluationDisplay(
     val isReportable: Boolean,
 )
 
-data class LectureEvaluationSummary(
-    val lecture: Lecture,
-    val aggregate: CourseAggregate,
-)
-
 data class CourseEvaluationSummary(
     val course: Course,
     val aggregate: CourseAggregate,
@@ -114,17 +109,6 @@ class EvaluationService(
         return evaluation.toDisplay(userId)
     }
 
-    fun getEvaluationsOfLecture(
-        userId: Long,
-        lectureId: Long,
-        cursor: String?,
-        sort: EvaluationSort = EvaluationSort.LATEST,
-    ): CursorPage<EvaluationDisplay> {
-        val lecture = getLecture(lectureId)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        return getEvaluationPage(userId, courseId, cursor, sort, lecture.year, lecture.semester)
-    }
-
     fun getEvaluationsOfCourse(
         userId: Long,
         courseId: Long,
@@ -134,17 +118,6 @@ class EvaluationService(
         semester: Semester? = null,
     ): CursorPage<EvaluationDisplay> {
         courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
-        return getEvaluationPage(userId, courseId, cursor, sort, year, semester)
-    }
-
-    private fun getEvaluationPage(
-        userId: Long,
-        courseId: Long,
-        cursor: String?,
-        sort: EvaluationSort,
-        year: Int?,
-        semester: Semester?,
-    ): CursorPage<EvaluationDisplay> {
         val totalCount = evaluationRepository.countOthers(courseId, userId, year, semester)
         val page =
             evaluationRepository.findOthers(
@@ -292,12 +265,6 @@ class EvaluationService(
 
     fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> =
         evaluationRepository.findSummariesByLectureIds(lectureIds)
-
-    fun getEvaluationSummaryOfLecture(lectureId: Long): LectureEvaluationSummary {
-        val lecture = getLecture(lectureId)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
-        return LectureEvaluationSummary(lecture, evaluationRepository.findCourseAggregate(courseId, lecture.year, lecture.semester))
-    }
 
     fun getEvaluationSummaryOfCourse(courseId: Long): CourseEvaluationSummary {
         val course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
