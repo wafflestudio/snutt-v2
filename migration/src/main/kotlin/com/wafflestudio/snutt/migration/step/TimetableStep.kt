@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.mongodb.client.model.Filters
+import com.mongodb.client.model.Projections
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -46,6 +48,7 @@ class TimetableStep(
         val takenTitles = HashSet<String>(1_024_000)
         var lectureCount = 0L
         var skipped = 0L
+        val primaries = primaryTimetableIds()
 
         writer("timetable", TIMETABLE_COLUMNS).use { timetables ->
             writer("timetable_lecture", TIMETABLE_LECTURE_COLUMNS, parent = timetables).use { lectures ->
@@ -63,6 +66,10 @@ class TimetableStep(
                     val semester = doc.requireInt("semester")
                     val updatedAt = doc.instant("updated_at").orNow().toSqlTimestamp()
                     val themeId = resolveThemeId(doc)
+                    val isPrimary = doc.bool("is_primary") && externalId in primaries
+                    if (doc.bool("is_primary") && !isPrimary) {
+                        context.resolved(MigrationSupport.ResolutionReasons.PRIMARY_TIMETABLE_DUPLICATE)
+                    }
 
                     timetables.add(
                         id,
@@ -71,7 +78,7 @@ class TimetableStep(
                         semester,
                         uniqueTitle(userId, year, semester, doc.requireStr("title"), takenTitles),
                         themeId,
-                        doc.bool("is_primary"),
+                        isPrimary,
                         updatedAt,
                         updatedAt,
                     )
@@ -92,6 +99,19 @@ class TimetableStep(
         alignAutoIncrement("timetable_lecture", lectureIds.peek())
         log.info("시간표 이관: {}건 (제외 {}건), 시간표 강의 {}건", timetableIds.peek() - 1, skipped, lectureCount)
         migrateReminders()
+    }
+
+    private fun primaryTimetableIds(): Set<String> {
+        val latest = HashMap<String, Document>()
+        mongo
+            .collection("timetables")
+            .find(Filters.eq("is_primary", true))
+            .projection(Projections.include("user_id", "year", "semester", "updated_at"))
+            .forEach { doc ->
+                val key = "${doc.oid("user_id")}\u0000${doc.requireInt("year")}\u0000${doc.requireInt("semester")}"
+                latest.merge(key, doc) { previous, current -> maxOf(previous, current, PRIMARY_ORDER) }
+            }
+        return latest.values.mapTo(HashSet()) { it.id() }
     }
 
     private fun resolveThemeId(doc: Document): Long {
@@ -282,6 +302,7 @@ class TimetableStep(
 
     companion object {
         private const val DEFAULT_THEME_ID = 1L
+        private val PRIMARY_ORDER = compareBy<Document>({ it.instant("updated_at") ?: Instant.EPOCH }, { it.id() })
 
         private val TIMETABLE_COLUMNS =
             listOf(

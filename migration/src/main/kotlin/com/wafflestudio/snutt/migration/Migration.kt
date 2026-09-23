@@ -164,6 +164,7 @@ object MigrationSupport {
         const val PALETTE_INDEX_OUT_OF_RANGE = "범위 밖의 구 팔레트 번호를 정규화"
         const val REMINDER_TIMETABLE_LECTURE_MISSING = "시간표 강의를 찾을 수 없는 리마인더를 제외"
         const val DEEPLINK_TARGET_MISSING = "대상을 찾을 수 없는 알림 deeplink를 제거"
+        const val PRIMARY_TIMETABLE_DUPLICATE = "같은 학기의 대표 시간표가 여럿이라 가장 최근에 수정한 시간표만 대표로 남김"
         const val INVALID_CUSTOM_COLOR = "올바르지 않은 사용자 지정 색상 대신 팔레트 색상을 사용"
     }
 
