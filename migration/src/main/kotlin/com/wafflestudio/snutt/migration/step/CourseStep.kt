@@ -71,7 +71,6 @@ class CourseStep(
         mongo.each("lectures") { doc ->
             val courseNumber = doc.requireStr("course_number").trim()
             val instructor = doc.str("instructor").orEmpty().trim()
-            if (courseNumber.isEmpty() || instructor.isEmpty()) return@each
             val key = context.courseKey(courseNumber, instructor)
             if (context.courseIds.containsKey(key)) return@each
             pending[key] =
