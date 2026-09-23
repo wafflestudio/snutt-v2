@@ -171,6 +171,7 @@ object MigrationSupport {
         const val EV_COURSE_DUPLICATE = "구 ev course 중복을 하나로 합쳐 이관"
         const val LECTURE_DUPLICATE = "같은 (연도, 학기, 교과목번호, 분반)의 강의가 중복되어 하나로 합침"
         const val EV_LECTURE_DUPLICATE = "하나로 합쳐진 구 ev course의 같은 학기 강의가 중복되어 하나로 합침"
+        const val COURSE_UNUSED = "강의와 강의평이 모두 없는 course를 제외"
         const val THEME_USER_MISSING = "사용자가 없는 테마를 제외"
         const val PUBLISHED_THEME_USER_MISSING = "사용자가 없는 공개 테마를 제외"
         const val PUBLISHED_THEME_ARCHIVED = "기존 다운로드 내용을 비공개 스냅샷으로 보존"

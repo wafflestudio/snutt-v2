@@ -31,6 +31,12 @@ class AggregateStep(
     override val tables = emptyList<String>()
 
     override fun run() {
+        val unused =
+            jdbc.update(
+                "DELETE FROM course c WHERE NOT EXISTS (SELECT 1 FROM lecture l WHERE l.course_id = c.id) " +
+                    "AND NOT EXISTS (SELECT 1 FROM evaluation e WHERE e.course_id = c.id)",
+            )
+        context.resolved(ResolutionReasons.COURSE_UNUSED, unused)
         jdbc.update(
             """
             UPDATE course c JOIN (
