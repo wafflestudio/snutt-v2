@@ -214,17 +214,19 @@ fun Document.oid(key: String): String? =
         else -> null
     }
 
-fun Document.requireOid(key: String): String = oid(key) ?: error("$key 없는 문서: ${id()}")
+fun Document.requireOid(key: String): String = oid(key) ?: missing(key)
 
-fun Document.id(): String = oid("_id") ?: error("_id 없는 문서: ${toJson()}")
+fun Document.id(): String = oid("_id") ?: missing("_id")
+
+private fun Document.missing(key: String): Nothing = error("$key 없는 문서: ${oid("_id") ?: toJson()}")
 
 fun Document.str(key: String): String? = get(key)?.takeIf { it !is Document && it !is List<*> }?.toString()
 
-fun Document.requireStr(key: String): String = str(key) ?: error("$key 없는 문서: ${id()}")
+fun Document.requireStr(key: String): String = str(key) ?: missing(key)
 
 fun Document.int(key: String): Int? = (get(key) as? Number)?.toInt()
 
-fun Document.requireInt(key: String): Int = int(key) ?: error("$key 없는 문서: ${id()}")
+fun Document.requireInt(key: String): Int = int(key) ?: missing(key)
 
 fun Document.long(key: String): Long? = (get(key) as? Number)?.toLong()
 
