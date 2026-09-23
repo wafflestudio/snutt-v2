@@ -57,6 +57,9 @@ class TimetableStep(
                     if (userId == null) {
                         skipped++
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
+                        repeat(
+                            doc.docs("lecture_list").size,
+                        ) { context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING) }
                         return@each
                     }
                     val id = timetableIds.next()
@@ -117,7 +120,7 @@ class TimetableStep(
     private fun resolveThemeId(doc: Document): Long {
         val externalThemeId = doc.oid("themeId") ?: return doc.requireInt("theme") + 1L
         return context.themeIds[externalThemeId] ?: run {
-            context.resolved("테마를 찾을 수 없어 기본 테마로 대체")
+            context.resolved(MigrationSupport.ResolutionReasons.THEME_MISSING)
             DEFAULT_THEME_ID
         }
     }
@@ -296,7 +299,7 @@ class TimetableStep(
         if (taken.add(key(title))) return title
         var suffix = 2
         while (!taken.add(key("$title ($suffix)"))) suffix++
-        context.resolved("같은 학기에 제목이 중복되어 번호를 붙임")
+        context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_TITLE_DUPLICATE)
         return "$title ($suffix)"
     }
 

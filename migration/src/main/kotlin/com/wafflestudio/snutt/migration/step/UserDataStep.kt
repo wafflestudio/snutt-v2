@@ -144,13 +144,17 @@ class UserDataStep(
             ),
         ).use { out ->
             devices.forEachIndexed { index, doc ->
-                val userId = context.userIds[doc.oid("userId")] ?: return@forEachIndexed
+                val userId = context.userIds[doc.oid("userId")]
+                if (userId == null) {
+                    context.resolved(MigrationSupport.ResolutionReasons.DEVICE_USER_MISSING)
+                    return@forEachIndexed
+                }
                 val registrationId = doc.requireStr("fcmRegistrationId")
                 val duplicateActiveRegistrationId =
                     !doc.bool("isDeleted") && activeOwnerByRegistrationId[registrationId] != index
                 val missingRegistrationId = !doc.bool("isDeleted") && registrationId.isBlank()
-                if (duplicateActiveRegistrationId) context.resolved("같은 FCM 등록 토큰의 활성 기기가 중복되어 이전 항목을 비활성화")
-                if (missingRegistrationId) context.resolved("FCM 등록 토큰이 없는 기기를 비활성화")
+                if (duplicateActiveRegistrationId) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_REGISTRATION_DUPLICATE)
+                if (missingRegistrationId) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_REGISTRATION_MISSING)
                 out.add(
                     ids.next(),
                     userId,
@@ -176,12 +180,13 @@ class UserDataStep(
         writer("push_preference", listOf("id", "user_id", "type", "is_enabled", "created_at", "updated_at")).use { out ->
             mongo.each("pushPreference") { doc ->
                 val userId = context.userIds[doc.oid("userId")]
+                val preferences = doc.docs("pushPreferences")
                 if (userId == null) {
-                    context.resolved("사용자가 없는 푸시 설정을 제외")
+                    repeat(preferences.size) { context.resolved(MigrationSupport.ResolutionReasons.PUSH_PREFERENCE_USER_MISSING) }
                     return@each
                 }
                 val now = Instant.now().toSqlTimestamp()
-                doc.docs("pushPreferences").forEach { preference ->
+                preferences.forEach { preference ->
                     out.add(ids.next(), userId, preference.requireStr("type"), preference.bool("isEnabled"), now, now)
                 }
             }
@@ -196,7 +201,7 @@ class UserDataStep(
             val fromUserId = context.userIds[doc.oid("fromUserId")]
             val toUserId = context.userIds[doc.oid("toUserId")]
             if (fromUserId == null || toUserId == null) {
-                context.resolved("사용자를 찾을 수 없는 친구 관계를 제외")
+                context.resolved(MigrationSupport.ResolutionReasons.FRIEND_USER_MISSING)
                 return@each
             }
             val key = "${minOf(fromUserId, toUserId)}\u0000${maxOf(fromUserId, toUserId)}"
@@ -205,7 +210,7 @@ class UserDataStep(
                 winners[key] = doc
                 return@each
             }
-            context.resolved("같은 사용자 쌍의 친구 관계가 중복되어 하나만 남김")
+            context.resolved(MigrationSupport.ResolutionReasons.FRIEND_DUPLICATE)
             val previousWins =
                 previous.bool("isAccepted") ||
                     !doc.bool("isAccepted") &&

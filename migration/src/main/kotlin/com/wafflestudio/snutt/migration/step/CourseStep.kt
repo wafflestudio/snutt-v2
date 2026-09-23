@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
@@ -47,7 +48,7 @@ class CourseStep(
                 val existing = context.courseIds[key]
                 if (existing != null) {
                     context.courseIdRemap[id] = existing
-                    context.resolved("구 ev course 중복을 하나로 합쳐 이관")
+                    context.resolved(MigrationSupport.ResolutionReasons.EV_COURSE_DUPLICATE)
                     return@query
                 }
                 context.courseIds[key] = id

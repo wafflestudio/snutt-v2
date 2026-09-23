@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.docs
@@ -43,7 +44,7 @@ class LectureStep(
                         val existing = offerings[offeringKey]
                         if (existing != null) {
                             context.lectureIds[externalId] = existing
-                            context.resolved("같은 (연도, 학기, 교과목번호, 분반)의 강의가 중복되어 하나로 합침")
+                            context.resolved(MigrationSupport.ResolutionReasons.LECTURE_DUPLICATE)
                             return@each
                         }
 

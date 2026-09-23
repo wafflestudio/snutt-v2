@@ -7,6 +7,7 @@ import com.mongodb.client.MongoDatabase
 import com.zaxxer.hikari.HikariDataSource
 import jakarta.annotation.PreDestroy
 import org.bson.Document
+import org.bson.conversions.Bson
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.jdbc.DataSourceBuilder
 import org.springframework.context.annotation.Bean
@@ -63,6 +64,11 @@ class MongoSource(
     fun collection(name: String): MongoCollection<Document> = db().getCollection(name)
 
     fun count(name: String): Long = collection(name).countDocuments()
+
+    fun count(
+        name: String,
+        filter: Bson,
+    ): Long = collection(name).countDocuments(filter)
 
     fun each(
         name: String,

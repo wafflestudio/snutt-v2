@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
@@ -58,14 +59,14 @@ class UserStep(
                 if (active && localId != null && localIdOwner[localId] != externalId) {
                     localId = null
                     localPw = null
-                    context.resolved("같은 아이디를 쓰는 활성 계정이 여럿이라 로컬 로그인 수단을 제거")
+                    context.resolved(MigrationSupport.ResolutionReasons.LOCAL_ID_DUPLICATE)
                 }
 
                 val email = doc.str("email")
                 var isEmailVerified = doc.bool("isEmailVerified")
                 if (active && isEmailVerified && email != null && emailOwner[email.lowercase()] != externalId) {
                     isEmailVerified = false
-                    context.resolved("같은 이메일이 인증된 활성 계정이 여럿이라 인증 상태를 해제")
+                    context.resolved(MigrationSupport.ResolutionReasons.VERIFIED_EMAIL_DUPLICATE)
                 }
 
                 val social = socialCredentials(credential)
@@ -73,7 +74,7 @@ class UserStep(
                     if (active && socialOwner[credentialEntry.subKey] == externalId) {
                         socialRows += externalId to credentialEntry
                     } else if (active) {
-                        context.resolved("같은 소셜 계정을 쓰는 활성 계정이 여럿이라 소셜 로그인 수단을 제거")
+                        context.resolved(MigrationSupport.ResolutionReasons.SOCIAL_AUTH_DUPLICATE)
                     }
                 }
 

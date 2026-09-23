@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.doc
@@ -55,7 +56,10 @@ class ThemeStep(
             if (!doc.bool("isCustom")) return@each
             val userId = context.userIds[doc.oid("userId")]
             if (userId == null) {
-                context.resolved("사용자가 없는 테마를 제외")
+                context.resolved(MigrationSupport.ResolutionReasons.THEME_USER_MISSING)
+                if (doc.str("status") != "DOWNLOADED" && doc.doc("publishInfo")?.str("publishName") != null) {
+                    context.resolved(MigrationSupport.ResolutionReasons.PUBLISHED_THEME_USER_MISSING)
+                }
                 return@each
             }
             val palette = doc.docs("colors").map { ColorSet(checkNotNull(it.str("bg")), checkNotNull(it.str("fg"))) }
@@ -115,7 +119,7 @@ class ThemeStep(
                         } else {
                             val key = "${originId.orEmpty()}\u0000${source.name}\u0000${jsonMapper.writeValueAsString(source.palette)}"
                             archives.getOrPut(key) {
-                                context.resolved("기존 다운로드 내용을 비공개 스냅샷으로 보존")
+                                context.resolved(MigrationSupport.ResolutionReasons.PUBLISHED_THEME_ARCHIVED)
                                 val archived = Publication(publicationIds.next(), source.name, source.palette)
                                 publications.add(
                                     archived.id,
@@ -136,7 +140,7 @@ class ThemeStep(
                     val previous = downloadsByUser[key]
                     if (previous != null) {
                         context.themeIds[d.id()] = previous
-                        context.resolved("동일한 온라인 테마의 중복 다운로드를 합침")
+                        context.resolved(MigrationSupport.ResolutionReasons.THEME_DOWNLOAD_MERGED)
                     } else {
                         downloadsByUser[key] = source.id
                         downloads.add(

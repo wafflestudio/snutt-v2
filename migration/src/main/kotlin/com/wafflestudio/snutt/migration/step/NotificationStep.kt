@@ -36,6 +36,7 @@ class NotificationStep(
                 val userId = ownerExternalId?.let(context.userIds::get)
                 if (ownerExternalId != null && userId == null) {
                     skipped++
+                    context.resolved(MigrationSupport.ResolutionReasons.NOTIFICATION_USER_MISSING)
                     return@each
                 }
                 val createdAt = doc.instant("created_at").orNow().toSqlTimestamp()
