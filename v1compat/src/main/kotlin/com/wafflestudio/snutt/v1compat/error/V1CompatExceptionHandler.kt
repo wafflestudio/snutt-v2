@@ -8,11 +8,9 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
-import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
-import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 data class V1ErrorResponse(
@@ -70,14 +68,10 @@ class V1CompatExceptionHandler {
     @ExceptionHandler(SnuttException::class)
     fun handleSnuttException(e: SnuttException): ResponseEntity<V1ErrorResponse> = e.toV1ErrorResponse()
 
-    @ExceptionHandler(HttpMessageNotReadableException::class, MethodArgumentNotValidException::class)
+    @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableBody(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE).toV1ErrorResponse()
 
-    @ExceptionHandler(
-        MethodArgumentTypeMismatchException::class,
-        MissingServletRequestParameterException::class,
-        HandlerMethodValidationException::class,
-    )
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
     fun handleInvalidParameter(): ResponseEntity<V1ErrorResponse> = SnuttException(ErrorType.INVALID_PARAMETER).toV1ErrorResponse()
 
     @ExceptionHandler(UpstreamException::class)

@@ -7,7 +7,6 @@ import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
@@ -17,9 +16,6 @@ import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
-import jakarta.validation.Valid
-import jakarta.validation.constraints.Max
-import jakarta.validation.constraints.Min
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -42,7 +38,7 @@ data class LegacySearchQuery(
     val etc: List<String>? = null,
     val page: Int = 0,
     val offset: Long? = null,
-    @field:Min(1) @field:Max(MAX_PAGE_SIZE) val limit: Int = 20,
+    val limit: Int = 20,
     val sortCriteria: String? = null,
     val categoryPre2025: List<String>? = null,
 )
@@ -57,7 +53,7 @@ class V1CompatLectureSearchController(
 ) {
     @PostMapping("")
     fun searchLectures(
-        @Valid @RequestBody query: LegacySearchQuery,
+        @RequestBody query: LegacySearchQuery,
         @CurrentClient clientInfo: ClientInfo,
     ): List<LegacyLectureDto> {
         val criteria =

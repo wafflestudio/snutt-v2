@@ -6,14 +6,10 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import jakarta.validation.Valid
-import jakarta.validation.constraints.Max
-import jakarta.validation.constraints.Min
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -34,7 +30,7 @@ data class LectureSearchRequest(
     val times: List<SearchTime>? = null,
     val timesToExclude: List<SearchTime>? = null,
     val cursor: String? = null,
-    @field:Min(1) @field:Max(MAX_PAGE_SIZE) val limit: Int = 20,
+    val limit: Int = 20,
     val sort: String? = null,
 )
 
@@ -46,7 +42,7 @@ class LectureController(
     @Public
     @PostMapping("/search")
     fun searchLectures(
-        @Valid @RequestBody request: LectureSearchRequest,
+        @RequestBody request: LectureSearchRequest,
         @CurrentClient clientInfo: ClientInfo,
     ): CursorPage<LectureResponse> {
         val criteria =

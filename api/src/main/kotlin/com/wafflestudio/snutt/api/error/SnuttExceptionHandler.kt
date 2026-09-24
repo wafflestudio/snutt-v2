@@ -12,7 +12,6 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
-import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.HandlerMapping
 
@@ -87,7 +86,7 @@ class SnuttExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableBody(): ResponseEntity<ErrorResponse> = handleSnuttException(SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE))
 
-    @ExceptionHandler(MethodArgumentTypeMismatchException::class, HandlerMethodValidationException::class)
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
     fun handleArgumentTypeMismatch(): ResponseEntity<ErrorResponse> = handleSnuttException(SnuttException(ErrorType.INVALID_PARAMETER))
 
     @ExceptionHandler(Exception::class)
