@@ -175,7 +175,7 @@ class V1CompatTimetableController(
         val themeId =
             body.themeId ?: timetableThemeService.builtinThemeId(legacyBuiltinCode(body.theme!!))
         val display = timetableService.modifyTimetableTheme(user.id!!, timetableId, themeId)
-        return toLegacy(user, display.timetable, display, clientInfo.language)
+        return toLegacy(user, display, clientInfo.language)
     }
 
     @PostMapping("/{timetableId}/primary")
@@ -219,7 +219,7 @@ class V1CompatTimetableController(
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
-        return toLegacy(user, display.timetable, display, clientInfo.language)
+        return toLegacy(user, display, clientInfo.language)
     }
 
     @PostMapping("/{timetableId}/lecture/{lectureId}")
@@ -241,7 +241,7 @@ class V1CompatTimetableController(
                         isForced ?: body?.isForced ?: false,
                 ),
             )
-        return toLegacy(user, display.timetable, display, clientInfo.language)
+        return toLegacy(user, display, clientInfo.language)
     }
 
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}/reset")
@@ -260,7 +260,7 @@ class V1CompatTimetableController(
                 timetableLectureId,
                 isForced ?: body?.isForced ?: false,
             )
-        return toLegacy(user, display.timetable, display, clientInfo.language)
+        return toLegacy(user, display, clientInfo.language)
     }
 
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}")
@@ -294,7 +294,7 @@ class V1CompatTimetableController(
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
-        return toLegacy(user, display.timetable, display, clientInfo.language)
+        return toLegacy(user, display, clientInfo.language)
     }
 
     private fun colorSelection(
@@ -326,27 +326,23 @@ class V1CompatTimetableController(
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
         val display = timetableLectureService.deleteLecture(user.id!!, timetableId, timetableLectureId)
-        return toLegacy(user, display.timetable, display, clientInfo.language)
+        return toLegacy(user, display, clientInfo.language)
     }
 
     private fun toLegacy(
         user: User,
         timetable: Timetable,
         language: Language = Language.KO,
-    ): LegacyTimetableDto {
-        val display = timetableService.getTimetableDisplay(user.id!!, timetable.id!!)
-        return toLegacy(user, timetable, display, language)
-    }
+    ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetableDisplay(user.id!!, timetable.id!!), language)
 
     private fun toLegacy(
         user: User,
-        timetable: Timetable,
         display: TimetableDisplay,
         language: Language = Language.KO,
     ): LegacyTimetableDto {
         val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
         return LegacyTimetableDto(
-            timetable = timetable,
+            timetable = display.timetable,
             userId = user.id!!.toString(),
             display = display,
             evLectureIds = evLectureIds,

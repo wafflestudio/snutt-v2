@@ -110,14 +110,13 @@ class SugangSnuSyncService(
                 .execute {
                     upsertLectures(created, updated)
                     val changedTimetableIds =
-                        timetableLectureRepository
-                            .findByLectureIdIn(updated.map { it.lecture.id!! } + deleted.map { it.id!! })
-                            .map { it.timetableId }
-                            .distinct()
+                        timetableLectureRepository.findTimetableIdsByLectureIdIn(
+                            updated.map { it.lecture.id!! } + deleted.map { it.id!! },
+                        )
                     val changeCounts = syncUserLectures(updated, deleted)
-                    if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
                     deleted.forEach(lectureRepository::delete)
                     lectureRepository.flush()
+                    if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
                     val affectedCourses =
                         (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                             .distinct()
