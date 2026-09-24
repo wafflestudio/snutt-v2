@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-
-const val MAX_SEARCH_PAGE_SIZE = 100L
 
 data class LectureSearchRequest(
     val year: Int,
@@ -35,7 +34,7 @@ data class LectureSearchRequest(
     val times: List<SearchTime>? = null,
     val timesToExclude: List<SearchTime>? = null,
     val cursor: String? = null,
-    @field:Min(1) @field:Max(MAX_SEARCH_PAGE_SIZE) val limit: Int = 20,
+    @field:Min(1) @field:Max(MAX_PAGE_SIZE) val limit: Int = 20,
     val sort: String? = null,
 )
 

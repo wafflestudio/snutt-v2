@@ -6,6 +6,8 @@ import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
 
+const val TIMETABLE_TITLE_MAX_LENGTH = 100
+
 @Entity
 class Timetable(
     var userId: Long,

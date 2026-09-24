@@ -2,9 +2,12 @@ package com.wafflestudio.snutt.api.v2.notification
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -33,7 +36,7 @@ class NotificationController(
     fun getNotifications(
         @CurrentUserId userId: Long,
         @RequestParam(required = false) cursor: String?,
-        @RequestParam(defaultValue = "20") limit: Int,
+        @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): CursorPage<NotificationResponse> {
         val page = notificationService.getNotifications(userId, cursor, limit, explicit > 0)

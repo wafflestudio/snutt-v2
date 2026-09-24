@@ -12,6 +12,7 @@ import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.common.storage.StorageUriResolver
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
@@ -41,6 +42,8 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColor
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColorIndex
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -350,13 +353,11 @@ class V1CompatNotificationController(
     @GetMapping("")
     fun getNotifications(
         @V1CurrentUser user: User,
-        @RequestParam(defaultValue = "0") offset: Long,
-        @RequestParam(defaultValue = "20") limit: Int,
+        @RequestParam(defaultValue = "0") @Min(0) offset: Long,
+        @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): List<LegacyNotificationDto> {
-        if (offset < 0 || limit <= 0 || offset > Int.MAX_VALUE - limit) {
-            throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
+        if (offset > Int.MAX_VALUE - limit - 1) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val notifications =
             notificationService
                 .getNotifications(user.id!!, null, offset.toInt() + limit, explicit > 0)

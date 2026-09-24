@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
+import com.wafflestudio.snutt.core.domain.timetable.model.TIMETABLE_TITLE_MAX_LENGTH
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
@@ -138,13 +139,15 @@ class TimetableService(
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val timetable = getTimetable(userId, timetableId)
         val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
+        val copiedTitle = CopyTitle.next(title ?: timetable.title, siblingTitles)
+        if (copiedTitle.length > TIMETABLE_TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         val copied =
             timetableRepository.save(
                 Timetable(
                     userId = userId,
                     year = timetable.year,
                     semester = timetable.semester,
-                    title = CopyTitle.next(title ?: timetable.title, siblingTitles),
+                    title = copiedTitle,
                     themeId = timetable.themeId,
                     isPrimary = false,
                 ),
