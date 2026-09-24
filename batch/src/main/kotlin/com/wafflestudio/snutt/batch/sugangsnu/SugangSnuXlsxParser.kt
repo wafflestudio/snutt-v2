@@ -87,6 +87,7 @@ class SugangSnuXlsxParser {
             val rows =
                 (3..sheet.lastRowNum)
                     .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex) }
+            if (rows.isEmpty()) throw IllegalArgumentException("xlsx에 강의 행이 없다")
             log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
             rows
         }
@@ -114,7 +115,9 @@ class SugangSnuXlsxParser {
 
         val courseNumber = get("교과목번호")
         val lectureNumber = get("강좌번호")
-        if (courseNumber.isEmpty() || lectureNumber.isEmpty()) return null
+        if (courseNumber.isEmpty() || lectureNumber.isEmpty()) {
+            throw IllegalArgumentException("xlsx ${row.rowNum}행에 교과목번호 또는 강좌번호가 없다")
+        }
 
         val classification = get("교과구분")
         val college = get("개설대학")

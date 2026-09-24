@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Instant
 
 data class SugangSnuSyncResult(
     val createdCount: Int,
@@ -108,7 +109,13 @@ class SugangSnuSyncService(
             transactionTemplate
                 .execute {
                     upsertLectures(created, updated)
+                    val changedTimetableIds =
+                        timetableLectureRepository
+                            .findByLectureIdIn(updated.map { it.lecture.id!! } + deleted.map { it.id!! })
+                            .map { it.timetableId }
+                            .distinct()
                     val changeCounts = syncUserLectures(updated, deleted)
+                    if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
                     deleted.forEach(lectureRepository::delete)
                     lectureRepository.flush()
                     val affectedCourses =
