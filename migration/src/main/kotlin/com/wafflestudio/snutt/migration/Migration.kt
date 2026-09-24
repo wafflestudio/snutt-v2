@@ -27,6 +27,7 @@ interface MigrationStep {
 @Component
 class MigrationContext {
     val userIds = HashMap<String, Long>(256_000)
+    val inactiveUserIds = HashSet<Long>()
     val lectureIds = HashMap<String, Long>(256_000)
     val timetableIds = HashMap<String, Long>(512_000)
     val themeIds = HashMap<String, Long>()
@@ -182,9 +183,11 @@ object MigrationSupport {
         const val DEVICE_USER_MISSING = "사용자가 없는 기기를 제외"
         const val DEVICE_REGISTRATION_DUPLICATE = "같은 FCM 등록 토큰의 활성 기기가 중복되어 이전 항목을 비활성화"
         const val DEVICE_REGISTRATION_MISSING = "FCM 등록 토큰이 없는 기기를 비활성화"
+        const val DEVICE_USER_INACTIVE = "탈퇴한 사용자의 기기를 비활성화"
         const val PUSH_PREFERENCE_USER_MISSING = "사용자가 없는 푸시 설정을 제외"
         const val FRIEND_USER_MISSING = "사용자를 찾을 수 없는 친구 관계를 제외"
         const val FRIEND_DUPLICATE = "같은 사용자 쌍의 친구 관계가 중복되어 하나만 남김"
+        const val FRIEND_USER_INACTIVE = "탈퇴한 사용자의 친구 관계를 제외"
         const val NOTIFICATION_USER_MISSING = "사용자가 없는 알림을 제외"
         const val EVALUATION_LIKE_USER_MISSING = "사용자가 없는 강의평 공감을 제외"
         const val EVALUATION_REPORT_USER_MISSING = "사용자가 없는 강의평 신고를 제외"

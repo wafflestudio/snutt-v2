@@ -244,7 +244,12 @@ class ValidateStep(
             "friend",
             mongo.count("friend"),
             count("friend"),
-            tolerated = resolved(ResolutionReasons.FRIEND_USER_MISSING, ResolutionReasons.FRIEND_DUPLICATE),
+            tolerated =
+                resolved(
+                    ResolutionReasons.FRIEND_USER_MISSING,
+                    ResolutionReasons.FRIEND_USER_INACTIVE,
+                    ResolutionReasons.FRIEND_DUPLICATE,
+                ),
         )
         compare(
             failures,

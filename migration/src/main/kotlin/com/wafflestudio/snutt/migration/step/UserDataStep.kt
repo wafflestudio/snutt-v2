@@ -115,7 +115,8 @@ class UserDataStep(
             devices.indices
                 .filter { index ->
                     val doc = devices[index]
-                    context.userIds[doc.oid("userId")] != null && !doc.bool("isDeleted")
+                    val userId = context.userIds[doc.oid("userId")]
+                    userId != null && userId !in context.inactiveUserIds && !doc.bool("isDeleted")
                 }.groupBy { devices[it].requireStr("fcmRegistrationId") }
                 .mapValues { (_, indexes) ->
                     indexes.maxWith(compareBy<Int> { devices[it].instant("updatedAt") ?: Instant.EPOCH }.thenBy { it })
@@ -146,9 +147,11 @@ class UserDataStep(
                     return@forEachIndexed
                 }
                 val registrationId = doc.requireStr("fcmRegistrationId")
+                val inactiveUser = !doc.bool("isDeleted") && userId in context.inactiveUserIds
                 val duplicateActiveRegistrationId =
-                    !doc.bool("isDeleted") && activeOwnerByRegistrationId[registrationId] != index
+                    !doc.bool("isDeleted") && !inactiveUser && activeOwnerByRegistrationId[registrationId] != index
                 val missingRegistrationId = !doc.bool("isDeleted") && registrationId.isBlank()
+                if (inactiveUser) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_USER_INACTIVE)
                 if (duplicateActiveRegistrationId) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_REGISTRATION_DUPLICATE)
                 if (missingRegistrationId) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_REGISTRATION_MISSING)
                 out.add(
@@ -161,7 +164,7 @@ class UserDataStep(
                     doc.str("appType"),
                     doc.str("appVersion"),
                     registrationId,
-                    doc.bool("isDeleted") || duplicateActiveRegistrationId || missingRegistrationId,
+                    doc.bool("isDeleted") || inactiveUser || duplicateActiveRegistrationId || missingRegistrationId,
                     doc.instant("createdAt").orNow().toSqlTimestamp(),
                     doc.instant("updatedAt").orNow().toSqlTimestamp(),
                 )
@@ -198,6 +201,10 @@ class UserDataStep(
             val toUserId = context.userIds[doc.oid("toUserId")]
             if (fromUserId == null || toUserId == null) {
                 context.resolved(MigrationSupport.ResolutionReasons.FRIEND_USER_MISSING)
+                return@each
+            }
+            if (fromUserId in context.inactiveUserIds || toUserId in context.inactiveUserIds) {
+                context.resolved(MigrationSupport.ResolutionReasons.FRIEND_USER_INACTIVE)
                 return@each
             }
             val key = "${minOf(fromUserId, toUserId)}\u0000${maxOf(fromUserId, toUserId)}"
