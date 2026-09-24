@@ -219,7 +219,7 @@ class V1CompatTimetableController(
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
-        return toLegacy(user, timetable, display, clientInfo.language)
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     @PostMapping("/{timetableId}/lecture/{lectureId}")
@@ -231,18 +231,17 @@ class V1CompatTimetableController(
         @RequestBody(required = false) body: LegacyForcedRequest?,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
-        val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
             timetableLectureService.addLecture(
                 user.id!!,
-                timetable.id!!,
+                timetableId,
                 TimetableLectureAddRequest(
                     lectureId = lectureId,
                     isForced =
                         isForced ?: body?.isForced ?: false,
                 ),
             )
-        return toLegacy(user, timetable, display, clientInfo.language)
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}/reset")
@@ -254,7 +253,6 @@ class V1CompatTimetableController(
         @RequestBody(required = false) body: LegacyForcedRequest?,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
-        val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display =
             timetableLectureService.resetLecture(
                 user.id!!,
@@ -262,7 +260,7 @@ class V1CompatTimetableController(
                 timetableLectureId,
                 isForced ?: body?.isForced ?: false,
             )
-        return toLegacy(user, timetable, display, clientInfo.language)
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     @PutMapping("/{timetableId}/lecture/{timetableLectureId}")
@@ -296,7 +294,7 @@ class V1CompatTimetableController(
                     isForced = isForced ?: body.isForced ?: false,
                 ),
             )
-        return toLegacy(user, timetable, display, clientInfo.language)
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     private fun colorSelection(
@@ -327,9 +325,8 @@ class V1CompatTimetableController(
         @PathVariable timetableLectureId: Long,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto {
-        val timetable = timetableService.getTimetable(user.id!!, timetableId)
         val display = timetableLectureService.deleteLecture(user.id!!, timetableId, timetableLectureId)
-        return toLegacy(user, timetable, display, clientInfo.language)
+        return toLegacy(user, display.timetable, display, clientInfo.language)
     }
 
     private fun toLegacy(
