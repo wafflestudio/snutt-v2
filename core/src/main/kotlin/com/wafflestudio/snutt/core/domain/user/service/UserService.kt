@@ -6,6 +6,8 @@ import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
+import com.wafflestudio.snutt.core.domain.device.service.DeviceService
+import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.model.UserSocialAuth
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -19,6 +21,8 @@ class UserService(
     private val userSocialAuthRepository: UserSocialAuthRepository,
     private val userNicknameService: UserNicknameService,
     private val authService: AuthService,
+    private val deviceService: DeviceService,
+    private val friendRepository: FriendRepository,
 ) {
     fun findActive(userId: Long): User? = userRepository.findByIdAndActiveTrue(userId)
 
@@ -52,6 +56,8 @@ class UserService(
         val user = userRepository.findForUpdateByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         user.active = false
         userSocialAuthRepository.deleteByUserId(userId)
+        deviceService.removeAllByUserId(userId)
+        friendRepository.deleteByUserId(userId)
         authService.revokeSessions(user)
     }
 }

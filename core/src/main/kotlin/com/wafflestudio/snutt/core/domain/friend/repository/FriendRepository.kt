@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.friend.repository
 
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface FriendRepository : JpaRepository<Friend, Long> {
@@ -23,4 +24,8 @@ interface FriendRepository : JpaRepository<Friend, Long> {
     fun findByFromUserIdAndIsAcceptedFalseOrderByCreatedAtDesc(userId: Long): List<Friend>
 
     fun findByToUserIdAndIsAcceptedFalseOrderByCreatedAtDesc(userId: Long): List<Friend>
+
+    @Modifying
+    @Query("DELETE FROM Friend f WHERE f.fromUserId = :userId OR f.toUserId = :userId")
+    fun deleteByUserId(userId: Long)
 }
