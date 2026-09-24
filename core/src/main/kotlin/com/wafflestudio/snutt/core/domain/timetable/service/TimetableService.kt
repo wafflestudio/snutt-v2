@@ -11,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
-import com.wafflestudio.snutt.core.domain.timetable.model.TIMETABLE_TITLE_MAX_LENGTH
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
@@ -29,6 +28,10 @@ class TimetableService(
     private val timetableThemeService: TimetableThemeService,
     private val userRepository: UserRepository,
 ) {
+    companion object {
+        private const val TITLE_MAX_LENGTH = 100
+    }
+
     fun getTimetables(userId: Long): List<Timetable> = timetableRepository.findByUserId(userId)
 
     fun getMostRecentlyUpdatedTimetable(userId: Long): Timetable =
@@ -140,7 +143,7 @@ class TimetableService(
         val timetable = getTimetable(userId, timetableId)
         val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
         val copiedTitle = CopyTitle.next(title ?: timetable.title, siblingTitles)
-        if (copiedTitle.length > TIMETABLE_TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
+        if (copiedTitle.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         val copied =
             timetableRepository.save(
                 Timetable(
@@ -240,7 +243,7 @@ class TimetableService(
         title: String,
         excludeTimetableId: Long? = null,
     ) {
-        if (title.isEmpty()) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
+        if (title.isEmpty() || title.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
         val duplicate = timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title)
         if (duplicate != null && duplicate.id != excludeTimetableId) {

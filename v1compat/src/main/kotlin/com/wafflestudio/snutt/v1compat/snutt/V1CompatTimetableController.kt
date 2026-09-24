@@ -15,7 +15,6 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
-import com.wafflestudio.snutt.core.domain.timetable.model.TIMETABLE_TITLE_MAX_LENGTH
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectureAddRequest
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddRequest
@@ -26,8 +25,6 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyTimetableDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
-import jakarta.validation.Valid
-import jakarta.validation.constraints.Size
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -56,11 +53,11 @@ data class LegacyTimetableBriefDto(
 data class LegacyTimetableAddRequest(
     val year: Int,
     val semester: Semester,
-    @field:Size(max = TIMETABLE_TITLE_MAX_LENGTH) val title: String,
+    val title: String,
 )
 
 data class LegacyTimetableModifyRequest(
-    @field:Size(max = TIMETABLE_TITLE_MAX_LENGTH) val title: String,
+    val title: String,
 )
 
 data class LegacyTimetableModifyThemeRequest(
@@ -118,7 +115,7 @@ class V1CompatTimetableController(
     fun addTimetable(
         @V1CurrentUser user: User,
         @RequestParam(required = false) source: Long?,
-        @Valid @RequestBody body: LegacyTimetableAddRequest,
+        @RequestBody body: LegacyTimetableAddRequest,
     ): List<LegacyTimetableBriefDto> {
         val userId = user.id!!
         if (source == null) {
@@ -143,7 +140,7 @@ class V1CompatTimetableController(
     fun modifyTimetable(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
-        @Valid @RequestBody body: LegacyTimetableModifyRequest,
+        @RequestBody body: LegacyTimetableModifyRequest,
     ): List<LegacyTimetableBriefDto> {
         timetableService.modifyTimetableTitle(user.id!!, timetableId, body.title)
         return getTimetableBriefs(user)

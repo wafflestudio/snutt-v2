@@ -12,11 +12,9 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableBriefDto
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
-import com.wafflestudio.snutt.core.domain.timetable.model.TIMETABLE_TITLE_MAX_LENGTH
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Size
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -31,11 +29,11 @@ import org.springframework.web.bind.annotation.RestController
 data class TimetableAddRequest(
     val year: Int,
     val semester: Semester,
-    @field:NotBlank @field:Size(max = TIMETABLE_TITLE_MAX_LENGTH) val title: String,
+    @field:NotBlank val title: String,
 )
 
 data class TimetableModifyRequest(
-    @field:NotBlank @field:Size(max = TIMETABLE_TITLE_MAX_LENGTH) val title: String,
+    @field:NotBlank val title: String,
 )
 
 data class TimetableModifyThemeRequest(
