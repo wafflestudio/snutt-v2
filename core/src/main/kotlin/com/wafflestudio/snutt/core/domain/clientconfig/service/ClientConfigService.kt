@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.clientconfig.service
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.transaction.afterCommit
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.repository.ClientConfigRepository
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -34,6 +35,7 @@ class ClientConfigService(
     }
 
     @Scheduled(fixedDelay = REFRESH_INTERVAL_MILLIS)
+    @Synchronized
     fun refresh() {
         snapshot = clientConfigRepository.findAll()
     }
@@ -63,7 +65,7 @@ class ClientConfigService(
                     minVersion = request.minVersion,
                     maxVersion = request.maxVersion,
                 ),
-            ).also { refresh() }
+            ).also { afterCommit(::refresh) }
 
     @Transactional
     fun patchConfig(
@@ -79,7 +81,7 @@ class ClientConfigService(
         config.osType = request.osType
         config.minVersion = request.minVersion
         config.maxVersion = request.maxVersion
-        refresh()
+        afterCommit(::refresh)
         return config
     }
 
@@ -93,7 +95,7 @@ class ClientConfigService(
                 ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         if (config.name != name) throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         clientConfigRepository.delete(config)
-        refresh()
+        afterCommit(::refresh)
     }
 
     companion object {
