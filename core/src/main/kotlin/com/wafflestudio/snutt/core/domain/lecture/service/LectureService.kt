@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCursor
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -27,7 +28,7 @@ class LectureService(
         cursor: String?,
         limit: Int = 20,
     ): CursorPage<LectureSearchRow> {
-        if (limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        if (limit !in 1..MAX_PAGE_SIZE) throw SnuttException(ErrorType.INVALID_PARAMETER)
         val decoded =
             cursorCodec.decode<LectureSearchCursor>(cursor)?.also {
                 if (it.sort != criteria.sort || it.lectureId <= 0) {
@@ -43,7 +44,7 @@ class LectureService(
         offset: Int,
         limit: Int,
     ): List<LectureSearchRow> {
-        if (offset < 0 || limit <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        if (offset < 0 || limit !in 1..MAX_PAGE_SIZE) throw SnuttException(ErrorType.INVALID_PARAMETER)
         return lectureSearchRepository.search(criteria, cursorLectureId = null, limit = limit, offset = offset)
     }
 

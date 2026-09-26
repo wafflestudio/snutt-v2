@@ -217,7 +217,7 @@ class TimetableLectureService(
         userId: Long,
         timetable: Timetable,
     ): TimetableDisplay {
-        timetableRepository.touchUpdatedAt(timetable.id!!, Instant.now())
+        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
         return timetableService.getTimetableDisplay(userId, timetable.id!!)
     }
 

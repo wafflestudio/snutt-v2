@@ -354,14 +354,7 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): List<LegacyNotificationDto> {
-        if (offset < 0 || limit <= 0 || offset > Int.MAX_VALUE - limit) {
-            throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
-        val notifications =
-            notificationService
-                .getNotifications(user.id!!, null, offset.toInt() + limit, explicit > 0)
-                .content
-                .drop(offset.toInt())
+        val notifications = notificationService.getNotificationsByOffset(user.id!!, offset, limit, explicit > 0)
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(

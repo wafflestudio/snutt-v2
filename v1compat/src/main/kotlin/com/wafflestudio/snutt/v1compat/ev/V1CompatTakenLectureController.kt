@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.coursebook.service.SemesterService
@@ -17,28 +18,29 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import tools.jackson.databind.PropertyNamingStrategies
-import tools.jackson.databind.annotation.JsonNaming
 import java.time.Instant
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
+    @param:JsonProperty("total_count")
     val totalCount: Int = content.size,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyTakenLectureDto(
     val id: Long?,
     val title: String,
     val instructor: String,
     val department: String?,
+    @param:JsonProperty("course_number")
     val courseNumber: String,
     val credit: Int?,
+    @param:JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
     val classification: String?,
+    @param:JsonProperty("taken_year")
     val takenYear: Int,
+    @param:JsonProperty("taken_semester")
     val takenSemester: Int,
 )
 
@@ -74,64 +76,70 @@ class V1CompatTakenLectureController(
         )
 }
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacySearchTagGroupsResponse(
+    @param:JsonProperty("tag_groups")
     val tagGroups: List<LegacyEvTagGroupDto>,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseSearchResponse(
     val content: List<LegacyCourseDto>,
     val page: Int,
     val size: Int,
     val last: Boolean,
+    @param:JsonProperty("total_count")
     val totalCount: Long,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseDto(
     val id: Long?,
     val title: String,
     val instructor: String,
     val department: String?,
+    @param:JsonProperty("course_number")
     val courseNumber: String,
     val credit: Int?,
+    @param:JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
     val classification: String?,
     val evaluation: LegacyCourseEvaluationSummaryDto,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseEvaluationSummaryDto(
+    @param:JsonProperty("avg_rating")
     val avgRating: Double?,
+    @param:JsonProperty("evaluation_count")
     val evaluationCount: Long,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyCourseWithSemestersResponse(
     val id: Long?,
     val title: String,
     val instructor: String,
     val department: String?,
+    @param:JsonProperty("course_number")
     val courseNumber: String,
     val credit: Int?,
+    @param:JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
     val classification: String?,
+    @param:JsonProperty("semester_lectures")
     val semesterLectures: List<LegacySemesterLectureDto>,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacySemesterLectureDto(
     val id: Long,
     val year: Int,
     val semester: Int,
     val credit: Int,
+    @param:JsonProperty("extra_info")
     val extraInfo: String,
+    @param:JsonProperty("academic_year")
     val academicYear: String,
     val category: String,
     val classification: String,
+    @param:JsonProperty("my_evaluation_exists")
     val myEvaluationExists: Boolean,
 )
 

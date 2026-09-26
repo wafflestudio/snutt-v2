@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.push.PushClient
+import com.wafflestudio.snutt.core.common.transaction.afterCommit
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
@@ -48,7 +49,7 @@ class DeviceService(
         device.appType = clientInfo.appType
         device.appVersion = clientInfo.appVersion
         userDeviceRepository.save(device)
-        pushClient.subscribeGlobalTopic(registrationId)
+        afterCommit { pushClient.subscribeGlobalTopic(registrationId) }
     }
 
     @Transactional
@@ -60,7 +61,15 @@ class DeviceService(
             userDeviceRepository.findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, registrationId)
                 ?: return
         device.isDeleted = true
-        pushClient.unsubscribeGlobalTopic(registrationId)
+        afterCommit { pushClient.unsubscribeGlobalTopic(registrationId) }
+    }
+
+    @Transactional
+    fun removeAllByUserId(userId: Long) {
+        val devices = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(listOf(userId))
+        devices.forEach { it.isDeleted = true }
+        val registrationIds = devices.map { it.fcmRegistrationId }
+        afterCommit { registrationIds.forEach(pushClient::unsubscribeGlobalTopic) }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

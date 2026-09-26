@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.push.GLOBAL_TOPIC
 import com.wafflestudio.snutt.core.common.push.PushClient
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
+import com.wafflestudio.snutt.core.common.transaction.afterCommit
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
@@ -13,8 +14,6 @@ import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceTyp
 import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Service
 class PushService(
@@ -61,11 +60,7 @@ class PushService(
             },
         )
         val messages = resolveMessages(userIds.associateWith { message }, preferenceType)
-        TransactionSynchronizationManager.registerSynchronization(
-            object : TransactionSynchronization {
-                override fun afterCommit() = deliver(messages)
-            },
-        )
+        afterCommit { deliver(messages) }
     }
 
     private fun resolveMessages(

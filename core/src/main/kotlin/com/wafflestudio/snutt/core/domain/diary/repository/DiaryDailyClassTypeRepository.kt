@@ -8,5 +8,7 @@ interface DiaryDailyClassTypeRepository : JpaRepository<DiaryDailyClassType, Lon
 
     fun findAllByNameIn(names: Collection<String>): List<DiaryDailyClassType>
 
+    fun findAllByNameInAndActiveTrue(names: Collection<String>): List<DiaryDailyClassType>
+
     fun findByName(name: String): DiaryDailyClassType?
 }

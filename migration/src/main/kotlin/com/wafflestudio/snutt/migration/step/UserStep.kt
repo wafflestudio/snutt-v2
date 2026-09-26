@@ -53,6 +53,7 @@ class UserStep(
                 val active = doc.bool("active")
                 val id = ids.next()
                 context.userIds[externalId] = id
+                if (!active) context.inactiveUserIds += id
 
                 var localId = credential.str("localId")
                 var localPw = credential.str("localPw")

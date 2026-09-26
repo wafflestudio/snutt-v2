@@ -43,7 +43,10 @@ class LectureSearchRepositoryImpl(
         private fun regexEscape(value: String): String =
             value.flatMap { ch -> if (ch in "\\^$.|?*+()[]{}") listOf('\\', ch) else listOf(ch) }.joinToString("")
 
-        private fun fuzzyPattern(keyword: String): String = keyword.toCharArray().joinToString(".*") { regexEscape(it.toString()) }
+        private fun fuzzyPattern(keyword: String): String =
+            keyword.codePoints().toArray().joinToString(".*") {
+                regexEscape(Character.toString(it))
+            }
     }
 
     override fun search(

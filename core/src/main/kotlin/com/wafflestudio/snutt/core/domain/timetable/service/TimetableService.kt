@@ -28,6 +28,10 @@ class TimetableService(
     private val timetableThemeService: TimetableThemeService,
     private val userRepository: UserRepository,
 ) {
+    companion object {
+        private const val TITLE_MAX_LENGTH = 100
+    }
+
     fun getTimetables(userId: Long): List<Timetable> = timetableRepository.findByUserId(userId)
 
     fun getMostRecentlyUpdatedTimetable(userId: Long): Timetable =
@@ -138,13 +142,15 @@ class TimetableService(
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val timetable = getTimetable(userId, timetableId)
         val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
+        val copiedTitle = CopyTitle.next(title ?: timetable.title, siblingTitles)
+        if (copiedTitle.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         val copied =
             timetableRepository.save(
                 Timetable(
                     userId = userId,
                     year = timetable.year,
                     semester = timetable.semester,
-                    title = CopyTitle.next(title ?: timetable.title, siblingTitles),
+                    title = copiedTitle,
                     themeId = timetable.themeId,
                     isPrimary = false,
                 ),
@@ -237,7 +243,7 @@ class TimetableService(
         title: String,
         excludeTimetableId: Long? = null,
     ) {
-        if (title.isEmpty()) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
+        if (title.isEmpty() || title.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
         if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
         val duplicate = timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title)
         if (duplicate != null && duplicate.id != excludeTimetableId) {

@@ -42,9 +42,9 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): Timetable?
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("UPDATE Timetable t SET t.updatedAt = :updatedAt WHERE t.id = :timetableId")
+    @Query("UPDATE Timetable t SET t.updatedAt = :updatedAt WHERE t.id IN :timetableIds")
     fun touchUpdatedAt(
-        timetableId: Long,
+        timetableIds: Collection<Long>,
         updatedAt: Instant,
     )
 

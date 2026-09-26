@@ -69,7 +69,7 @@ class DiaryService(
         userId: Long,
         request: DiaryQuestionnaireRequest,
     ): DiaryQuestionnaireDisplay {
-        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).map { it.id!! }
+        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameInAndActiveTrue(request.dailyClassTypes).map { it.id!! }
         val targetedQuestionIds =
             diaryQuestionTargetRepository
                 .findByDailyClassTypeIdIn(dailyClassTypeIds)
@@ -153,7 +153,7 @@ class DiaryService(
         if (request.dailyClassTypes.size != request.dailyClassTypes.toSet().size) {
             throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
         }
-        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameIn(request.dailyClassTypes).map { it.id!! }
+        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameInAndActiveTrue(request.dailyClassTypes).map { it.id!! }
         if (dailyClassTypeIds.size != request.dailyClassTypes.size) {
             throw SnuttException(ErrorType.DIARY_DAILY_CLASS_TYPE_NOT_FOUND)
         }

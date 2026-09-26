@@ -10,7 +10,7 @@ import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.model.RefreshToken
 import com.wafflestudio.snutt.core.domain.auth.repository.RefreshTokenRepository
-import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
+import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.user.event.UserCredentialChangedEvent
 import com.wafflestudio.snutt.core.domain.user.event.UserRegisteredEvent
 import com.wafflestudio.snutt.core.domain.user.model.User
@@ -39,7 +39,7 @@ class AuthService(
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val userDeviceRepository: UserDeviceRepository,
+    private val deviceService: DeviceService,
     private val accessTokenService: AccessTokenService,
     private val userNicknameService: UserNicknameService,
     private val passwordEncoder: PasswordEncoder,
@@ -149,9 +149,7 @@ class AuthService(
         val userId = refreshTokenRecord.user.id!!
         refreshTokenRepository.delete(refreshTokenRecord)
         if (fcmRegistrationId == null) return
-        userDeviceRepository
-            .findByUserIdAndFcmRegistrationIdAndIsDeletedFalse(userId, fcmRegistrationId)
-            ?.let { it.isDeleted = true }
+        deviceService.removeRegistrationId(userId, fcmRegistrationId)
     }
 
     @Transactional
