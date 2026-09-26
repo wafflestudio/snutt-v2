@@ -1,12 +1,10 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
-import tools.jackson.databind.PropertyNamingStrategies
-import tools.jackson.databind.annotation.JsonNaming
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvTagGroupDto(
     val id: Int,
     val name: String,
@@ -15,7 +13,6 @@ data class LegacyEvTagGroupDto(
     val tags: List<LegacyEvTagDto>,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvTagDto(
     val id: Long,
     val name: String,
@@ -23,70 +20,97 @@ data class LegacyEvTagDto(
     val ordering: Int,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationWithSemesterDto(
     val id: Long?,
+    @param:JsonProperty("user_id")
     val userId: String?,
     val content: String,
+    @param:JsonProperty("grade_satisfaction")
     val gradeSatisfaction: Double?,
+    @param:JsonProperty("teaching_skill")
     val teachingSkill: Double?,
     val gains: Double?,
+    @param:JsonProperty("life_balance")
     val lifeBalance: Double?,
     val rating: Double,
+    @param:JsonProperty("like_count")
     val likeCount: Long,
+    @param:JsonProperty("is_hidden")
     val isHidden: Boolean,
+    @param:JsonProperty("is_reported")
     val isReported: Boolean,
+    @param:JsonProperty("is_liked")
     val isLiked: Boolean,
+    @param:JsonProperty("from_snuev")
     val fromSnuev: Boolean,
     val year: Int,
     val semester: Int,
+    @param:JsonProperty("lecture_id")
     val lectureId: Long,
+    @param:JsonProperty("is_modifiable")
     val isModifiable: Boolean,
+    @param:JsonProperty("is_reportable")
     val isReportable: Boolean,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationWithLectureDto(
     val id: Long?,
+    @param:JsonProperty("user_id")
     val userId: String?,
     val content: String,
+    @param:JsonProperty("grade_satisfaction")
     val gradeSatisfaction: Double?,
+    @param:JsonProperty("teaching_skill")
     val teachingSkill: Double?,
     val gains: Double?,
+    @param:JsonProperty("life_balance")
     val lifeBalance: Double?,
     val rating: Double,
+    @param:JsonProperty("like_count")
     val likeCount: Long,
+    @param:JsonProperty("is_hidden")
     val isHidden: Boolean,
+    @param:JsonProperty("is_reported")
     val isReported: Boolean,
+    @param:JsonProperty("is_liked")
     val isLiked: Boolean,
+    @param:JsonProperty("from_snuev")
     val fromSnuev: Boolean,
     val year: Int,
     val semester: Int,
     val lecture: LegacyEvaluationCourseDto?,
+    @param:JsonProperty("is_modifiable")
     val isModifiable: Boolean,
+    @param:JsonProperty("is_reportable")
     val isReportable: Boolean,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationCourseDto(
     val id: Long?,
     val title: String,
     val instructor: String,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationCreateResponse(
     val id: Long?,
+    @param:JsonProperty("user_id")
     val userId: String?,
     val content: String,
+    @param:JsonProperty("grade_satisfaction")
     val gradeSatisfaction: Double?,
+    @param:JsonProperty("teaching_skill")
     val teachingSkill: Double?,
     val gains: Double?,
+    @param:JsonProperty("life_balance")
     val lifeBalance: Double?,
     val rating: Double,
+    @param:JsonProperty("like_count")
     val likeCount: Long,
+    @param:JsonProperty("is_hidden")
     val isHidden: Boolean,
+    @param:JsonProperty("is_reported")
     val isReported: Boolean,
+    @param:JsonProperty("from_snuev")
     val fromSnuev: Boolean,
 )
 
@@ -182,12 +206,12 @@ internal fun EvaluationDisplay.toLegacyCreate(): LegacyEvaluationCreateResponse 
     )
 }
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvCursorPage<T>(
     val content: List<T>,
     val cursor: String?,
     val size: Int,
     val last: Boolean,
+    @param:JsonProperty("total_count")
     val totalCount: Long? = null,
 )
 

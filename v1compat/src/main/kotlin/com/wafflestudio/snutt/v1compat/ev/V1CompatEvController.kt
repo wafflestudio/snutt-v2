@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -20,70 +21,79 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import tools.jackson.databind.PropertyNamingStrategies
-import tools.jackson.databind.annotation.JsonNaming
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationWriteRequest(
     val content: String,
+    @param:JsonProperty("grade_satisfaction")
     val gradeSatisfaction: Double,
+    @param:JsonProperty("teaching_skill")
     val teachingSkill: Double,
     val gains: Double,
+    @param:JsonProperty("life_balance")
     val lifeBalance: Double,
     val rating: Double,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationUpdateRequest(
     val content: String? = null,
+    @param:JsonProperty("grade_satisfaction")
     val gradeSatisfaction: Double? = null,
+    @param:JsonProperty("teaching_skill")
     val teachingSkill: Double? = null,
     val gains: Double? = null,
+    @param:JsonProperty("life_balance")
     val lifeBalance: Double? = null,
     val rating: Double? = null,
+    @param:JsonProperty("semester_lecture_id")
     val semesterLectureId: String? = null,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationReportRequest(
     val content: String,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyMyLectureEvaluationsResponse(
     val evaluations: List<LegacyEvaluationWithSemesterDto>,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvLectureSummaryResponse(
     val id: Long?,
     val title: String,
     val instructor: String?,
     val department: String?,
+    @param:JsonProperty("course_number")
     val courseNumber: String,
     val credit: Int?,
+    @param:JsonProperty("academic_year")
     val academicYear: String?,
     val category: String?,
     val classification: String?,
     val evaluation: LegacyEvAveragesDto,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvAveragesDto(
+    @param:JsonProperty("avg_grade_satisfaction")
     val avgGradeSatisfaction: Double?,
+    @param:JsonProperty("avg_teaching_skill")
     val avgTeachingSkill: Double?,
+    @param:JsonProperty("avg_gains")
     val avgGains: Double?,
+    @param:JsonProperty("avg_life_balance")
     val avgLifeBalance: Double?,
+    @param:JsonProperty("avg_rating")
     val avgRating: Double?,
+    @param:JsonProperty("evaluation_count")
     val evaluationCount: Long,
 )
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 data class LegacyEvaluationReportResponse(
     val id: Long?,
+    @param:JsonProperty("lecture_evaluation_id")
     val lectureEvaluationId: Long,
+    @param:JsonProperty("user_id")
     val userId: String?,
     val content: String,
+    @param:JsonProperty("is_hidden")
     val isHidden: Boolean,
 )
 
