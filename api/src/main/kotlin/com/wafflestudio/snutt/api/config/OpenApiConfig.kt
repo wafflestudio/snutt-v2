@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.config.V1CompatConfig
-import io.swagger.v3.oas.models.Components
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.parameters.HeaderParameter
 import io.swagger.v3.oas.models.security.SecurityRequirement
@@ -33,7 +32,7 @@ class OpenApiConfig {
             .builder()
             .group("v2")
             .pathsToMatch("/v2/**")
-            .addOpenApiCustomizer { it.components(components(OS_TYPE, CLIENT_KEY, BEARER)) }
+            .addOpenApiCustomizer { it.components.securitySchemes(securitySchemes(OS_TYPE, CLIENT_KEY, BEARER)) }
             .addOperationCustomizer { operation, handler ->
                 val requirement = SecurityRequirement().addList(OS_TYPE).addList(CLIENT_KEY)
                 if (!handler.has(Public::class.java)) requirement.addList(BEARER)
@@ -46,15 +45,14 @@ class OpenApiConfig {
             .builder()
             .group("v1compat")
             .pathsToMatch(*V1CompatConfig.PATH_PATTERNS)
-            .addOpenApiCustomizer { it.components(components(LEGACY_API_KEY, LEGACY_TOKEN)) }
+            .addOpenApiCustomizer { it.components.securitySchemes(securitySchemes(LEGACY_API_KEY, LEGACY_TOKEN)) }
             .addOperationCustomizer { operation, handler ->
                 val requirement = SecurityRequirement().addList(LEGACY_API_KEY)
                 if (!handler.has(V1Public::class.java)) requirement.addList(LEGACY_TOKEN)
                 operation.addSecurityItem(requirement).withHeaders(handler, listOf("x-os-type") + CLIENT_HEADERS)
             }.build()
 
-    private fun components(vararg names: String): Components =
-        Components().securitySchemes(names.associateWith { SECURITY_SCHEMES.getValue(it) })
+    private fun securitySchemes(vararg names: String): Map<String, SecurityScheme> = names.associateWith { SECURITY_SCHEMES.getValue(it) }
 
     private fun Operation.withHeaders(
         handler: HandlerMethod,
