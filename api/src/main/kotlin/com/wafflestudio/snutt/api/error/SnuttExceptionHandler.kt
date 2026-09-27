@@ -1,8 +1,10 @@
 package com.wafflestudio.snutt.api.error
 
+import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.UpstreamException
+import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -11,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.servlet.HandlerMapping
 import java.net.URI
 
 val ErrorType.problemType: URI
@@ -24,8 +27,22 @@ class SnuttExceptionHandler {
     fun handleSnuttException(e: SnuttException): ErrorResponse = errorResponse(e, e.error, e.displayMessage)
 
     @ExceptionHandler(UpstreamException::class)
-    fun handleUpstreamException(e: UpstreamException): ErrorResponse {
-        log.error("upstream failure: provider={} error={}", e.provider, e.error, e)
+    fun handleUpstreamException(
+        e: UpstreamException,
+        request: HttpServletRequest,
+    ): ErrorResponse {
+        val userId = request.getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE) as? Long
+        val path = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)?.toString() ?: request.requestURI
+        log.error(
+            "upstream failure: {} {} provider={} -> {} userId={} query={}",
+            request.method,
+            path,
+            e.provider,
+            e.error.httpStatus.value(),
+            userId,
+            request.queryString,
+            e,
+        )
         return errorResponse(e, e.error)
     }
 
