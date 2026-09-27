@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.method.HandlerMethod
@@ -46,6 +47,7 @@ class V1UserAuthInterceptor(
 
         val token = request.getHeader("x-access-token") ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
         val user = legacyTokenService.authenticate(token)
+        MDC.put("userId", user.id.toString())
         if (handler.has(V1AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
         if (handler.has(V1EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
             throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)

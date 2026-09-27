@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.domain.auth.service.AccessTokenService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.MDC
 import org.springframework.stereotype.Component
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.servlet.HandlerInterceptor
@@ -37,6 +38,7 @@ class UserAuthInterceptor(
         val user =
             userService.findActive(payload.userId)?.takeIf { it.tokenVersion == payload.tokenVersion }
                 ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+        MDC.put("userId", user.id.toString())
         if (handler.has(AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
         if (handler.has(EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
             throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
