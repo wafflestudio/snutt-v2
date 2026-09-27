@@ -242,11 +242,11 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals("고급한국어", lectures[0]["courseTitle"].asString())
 
         val duplicate = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""")
-        assertEquals(403, duplicate.statusCode.value())
+        assertEquals(409, duplicate.statusCode.value())
 
         val overlap = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]}}""")
-        assertEquals(403, overlap.statusCode.value())
-        assertTrue(body(overlap)["displayMessage"].asString().contains("강의와 시간이 겹칩니다"))
+        assertEquals(409, overlap.statusCode.value())
+        assertTrue(body(overlap)["detail"].asString().contains("강의와 시간이 겹칩니다"))
 
         val forced = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]},"isForced":true}""")
         assertEquals(200, forced.statusCode.value())

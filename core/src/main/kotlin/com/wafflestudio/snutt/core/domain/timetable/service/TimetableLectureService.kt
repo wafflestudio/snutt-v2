@@ -271,16 +271,15 @@ class TimetableLectureService(
             display.lectures.partition { it.id != selfId && ClassTimeUtils.timesOverlap(newTimes, it.classPlaceAndTimes) }
         if (overlapping.isEmpty()) return remaining
         if (!isForced) {
-            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, displayMessage = makeOverwritingConfirmMessage(overlapping))
+            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, overlappingLectureTitles(overlapping))
         }
         timetableLectureRepository.deleteAllById(overlapping.map { it.id })
         return remaining
     }
 
-    private fun makeOverwritingConfirmMessage(overlappingLectures: List<TimetableLectureDisplay>): String {
-        val overlappingLectureTitles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
-        val shortFormOfTitles = if (overlappingLectures.size < 3) "" else "외 ${overlappingLectures.size - 2}개의 "
-        return "$overlappingLectureTitles ${shortFormOfTitles}강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?"
+    private fun overlappingLectureTitles(overlappingLectures: List<TimetableLectureDisplay>): String {
+        val titles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
+        return if (overlappingLectures.size < 3) titles else "$titles 외 ${overlappingLectures.size - 2}개의"
     }
 
     companion object {

@@ -7,41 +7,30 @@ import com.wafflestudio.snutt.core.common.error.UpstreamException
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
-import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.servlet.HandlerMapping
+import java.net.URI
 
-data class ErrorResponse(
-    val errcode: Long,
-    val title: String,
-    val displayMessage: String,
-)
+val ErrorType.problemType: URI
+    get() = URI.create("/problems/${name.lowercase().replace('_', '-')}")
 
 @RestControllerAdvice
 class SnuttExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(SnuttException::class)
-    fun handleSnuttException(e: SnuttException): ResponseEntity<ErrorResponse> =
-        ResponseEntity
-            .status(e.error.httpStatus)
-            .body(
-                ErrorResponse(
-                    errcode = e.error.errorCode,
-                    title = e.title,
-                    displayMessage = e.displayMessage,
-                ),
-            )
+    fun handleSnuttException(e: SnuttException): ErrorResponse = errorResponse(e, e.error, e.displayMessage)
 
     @ExceptionHandler(UpstreamException::class)
     fun handleUpstreamException(
         e: UpstreamException,
         request: HttpServletRequest,
-    ): ResponseEntity<ErrorResponse> {
+    ): ErrorResponse {
         val userId = request.getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE) as? Long
         val path = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)?.toString() ?: request.requestURI
         log.error(
@@ -54,69 +43,48 @@ class SnuttExceptionHandler {
             request.queryString,
             e,
         )
-        return ResponseEntity
-            .status(e.error.httpStatus)
-            .body(
-                ErrorResponse(
-                    errcode = e.error.errorCode,
-                    title = e.error.title,
-                    displayMessage = e.error.displayMessage,
-                ),
-            )
+        return errorResponse(e, e.error)
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
-    fun handleValidationException(e: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {
-        val fieldName =
-            e.bindingResult.fieldErrors
-                .firstOrNull()
-                ?.field ?: "unknown"
-        val error = ErrorType.INVALID_BODY_FIELD_VALUE
-        return ResponseEntity
-            .status(error.httpStatus)
-            .body(
-                ErrorResponse(
-                    errcode = error.errorCode,
-                    title = error.title,
-                    displayMessage = "잘못된 값입니다. (request body: $fieldName)",
-                ),
+    fun handleValidationException(e: MethodArgumentNotValidException): ErrorResponse =
+        errorResponse(e, ErrorType.INVALID_BODY_FIELD_VALUE).apply {
+            body.setProperty(
+                "errors",
+                e.bindingResult.fieldErrors.map {
+                    mapOf(
+                        "detail" to it.defaultMessage.orEmpty(),
+                        "pointer" to "#/" + it.field.replace(Regex("""\[(\d+)]"""), ".$1").replace('.', '/'),
+                    )
+                },
             )
-    }
+        }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleUnreadableBody(): ResponseEntity<ErrorResponse> = handleSnuttException(SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE))
+    fun handleUnreadableBody(e: HttpMessageNotReadableException): ErrorResponse = errorResponse(e, ErrorType.INVALID_BODY_FIELD_VALUE)
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun handleArgumentTypeMismatch(): ResponseEntity<ErrorResponse> = handleSnuttException(SnuttException(ErrorType.INVALID_PARAMETER))
+    fun handleArgumentTypeMismatch(e: MethodArgumentTypeMismatchException): ErrorResponse = errorResponse(e, ErrorType.INVALID_PARAMETER)
 
     @ExceptionHandler(Exception::class)
-    fun handleUnexpectedException(e: Exception): ResponseEntity<ErrorResponse> {
-        if (e is org.springframework.web.ErrorResponse) {
-            val status = e.statusCode.value()
-            return ResponseEntity
-                .status(status)
-                .body(
-                    ErrorResponse(
-                        errcode = status * 100L,
-                        title = "요청을 처리할 수 없습니다",
-                        displayMessage = "요청을 처리할 수 없습니다",
-                    ),
-                )
-        }
+    fun handleUnexpectedException(e: Exception): ErrorResponse {
+        if (e is ErrorResponse) return e
         log.error("unhandled exception", e)
-        return ResponseEntity
-            .status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(
-                ErrorResponse(
-                    errcode = INTERNAL_ERROR_CODE,
-                    title = INTERNAL_ERROR_MESSAGE,
-                    displayMessage = INTERNAL_ERROR_MESSAGE,
-                ),
-            )
+        return ErrorResponse.create(e, HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE)
     }
 
+    private fun errorResponse(
+        e: Exception,
+        error: ErrorType,
+        detail: String = error.displayMessage,
+    ): ErrorResponse =
+        ErrorResponse
+            .builder(e, error.httpStatus, detail)
+            .type(error.problemType)
+            .title(error.title)
+            .build()
+
     companion object {
-        private const val INTERNAL_ERROR_CODE = 50000L
         private const val INTERNAL_ERROR_MESSAGE = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요"
     }
 }
