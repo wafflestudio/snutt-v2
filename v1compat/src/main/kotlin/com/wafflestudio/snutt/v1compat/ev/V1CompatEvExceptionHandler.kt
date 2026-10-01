@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 class V1CompatEvExceptionHandler {
     @ExceptionHandler(SnuttException::class)
     fun handleSnuttException(e: SnuttException): ResponseEntity<*> {
-        val evCode = EV_ERROR_CODE_MAP[e.error] ?: return e.error.toV1ErrorResponse(e.displayMessage)
+        val evCode = EV_ERROR_CODE_MAP[e.error] ?: return e.error.toV1ErrorResponse(e.message)
         return ResponseEntity
             .status(e.error.v1Status)
             .contentType(MediaType.APPLICATION_JSON)
-            .body(mapOf("error" to mapOf("code" to evCode, "message" to e.displayMessage)))
+            .body(mapOf("error" to mapOf("code" to evCode, "message" to e.message)))
     }
 
     companion object {
@@ -31,14 +31,14 @@ class V1CompatEvExceptionHandler {
                 ErrorType.INVALID_EVALUATION_SORT to 20005,
                 ErrorType.NOT_MY_EVALUATION to 23001,
                 ErrorType.LECTURE_NOT_FOUND to 24001,
-                ErrorType.EV_DATA_NOT_FOUND to 24001,
+                ErrorType.EVALUATION_TARGET_NOT_FOUND to 24001,
                 ErrorType.COURSE_NOT_FOUND to 24002,
                 ErrorType.EVALUATION_NOT_FOUND to 24005,
                 ErrorType.DUPLICATE_EVALUATION to 29001,
                 ErrorType.MY_EVALUATION_REPORT to 29002,
                 ErrorType.DUPLICATE_EVALUATION_REPORT to 29003,
                 ErrorType.DUPLICATE_EVALUATION_LIKE to 29004,
-                ErrorType.EVALUATION_LIKE_NOT_FOUND to 29005,
+                ErrorType.EVALUATION_NOT_LIKED to 29005,
                 ErrorType.EVALUATION_LECTURE_MISMATCH to 29006,
             )
     }

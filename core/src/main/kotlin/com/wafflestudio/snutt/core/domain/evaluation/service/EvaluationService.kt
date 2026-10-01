@@ -84,7 +84,7 @@ class EvaluationService(
     ): EvaluationDisplay {
         if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
         val lecture = getLecture(lectureId)
-        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+        val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         ensureNotEvaluated(courseId, lecture.year, lecture.semester, userId)
@@ -259,7 +259,7 @@ class EvaluationService(
     ) {
         lockEvaluation(evaluationId)
         val deleted = evaluationLikeRepository.deleteByEvaluationIdAndUserId(evaluationId, userId)
-        if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_LIKE_NOT_FOUND)
+        if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_NOT_LIKED)
         evaluationRepository.decrementLikeCount(evaluationId)
     }
 

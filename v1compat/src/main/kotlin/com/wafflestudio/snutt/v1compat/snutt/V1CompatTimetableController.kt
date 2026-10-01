@@ -303,7 +303,7 @@ class V1CompatTimetableController(
         color: LegacyColorRequest?,
         colorIndex: Int?,
     ): Pair<Int?, ColorSet?> {
-        if (colorIndex != null && colorIndex < 0) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        if (colorIndex != null && colorIndex < 0) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         if (colorIndex != null && colorIndex > 0) return colorIndex - 1 to null
         val value = color?.toColorSet() ?: return null to null
         val theme = timetableThemeService.getTheme(userId, timetable.themeId)
@@ -372,12 +372,12 @@ data class LegacyColorRequest(
 fun LegacyColorRequest.toColorSet(): ColorSet? {
     if (bg == null && fg == null) return null
     return ColorSet(
-        backgroundColor = bg ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE),
-        foregroundColor = fg ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE),
+        backgroundColor = bg ?: throw SnuttException(ErrorType.INVALID_REQUEST_BODY),
+        foregroundColor = fg ?: throw SnuttException(ErrorType.INVALID_REQUEST_BODY),
     )
 }
 
-fun LegacyColorRequest.requireColorSet(): ColorSet = toColorSet() ?: throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+fun LegacyColorRequest.requireColorSet(): ColorSet = toColorSet() ?: throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
 
 data class LegacyClassTimeRequest(
     val day: DayOfWeek,

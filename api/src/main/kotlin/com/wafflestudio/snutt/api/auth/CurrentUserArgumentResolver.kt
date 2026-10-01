@@ -21,5 +21,5 @@ class CurrentUserArgumentResolver : HandlerMethodArgumentResolver {
         binderFactory: WebDataBinderFactory?,
     ): Any =
         webRequest.getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST) as? Long
-            ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
+            ?: throw SnuttException(ErrorType.MISSING_ACCESS_TOKEN)
 }

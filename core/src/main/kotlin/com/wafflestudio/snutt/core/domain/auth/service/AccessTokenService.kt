@@ -56,13 +56,13 @@ class AccessTokenService(
             } catch (e: ExpiredJwtException) {
                 throw SnuttException(ErrorType.EXPIRED_ACCESS_TOKEN)
             } catch (e: Exception) {
-                throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+                throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN)
             }
         return AccessTokenPayload(
-            userId = claims.subject?.toLongOrNull() ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
+            userId = claims.subject?.toLongOrNull() ?: throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN),
             tokenVersion =
                 claims.get(TOKEN_VERSION_CLAIM, Int::class.javaObjectType)
-                    ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN),
+                    ?: throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN),
         )
     }
 }

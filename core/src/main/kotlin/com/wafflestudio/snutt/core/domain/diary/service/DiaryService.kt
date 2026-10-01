@@ -140,14 +140,14 @@ class DiaryService(
             throw SnuttException(ErrorType.DIARY_SUBMISSION_TOO_FREQUENT)
         }
         val questionIds = request.questionAnswers.map { it.questionId }
-        if (questionIds.size != questionIds.toSet().size) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
+        if (questionIds.size != questionIds.toSet().size) throw SnuttException(ErrorType.INVALID_DIARY_QUESTION)
         val questionsById = diaryQuestionRepository.findAllById(questionIds).associateBy { it.id }
         if (questionsById.size != questionIds.size) throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
-        if (questionsById.values.any { !it.active }) throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
+        if (questionsById.values.any { !it.active }) throw SnuttException(ErrorType.INVALID_DIARY_QUESTION)
         request.questionAnswers.forEach { answer ->
             val question = questionsById[answer.questionId] ?: throw SnuttException(ErrorType.DIARY_QUESTION_NOT_FOUND)
             if (answer.answerIndex !in question.answerList.indices) {
-                throw SnuttException(ErrorType.DIARY_QUESTION_INVALID)
+                throw SnuttException(ErrorType.INVALID_DIARY_QUESTION)
             }
         }
         if (request.dailyClassTypes.size != request.dailyClassTypes.toSet().size) {

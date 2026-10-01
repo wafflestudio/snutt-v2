@@ -28,18 +28,18 @@ class UserAuthInterceptor(
         if (handler.has(Public::class.java)) return true
 
         val authorization =
-            request.getHeader("Authorization") ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
+            request.getHeader("Authorization") ?: throw SnuttException(ErrorType.MISSING_ACCESS_TOKEN)
         val token =
             authorization.removePrefix("Bearer ").takeIf { it != authorization }
-                ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
+                ?: throw SnuttException(ErrorType.MISSING_ACCESS_TOKEN)
 
         val payload = accessTokenService.verify(token)
         val user =
             userService.findActive(payload.userId)?.takeIf { it.tokenVersion == payload.tokenVersion }
-                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+                ?: throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN)
         if (handler.has(AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
         if (handler.has(EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
-            throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
+            throw SnuttException(ErrorType.EMAIL_NOT_VERIFIED)
         }
 
         request.setAttribute(USER_ID_ATTRIBUTE, payload.userId)

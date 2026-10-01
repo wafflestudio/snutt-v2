@@ -60,7 +60,7 @@ class FriendService(
             userRepository.findByNicknameAndNicknameTagAndActiveTrue(toUserNickname.name, toUserNickname.tag)
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND_BY_NICKNAME)
         val toUserId = toUser.id!!
-        if (fromUserId == toUserId) throw SnuttException(ErrorType.INVALID_FRIEND)
+        if (fromUserId == toUserId) throw SnuttException(ErrorType.SELF_FRIEND_REQUEST)
         if (friendRepository.findByUserPair(fromUserId, toUserId) != null) {
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
@@ -137,7 +137,7 @@ class FriendService(
             friendLinkTokenProvider.parse(requestToken) ?: throw SnuttException(ErrorType.FRIEND_LINK_NOT_FOUND)
         val fromUser =
             userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        if (fromUser.id == userId) throw SnuttException(ErrorType.INVALID_FRIEND)
+        if (fromUser.id == userId) throw SnuttException(ErrorType.SELF_FRIEND_REQUEST)
         if (friendRepository.findByUserPair(fromUserId, userId) != null) {
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
@@ -24,13 +25,18 @@ class SnuttExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(SnuttException::class)
-    fun handleSnuttException(e: SnuttException): ErrorResponse = errorResponse(e, e.error, e.displayMessage)
-
-    @ExceptionHandler(UpstreamException::class)
-    fun handleUpstreamException(
-        e: UpstreamException,
+    fun handleSnuttException(
+        e: SnuttException,
         request: HttpServletRequest,
     ): ErrorResponse {
+        if (e is UpstreamException) logUpstreamFailure(e, request)
+        return errorResponse(e, e.error, e.message)
+    }
+
+    private fun logUpstreamFailure(
+        e: UpstreamException,
+        request: HttpServletRequest,
+    ) {
         val userId = request.getAttribute(UserAuthInterceptor.USER_ID_ATTRIBUTE) as? Long
         val path = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)?.toString() ?: request.requestURI
         log.error(
@@ -43,28 +49,27 @@ class SnuttExceptionHandler {
             request.queryString,
             e,
         )
-        return errorResponse(e, e.error)
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(e: MethodArgumentNotValidException): ErrorResponse =
-        errorResponse(e, ErrorType.INVALID_BODY_FIELD_VALUE).apply {
+        errorResponse(e, ErrorType.INVALID_REQUEST_BODY).apply {
             body.setProperty(
                 "errors",
                 e.bindingResult.fieldErrors.map {
                     mapOf(
                         "detail" to it.defaultMessage.orEmpty(),
-                        "pointer" to "#/" + it.field.replace(Regex("""\[(\d+)]"""), ".$1").replace('.', '/'),
+                        "field" to it.field,
                     )
                 },
             )
         }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleUnreadableBody(e: HttpMessageNotReadableException): ErrorResponse = errorResponse(e, ErrorType.INVALID_BODY_FIELD_VALUE)
+    fun handleUnreadableBody(e: HttpMessageNotReadableException): ErrorResponse = errorResponse(e, ErrorType.INVALID_REQUEST_BODY)
 
-    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
-    fun handleArgumentTypeMismatch(e: MethodArgumentTypeMismatchException): ErrorResponse = errorResponse(e, ErrorType.INVALID_PARAMETER)
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
+    fun handleInvalidParameter(e: Exception): ErrorResponse = errorResponse(e, ErrorType.INVALID_PARAMETER)
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(e: Exception): ErrorResponse {

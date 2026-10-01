@@ -44,11 +44,11 @@ class V1UserAuthInterceptor(
         if (handler !is HandlerMethod) return true
         if (handler.has(V1Public::class.java)) return true
 
-        val token = request.getHeader("x-access-token") ?: throw SnuttException(ErrorType.NO_USER_TOKEN)
+        val token = request.getHeader("x-access-token") ?: throw SnuttException(ErrorType.MISSING_ACCESS_TOKEN)
         val user = legacyTokenService.authenticate(token)
         if (handler.has(V1AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
         if (handler.has(V1EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
-            throw SnuttException(ErrorType.USER_EMAIL_IS_NOT_VERIFIED)
+            throw SnuttException(ErrorType.EMAIL_NOT_VERIFIED)
         }
         request.setAttribute(USER_ATTRIBUTE, user)
         return true

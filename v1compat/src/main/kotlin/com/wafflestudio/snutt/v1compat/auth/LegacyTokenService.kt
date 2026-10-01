@@ -32,9 +32,9 @@ class LegacyTokenService(
     fun authenticate(token: String): User {
         val stored =
             legacyAccessTokenRepository.findByTokenHash(sha256Hex(token))
-                ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+                ?: throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN)
         return userRepository.findByIdAndActiveTrue(stored.userId)
-            ?: throw SnuttException(ErrorType.WRONG_USER_TOKEN)
+            ?: throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN)
     }
 
     @EventListener

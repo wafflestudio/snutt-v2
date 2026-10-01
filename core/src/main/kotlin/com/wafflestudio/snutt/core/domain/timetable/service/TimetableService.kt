@@ -129,7 +129,7 @@ class TimetableService(
         timetableId: Long,
     ) {
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.TABLE_DELETE_ERROR)
+        if (timetableRepository.countByUserId(userId) <= 1L) throw SnuttException(ErrorType.CANNOT_DELETE_LAST_TIMETABLE)
         timetableRepository.delete(getTimetable(userId, timetableId))
     }
 
