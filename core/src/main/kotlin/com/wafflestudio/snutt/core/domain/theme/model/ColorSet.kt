@@ -9,7 +9,7 @@ data class ColorSet(
 ) {
     init {
         if (!HEX_COLOR.matches(backgroundColor) || !HEX_COLOR.matches(foregroundColor)) {
-            throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+            throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         }
     }
 

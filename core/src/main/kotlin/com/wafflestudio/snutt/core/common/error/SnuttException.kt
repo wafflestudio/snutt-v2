@@ -4,9 +4,11 @@ import org.springframework.dao.DataIntegrityViolationException
 
 open class SnuttException(
     val error: ErrorType,
-    val title: String = error.title,
-    val displayMessage: String = error.displayMessage,
-) : RuntimeException(displayMessage)
+    vararg args: Any,
+    cause: Throwable? = null,
+) : RuntimeException(cause) {
+    override val message: String = error.displayMessage.format(*args)
+}
 
 inline fun <T> conflictAs(
     errorType: ErrorType,

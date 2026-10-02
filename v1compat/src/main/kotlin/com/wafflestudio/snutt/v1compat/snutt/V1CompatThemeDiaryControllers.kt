@@ -231,7 +231,7 @@ class V1CompatThemeController(
         @PathVariable themeId: Long,
     ) {
         if (publishedThemeRepository.findBySourceThemeIdInAndListedTrue(listOf(themeId)).isNotEmpty()) {
-            throw SnuttException(ErrorType.PUBLISHED_THEME_DELETE_ERROR)
+            throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
         }
         timetableThemeService.deleteTheme(user.id!!, themeId)
     }
@@ -302,7 +302,7 @@ class V1CompatThemeController(
         val basicThemeType = basicThemeType(basicThemeTypeValue)
         val current = timetableThemeService.getDefaultTheme(user.id!!)
         if (current.kind != ThemeKind.BUILTIN || current.builtinCode != legacyBuiltinCode(basicThemeType.value)) {
-            throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+            throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         }
         return current.toLegacy(user.id!!.toString(), null)
     }
@@ -618,7 +618,7 @@ class V1CompatEvSummaryController(
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: Long,
     ): LegacyLectureEvSummaryResponse {
-        val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND)
+        val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         val summary = evaluationService.findSummariesByLectureIds(listOf(lectureId))[lectureId]
         return LegacyLectureEvSummaryResponse(
             evLectureId = courseId,

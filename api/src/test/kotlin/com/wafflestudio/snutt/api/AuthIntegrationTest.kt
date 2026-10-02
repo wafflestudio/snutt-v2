@@ -119,7 +119,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     @Order(4)
     fun `중복 localId 회원가입은 거부된다`() {
         val response = post("/v2/auth/register", """{"localId":"testuser1","password":"password1"}""")
-        assertEquals(403, response.statusCode.value())
+        assertEquals(409, response.statusCode.value())
     }
 
     @Test
@@ -158,7 +158,7 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
     @Order(7)
     fun `잘못된 형식의 토큰은 거부된다`() {
         val response = get("/v2/users/me", bearer = "invalid.token.value")
-        assertEquals(403, response.statusCode.value())
+        assertEquals(401, response.statusCode.value())
     }
 
     @Test

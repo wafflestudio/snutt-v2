@@ -211,7 +211,11 @@ class V1CompatEvController(
     ): LegacyEvaluationWithSemesterDto {
         val request =
             EvaluationUpdateRequest(
-                moveToLectureId = body.semesterLectureId?.let { it.toLongOrNull() ?: throw SnuttException(ErrorType.EV_DATA_NOT_FOUND) },
+                moveToLectureId =
+                    body.semesterLectureId?.let {
+                        it.toLongOrNull()
+                            ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
+                    },
                 content = body.content,
                 gradeSatisfaction = body.gradeSatisfaction,
                 teachingSkill = body.teachingSkill,

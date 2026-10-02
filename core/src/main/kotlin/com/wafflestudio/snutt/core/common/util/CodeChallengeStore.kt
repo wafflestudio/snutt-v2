@@ -27,14 +27,14 @@ class CodeChallengeStore(
     fun throttleSend(key: Any) {
         val firstInMinute =
             redisTemplate.opsForValue().setIfAbsent(sendMinutePrefix + key, "1", Duration.ofMinutes(1)) ?: false
-        if (!firstInMinute) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
+        if (!firstInMinute) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUESTS)
 
         val hourKey = sendHourPrefix + key
         val sendsThisHour = redisTemplate.opsForValue().increment(hourKey) ?: 1L
         if (sendsThisHour == 1L) {
             redisTemplate.expire(hourKey, window)
         }
-        if (sendsThisHour > maxSendsPerHour) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUEST)
+        if (sendsThisHour > maxSendsPerHour) throw SnuttException(ErrorType.TOO_MANY_VERIFICATION_CODE_REQUESTS)
     }
 
     fun store(

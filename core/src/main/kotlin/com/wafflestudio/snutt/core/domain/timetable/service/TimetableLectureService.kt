@@ -71,7 +71,7 @@ class TimetableLectureService(
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         if (timetable.year != lecture.year || timetable.semester != lecture.semester) {
-            throw SnuttException(ErrorType.WRONG_SEMESTER)
+            throw SnuttException(ErrorType.LECTURE_SEMESTER_MISMATCH)
         }
         val display = timetableService.displayOf(timetable)
         if (display.lectures.any { it.lectureId == lecture.id }) throw SnuttException(ErrorType.DUPLICATE_LECTURE)
@@ -93,8 +93,8 @@ class TimetableLectureService(
         request: CustomTimetableLectureAddRequest,
     ): TimetableDisplay {
         val timetable = lockTimetable(userId, timetableId)
-        if (request.courseTitle.isBlank()) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
-        if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        if (request.courseTitle.isBlank()) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
+        if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         validateClassTimes(request.classPlaceAndTimes)
 
         val display = timetableService.displayOf(timetable)
@@ -130,8 +130,8 @@ class TimetableLectureService(
     ): TimetableDisplay {
         val timetable = lockTimetable(userId, timetableId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
-        if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
-        if (request.courseTitle?.isBlank() == true) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
+        if (request.courseTitle?.isBlank() == true) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         val display = timetableService.displayOf(timetable)
         val lecture =
             timetableLecture.lectureId?.let {
@@ -176,7 +176,7 @@ class TimetableLectureService(
         }
 
         if (timetableLecture.lectureId == null && timetableLecture.overrides?.courseTitle.isNullOrBlank()) {
-            throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+            throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         }
         if (timesChanged) timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         return displayAfterLectureChange(userId, timetable)
@@ -248,7 +248,7 @@ class TimetableLectureService(
         theme: TimetableThemeDisplay,
         index: Int,
     ) {
-        if (index !in theme.colors.indices) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        if (index !in theme.colors.indices) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
     }
 
     private fun validateClassTimes(times: List<ClassPlaceAndTime>) {
@@ -258,7 +258,7 @@ class TimetableLectureService(
                     time.endMinute !in 1..MINUTES_PER_DAY ||
                     time.startMinute >= time.endMinute
             }
-        if (hasInvalidRange || ClassTimeUtils.timesOverlap(times)) throw SnuttException(ErrorType.INVALID_TIME)
+        if (hasInvalidRange || ClassTimeUtils.timesOverlap(times)) throw SnuttException(ErrorType.INVALID_CLASS_TIME)
     }
 
     private fun resolveTimeConflict(
@@ -271,16 +271,15 @@ class TimetableLectureService(
             display.lectures.partition { it.id != selfId && ClassTimeUtils.timesOverlap(newTimes, it.classPlaceAndTimes) }
         if (overlapping.isEmpty()) return remaining
         if (!isForced) {
-            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, displayMessage = makeOverwritingConfirmMessage(overlapping))
+            throw SnuttException(ErrorType.LECTURE_TIME_OVERLAP, overlappingLectureTitles(overlapping))
         }
         timetableLectureRepository.deleteAllById(overlapping.map { it.id })
         return remaining
     }
 
-    private fun makeOverwritingConfirmMessage(overlappingLectures: List<TimetableLectureDisplay>): String {
-        val overlappingLectureTitles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
-        val shortFormOfTitles = if (overlappingLectures.size < 3) "" else "외 ${overlappingLectures.size - 2}개의 "
-        return "$overlappingLectureTitles ${shortFormOfTitles}강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?"
+    private fun overlappingLectureTitles(overlappingLectures: List<TimetableLectureDisplay>): String {
+        val titles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
+        return if (overlappingLectures.size < 3) titles else "$titles 외 ${overlappingLectures.size - 2}개의"
     }
 
     companion object {

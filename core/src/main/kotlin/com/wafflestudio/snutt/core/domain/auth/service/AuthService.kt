@@ -85,8 +85,8 @@ class AuthService(
         localId: String,
         password: String,
     ): User {
-        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.WRONG_LOCAL_ID)
-        if (!passwordEncoder.matches(password, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
+        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.UNREGISTERED_LOCAL_ID)
+        if (!passwordEncoder.matches(password, user.localPw)) throw SnuttException(ErrorType.PASSWORD_MISMATCH)
         user.lastLoginAt = Instant.now()
         return user
     }
@@ -221,7 +221,7 @@ class AuthService(
     ): User {
         val user = getActiveUserForUpdate(userId)
         if (user.localPw == null) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
-        if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.WRONG_PASSWORD)
+        if (!passwordEncoder.matches(currentPassword, user.localPw)) throw SnuttException(ErrorType.PASSWORD_MISMATCH)
         if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
         user.localPw = passwordEncoder.encode(newPassword)
         revokeSessions(user)
@@ -246,7 +246,7 @@ class AuthService(
         token: String,
     ): OAuth2UserResponse {
         val oauth2Client = checkNotNull(oauth2Clients[provider]) { "unsupported provider: $provider" }
-        return oauth2Client.getMe(token) ?: throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+        return oauth2Client.getMe(token) ?: throw SnuttException(ErrorType.SOCIAL_LOGIN_FAILED)
     }
 
     private fun findBySocialResponse(

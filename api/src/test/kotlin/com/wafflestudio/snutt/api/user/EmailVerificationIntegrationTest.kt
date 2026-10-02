@@ -100,7 +100,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Test
     fun `SNU 메일이 아니면 인증 코드를 발송하지 않는다`() {
         val response = post("/v2/users/me/email/verification", """{"email":"foo@gmail.com"}""")
-        assertEquals(403, response.statusCode.value())
+        assertEquals(400, response.statusCode.value())
         assertTrue(recordingMailClient.sentMails.isEmpty())
     }
 

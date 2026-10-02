@@ -22,10 +22,10 @@ fun <T> fetchSocialProfile(
     request: () -> T?,
 ): T =
     try {
-        request() ?: throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+        request() ?: throw SnuttException(ErrorType.SOCIAL_LOGIN_FAILED)
     } catch (e: RestClientException) {
         if (e is RestClientResponseException && e.statusCode.is4xxClientError) {
-            throw SnuttException(ErrorType.SOCIAL_CONNECT_FAIL)
+            throw SnuttException(ErrorType.SOCIAL_LOGIN_FAILED)
         }
         throw UpstreamException(ErrorType.SOCIAL_PROVIDER_UNAVAILABLE, provider, e)
     }

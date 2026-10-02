@@ -139,7 +139,7 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay {
-        if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME_ERROR)
+        if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         val fallbackId = builtinThemeId("snutt")
         userPreferenceRepository.save(UserPreference(userId, fallbackId))
         return getTheme(userId, fallbackId)
@@ -255,7 +255,7 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableTheme =
         findThemeAvailableToUser(userId, themeId).also {
-            if (it.kind != ThemeKind.CUSTOM) throw SnuttException(ErrorType.INVALID_THEME_TYPE)
+            if (it.kind != ThemeKind.CUSTOM) throw SnuttException(ErrorType.NOT_CUSTOM_THEME)
         }
 
     private fun displays(
@@ -310,7 +310,7 @@ class TimetableThemeService(
         }
 
     private fun validateName(name: String) {
-        if (name.isBlank() || name.length > 128) throw SnuttException(ErrorType.INVALID_BODY_FIELD_VALUE)
+        if (name.isBlank() || name.length > 128) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
     }
 
     private fun validatePalette(colors: List<ColorSet>) {

@@ -1,10 +1,10 @@
 package com.wafflestudio.snutt.core.common.error
 
 class UpstreamException(
-    val error: ErrorType,
+    error: ErrorType,
     val provider: String,
-    override val cause: Throwable? = null,
-) : RuntimeException("upstream failure: $provider", cause) {
+    cause: Throwable? = null,
+) : SnuttException(error, cause = cause) {
     init {
         require(error.httpStatus.is5xxServerError) { "upstream error must be 5xx: $error" }
     }
