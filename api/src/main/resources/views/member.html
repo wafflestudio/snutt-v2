@@ -1,180 +1,225 @@
 <!DOCTYPE html>
-<html>
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
-		<meta name="og:title" content="서울대학교 시간표 SNUTT" />
-		<meta name="og:type" content="timetable" />
-		<meta name="og:site_name" content="SNUTT" />
-		<meta name="og:description" content="서울대학교 시간표 작성 웹서비스" />
-		
-		<title>서울대학교 시간표 : SNUTT</title>
-		
-		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-		<link rel="stylesheet" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/themes/smoothness/jquery-ui.css" />
-		<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
-
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
-		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="og:title" content="서울대학교 시간표 SNUTT" />
+    <meta name="og:type" content="timetable" />
+    <meta name="og:site_name" content="SNUTT" />
+    <meta name="og:description" content="서울대학교 시간표 작성 웹서비스" />
+    <title>서울대학교 시간표 : SNUTT</title>
+    <style>
+      :root {
+        --text: #222222;
+        --muted: #8a898e;
+        --brand: #1bd0c8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --text: #eeeef3;
+          --muted: #a6a6a6;
+          --brand: #00b8af;
+        }
+      }
+      body {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 32px 20px 40px;
+        font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        font-size: 15px;
+        line-height: 1.7;
+        color: var(--text);
+        text-align: center;
+        -webkit-text-size-adjust: 100%;
+      }
+      .icon {
+        display: block;
+        margin: 0 auto 16px;
+      }
+      header p {
+        margin: 0;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 0;
+        font-size: 26px;
+      }
+      .brand {
+        color: var(--brand);
+      }
+      section {
+        margin-top: 28px;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+      ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .note {
+        color: var(--muted);
+      }
+      footer {
+        margin-top: 40px;
+        font-size: 14px;
+      }
+      footer a {
+        color: var(--muted);
+        text-decoration: none;
+      }
+    </style>
   </head>
-<body>
-<style>
-  @import url(https://fonts.googleapis.com/earlyaccess/nanumgothic.css);
+  <body>
+    <header>
+      <svg class="icon" width="51" height="52" viewBox="0 0 51 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="23" height="33" fill="#E54459"/>
+        <rect x="28" y="19" width="23" height="33" fill="#1BD0C8"/>
+        <rect x="28" width="23" height="14" fill="#FAC42D"/>
+        <rect y="38" width="23" height="14" fill="#A6D930"/>
+      </svg>
+      <p>서울대학교 시간표</p>
+      <h1><span class="brand">SNUTT</span> 개발팀</h1>
+    </header>
 
-  * {
-    font-family:'Nanum Gothic', sans-serif !important; 
-    font-weight:normal;
-    box-shadow:none !important;
-    text-shadow:none !important;
-  }
-  body {
-    padding: 20px !important;
-  }
-  div {
-    font-size: 18px;
-    line-height: 1.9;
-    margin-bottom: 40px;
-    text-align: center;
-  }
-  h3 {
-    margin-bottom: 20px;
-  }
-  #brand-text {
-    color: #1668b2;
-    font-weight: 900;
-  }
-  a {
-    text-decoration: none;
-    font-weight: 300;
-    color: #000000;
-  }
-  a:link {
-    text-decoration: none;
-  }
+    <section>
+      <h2>2012~</h2>
+      <ul>
+        <li><span class="note">최초 개발</span> 이종민 / 컴퓨터공학부 09</li>
+      </ul>
+    </section>
 
-  a:visited {
-    text-decoration: none;
-  }
+    <section>
+      <h2>2014~</h2>
+      <ul>
+        <li>김광래 / 컴퓨터공학부 12</li>
+        <li>김진형 / 컴퓨터공학부 14</li>
+        <li>정형식 / 자유전공학부 10</li>
+        <li>김알찬 / 컴퓨터공학부 12</li>
+      </ul>
+    </section>
 
-  a:hover {
-    color: #000000;
-    text-decoration: none;
-  }
+    <section>
+      <h2>2016~</h2>
+      <ul>
+        <li>김진형 / 컴퓨터공학부 14</li>
+        <li>방성원 / 컴퓨터공학부 15</li>
+        <li>이주현 / 시각디자인 11</li>
+        <li>장렬 / 컴퓨터공학부 14</li>
+        <li>정형식 / 자유전공학부 10</li>
+      </ul>
+    </section>
 
-  a:active {
-    text-decoration: none;
-  }
+    <section>
+      <h2>2021~</h2>
+      <ul>
+        <li>금진섭 / 서양사학과 14 / iOS</li>
+        <li>김상민 / 컴퓨터공학부 18 / Android</li>
+        <li>변다빈 / 언어학과 14 / Server</li>
+        <li>서정록 / 컴퓨터공학부 18 / 기획</li>
+        <li>서정민 / 홍익대 회화과 15 / 기획 및 디자인</li>
+        <li>최한결 / 컴퓨터공학부 15 / Server</li>
+      </ul>
+    </section>
 
-  img#waffle_logo {
-    width: 170px;
-  }
-</style>
+    <section>
+      <h2>2022~</h2>
+      <ul>
+        <li>금진섭 / 서양사학과 14 / iOS</li>
+        <li>김상민 / 컴퓨터공학부 18 / Android</li>
+        <li>박수빈 / 컴퓨터공학부 18 / Server</li>
+        <li>박신홍 / 경영학과 17 / iOS</li>
+        <li>변다빈 / 언어학과 14 / Server</li>
+        <li>서정록 / 컴퓨터공학부 18 / 기획</li>
+        <li>서정민 / 홍익대 회화과 15 / 기획 및 디자인</li>
+        <li>양주현 / 지구환경과학부 16 / Android</li>
+        <li>우현민 / 컴퓨터공학부 19 / Web</li>
+        <li>최유림 / 컴퓨터공학부 19 / iOS</li>
+        <li>최한결 / 컴퓨터공학부 15 / Server</li>
+      </ul>
+    </section>
 
-<div>
-  <h1>서울대학교 시간표</h1>
-  <h1><span id="brand-text">SNUTT</span> 개발팀</h1>
-</div>
-<div>
-  <a href="http://www.wafflestudio.com" target="_blank">
-    <img id="waffle_logo" src="https://snutt-asset.s3.ap-northeast-2.amazonaws.com/waffle_logo.png" alt="와플스튜디오 로고, WaffleStudio Logo"/>
-  </a>
-</div>
-<div style="text-align:center">
-  <h3># 2012~</h3>
-  <b>최초 개발</b><br>이종민 / 컴퓨터공학부 09<br>
-  <h3># 2014~</h3>
-  김광래 / 컴퓨터공학부 12<br>
-  김진형 / 컴퓨터공학부 14<br>
-  정형식 / 자유전공학부 10<br>
-  김알찬 / 컴퓨터공학부 12<br>
-  <h3># 2016~</h3>
-  김진형 / 컴퓨터공학부 14<br>
-  방성원 / 컴퓨터공학부 15<br>
-  이주현 / 시각디자인 11<br>
-  장렬 / 컴퓨터공학부 14<br>
-  정형식 / 자유전공학부 10<br>
-  <h3># 2021~</h3>
-  금진섭 / 서양사학과 14 / iOS<br>
-  김상민 / 컴퓨터공학부 18 / Android<br>
-  변다빈 / 언어학과 14 / Server<br>
-  서정록 / 컴퓨터공학부 18 / 기획<br>
-  서정민 / 홍익대 회화과 15 / 기획 및 디자인<br>
-  최한결 / 컴퓨터공학부 15 / Server<br>
-  <h3># 2022~</h3>
-  금진섭 / 서양사학과 14 / iOS<br>
-  김상민 / 컴퓨터공학부 18 / Android<br>
-  박수빈 / 컴퓨터공학부 18 / Server<br>
-  박신홍 / 경영학과 17 / iOS<br>
-  변다빈 / 언어학과 14 / Server<br>
-  서정록 / 컴퓨터공학부 18 / 기획<br>
-  서정민 / 홍익대 회화과 15 / 기획 및 디자인<br>
-  양주현 / 지구환경과학부 16 / Android<br>
-  우현민 / 컴퓨터공학부 19 / Web<br>
-  최유림 / 컴퓨터공학부 19 / iOS<br>
-  최한결 / 컴퓨터공학부 15 / Server<br>
-  <h3># 2023~</h3>
-  강지혁 / 컴퓨터공학부 19 / Server<br>
-  김기완 / 컴퓨터공학부 18 / Web<br>
-  박수빈 / 컴퓨터공학부 18 / Server<br>
-  박신홍 / 경영학과 17 / iOS<br>
-  변다빈 / 언어학과 14 / Server<br>
-  송동엽 / 컴퓨터공학부 22 / Android<br>
-  양주현 / 지구환경과학부 16 / Android<br>
-  우현민 / 컴퓨터공학부 19 / Web<br>
-  이채민 / 자유전공학부 20 / iOS<br>
-  최유림 / 컴퓨터공학부 19 / iOS<br>
-  최유진 / 디자인과 22 / Design<br>
-  최한결 / 컴퓨터공학부 15 / Server<br>
-  <h3># 2024~</h3>
-  김기완 / 컴퓨터공학부 18 / Web<br>
-  민유진 / 디자인과 21 / Design<br>
-  박신홍 / 경영학과 17 / iOS<br>
-  변다빈 / 언어학과 14 / Server<br>
-  송동엽 / 컴퓨터공학부 22 / Android<br>
-  양주현 / 지구환경과학부 16 / Android<br>
-  이채민 / 자유전공학부 20 / iOS<br>
-  이현도 / 컴퓨터공학부 23 / Android<br>
-  임찬영 / 컴퓨터공학부 23 / Server<br>
-  조성해 / 건축학과 18 / Server<br>
-  최유림 / 컴퓨터공학부 19 / iOS<br>
-  최유진 / 디자인과 22 / Design<br>
-  최한결 / 컴퓨터공학부 15 / Server<br>
-  <h3># 2025~</h3>
-  김기완 / 컴퓨터공학부 18 / Web<br>
-  민유진 / 디자인과 21 / Design<br>
-  박신홍 / 경영학과 17 / iOS<br>
-  변다빈 / 언어학과 14 / Server<br>
-  송동엽 / 컴퓨터공학부 22 / Android<br>
-  양주현 / 지구환경과학부 16 / Android<br>
-  이채민 / 자유전공학부 20 / iOS<br>
-  이현도 / 컴퓨터공학부 23 / Android<br>
-  임찬영 / 컴퓨터공학부 23 / Server<br>
-  정해찬 / 컴퓨터공학부 24 / Android<br>
-  조성해 / 건축학과 18 / Server<br>
-  최유림 / 컴퓨터공학부 19 / iOS<br>
-  최유진 / 디자인과 22 / Design<br>
-  최한결 / 컴퓨터공학부 15 / Server<br>
-  <h3># 2026~</h3>
-  김기완 / 컴퓨터공학부 18 / Web<br>
-  민유진 / 디자인과 21 / Design<br>
-  박소은 / 동양화과 21 / Design<br>
-  박신홍 / 경영학과 17 / iOS<br>
-  변다빈 / 언어학과 14 / Server<br>
-  송동엽 / 컴퓨터공학부 22 / Android<br>
-  양주현 / 지구환경과학부 16 / Android<br>
-  이정달 / 자유전공학부 25 / Server<br>
-  이현도 / 컴퓨터공학부 23 / Android<br>
-  임찬영 / 컴퓨터공학부 23 / Server<br>
-  정해찬 / 컴퓨터공학부 24 / Android<br>
-  최연서 / 물리교육과 23 / Server<br>
-  최유림 / 컴퓨터공학부 19 / iOS<br>
-  최한결 / 컴퓨터공학부 15 / Server<br>
-</div>
+    <section>
+      <h2>2023~</h2>
+      <ul>
+        <li>강지혁 / 컴퓨터공학부 19 / Server</li>
+        <li>김기완 / 컴퓨터공학부 18 / Web</li>
+        <li>박수빈 / 컴퓨터공학부 18 / Server</li>
+        <li>박신홍 / 경영학과 17 / iOS</li>
+        <li>변다빈 / 언어학과 14 / Server</li>
+        <li>송동엽 / 컴퓨터공학부 22 / Android</li>
+        <li>양주현 / 지구환경과학부 16 / Android</li>
+        <li>우현민 / 컴퓨터공학부 19 / Web</li>
+        <li>이채민 / 자유전공학부 20 / iOS</li>
+        <li>최유림 / 컴퓨터공학부 19 / iOS</li>
+        <li>최유진 / 디자인과 22 / Design</li>
+        <li>최한결 / 컴퓨터공학부 15 / Server</li>
+      </ul>
+    </section>
 
-<div>
-  <h5><a href="mailto:snutt@wafflestudio.com" target="_blank">개발자 괴롭히기 - snutt@wafflestudio.com</a></h5>
-</div>
+    <section>
+      <h2>2024~</h2>
+      <ul>
+        <li>김기완 / 컴퓨터공학부 18 / Web</li>
+        <li>민유진 / 디자인과 21 / Design</li>
+        <li>박신홍 / 경영학과 17 / iOS</li>
+        <li>변다빈 / 언어학과 14 / Server</li>
+        <li>송동엽 / 컴퓨터공학부 22 / Android</li>
+        <li>양주현 / 지구환경과학부 16 / Android</li>
+        <li>이채민 / 자유전공학부 20 / iOS</li>
+        <li>이현도 / 컴퓨터공학부 23 / Android</li>
+        <li>임찬영 / 컴퓨터공학부 23 / Server</li>
+        <li>조성해 / 건축학과 18 / Server</li>
+        <li>최유림 / 컴퓨터공학부 19 / iOS</li>
+        <li>최유진 / 디자인과 22 / Design</li>
+        <li>최한결 / 컴퓨터공학부 15 / Server</li>
+      </ul>
+    </section>
 
-</body>
+    <section>
+      <h2>2025~</h2>
+      <ul>
+        <li>김기완 / 컴퓨터공학부 18 / Web</li>
+        <li>민유진 / 디자인과 21 / Design</li>
+        <li>박신홍 / 경영학과 17 / iOS</li>
+        <li>변다빈 / 언어학과 14 / Server</li>
+        <li>송동엽 / 컴퓨터공학부 22 / Android</li>
+        <li>양주현 / 지구환경과학부 16 / Android</li>
+        <li>이채민 / 자유전공학부 20 / iOS</li>
+        <li>이현도 / 컴퓨터공학부 23 / Android</li>
+        <li>임찬영 / 컴퓨터공학부 23 / Server</li>
+        <li>정해찬 / 컴퓨터공학부 24 / Android</li>
+        <li>조성해 / 건축학과 18 / Server</li>
+        <li>최유림 / 컴퓨터공학부 19 / iOS</li>
+        <li>최유진 / 디자인과 22 / Design</li>
+        <li>최한결 / 컴퓨터공학부 15 / Server</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>2026~</h2>
+      <ul>
+        <li>김기완 / 컴퓨터공학부 18 / Web</li>
+        <li>민유진 / 디자인과 21 / Design</li>
+        <li>박소은 / 동양화과 21 / Design</li>
+        <li>박신홍 / 경영학과 17 / iOS</li>
+        <li>변다빈 / 언어학과 14 / Server</li>
+        <li>송동엽 / 컴퓨터공학부 22 / Android</li>
+        <li>양주현 / 지구환경과학부 16 / Android</li>
+        <li>이정달 / 자유전공학부 25 / Server</li>
+        <li>이현도 / 컴퓨터공학부 23 / Android</li>
+        <li>임찬영 / 컴퓨터공학부 23 / Server</li>
+        <li>정해찬 / 컴퓨터공학부 24 / Android</li>
+        <li>최연서 / 물리교육과 23 / Server</li>
+        <li>최유림 / 컴퓨터공학부 19 / iOS</li>
+        <li>최한결 / 컴퓨터공학부 15 / Server</li>
+      </ul>
+    </section>
+
+    <footer>
+      <a href="mailto:snutt@wafflestudio.com" target="_blank">개발자 괴롭히기 - snutt@wafflestudio.com</a>
+    </footer>
+  </body>
 </html>
