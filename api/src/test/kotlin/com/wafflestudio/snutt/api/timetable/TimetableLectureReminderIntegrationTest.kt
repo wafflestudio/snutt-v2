@@ -19,26 +19,10 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import java.time.Instant
 
-@SpringBootTest
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TimetableLectureReminderIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("reminder_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
-
     @Autowired
     lateinit var reminderService: TimetableLectureReminderService
 
@@ -68,13 +52,7 @@ class TimetableLectureReminderIntegrationTest : AbstractMysqlIntegrationTest() {
         )
 
     @BeforeEach
-    fun setUp() {
-        scheduleRepository.deleteAll()
-        reminderRepository.deleteAll()
-        timetableLectureRepository.deleteAll()
-        timetableRepository.deleteAll()
-        userRepository.deleteAll()
-
+    fun seed() {
         userId =
             userRepository
                 .save(

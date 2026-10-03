@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.push.RecordingPushClient
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
@@ -22,71 +21,61 @@ import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
+import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.ResponseEntity
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
-import org.springframework.web.client.RestClient
-import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("coverage_gap_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
+    @Autowired
+    lateinit var coursebookRepository: CoursebookRepository
 
-    @Autowired lateinit var coursebookRepository: CoursebookRepository
+    @Autowired
+    lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureRepository: LectureRepository
+    @Autowired
+    lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
+    @Autowired
+    lateinit var courseRepository: CourseRepository
 
-    @Autowired lateinit var courseRepository: CourseRepository
+    @Autowired
+    lateinit var themeRepository: TimetableThemeRepository
 
-    @Autowired lateinit var themeRepository: TimetableThemeRepository
+    @Autowired
+    lateinit var publishedThemeRepository: PublishedThemeRepository
 
-    @Autowired lateinit var publishedThemeRepository: PublishedThemeRepository
+    @Autowired
+    lateinit var userRepository: UserRepository
 
-    @Autowired lateinit var userRepository: UserRepository
+    @Autowired
+    lateinit var userDeviceRepository: UserDeviceRepository
 
-    @Autowired lateinit var recordingPushClient: RecordingPushClient
+    @Autowired
+    lateinit var friendRepository: FriendRepository
 
-    @LocalServerPort var port = 0
+    @Autowired
+    lateinit var legacyTokenService: LegacyTokenService
 
     private lateinit var userAToken: String
     private lateinit var userBToken: String
+    private lateinit var userA: User
+    private lateinit var userB: User
     private var lectureId: Long = 0L
 
-    @BeforeAll
+    @BeforeEach
     fun seed() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.SPRING))
         coursebookRepository.save(Coursebook(year = 2025, semester = Semester.AUTUMN))
 
-        val course =
-            courseRepository.save(
-                Course(
-                    courseNumber = "M2174.001600",
-                    instructor = "박지수",
-                    title = "생활과학신입생세미나",
-                ),
-            )
+        val course = courseRepository.save(Course(courseNumber = "M2174.001600", instructor = "박지수", title = "생활과학신입생세미나"))
         lectureId =
             saveLectureWithTimes(
                 lectureRepository,
@@ -103,110 +92,51 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                     classification = "전필",
                     credit = 1,
                     quota = 150,
-                ).also {
-                    it.courseId = course.id
-                },
+                    courseId = course.id,
+                ),
                 listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "222-701", 1020, 1070)),
             ).id!!
 
-        userAToken = register("coverusera", "coverusera@snu.ac.kr")
-        userBToken = register("coveruserb", "coveruserb@snu.ac.kr")
+        userAToken = register("coverusera")
+        userBToken = register("coveruserb")
+        userA = userRepository.findByLocalIdAndActiveTrue("coverusera")!!
+        userB = userRepository.findByLocalIdAndActiveTrue("coveruserb")!!
     }
 
-    private fun register(
-        localId: String,
-        email: String,
-    ): String {
-        val response = post("/v2/auth/register", """{"localId":"$localId","password":"password1","email":"$email"}""")
-        assertEquals(200, response.statusCode.value())
-        return body(response)["accessToken"].asString()
-    }
+    private fun registerDevice(
+        registrationId: String,
+        deviceId: String,
+        token: String,
+    ): ResponseEntity<String> =
+        client()
+            .post()
+            .uri("/v2/users/me/devices/$registrationId")
+            .headers { it.setBearerAuth(token) }
+            .header("x-device-id", deviceId)
+            .retrieve()
+            .toEntity(String::class.java)
 
-    private fun client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-os-type", "ios")
-            .defaultHeader("x-client-key", "test-ios-key")
-            .defaultHeader("Content-Type", "application/json")
-            .build()
-
-    private fun post(
-        uri: String,
-        body: String? = null,
-        token: String? = null,
-        headers: Map<String, String> = emptyMap(),
-    ): ResponseEntity<String> {
-        val spec = client().post().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        headers.forEach { (k, v) -> spec.header(k, v) }
-        body?.let { spec.body(it) }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private fun get(
-        uri: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().get().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private fun delete(
-        uri: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().delete().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private val jsonMapper = JsonMapper.builder().build()
-
-    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
+    private fun activeDeviceCount(deviceId: String): Int =
+        userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(listOf(userA.id!!)).count { it.deviceId == deviceId }
 
     @Test
     fun `기기 등록과 해제가 FCM 토픽 구독까지 반영한다`() {
-        val registrationId = "fcm-token-abc"
-        val register =
-            post(
-                "/v2/users/me/devices/$registrationId",
-                token = userAToken,
-                headers = mapOf("x-device-id" to "device-1", "x-app-type" to "release"),
-            )
-        assertEquals(200, register.statusCode.value())
-        assertTrue(recordingPushClient.globalTopicSubscriptions.contains(registrationId))
+        val registered = registerDevice("fcm-token-abc", "device-1", userAToken)
+        assertEquals(200, registered.statusCode.value())
+        verify(pushClient).subscribeGlobalTopic("fcm-token-abc")
 
-        post(
-            "/v2/users/me/devices/fcm-token-def",
-            token = userAToken,
-            headers = mapOf("x-device-id" to "device-1"),
-        )
-        val userId = userRepository.findByLocalIdAndActiveTrue("coverusera")!!.id!!
-        assertEquals(1, deviceCount(userId, "device-1"))
+        registerDevice("fcm-token-def", "device-1", userAToken)
+        assertEquals(1, activeDeviceCount("device-1"))
 
         val removed = delete("/v2/users/me/devices/fcm-token-def", userAToken)
         assertEquals(200, removed.statusCode.value())
-        assertEquals(0, deviceCount(userId, "device-1"))
-        assertTrue(!recordingPushClient.globalTopicSubscriptions.contains("fcm-token-def"))
+        assertEquals(0, activeDeviceCount("device-1"))
+        verify(pushClient).unsubscribeGlobalTopic("fcm-token-def")
     }
-
-    private fun deviceCount(
-        userId: Long,
-        deviceId: String,
-    ): Int = userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(listOf(userId)).count { it.deviceId == deviceId }
-
-    @Autowired
-    lateinit var userDeviceRepository: UserDeviceRepository
-
-    @Autowired
-    lateinit var legacyTokenService: com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 
     @Test
     fun `구 경로로도 기기를 등록한다`() {
-        val legacyToken = legacyTokenService.issue(userRepository.findByLocalIdAndActiveTrue("coverusera")!!)
+        val legacyToken = legacyTokenService.issue(userA)
         val response =
             client()
                 .post()
@@ -217,25 +147,22 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, response.statusCode.value())
-        assertTrue(recordingPushClient.globalTopicSubscriptions.contains("legacy-fcm-token"))
+        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token")
     }
 
     @Test
     fun `학기 상태는 현재와 다음 학기를 알려준다`() {
         val response = get("/v2/semesters/status")
         assertEquals(200, response.statusCode.value())
-        val node = body(response)
-        assertTrue(node.hasNonNull("next"))
-        val next = node["next"]
+        val next = body(response)["next"]
         assertTrue(next.hasNonNull("year"))
         assertTrue(next.hasNonNull("semester"))
     }
 
     @Test
     fun `친구가 공유한 테마를 조회한다`() {
-        val userB = userRepository.findByLocalIdAndActiveTrue("coveruserb")!!
-        acceptedFriend()
-        val published =
+        friendRepository.save(Friend(fromUserId = userA.id!!, toUserId = userB.id!!, isAccepted = true))
+        val theme =
             themeRepository.save(
                 TimetableTheme(
                     userId = userB.id!!,
@@ -246,9 +173,9 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         publishedThemeRepository.save(
             PublishedTheme(
                 authorId = userB.id!!,
-                sourceThemeId = published.id!!,
+                sourceThemeId = theme.id!!,
                 name = "친구가공유한테마",
-                colors = checkNotNull(published.colors),
+                colors = checkNotNull(theme.colors),
                 downloadCount = 7,
             ),
         )
@@ -258,23 +185,6 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         val themes = body(response)["content"]
         assertEquals(1, themes.size())
         assertEquals("친구가공유한테마", themes[0]["name"].asString())
-    }
-
-    @Autowired
-    lateinit var friendRepository: FriendRepository
-
-    @Synchronized
-    private fun acceptedFriend(): Friend {
-        val userA = userRepository.findByLocalIdAndActiveTrue("coverusera")!!
-        val userB = userRepository.findByLocalIdAndActiveTrue("coveruserb")!!
-        return friendRepository.findByUserPair(userA.id!!, userB.id!!)
-            ?: friendRepository.save(
-                Friend(
-                    fromUserId = userA.id!!,
-                    toUserId = userB.id!!,
-                    isAccepted = true,
-                ),
-            )
     }
 
     @Test
@@ -292,8 +202,7 @@ class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
         assertEquals(200, setDefault.statusCode.value())
         assertEquals(true, body(setDefault)["isDefault"].asBoolean())
 
-        val themes = body(get("/v2/themes", userBToken))
-        val marked = themes.filter { it["isDefault"].asBoolean() }
+        val marked = body(get("/v2/themes", userBToken)).filter { it["isDefault"].asBoolean() }
         assertEquals(1, marked.size)
         assertEquals(themeId, marked[0]["id"].asLong())
 

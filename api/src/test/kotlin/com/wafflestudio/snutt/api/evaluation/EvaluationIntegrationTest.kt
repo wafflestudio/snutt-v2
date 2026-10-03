@@ -16,40 +16,19 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.http.ResponseEntity
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
-import org.springframework.web.client.RestClient
-import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("evaluation_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
-
     @Autowired
     lateinit var courseRepository: CourseRepository
 
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
+    @Autowired
+    lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var evaluationRepository: EvaluationRepository
@@ -60,17 +39,14 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
     @Autowired
     lateinit var courseAggregateUpdater: CourseAggregateUpdater
 
-    @LocalServerPort
-    var port = 0
-
     private lateinit var verifiedToken: String
     private lateinit var unverifiedToken: String
     private lateinit var secondVerifiedToken: String
     private var lectureId: Long = 0L
     private var courseId: Long = 0L
 
-    @BeforeAll
-    fun seedDatabase() {
+    @BeforeEach
+    fun seed() {
         val course =
             courseRepository.save(
                 Course(
@@ -79,7 +55,8 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     title = "계산이론연구 (Theoretical Foundation of AI)",
                 ),
             )
-        val lecture =
+        courseId = course.id!!
+        lectureId =
             saveLectureWithTimes(
                 lectureRepository,
                 lectureClassTimeRepository,
@@ -95,23 +72,14 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
                     classification = "전선",
                     credit = 3,
                     quota = 10,
-                    courseId = course.id,
+                    courseId = courseId,
                 ),
                 listOf(
                     ClassPlaceAndTime(DayOfWeek.MONDAY, "302-107", 930, 1005),
                     ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "302-107", 930, 1005),
                 ),
-            )
-        lectureId = lecture.id!!
-        courseId = course.id!!
-        val cursorCourse =
-            courseRepository.save(
-                Course(
-                    courseNumber = "2114.408A",
-                    instructor = "임하진",
-                    title = "HCI이론 및 실습",
-                ),
-            )
+            ).id!!
+        val cursorCourse = courseRepository.save(Course(courseNumber = "2114.408A", instructor = "임하진", title = "HCI이론 및 실습"))
         lectureRepository.save(
             Lecture(
                 year = 2026,
@@ -129,97 +97,18 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
             ),
         )
 
-        verifiedToken = register("evaluser1", "eval1@snu.ac.kr")
-        unverifiedToken = register("evaluser2", "eval2@snu.ac.kr")
-        secondVerifiedToken = register("evaluser3", "eval3@snu.ac.kr")
-
+        verifiedToken = register("evaluser1")
+        unverifiedToken = register("evaluser2")
+        secondVerifiedToken = register("evaluser3")
         setEmailVerified("evaluser1")
         setEmailVerified("evaluser3")
     }
 
-    private fun register(
-        localId: String,
-        email: String,
-    ): String {
-        val response =
-            post(
-                "/v2/auth/register",
-                """{"localId":"$localId","password":"password1","email":"$email"}""",
-            )
-        assertEquals(200, response.statusCode.value())
-        return body(response)["accessToken"].asString()
-    }
-
     private fun setEmailVerified(localId: String) {
-        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: error("user not found")
+        val user = userRepository.findByLocalIdAndActiveTrue(localId)!!
         user.isEmailVerified = true
         userRepository.save(user)
     }
-
-    @BeforeEach
-    fun cleanEvaluations() {
-        evaluationRepository.deleteAll()
-        courseRepository.saveAll(
-            courseRepository.findAll().map { course ->
-                course.apply {
-                    evalCount = 0
-                    avgRating = null
-                }
-            },
-        )
-    }
-
-    private fun client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-os-type", "ios")
-            .defaultHeader("x-client-key", "test-ios-key")
-            .defaultHeader("Content-Type", "application/json")
-            .build()
-
-    private fun post(
-        uri: String,
-        body: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().post().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(String::class.java)
-    }
-
-    private fun get(
-        uri: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().get().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private fun patch(
-        uri: String,
-        body: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().patch().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(String::class.java)
-    }
-
-    private fun delete(
-        uri: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().delete().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private val jsonMapper = JsonMapper.builder().build()
-
-    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     private fun evalBody(
         content: String = "좋은 강의입니다",
@@ -256,9 +145,9 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         val list = get("/v2/courses/$courseId/evaluations", secondVerifiedToken)
         val evaluationId = body(list)["content"][0]["id"].asInt()
 
-        val like = post("/v2/evaluations/$evaluationId/like", """{}""", secondVerifiedToken)
+        val like = post("/v2/evaluations/$evaluationId/like", "{}", secondVerifiedToken)
         assertEquals(200, like.statusCode.value())
-        val duplicateLike = post("/v2/evaluations/$evaluationId/like", """{}""", secondVerifiedToken)
+        val duplicateLike = post("/v2/evaluations/$evaluationId/like", "{}", secondVerifiedToken)
         assertEquals(409, duplicateLike.statusCode.value())
 
         val detail = get("/v2/evaluations/$evaluationId", secondVerifiedToken)
@@ -279,7 +168,7 @@ class EvaluationIntegrationTest : AbstractMysqlIntegrationTest() {
         val list = get("/v2/courses/$courseId/evaluations", verifiedToken)
         val otherEvaluation = body(list)["content"][0]
         val otherId = otherEvaluation["id"].asInt()
-        post("/v2/evaluations/$otherId/like", """{}""", verifiedToken)
+        post("/v2/evaluations/$otherId/like", "{}", verifiedToken)
 
         val update =
             patch(

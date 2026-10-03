@@ -1,6 +1,5 @@
 plugins {
     `java-library`
-    `java-test-fixtures`
     kotlin("plugin.allopen")
     kotlin("plugin.noarg")
 }
@@ -35,8 +34,6 @@ dependencies {
     implementation("tools.jackson.core:jackson-databind")
 
     runtimeOnly("com.mysql:mysql-connector-j")
-
-    testFixturesImplementation("org.springframework:spring-context")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:testcontainers-mysql")
