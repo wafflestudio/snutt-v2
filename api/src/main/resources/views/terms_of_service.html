@@ -6,10 +6,13 @@
     <title>SNUTT 이용약관</title>
     <style>
       :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
         --text: #222222;
       }
       @media (prefers-color-scheme: dark) {
         :root {
+          --bg: #000000;
           --text: #eeeef3;
         }
       }
@@ -20,6 +23,7 @@
         font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
         font-size: 15px;
         line-height: 1.7;
+        background: var(--bg);
         color: var(--text);
         word-break: keep-all;
         overflow-wrap: anywhere;
