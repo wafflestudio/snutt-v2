@@ -4,94 +4,44 @@ import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.domain.clientconfig.repository.ClientConfigRepository
+import com.wafflestudio.snutt.core.common.storage.FileUploadUri
+import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
-import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
-import com.wafflestudio.snutt.core.domain.popup.repository.PopupRepository
-import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.http.ResponseEntity
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
-import org.springframework.web.client.RestClient
-import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("misc_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-
-        @JvmStatic
-        @DynamicPropertySource
-        fun storageProperties(registry: DynamicPropertyRegistry) {
-            registry.add("snutt.storage.namespace") { "testnamespace" }
-        }
-    }
-
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 
     @Autowired
     lateinit var lectureRepository: LectureRepository
 
-    @Autowired lateinit var lectureClassTimeRepository: LectureClassTimeRepository
+    @Autowired
+    lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var userRepository: UserRepository
-
-    @Autowired
-    lateinit var friendRepository: FriendRepository
-
-    @Autowired
-    lateinit var vacancyNotificationRepository: VacancyNotificationRepository
-
-    @Autowired
-    lateinit var notificationRepository: NotificationRepository
-
-    @Autowired
-    lateinit var popupRepository: PopupRepository
-
-    @Autowired
-    lateinit var configRepository: ClientConfigRepository
-
-    @Autowired
-    lateinit var pushPreferenceRepository: PushPreferenceRepository
-
-    @LocalServerPort
-    var port = 0
 
     private lateinit var userAToken: String
     private lateinit var userBToken: String
     private lateinit var adminToken: String
     private var lectureId: Long = 0L
 
-    @BeforeAll
-    fun seedDatabase() {
+    @BeforeEach
+    fun seed() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         lectureId =
             saveLectureWithTimes(
@@ -115,89 +65,14 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
                 listOf(ClassPlaceAndTime(DayOfWeek.THURSDAY, "71-1-214", 540, 590)),
             ).id!!
 
-        userAToken = register("miscuserA", "misca@snu.ac.kr")
-        userBToken = register("miscuserB", "miscb@snu.ac.kr")
-        adminToken = register("miscadmin", "miscadmin@snu.ac.kr")
-        userRepository.findByLocalIdAndActiveTrue("miscadmin")?.let { user ->
+        userAToken = register("miscuserA")
+        userBToken = register("miscuserB")
+        adminToken = register("miscadmin")
+        userRepository.findByLocalIdAndActiveTrue("miscadmin")!!.let { user ->
             user.isAdmin = true
             userRepository.save(user)
         }
     }
-
-    @BeforeEach
-    fun cleanDomainTables() {
-        friendRepository.deleteAll()
-        vacancyNotificationRepository.deleteAll()
-        notificationRepository.deleteAll()
-        popupRepository.deleteAll()
-        configRepository.deleteAll()
-        pushPreferenceRepository.deleteAll()
-    }
-
-    private fun register(
-        localId: String,
-        email: String,
-    ): String {
-        val response =
-            post(
-                "/v2/auth/register",
-                """{"localId":"$localId","password":"password1","email":"$email"}""",
-            )
-        assertEquals(200, response.statusCode.value())
-        return body(response)["accessToken"].asString()
-    }
-
-    private fun client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-os-type", "ios")
-            .defaultHeader("x-client-key", "test-ios-key")
-            .defaultHeader("Content-Type", "application/json")
-            .build()
-
-    private fun post(
-        uri: String,
-        body: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().post().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(String::class.java)
-    }
-
-    private fun get(
-        uri: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().get().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private fun patch(
-        uri: String,
-        body: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().patch().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.body(body).retrieve().toEntity(String::class.java)
-    }
-
-    private fun delete(
-        uri: String,
-        token: String? = null,
-    ): ResponseEntity<String> {
-        val spec = client().delete().uri(uri)
-        token?.let { spec.headers { h -> h.setBearerAuth(it) } }
-        return spec.retrieve().toEntity(String::class.java)
-    }
-
-    private val jsonMapper = JsonMapper.builder().build()
-
-    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `친구 요청 수락과 표시 이름`() {
@@ -260,12 +135,23 @@ class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
 
     @Test
     fun `관리자 이미지 업로드 URI를 발급한다`() {
+        val issued =
+            listOf(
+                FileUploadUri("https://upload/1", "s3://snutt-asset/popup-images/1.jpg", "https://cdn/1.jpg"),
+                FileUploadUri("https://upload/2", "s3://snutt-asset/popup-images/2.jpg", "https://cdn/2.jpg"),
+            )
+        whenever(uploadUriIssuer.issue(StorageSource.POPUP, 2)).thenReturn(issued)
+
         val response = post("/v2/admin/images/popup/upload-uris?count=2", "", adminToken)
         assertEquals(200, response.statusCode.value())
         val uris = body(response)
         assertEquals(2, uris.size())
-        assertTrue(uris[0]["fileOriginUri"].asString().startsWith("s3://snutt-asset/popup-images/"))
-        assertTrue(uris[0]["fileUri"].asString().startsWith("https://objectstorage."))
+        assertEquals("s3://snutt-asset/popup-images/1.jpg", uris[0]["fileOriginUri"].asString())
+        assertEquals("https://cdn/1.jpg", uris[0]["fileUri"].asString())
+        verify(uploadUriIssuer).issue(StorageSource.POPUP, 2)
+
+        val forbidden = post("/v2/admin/images/popup/upload-uris?count=2", "", userAToken)
+        assertEquals(403, forbidden.statusCode.value())
     }
 
     @Test
