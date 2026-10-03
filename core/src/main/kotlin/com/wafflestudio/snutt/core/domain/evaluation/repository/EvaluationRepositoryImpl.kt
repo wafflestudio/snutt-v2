@@ -11,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
@@ -150,30 +149,6 @@ class EvaluationRepositoryImpl(
                 ),
         )
     }
-
-    override fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> {
-        if (lectureIds.isEmpty()) return emptyMap()
-        return findAll(offset = null, limit = null) {
-            jpql {
-                selectNew<SummaryRow>(
-                    path(Lecture::id),
-                    path(Course::avgRating),
-                    coalesce(path(Course::evalCount), 0L),
-                ).from(
-                    entity(Lecture::class),
-                    leftJoin(Course::class).on(path(Lecture::courseId).equal(path(Course::id))),
-                ).where(path(Lecture::id).`in`(lectureIds))
-            }
-        }.filterNotNull()
-            .mapNotNull { row -> row.lectureId?.let { it to EvaluationSummary(row.avgRating, row.evalCount) } }
-            .toMap()
-    }
-
-    private data class SummaryRow(
-        val lectureId: Long?,
-        val avgRating: Double?,
-        val evalCount: Long,
-    )
 
     override fun findEvaluatedCourseSemesters(
         userId: Long,

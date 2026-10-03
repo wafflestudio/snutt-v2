@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.compareAppVersions
 import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -15,7 +14,7 @@ import com.wafflestudio.snutt.core.domain.diary.model.QuestionAnswer
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
-import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
@@ -29,11 +28,13 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureRemi
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.snutt.dto.BasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyThemeValue
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -230,9 +231,6 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable themeId: Long,
     ) {
-        if (publishedThemeRepository.findBySourceThemeIdInAndListedTrue(listOf(themeId)).isNotEmpty()) {
-            throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
-        }
         timetableThemeService.deleteTheme(user.id!!, themeId)
     }
 
@@ -244,8 +242,8 @@ class V1CompatThemeController(
         @RequestBody body: LegacyThemePublishRequest,
     ): LegacyOkResponse {
         val publication = timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.isAnonymous)
-        publishedThemeRepository.findBySourceThemeIdInAndListedTrue(listOf(themeId)).filter { it.id != publication.id }.forEach {
-            timetableThemeService.unpublishTheme(user.id!!, it.id!!)
+        listedPublicationsOf(user, themeId).filter { it.id != publication.id }.forEach {
+            timetableThemeService.unpublishTheme(user.id!!, it.id)
         }
         return LegacyOkResponse()
     }
@@ -255,9 +253,9 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable themeId: Long,
     ) {
-        val publications = publishedThemeRepository.findBySourceThemeIdInAndListedTrue(listOf(themeId))
+        val publications = listedPublicationsOf(user, themeId)
         if (publications.isEmpty()) throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
-        publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id!!) }
+        publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id) }
     }
 
     @PostMapping("/{themeId}/download")
@@ -291,7 +289,7 @@ class V1CompatThemeController(
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
         basicThemeType(basicThemeTypeValue)
-        return timetableThemeService.getDefaultTheme(user.id!!).toLegacy(user.id!!.toString(), null)
+        return defaultTheme(user).toLegacy(user.id!!.toString(), null)
     }
 
     @DeleteMapping("/basic/{basicThemeTypeValue}/default")
@@ -300,7 +298,7 @@ class V1CompatThemeController(
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
         val basicThemeType = basicThemeType(basicThemeTypeValue)
-        val current = timetableThemeService.getDefaultTheme(user.id!!)
+        val current = defaultTheme(user)
         if (current.kind != ThemeKind.BUILTIN || current.builtinCode != legacyBuiltinCode(basicThemeType.value)) {
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         }
@@ -322,6 +320,15 @@ class V1CompatThemeController(
         }
         return all.drop((page - 1) * LEGACY_THEME_PAGE_SIZE).take(LEGACY_THEME_PAGE_SIZE)
     }
+
+    private fun listedPublicationsOf(
+        user: User,
+        themeId: Long,
+    ): List<ThemePublicationDisplay> =
+        timetableThemeService.getMyPublications(user.id!!).filter { it.listed && it.sourceThemeId == themeId }
+
+    private fun defaultTheme(user: User): TimetableThemeDisplay =
+        timetableThemeService.getTheme(user.id!!, timetableThemeService.getDefaultThemeId(user.id!!))
 
     private fun basicThemeType(value: Int): BasicThemeType =
         try {
@@ -610,7 +617,7 @@ data class LegacyLectureEvSummaryResponse(
 @RestController
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
-    private val evaluationService: EvaluationService,
+    private val courseRepository: CourseRepository,
     private val lectureService: LectureService,
 ) {
     @V1Public
@@ -619,11 +626,11 @@ class V1CompatEvSummaryController(
         @PathVariable lectureId: Long,
     ): LegacyLectureEvSummaryResponse {
         val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
-        val summary = evaluationService.findSummariesByLectureIds(listOf(lectureId))[lectureId]
+        val course = courseRepository.findByIdOrNull(courseId)
         return LegacyLectureEvSummaryResponse(
             evLectureId = courseId,
-            avgRating = summary?.avgRating,
-            evaluationCount = summary?.evalCount ?: 0L,
+            avgRating = course?.avgRating,
+            evaluationCount = course?.evalCount ?: 0L,
         )
     }
 }
