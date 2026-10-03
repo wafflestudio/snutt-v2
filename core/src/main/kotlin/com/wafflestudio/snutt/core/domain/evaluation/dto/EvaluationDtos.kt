@@ -14,11 +14,6 @@ data class EvaluationIdCursor(
     val evaluationId: Long,
 )
 
-data class EvaluationSummary(
-    val avgRating: Double?,
-    val evalCount: Long,
-)
-
 data class EvaluationAverages(
     val avgGradeSatisfaction: Double?,
     val avgTeachingSkill: Double?,
