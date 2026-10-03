@@ -145,8 +145,6 @@ class TimetableThemeService(
         return getTheme(userId, fallbackId)
     }
 
-    fun getDefaultTheme(userId: Long): TimetableThemeDisplay = getTheme(userId, getDefaultThemeId(userId))
-
     fun getDefaultThemeId(userId: Long): Long = userPreferenceRepository.findByUserId(userId)?.defaultThemeId ?: builtinThemeId("snutt")
 
     fun builtinThemeId(code: String): Long = builtinTheme(code).id!!

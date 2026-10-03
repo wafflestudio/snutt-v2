@@ -16,10 +16,6 @@ enum class LectureSort(
     ;
 
     companion object {
-        private val nameMap = entries.flatMap { listOf(it.fullName to it, it.fullNameEn to it) }.toMap()
-
-        fun getOfName(name: String?): LectureSort? = nameMap[name]
-
         fun fromParameter(value: String?): LectureSort {
             if (value == null) return DEFAULT
             return entries.find { it.name.equals(value, ignoreCase = true) } ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
