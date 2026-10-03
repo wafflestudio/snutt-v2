@@ -1,27 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
   <head>
-    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <title>SNUTT 개인정보처리방침</title>
     <style>
-      @import url(https://fonts.googleapis.com/earlyaccess/nanumgothiccoding.css);
-      @import url(https://fonts.googleapis.com/earlyaccess/notosanskr.css);
-      body {
-        max-width:600px; margin: 0 auto; padding: 1rem 1rem;
-      }
-      h1 {
-        font-family: 'Noto Sans CJK KR', 'Noto Sans KR', sans-serif;
-      }
-      pre {
-        font-family: 'Nanum Gothic Coding', 'Courier New', monospace;
-        font-size: 0.9em;
-        line-height: 1.4em;
-        white-space: pre-wrap;
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --text: #222222;
       }
       @media (prefers-color-scheme: dark) {
-        body {
-          color: #eeeef3;
+        :root {
+          --bg: #000000;
+          --text: #eeeef3;
         }
+      }
+      body {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+        font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        font-size: 15px;
+        line-height: 1.7;
+        background: var(--bg);
+        color: var(--text);
+        word-break: keep-all;
+        overflow-wrap: anywhere;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 22px;
+      }
+      pre {
+        margin: 0;
+        font: inherit;
+        white-space: pre-wrap;
+      }
+      pre h2,
+      pre h3 {
+        display: inline-block;
+        margin: 0;
+        white-space: normal;
+      }
+      pre h2 {
+        font-size: 18px;
+      }
+      pre h3 {
+        font-size: 16px;
       }
     </style>
   </head>
