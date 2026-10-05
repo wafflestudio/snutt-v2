@@ -8,7 +8,6 @@ import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.model.CreatePreauthenticatedRequestDetails
 import com.oracle.bmc.objectstorage.requests.CreatePreauthenticatedRequestRequest
 import com.oracle.bmc.objectstorage.requests.GetNamespaceRequest
-import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -19,25 +18,22 @@ import java.time.Instant
 import java.util.Date
 import java.util.UUID
 
+enum class OciAuthType {
+    INSTANCE,
+    CONFIG,
+}
+
 @Configuration
 @Profile("!test")
 class OciConfig(
-    @param:Value("\${snutt.storage.oci.auth-type:auto}") private val authType: String,
+    @param:Value("\${snutt.storage.oci.auth-type}") private val authType: OciAuthType,
     @param:Value("\${snutt.storage.oci.config-profile:DEFAULT}") private val configProfile: String,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @Bean
     fun ociAuthProvider(): BasicAuthenticationDetailsProvider =
-        when (authType.trim().lowercase()) {
-            "instance" -> InstancePrincipalsAuthenticationDetailsProvider.builder().build()
-            "config" -> ConfigFileAuthenticationDetailsProvider(configProfile)
-            else ->
-                runCatching { InstancePrincipalsAuthenticationDetailsProvider.builder().build() }
-                    .getOrElse {
-                        log.info("인스턴스 프린시펄을 쓸 수 없어 설정 파일 인증으로 넘어간다")
-                        ConfigFileAuthenticationDetailsProvider(configProfile)
-                    }
+        when (authType) {
+            OciAuthType.INSTANCE -> InstancePrincipalsAuthenticationDetailsProvider.builder().build()
+            OciAuthType.CONFIG -> ConfigFileAuthenticationDetailsProvider(configProfile)
         }
 }
 
