@@ -17,7 +17,8 @@ class RecordingMailClient : MailClient {
         to: String,
         subject: String,
         html: String,
-    ) {
+    ): MailSendOutcome {
         sentMails.add(SentMail(to, subject, html))
+        return MailSendOutcome.SENT
     }
 }

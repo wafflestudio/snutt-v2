@@ -49,9 +49,9 @@ class UserMailService(
         type: UserMailType,
         to: String,
         values: Map<String, String>,
-    ) {
+    ): MailSendOutcome {
         val template = templates.getValue(type)
-        mailClient.send(to, template.subject.fill(values), template.body.fill(values))
+        return mailClient.send(to, template.subject.fill(values), template.body.fill(values))
     }
 
     private fun String.fill(values: Map<String, String>): String =
