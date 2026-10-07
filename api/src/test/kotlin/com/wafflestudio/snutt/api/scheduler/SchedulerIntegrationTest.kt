@@ -1,9 +1,9 @@
 package com.wafflestudio.snutt.api.scheduler
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.push.RecordingPushClient
+import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
@@ -25,29 +25,14 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-@SpringBootTest
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("scheduler_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
-
+class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var reminderScheduler: ReminderScheduler
 
@@ -79,21 +64,12 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
     lateinit var coursebookRepository: CoursebookRepository
 
     @Autowired
-    lateinit var recordingPushClient: RecordingPushClient
-
-    @Autowired
     lateinit var notificationRepository: NotificationRepository
 
-    @BeforeEach
-    fun cleanTables() {
-        timetableLectureReminderRepository.deleteAll()
-        timetableLectureReminderScheduleRepository.deleteAll()
-        timetableLectureRepository.deleteAll()
-        timetableRepository.deleteAll()
-        lectureRepository.deleteAll()
-        userDeviceRepository.deleteAll()
-        coursebookRepository.deleteAll()
-        recordingPushClient.sentMessages.clear()
+    private fun sentMessages(): List<TargetedPushMessage> {
+        val captor = argumentCaptor<List<TargetedPushMessage>>()
+        verify(pushClient).sendMessages(captor.capture())
+        return captor.firstValue
     }
 
     @Test
@@ -160,23 +136,11 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
 
         reminderScheduler.fireDueReminders(now, SemesterCalendar.YearSemester(2026, Semester.AUTUMN))
 
-        assertTrue(recordingPushClient.sentMessages.isNotEmpty())
-        assertEquals("fcm-reminder", recordingPushClient.sentMessages[0].fcmRegistrationId)
-        assertTrue(
-            recordingPushClient.sentMessages[0]
-                .message.title
-                .contains("리마인더"),
-        )
-        assertTrue(
-            recordingPushClient.sentMessages[0]
-                .message.body
-                .contains("HCI이론 및 실습"),
-        )
-        assertTrue(
-            recordingPushClient.sentMessages[0]
-                .message.body
-                .contains("10분 전"),
-        )
+        val sent = sentMessages().single()
+        assertEquals("fcm-reminder", sent.fcmRegistrationId)
+        assertTrue(sent.message.title.contains("리마인더"))
+        assertTrue(sent.message.body.contains("HCI이론 및 실습"))
+        assertTrue(sent.message.body.contains("10분 전"))
 
         val after = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId)!!
         val schedule =
@@ -265,17 +229,9 @@ class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
 
         diaryScheduler.sendDiaryNotifications()
 
-        assertTrue(recordingPushClient.sentMessages.isNotEmpty())
-        assertTrue(
-            recordingPushClient.sentMessages[0]
-                .message.title
-                .contains("강의일기"),
-        )
-        assertTrue(
-            recordingPushClient.sentMessages[0]
-                .message.body
-                .contains("강의일기를 작성해보세요"),
-        )
+        val sent = sentMessages().single()
+        assertTrue(sent.message.title.contains("강의일기"))
+        assertTrue(sent.message.body.contains("강의일기를 작성해보세요"))
         assertTrue(notificationRepository.findAll().none { it.userId == user.id })
     }
 }

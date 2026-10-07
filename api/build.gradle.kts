@@ -11,7 +11,4 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 
     testImplementation("io.jsonwebtoken:jjwt-api:0.13.0")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-mysql")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 }

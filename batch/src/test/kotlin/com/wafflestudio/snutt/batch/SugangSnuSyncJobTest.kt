@@ -26,30 +26,15 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import org.mockito.Mockito
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 
-@SpringBootTest
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("batch_sync_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
-
     @Autowired
     lateinit var sugangSnuSyncJob: SugangSnuSyncJob
 
@@ -92,26 +77,10 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     @MockitoBean
     lateinit var registrationPeriodExtractor: RegistrationPeriodExtractor
 
-    @BeforeAll
-    fun seedCoursebook() {
-        coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
-    }
-
     @BeforeEach
-    fun cleanTables() {
-        Mockito
-            .`when`(
-                sugangSnuLectureEnricher.enrich(
-                    org.mockito.kotlin.any(),
-                    org.mockito.kotlin.any(),
-                    org.mockito.kotlin.any(),
-                ),
-            ).thenAnswer { it.getArgument<Any>(2) }
-        lectureClassTimeRepository.deleteAll()
-        lectureRepository.deleteAll()
-        courseRepository.deleteAll()
-        notificationRepository.deleteAll()
-        timetableRepository.deleteAll()
+    fun seed() {
+        coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
+        whenever(sugangSnuLectureEnricher.enrich(any(), any(), any())).thenAnswer { it.getArgument<Any>(2) }
     }
 
     private fun stubCurrentCoursebook() {

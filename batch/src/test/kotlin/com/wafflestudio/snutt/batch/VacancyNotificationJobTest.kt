@@ -4,7 +4,7 @@ import com.wafflestudio.snutt.batch.vacancy.RegistrationStatus
 import com.wafflestudio.snutt.batch.vacancy.SugangSnuRegistrationStatusCrawler
 import com.wafflestudio.snutt.batch.vacancy.VacancyNotificationJob
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.push.RecordingPushClient
+import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
@@ -29,26 +29,23 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-@SpringBootTest
 @Import(VacancyNotificationJobTest.ClockConfig::class)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     @TestConfiguration(proxyBeanMethods = false)
     class ClockConfig {
@@ -62,16 +59,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @MockitoBean
     lateinit var crawler: SugangSnuRegistrationStatusCrawler
-
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("batch_vacancy_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
 
     @Autowired
     lateinit var vacancyNotificationJob: VacancyNotificationJob
@@ -92,9 +79,6 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     lateinit var notificationRepository: NotificationRepository
 
     @Autowired
-    lateinit var recordingPushClient: RecordingPushClient
-
-    @Autowired
     lateinit var userDeviceRepository: UserDeviceRepository
 
     @Autowired
@@ -105,17 +89,8 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         SemesterRegistrationPeriodService
 
     @BeforeEach
-    fun cleanTables() {
-        lectureRegistrationStatusRepository.deleteAll()
-        lectureRepository.deleteAll()
-        vacancyNotificationRepository.deleteAll()
-        notificationRepository.deleteAll()
-        userDeviceRepository.deleteAll()
-        recordingPushClient.sentMessages.clear()
-
-        if (!coursebookRepository.existsByYearAndSemester(2026, Semester.AUTUMN)) {
-            coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
-        }
+    fun seed() {
+        coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         val now = ZonedDateTime.now(clock)
         semesterRegistrationPeriodService.upsert(
             2026,
@@ -174,13 +149,9 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
         vacancyNotificationJob.run(YearSemesterArgs(null, null))
 
-        assertTrue(recordingPushClient.sentMessages.isNotEmpty())
-        assertEquals("fcm-token-1", recordingPushClient.sentMessages[0].fcmRegistrationId)
-        assertTrue(
-            recordingPushClient.sentMessages[0]
-                .message.body
-                .contains("빈자리"),
-        )
+        val sent = sentMessages().single()
+        assertEquals("fcm-token-1", sent.fcmRegistrationId)
+        assertTrue(sent.message.body.contains("빈자리"))
         assertEquals(24, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
         assertEquals(1, notificationRepository.findAll().size)
     }
@@ -221,7 +192,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
         vacancyNotificationJob.run(YearSemesterArgs(null, null))
 
-        assertTrue(recordingPushClient.sentMessages.isEmpty())
+        verify(pushClient, never()).sendMessages(any())
         assertEquals(0, notificationRepository.findAll().size)
         assertEquals(23, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
     }
@@ -269,10 +240,16 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
         vacancyNotificationJob.run(YearSemesterArgs(null, null))
 
-        assertTrue(recordingPushClient.sentMessages.isEmpty())
+        verify(pushClient, never()).sendMessages(any())
         assertEquals(1, notificationRepository.findAll().size)
     }
 
     @Autowired
     lateinit var pushPreferenceRepository: PushPreferenceRepository
+
+    private fun sentMessages(): List<TargetedPushMessage> {
+        val captor = argumentCaptor<List<TargetedPushMessage>>()
+        verify(pushClient).sendMessages(captor.capture())
+        return captor.firstValue
+    }
 }

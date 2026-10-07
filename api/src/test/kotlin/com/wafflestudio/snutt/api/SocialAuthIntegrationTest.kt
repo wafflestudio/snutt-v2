@@ -5,85 +5,15 @@ import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.ResponseEntity
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.bean.override.mockito.MockitoBean
-import org.springframework.web.client.RestClient
-import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("social_auth_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
-    }
-
+class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
     @MockitoBean(name = "GOOGLE")
     private lateinit var googleClient: OAuth2Client
 
     @MockitoBean(name = "APPLE")
     private lateinit var appleClient: OAuth2Client
-
-    @LocalServerPort
-    var port = 0
-
-    private val jsonMapper = JsonMapper.builder().build()
-
-    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
-
-    private fun client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-os-type", "ios")
-            .defaultHeader("x-client-key", "test-ios-key")
-            .defaultHeader("Content-Type", "application/json")
-            .build()
-
-    private fun post(
-        uri: String,
-        payload: String,
-        bearer: String? = null,
-    ): ResponseEntity<String> =
-        client()
-            .post()
-            .uri(uri)
-            .apply { bearer?.let { header("Authorization", "Bearer $it") } }
-            .body(payload)
-            .retrieve()
-            .toEntity(String::class.java)
-
-    private fun get(
-        uri: String,
-        bearer: String,
-    ): ResponseEntity<String> =
-        client()
-            .get()
-            .uri(uri)
-            .header("Authorization", "Bearer $bearer")
-            .retrieve()
-            .toEntity(String::class.java)
-
-    private fun delete(
-        uri: String,
-        bearer: String,
-    ): ResponseEntity<String> =
-        client()
-            .delete()
-            .uri(uri)
-            .header("Authorization", "Bearer $bearer")
-            .retrieve()
-            .toEntity(String::class.java)
 
     private fun providers(response: ResponseEntity<String>): List<String> =
         body(response)["authProviders"].values().map { it.asString().uppercase() }

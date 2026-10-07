@@ -1,137 +1,55 @@
 package com.wafflestudio.snutt.api.user
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
-import com.wafflestudio.snutt.core.common.mail.RecordingMailClient
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.TestInstance
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.http.ResponseEntity
-import org.springframework.test.context.DynamicPropertyRegistry
-import org.springframework.test.context.DynamicPropertySource
-import org.springframework.web.client.RestClient
-import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
-    companion object {
-        @JvmStatic
-        @DynamicPropertySource
-        fun mysqlProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.datasource.url") { mysqlJdbcUrl("email_verify_test") }
-            registry.add("spring.datasource.username") { mysql.username }
-            registry.add("spring.datasource.password") { mysql.password }
-        }
+class EmailVerificationIntegrationTest : AbstractApiIntegrationTest() {
+    private fun sentCodeTo(email: String): String {
+        val subject = argumentCaptor<String>()
+        verify(mailClient).send(eq(email), subject.capture(), any())
+        return Regex("\\[(\\d{6})]").find(subject.firstValue)!!.groupValues[1]
     }
-
-    @Autowired
-    lateinit var recordingMailClient: RecordingMailClient
-
-    @LocalServerPort
-    var port = 0
-
-    private lateinit var token: String
-
-    @BeforeAll
-    fun registerUser() {
-        val response =
-            post(
-                "/v2/auth/register",
-                """{"localId":"emailuser","password":"password1","email":"temp@snu.ac.kr"}""",
-            )
-        token = body(response)["accessToken"].asString()
-    }
-
-    @BeforeEach
-    fun clean() {
-        recordingMailClient.sentMails.clear()
-    }
-
-    private fun client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-os-type", "ios")
-            .defaultHeader("x-client-key", "test-ios-key")
-            .defaultHeader("Content-Type", "application/json")
-            .build()
-
-    private fun post(
-        uri: String,
-        body: String,
-    ): ResponseEntity<String> =
-        client()
-            .post()
-            .uri(uri)
-            .headers { if (::token.isInitialized) it.setBearerAuth(token) }
-            .body(body)
-            .retrieve()
-            .toEntity(String::class.java)
-
-    private fun get(uri: String): ResponseEntity<String> =
-        client()
-            .get()
-            .uri(uri)
-            .headers { it.setBearerAuth(token) }
-            .retrieve()
-            .toEntity(String::class.java)
-
-    private fun delete(uri: String): ResponseEntity<String> =
-        client()
-            .delete()
-            .uri(uri)
-            .headers { it.setBearerAuth(token) }
-            .retrieve()
-            .toEntity(String::class.java)
-
-    private val jsonMapper = JsonMapper.builder().build()
-
-    private fun body(response: ResponseEntity<String>): JsonNode = jsonMapper.readTree(response.body!!)
 
     @Test
     fun `SNU 메일이 아니면 인증 코드를 발송하지 않는다`() {
-        val response = post("/v2/users/me/email/verification", """{"email":"foo@gmail.com"}""")
+        val token = register("emailuser", "temp@snu.ac.kr")
+        val response = post("/v2/users/me/email/verification", """{"email":"foo@gmail.com"}""", token)
         assertEquals(400, response.statusCode.value())
-        assertTrue(recordingMailClient.sentMails.isEmpty())
+        verify(mailClient, never()).send(any(), any(), any())
     }
 
     @Test
     fun `인증 코드 발송과 검증과 리셋`() {
-        val send = post("/v2/users/me/email/verification", """{"email":"emailuser@snu.ac.kr"}""")
+        val token = register("emailuser", "temp@snu.ac.kr")
+        val send = post("/v2/users/me/email/verification", """{"email":"emailuser@snu.ac.kr"}""", token)
         assertEquals(200, send.statusCode.value())
-        assertTrue(recordingMailClient.sentMails.isNotEmpty())
-        val mail = recordingMailClient.sentMails[0]
-        assertEquals("emailuser@snu.ac.kr", mail.to)
-        val code = codeOf(mail.subject)
-        assertEquals(6, code.length)
+        val code = sentCodeTo("emailuser@snu.ac.kr")
 
-        val wrong = post("/v2/users/me/email/verification/code", """{"code":"000000"}""")
+        val wrong = post("/v2/users/me/email/verification/code", """{"code":"000000"}""", token)
         assertEquals(400, wrong.statusCode.value())
 
-        val verify = post("/v2/users/me/email/verification/code", """{"code":"$code"}""")
-        assertEquals(200, verify.statusCode.value())
-        assertEquals(true, body(verify)["isEmailVerified"].asBoolean())
+        val verified = post("/v2/users/me/email/verification/code", """{"code":"$code"}""", token)
+        assertEquals(200, verified.statusCode.value())
+        assertEquals(true, body(verified)["isEmailVerified"].asBoolean())
 
-        val again = post("/v2/users/me/email/verification", """{"email":"emailuser@snu.ac.kr"}""")
+        val again = post("/v2/users/me/email/verification", """{"email":"emailuser@snu.ac.kr"}""", token)
         assertEquals(400, again.statusCode.value())
 
-        val reset = delete("/v2/users/me/email/verification")
+        val reset = delete("/v2/users/me/email/verification", token)
         assertEquals(false, body(reset)["isEmailVerified"].asBoolean())
-        assertEquals(false, body(get("/v2/users/me/email/verification"))["isEmailVerified"].asBoolean())
+        assertEquals(false, body(get("/v2/users/me/email/verification", token))["isEmailVerified"].asBoolean())
     }
 
     @Test
     fun `v1 경로에서도 이메일 인증이 동작한다`() {
-        val register =
+        val registered =
             client()
                 .post()
                 .uri("/v1/auth/register_local")
@@ -139,7 +57,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
                 .body("""{"id":"v1emailuser","password":"password1","email":"v1temp@snu.ac.kr"}""")
                 .retrieve()
                 .toEntity(String::class.java)
-        val v1Token = body(register)["token"].asString()
+        val v1Token = body(registered)["token"].asString()
 
         val send =
             client()
@@ -151,9 +69,9 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, send.statusCode.value())
-        val code = codeOf(recordingMailClient.sentMails[0].subject)
+        val code = sentCodeTo("v1email@snu.ac.kr")
 
-        val verify =
+        val verified =
             client()
                 .post()
                 .uri("/v1/user/email/verification/code")
@@ -162,9 +80,7 @@ class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
                 .body("""{"code":"$code"}""")
                 .retrieve()
                 .toEntity(String::class.java)
-        assertEquals(200, verify.statusCode.value())
-        assertEquals(true, body(verify)["is_email_verified"].asBoolean())
+        assertEquals(200, verified.statusCode.value())
+        assertEquals(true, body(verified)["is_email_verified"].asBoolean())
     }
-
-    private fun codeOf(subject: String): String = Regex("\\[(\\d{6})]").find(subject)!!.groupValues[1]
 }
