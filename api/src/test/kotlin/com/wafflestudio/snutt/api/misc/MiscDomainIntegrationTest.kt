@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.misc
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -22,7 +22,7 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 
-class MiscDomainIntegrationTest : AbstractMysqlIntegrationTest() {
+class MiscDomainIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 

@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.timetable
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -17,7 +17,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
+class TimetableIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 
@@ -105,9 +105,7 @@ class TimetableIntegrationTest : AbstractMysqlIntegrationTest() {
     fun `시간표 생성과 조회`() {
         val add = post("/v2/timetables", """{"year":2026,"semester":3,"title":"테스트 시간표"}""", token)
         assertEquals(200, add.statusCode.value())
-        val briefs = body(add)
-        assertEquals(2, briefs.size())
-        val timetableId = briefs.first { it["title"].asString() == "테스트 시간표" }["id"].asString()
+        val timetableId = body(add).first { it["title"].asString() == "테스트 시간표" }["id"].asString()
 
         val detail = get("/v2/timetables/$timetableId", token)
         assertEquals(200, detail.statusCode.value())

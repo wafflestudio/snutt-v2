@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 
-class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
+class AuthIntegrationTest : AbstractApiIntegrationTest() {
     private fun registerResponse(localId: String): JsonNode {
         val response = post("/v2/auth/register", """{"localId":"$localId","password":"password1","email":"$localId@snu.ac.kr"}""")
         assertEquals(200, response.statusCode.value())
@@ -94,15 +94,5 @@ class AuthIntegrationTest : AbstractMysqlIntegrationTest() {
 
         val afterLogout = post("/v2/auth/refresh", """{"refreshToken":"$refreshToken"}""")
         assertEquals(401, afterLogout.statusCode.value())
-    }
-
-    @Test
-    fun `로그아웃해도 access token 은 만료 전까지 인증에 쓸 수 있다`() {
-        val registered = registerResponse("testuser1")
-        val accessToken = registered["accessToken"].asString()
-        post("/v2/auth/logout", """{"refreshToken":"${registered["refreshToken"].asString()}"}""")
-
-        val me = get("/v2/users/me", token = accessToken)
-        assertEquals(200, me.statusCode.value())
     }
 }

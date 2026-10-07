@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.user
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -10,7 +10,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 
-class EmailVerificationIntegrationTest : AbstractMysqlIntegrationTest() {
+class EmailVerificationIntegrationTest : AbstractApiIntegrationTest() {
     private fun sentCodeTo(email: String): String {
         val subject = argumentCaptor<String>()
         verify(mailClient).send(eq(email), subject.capture(), any())

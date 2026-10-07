@@ -13,9 +13,11 @@ import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Notification
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
 @Service
+@Profile("!test")
 class FcmPushClient(
     @Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
     @param:Value("\${snutt.fcm.ios-bundle-id}") private val iosBundleId: String,

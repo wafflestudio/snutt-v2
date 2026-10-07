@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.timetable
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import java.time.Instant
 
-class TimetableLectureReminderIntegrationTest : AbstractMysqlIntegrationTest() {
+class TimetableLectureReminderIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var reminderService: TimetableLectureReminderService
 

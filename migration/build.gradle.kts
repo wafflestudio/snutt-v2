@@ -8,5 +8,4 @@ dependencies {
     testImplementation("org.flywaydb:flyway-mysql")
     testImplementation("com.mysql:mysql-connector-j")
     testImplementation("org.testcontainers:testcontainers-mysql")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
 }

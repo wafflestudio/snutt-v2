@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.v1compat
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
@@ -35,7 +35,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
-class V1CompatContractTest : AbstractMysqlIntegrationTest() {
+class V1CompatContractTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 

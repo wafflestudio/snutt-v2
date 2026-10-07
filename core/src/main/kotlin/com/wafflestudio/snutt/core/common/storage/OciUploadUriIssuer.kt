@@ -38,6 +38,7 @@ class OciConfig(
 }
 
 @Service
+@Profile("!test")
 class OciUploadUriIssuer(
     authProvider: BasicAuthenticationDetailsProvider,
     private val storageUriResolver: StorageUriResolver,

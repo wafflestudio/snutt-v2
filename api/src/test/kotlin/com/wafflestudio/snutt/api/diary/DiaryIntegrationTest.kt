@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.diary
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -26,7 +26,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-class DiaryIntegrationTest : AbstractMysqlIntegrationTest() {
+class DiaryIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 

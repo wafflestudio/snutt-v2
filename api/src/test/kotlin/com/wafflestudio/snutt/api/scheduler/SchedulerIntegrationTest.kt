@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.scheduler
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
@@ -32,7 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-class SchedulerIntegrationTest : AbstractMysqlIntegrationTest() {
+class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var reminderScheduler: ReminderScheduler
 

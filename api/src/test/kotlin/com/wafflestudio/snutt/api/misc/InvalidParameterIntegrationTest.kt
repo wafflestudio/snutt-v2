@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.misc
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.error.problemType
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 
-class InvalidParameterIntegrationTest : AbstractMysqlIntegrationTest() {
+class InvalidParameterIntegrationTest : AbstractApiIntegrationTest() {
     private fun assertInvalidParameter(response: ResponseEntity<String>) {
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
         assertEquals(ErrorType.INVALID_PARAMETER.problemType.toString(), body(response)["type"].asString())

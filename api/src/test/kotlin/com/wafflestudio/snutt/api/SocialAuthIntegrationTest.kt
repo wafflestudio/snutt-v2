@@ -8,7 +8,7 @@ import org.mockito.Mockito
 import org.springframework.http.ResponseEntity
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 
-class SocialAuthIntegrationTest : AbstractMysqlIntegrationTest() {
+class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
     @MockitoBean(name = "GOOGLE")
     private lateinit var googleClient: OAuth2Client
 

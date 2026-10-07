@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.api.coverage
 
-import com.wafflestudio.snutt.api.AbstractMysqlIntegrationTest
+import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
@@ -32,7 +32,7 @@ import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
 
-class CoverageGapIntegrationTest : AbstractMysqlIntegrationTest() {
+class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
 
