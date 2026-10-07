@@ -22,12 +22,12 @@ data class V1ErrorResponse(
     val displayMessage: String,
 )
 
-private data class V1Error(
+internal data class V1Error(
     val status: HttpStatus,
     val errcode: Long,
 )
 
-private val ErrorType.v1: V1Error
+internal val ErrorType.v1: V1Error
     get() =
         when (this) {
             ErrorType.INVALID_PARAMETER -> V1Error(HttpStatus.BAD_REQUEST, 40001)
@@ -118,21 +118,13 @@ private val ErrorType.v1: V1Error
             ErrorType.FEEDBACK_UPSTREAM_UNAVAILABLE -> V1Error(HttpStatus.BAD_GATEWAY, 50201)
         }
 
-val ErrorType.v1Status: HttpStatus
-    get() = v1.status
-
-fun ErrorType.toV1ErrorResponse(displayMessage: String = this.displayMessage): ResponseEntity<V1ErrorResponse> =
-    ResponseEntity
-        .status(v1.status)
+fun ErrorType.toV1ErrorResponse(displayMessage: String = this.displayMessage): ResponseEntity<V1ErrorResponse> {
+    val error = v1
+    return ResponseEntity
+        .status(error.status)
         .contentType(MediaType.APPLICATION_JSON)
-        .body(
-            V1ErrorResponse(
-                errcode = v1.errcode,
-                title = title,
-                message = displayMessage,
-                displayMessage = displayMessage,
-            ),
-        )
+        .body(V1ErrorResponse(errcode = error.errcode, title = title, message = displayMessage, displayMessage = displayMessage))
+}
 
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
