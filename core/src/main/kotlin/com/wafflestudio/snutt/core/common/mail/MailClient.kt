@@ -12,21 +12,9 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
-/**
- * 메일 제출 결과.
- *
- * OCI Email Delivery 는 거른 수신자가 있어도 요청 자체는 성공으로 응답하므로, 호출이 예외 없이 끝난
- * 것만으로는 발송 여부를 알 수 없다. 응답에 담긴 제외된 수신자 목록을 보고 판단한다.
- */
 enum class MailSendOutcome {
-    /** 수신자에게 발송됐다. */
     SENT,
-
-    /** 프로바이더가 수신자를 걸러 발송되지 않았다. */
     SUPPRESSED,
-
-    /** 응답에 결과가 담겨 오지 않아 발송 여부를 확인할 수 없다. */
-    UNKNOWN,
 }
 
 interface MailClient {
@@ -79,10 +67,6 @@ class OciMailClient(
             client
                 .submitEmail(SubmitEmailRequest.builder().submitEmailDetails(details).build())
                 .emailSubmittedResponse
-        return when {
-            submitted == null -> MailSendOutcome.UNKNOWN
-            submitted.suppressedRecipients.isNullOrEmpty() -> MailSendOutcome.SENT
-            else -> MailSendOutcome.SUPPRESSED
-        }
+        return if (submitted.suppressedRecipients.isEmpty()) MailSendOutcome.SENT else MailSendOutcome.SUPPRESSED
     }
 }
