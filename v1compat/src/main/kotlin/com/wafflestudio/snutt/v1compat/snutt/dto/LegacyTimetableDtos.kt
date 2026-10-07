@@ -66,7 +66,7 @@ fun LegacyTimetableDto(
                 LegacyTimetableLectureDto(it, display.theme.kind, it.lectureId?.toString()?.let(evLectureIds::get), language)
             },
         title = timetable.title,
-        theme = builtinCode?.let(::legacyThemeValue) ?: BasicThemeType.SNUTT.value,
+        theme = builtinCode?.let(::legacyThemeValue) ?: LegacyBasicThemeType.SNUTT.value,
         themeId = if (builtinCode == null) timetable.themeId.toString() else null,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),

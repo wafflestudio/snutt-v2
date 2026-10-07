@@ -28,7 +28,7 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureRemi
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.BasicThemeType
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
@@ -231,6 +231,7 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable themeId: Long,
     ) {
+        if (listedPublicationsOf(user, themeId).isNotEmpty()) throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
         timetableThemeService.deleteTheme(user.id!!, themeId)
     }
 
@@ -330,9 +331,9 @@ class V1CompatThemeController(
     private fun defaultTheme(user: User): TimetableThemeDisplay =
         timetableThemeService.getTheme(user.id!!, timetableThemeService.getDefaultThemeId(user.id!!))
 
-    private fun basicThemeType(value: Int): BasicThemeType =
+    private fun basicThemeType(value: Int): LegacyBasicThemeType =
         try {
-            BasicThemeType.fromValue(value)
+            LegacyBasicThemeType.fromValue(value)
         } catch (_: IllegalArgumentException) {
             throw SnuttException(ErrorType.INVALID_PARAMETER)
         }

@@ -30,6 +30,7 @@ enum class ErrorType(
     ALREADY_LOCAL_ACCOUNT(HttpStatus.BAD_REQUEST, "이미 로컬 계정이 존재합니다", "로컬 계정 중복"),
     ALREADY_SOCIAL_ACCOUNT(HttpStatus.BAD_REQUEST, "이미 소셜 계정이 존재합니다", "소셜 계정 중복"),
     NOT_PUBLISHED_THEME(HttpStatus.BAD_REQUEST, "공유한 테마가 아닙니다", "공유되지 않은 테마"),
+    CANNOT_DELETE_PUBLISHED_THEME(HttpStatus.BAD_REQUEST, "테마마켓에서 테마를 내린 뒤 다시 시도해주세요", "테마 삭제 불가"),
     TIMETABLE_LECTURE_REMINDER_INVALID_TIME(HttpStatus.BAD_REQUEST, "리마인더는 시간이 설정된 강의에만 등록할 수 있어요", "리마인더 등록 불가"),
     INVALID_DIARY_QUESTION(HttpStatus.BAD_REQUEST, "강의 일기장 질문이 유효하지 않습니다", "올바르지 않은 강의 일기장 질문"),
     DIARY_COMMENT_TOO_LONG(HttpStatus.BAD_REQUEST, "더 남기고 싶은 말은 최대 1,000자 입력할 수 있습니다", "입력 길이 초과"),

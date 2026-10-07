@@ -32,7 +32,7 @@ import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.BasicThemeType
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
@@ -100,7 +100,7 @@ data class LegacyFriendTimetableDto(
     val semester: Semester,
     val lectures: List<LegacyFriendTimetableLectureDto>,
     val title: String,
-    val theme: BasicThemeType,
+    val theme: LegacyBasicThemeType,
     val themeId: String?,
     val isPrimary: Boolean,
     val updatedAt: Instant,
@@ -183,9 +183,9 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
         title = timetable.title,
         theme =
             if (themeId in 1..6) {
-                BasicThemeType.fromValue((themeId - 1).toInt())
+                LegacyBasicThemeType.fromValue((themeId - 1).toInt())
             } else {
-                BasicThemeType.SNUTT
+                LegacyBasicThemeType.SNUTT
             },
         themeId = themeId.takeUnless { it in 1..6 }?.toString(),
         isPrimary = timetable.isPrimary,
