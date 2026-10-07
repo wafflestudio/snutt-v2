@@ -10,7 +10,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationLike
@@ -262,9 +261,6 @@ class EvaluationService(
         if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_NOT_LIKED)
         evaluationRepository.decrementLikeCount(evaluationId)
     }
-
-    fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary> =
-        evaluationRepository.findSummariesByLectureIds(lectureIds)
 
     fun getEvaluationSummaryOfCourse(courseId: Long): CourseEvaluationSummary {
         val course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)

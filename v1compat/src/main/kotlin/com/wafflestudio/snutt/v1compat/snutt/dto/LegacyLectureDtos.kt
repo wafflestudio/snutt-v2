@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
@@ -93,7 +93,7 @@ data class LegacyBookmarkLectureDto(
     val categoryPre2025: String?,
 )
 
-fun EvaluationSummary.toLegacyEvSummary(courseId: Long?): LegacyEvSummary? = courseId?.let { LegacyEvSummary(it, avgRating, evalCount) }
+fun Course.toLegacyEvSummary(): LegacyEvSummary = LegacyEvSummary(id!!, avgRating, evalCount)
 
 fun LegacyBookmarkLectureDto(
     lecture: Lecture,

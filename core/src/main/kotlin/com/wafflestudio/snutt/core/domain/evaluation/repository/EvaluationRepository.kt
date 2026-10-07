@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSummary
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import jakarta.persistence.LockModeType
@@ -43,8 +42,6 @@ interface EvaluationCustomRepository {
         userId: Long,
         courseIds: Collection<Long>,
     ): List<EvaluatedCourseSemester>
-
-    fun findSummariesByLectureIds(lectureIds: Collection<Long>): Map<Long, EvaluationSummary>
 
     fun findOthers(
         courseId: Long,

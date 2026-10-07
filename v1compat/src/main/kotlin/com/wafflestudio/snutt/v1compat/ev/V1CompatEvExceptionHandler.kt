@@ -3,7 +3,7 @@ package com.wafflestudio.snutt.v1compat.ev
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.v1compat.error.toV1ErrorResponse
-import com.wafflestudio.snutt.v1compat.error.v1Status
+import com.wafflestudio.snutt.v1compat.error.v1
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.MediaType
@@ -18,7 +18,7 @@ class V1CompatEvExceptionHandler {
     fun handleSnuttException(e: SnuttException): ResponseEntity<*> {
         val evCode = EV_ERROR_CODE_MAP[e.error] ?: return e.error.toV1ErrorResponse(e.message)
         return ResponseEntity
-            .status(e.error.v1Status)
+            .status(e.error.v1.status)
             .contentType(MediaType.APPLICATION_JSON)
             .body(mapOf("error" to mapOf("code" to evCode, "message" to e.message)))
     }

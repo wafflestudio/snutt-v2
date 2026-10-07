@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.v1compat.snutt.dto
 
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
+import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonValue
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 
@@ -11,4 +12,22 @@ internal fun legacyBuiltinCode(value: Int): String =
         ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 
 internal fun legacyThemeValue(builtinCode: String): Int =
-    LEGACY_BUILTIN_CODES.indexOf(builtinCode).takeIf { it >= 0 } ?: BasicThemeType.SNUTT.value
+    LEGACY_BUILTIN_CODES.indexOf(builtinCode).takeIf { it >= 0 } ?: LegacyBasicThemeType.SNUTT.value
+
+enum class LegacyBasicThemeType(
+    @JsonValue val value: Int,
+) {
+    SNUTT(0),
+    FALL(1),
+    MODERN(2),
+    CHERRY_BLOSSOM(3),
+    ICE(4),
+    LAWN(5),
+    ;
+
+    companion object {
+        @JsonCreator
+        fun fromValue(value: Int): LegacyBasicThemeType =
+            entries.find { it.value == value } ?: throw IllegalArgumentException("unknown basic theme value: $value")
+    }
+}

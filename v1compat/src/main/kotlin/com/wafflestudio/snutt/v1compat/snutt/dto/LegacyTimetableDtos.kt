@@ -3,7 +3,6 @@ package com.wafflestudio.snutt.v1compat.snutt.dto
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -15,16 +14,15 @@ import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.floor
 
-internal val TimetableLectureDisplay.legacyColorIndex: Int
-    get() = if (themeKind == ThemeKind.BUILTIN && customColor == null) paletteIndex + 1 else 0
+internal fun TimetableLectureDisplay.legacyColorIndex(themeKind: ThemeKind): Int =
+    if (themeKind == ThemeKind.BUILTIN && customColor == null) paletteIndex + 1 else 0
 
-internal val TimetableLectureDisplay.legacyColor: LegacyColorSetDto?
-    get() =
-        if (themeKind == ThemeKind.BUILTIN && customColor == null) {
-            null
-        } else {
-            LegacyColorSetDto(color.backgroundColor, color.foregroundColor)
-        }
+internal fun TimetableLectureDisplay.legacyColor(themeKind: ThemeKind): LegacyColorSetDto? =
+    if (themeKind == ThemeKind.BUILTIN && customColor == null) {
+        null
+    } else {
+        LegacyColorSetDto(color.backgroundColor, color.foregroundColor)
+    }
 
 data class LegacyLoginResponse(
     @param:JsonProperty("user_id")
@@ -63,9 +61,12 @@ fun LegacyTimetableDto(
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures = display.lectures.map { LegacyTimetableLectureDto(it, it.lectureId?.toString()?.let(evLectureIds::get), language) },
+        lectures =
+            display.lectures.map {
+                LegacyTimetableLectureDto(it, display.theme.kind, it.lectureId?.toString()?.let(evLectureIds::get), language)
+            },
         title = timetable.title,
-        theme = builtinCode?.let(::legacyThemeValue) ?: BasicThemeType.SNUTT.value,
+        theme = builtinCode?.let(::legacyThemeValue) ?: LegacyBasicThemeType.SNUTT.value,
         themeId = if (builtinCode == null) timetable.themeId.toString() else null,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
@@ -106,6 +107,7 @@ data class LegacyTimetableLectureDto(
 
 fun LegacyTimetableLectureDto(
     display: TimetableLectureDisplay,
+    themeKind: ThemeKind,
     evLectureId: Long?,
     language: Language = Language.KO,
 ): LegacyTimetableLectureDto =
@@ -124,8 +126,8 @@ fun LegacyTimetableLectureDto(
         remark = language.select(display.remark, display.remarkEn),
         courseNumber = display.courseNumber,
         courseTitle = language.select(display.courseTitle, display.courseTitleEn),
-        color = display.legacyColor,
-        colorIndex = display.legacyColorIndex,
+        color = display.legacyColor(themeKind),
+        colorIndex = display.legacyColorIndex(themeKind),
         lectureId = display.lectureId?.toString(),
         snuttEvLecture = evLectureId?.let { LegacyEvLectureIdDto(it) },
         categoryPre2025 = display.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },

@@ -110,6 +110,10 @@ class V1CompatCoursebookController(
     private val coursebookService: CoursebookService,
     @param:Value("\${snutt.syllabus-proxy.base-url}") private val syllabusProxyBaseUrl: String,
 ) {
+    companion object {
+        private const val SUGANG_SNU_BASE_URL = "https://sugang.snu.ac.kr"
+    }
+
     @GetMapping("")
     fun getCoursebooks(): List<LegacyCoursebookDto> = coursebookService.getCoursebooks().map { it.toLegacy() }
 
@@ -126,7 +130,7 @@ class V1CompatCoursebookController(
         val syllabusPath = SugangSnuUrlUtils.parseSyllabusPath(year, semester, courseNumber, lectureNumber)
         val proxyUrl = syllabusProxyBaseUrl + syllabusPath
         return LegacyCoursebookOfficialResponse(
-            noProxyUrl = SugangSnuUrlUtils.SUGANG_SNU_BASE_URL + syllabusPath,
+            noProxyUrl = SUGANG_SNU_BASE_URL + syllabusPath,
             proxyUrl = proxyUrl,
             url = proxyUrl,
         )
