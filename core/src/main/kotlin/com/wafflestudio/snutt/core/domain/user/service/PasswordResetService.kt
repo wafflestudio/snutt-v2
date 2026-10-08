@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.mail.MailSendOutcome
+import com.wafflestudio.snutt.core.common.mail.MailOutcomeLog
 import com.wafflestudio.snutt.core.common.mail.UserMailService
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
@@ -13,7 +13,6 @@ import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
-import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -31,8 +30,6 @@ class PasswordResetService(
     private val passwordEncoder: PasswordEncoder,
     private val authService: AuthService,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     private val store = CodeChallengeStore(redisTemplate, jsonMapper, "reset-password", ttl = Duration.ofMinutes(15))
 
     private data class FoundAccount(
@@ -40,47 +37,14 @@ class PasswordResetService(
         val providers: List<AuthProvider>,
     )
 
-    companion object {
-        private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
-    }
-
-    private fun logOutcome(
-        api: String,
-        result: String,
-        email: String,
-        userIds: List<Long> = emptyList(),
-    ) {
-        log.info(
-            "{}: result={} email={} userIds={}",
-            api,
-            result,
-            email.replace(emailMaskRegex, "*"),
-            userIds,
-        )
-    }
-
-    private fun resultOf(e: Throwable): String =
-        if (e is SnuttException && e.error == ErrorType.TOO_MANY_VERIFICATION_CODE_REQUESTS) "throttled" else "failed"
-
-    private fun logged(
-        api: String,
-        email: String,
-        userIds: List<Long>,
-        send: () -> MailSendOutcome,
-    ) {
-        val result = runCatching(send)
-        logOutcome(api, result.fold({ it.name.lowercase() }, ::resultOf), email, userIds)
-        result.getOrThrow()
-    }
-
     fun sendLocalIdToEmail(email: String) {
         val trimmed = email.trim()
         val accounts = findIdAccounts(trimmed)
         if (accounts.isEmpty()) {
-            logOutcome("find-id", "no_account", trimmed)
+            MailOutcomeLog.outcome("find-id", "no_account", trimmed)
             return
         }
-        logged("find-id", trimmed, accounts.map { it.user.id!! }) {
+        MailOutcomeLog.logged("find-id", trimmed, accounts.map { it.user.id!! }) {
             store.throttleSend(trimmed)
             userMailService.sendFoundAccounts(trimmed, renderFindIdMail(accounts))
         }
@@ -117,10 +81,10 @@ class PasswordResetService(
         val trimmed = email.trim()
         val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed)
         if (user == null) {
-            logOutcome("password-reset", "no_account", trimmed)
+            MailOutcomeLog.outcome("password-reset", "no_account", trimmed)
             return
         }
-        logged("password-reset", trimmed, listOf(user.id!!)) {
+        MailOutcomeLog.logged("password-reset", trimmed, listOf(user.id!!)) {
             val code = VerificationCode.generatePasswordResetCode()
             store.store(user.id!!, code)
             userMailService.sendPasswordResetCode(trimmed, code)
