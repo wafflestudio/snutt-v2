@@ -4,8 +4,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import org.springframework.web.util.DefaultUriBuilderFactory
 
 object SugangSnuUrlUtils {
-    const val SUGANG_SNU_BASE_URL = "https://sugang.snu.ac.kr"
-
     private val semesterFlags =
         mapOf(
             Semester.SPRING to ("U000200001" to "U000300001"),

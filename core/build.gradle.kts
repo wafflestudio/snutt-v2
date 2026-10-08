@@ -36,9 +36,9 @@ dependencies {
 
     runtimeOnly("com.mysql:mysql-connector-j")
 
-    testFixturesImplementation("org.springframework:spring-context")
-
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-mysql")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testFixturesApi("org.springframework.boot:spring-boot-starter-test")
+    testFixturesApi("org.springframework.boot:spring-boot-starter-data-redis")
+    testFixturesApi("org.springframework.boot:spring-boot-testcontainers")
+    testFixturesApi("org.testcontainers:testcontainers-mysql")
+    testFixturesApi("org.mockito.kotlin:mockito-kotlin:6.3.0")
 }

@@ -127,31 +127,21 @@ class PasswordResetService(
         }
     }
 
-    @Transactional(readOnly = true)
-    fun getMaskedEmailByLocalId(localId: String): String {
-        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        val email = user.email ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        return email.replace(emailMaskRegex, "*")
-    }
-
-    @Transactional(readOnly = true)
-    fun verifyResetCodeByLocalId(
-        localId: String,
+    fun verifyResetCode(
+        userId: Long,
         code: String,
     ) {
-        val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        store.verify(user.id!!, code)
-        store.extend(user.id!!, Duration.ofHours(1))
+        store.verify(userId, code)
+        store.extend(userId, Duration.ofHours(1))
     }
 
     @Transactional
-    fun confirmResetByLocalId(
-        localId: String,
+    fun confirmReset(
+        userId: Long,
         code: String,
         newPassword: String,
     ) {
-        val user =
-            userRepository.findForUpdateByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user = userRepository.findForUpdateByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         confirmReset(user, code, newPassword)
     }
 

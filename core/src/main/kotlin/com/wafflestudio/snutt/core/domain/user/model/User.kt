@@ -26,7 +26,4 @@ class User(
     var tokenVersion: Int = 0,
     var lastLoginAt: Instant = Instant.now(),
     var notificationCheckedAt: Instant = Instant.now(),
-) : BaseEntity() {
-    val fullNickname: String
-        get() = "$nickname#$nicknameTag"
-}
+) : BaseEntity()

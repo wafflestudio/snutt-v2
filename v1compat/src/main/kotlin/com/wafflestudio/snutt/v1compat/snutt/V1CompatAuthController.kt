@@ -8,6 +8,7 @@ import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.service.PasswordResetService
 import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
@@ -92,7 +93,12 @@ class V1CompatAuthController(
     private val legacyTokenService: LegacyTokenService,
     private val deviceService: DeviceService,
     private val passwordResetService: PasswordResetService,
+    private val userRepository: UserRepository,
 ) {
+    companion object {
+        private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
+    }
+
     @V1Public
     @PostMapping("/register_local")
     fun registerLocal(
@@ -165,17 +171,18 @@ class V1CompatAuthController(
     @PostMapping("/password/reset/email/check")
     fun getMaskedEmail(
         @RequestBody body: LegacyMaskedEmailRequest,
-    ): LegacyMaskedEmailResponse = LegacyMaskedEmailResponse(email = passwordResetService.getMaskedEmailByLocalId(body.userId))
+    ): LegacyMaskedEmailResponse {
+        val email = activeUserByLocalId(body.userId).email ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        return LegacyMaskedEmailResponse(email = email.replace(emailMaskRegex, "*"))
+    }
 
     @V1Public
     @PostMapping("/password/reset/verification/code")
     fun verifyResetPasswordCode(
         @RequestBody body: LegacyVerifyResetCodeRequest,
     ): LegacyOkResponse {
-        passwordResetService.verifyResetCodeByLocalId(
-            body.localId ?: throw SnuttException(ErrorType.INVALID_PARAMETER),
-            body.code,
-        )
+        val localId = body.localId ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+        passwordResetService.verifyResetCode(activeUserByLocalId(localId).id!!, body.code)
         return LegacyOkResponse()
     }
 
@@ -184,7 +191,7 @@ class V1CompatAuthController(
     fun resetPassword(
         @RequestBody body: LegacyResetPasswordRequest,
     ): LegacyOkResponse {
-        passwordResetService.confirmResetByLocalId(body.userId, body.code, body.password)
+        passwordResetService.confirmReset(activeUserByLocalId(body.userId).id!!, body.code, body.password)
         return LegacyOkResponse()
     }
 
@@ -204,6 +211,9 @@ class V1CompatAuthController(
         provider: AuthProvider,
         token: String,
     ): LegacyLoginResponse = authService.loginSocial(provider, token).toLoginResponse()
+
+    private fun activeUserByLocalId(localId: String): User =
+        userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
     private fun User.toLoginResponse() = LegacyLoginResponse(userId = id!!.toString(), token = legacyTokenService.issue(this))
 }

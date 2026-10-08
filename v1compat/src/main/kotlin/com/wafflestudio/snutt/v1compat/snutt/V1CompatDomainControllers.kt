@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.select
-import com.wafflestudio.snutt.core.common.enums.BasicThemeType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -15,7 +14,7 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.storage.StorageUriResolver
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
-import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
+import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.feedback.service.FeedbackService
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
@@ -33,6 +32,7 @@ import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
@@ -100,7 +100,7 @@ data class LegacyFriendTimetableDto(
     val semester: Semester,
     val lectures: List<LegacyFriendTimetableLectureDto>,
     val title: String,
-    val theme: BasicThemeType,
+    val theme: LegacyBasicThemeType,
     val themeId: String?,
     val isPrimary: Boolean,
     val updatedAt: Instant,
@@ -174,8 +174,8 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
                     remark = language.select(lecture.remark, lecture.remarkEn),
                     courseNumber = lecture.courseNumber,
                     courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
-                    color = lecture.legacyColor,
-                    colorIndex = lecture.legacyColorIndex,
+                    color = lecture.legacyColor(theme.kind),
+                    colorIndex = lecture.legacyColorIndex(theme.kind),
                     lectureId = lecture.lectureId?.toString(),
                     categoryPre2025 = lecture.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
                 )
@@ -183,9 +183,9 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
         title = timetable.title,
         theme =
             if (themeId in 1..6) {
-                BasicThemeType.fromValue((themeId - 1).toInt())
+                LegacyBasicThemeType.fromValue((themeId - 1).toInt())
             } else {
-                BasicThemeType.SNUTT
+                LegacyBasicThemeType.SNUTT
             },
         themeId = themeId.takeUnless { it in 1..6 }?.toString(),
         isPrimary = timetable.isPrimary,
@@ -389,7 +389,7 @@ data class LegacyExistsResponse(
 @RequestMapping("/v1/bookmarks")
 class V1CompatBookmarkController(
     private val bookmarkService: BookmarkService,
-    private val evaluationService: EvaluationService,
+    private val courseRepository: CourseRepository,
     private val lectureService: LectureService,
 ) {
     @GetMapping("")
@@ -400,7 +400,7 @@ class V1CompatBookmarkController(
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyBookmarksResponse {
         val display = bookmarkService.getBookmark(user.id!!, year, semester)
-        val summaries = evaluationService.findSummariesByLectureIds(display.lectures.mapNotNull { it.id })
+        val courses = courseRepository.findAllById(display.lectures.mapNotNull { it.courseId }).associateBy { it.id!! }
         val classTimesMap = lectureService.classTimesByLectureId(display.lectures.mapNotNull { it.id })
         return LegacyBookmarksResponse(
             year = year,
@@ -411,7 +411,7 @@ class V1CompatBookmarkController(
                         lecture,
                         classTimesMap[lecture.id].orEmpty(),
                         clientInfo.language,
-                        summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                        courses[lecture.courseId]?.toLegacyEvSummary(),
                     )
                 },
         )
@@ -448,7 +448,7 @@ data class LegacyVacancyLecturesResponse(
 @RequestMapping("/v1/vacancy-notifications")
 class V1CompatVacancyNotificationController(
     private val vacancyNotificationService: VacancyNotificationService,
-    private val evaluationService: EvaluationService,
+    private val courseRepository: CourseRepository,
     private val lectureService: LectureService,
 ) {
     @GetMapping("/lectures")
@@ -458,7 +458,7 @@ class V1CompatVacancyNotificationController(
     ): LegacyVacancyLecturesResponse {
         val displays = vacancyNotificationService.getVacancyNotificationLectures(user.id!!)
         val lectureIds = displays.mapNotNull { it.lecture.id }
-        val summaries = evaluationService.findSummariesByLectureIds(lectureIds)
+        val courses = courseRepository.findAllById(displays.mapNotNull { it.lecture.courseId }).associateBy { it.id!! }
         val classTimesMap = lectureService.classTimesByLectureId(lectureIds)
         return LegacyVacancyLecturesResponse(
             lectures =
@@ -467,7 +467,7 @@ class V1CompatVacancyNotificationController(
                         lecture,
                         classTimesMap[lecture.id].orEmpty(),
                         clientInfo.language,
-                        summaries[lecture.id]?.toLegacyEvSummary(lecture.courseId),
+                        courses[lecture.courseId]?.toLegacyEvSummary(),
                         status,
                     )
                 },

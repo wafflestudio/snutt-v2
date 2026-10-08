@@ -13,9 +13,6 @@ interface UserRepository : JpaRepository<User, Long> {
     fun findForUpdateByIdAndActiveTrue(id: Long): User?
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    fun findForUpdateByLocalIdAndActiveTrue(localId: String): User?
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findForUpdateByEmailAndIsEmailVerifiedTrueAndActiveTrue(email: String): User?
 
     fun findByLocalIdAndActiveTrue(localId: String): User?

@@ -33,7 +33,5 @@ interface PublishedThemeRepository :
     @Query("UPDATE PublishedTheme p SET p.downloadCount = p.downloadCount + 1 WHERE p.id = :id")
     fun incrementDownloadCount(id: Long)
 
-    fun findBySourceThemeIdInAndListedTrue(sourceThemeIds: Collection<Long>): List<PublishedTheme>
-
     fun findByAuthorIdOrderByIdDesc(authorId: Long): List<PublishedTheme>
 }
