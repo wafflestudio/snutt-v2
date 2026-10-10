@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.mail.MailOutcomeLog
 import com.wafflestudio.snutt.core.common.mail.UserMailService
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
@@ -39,10 +40,14 @@ class PasswordResetService(
     fun sendLocalIdToEmail(email: String) {
         val trimmed = email.trim()
         val accounts = findIdAccounts(trimmed)
-        if (accounts.isEmpty()) return
-        store.throttleSend(trimmed)
-        val html = renderFindIdMail(accounts)
-        userMailService.sendFoundAccounts(trimmed, html)
+        if (accounts.isEmpty()) {
+            MailOutcomeLog.outcome("find-id", "no_account", trimmed)
+            return
+        }
+        MailOutcomeLog.logged("find-id", trimmed, accounts.map { it.user.id!! }) {
+            store.throttleSend(trimmed)
+            userMailService.sendFoundAccounts(trimmed, renderFindIdMail(accounts))
+        }
     }
 
     private fun findIdAccounts(email: String): List<FoundAccount> {
@@ -74,10 +79,16 @@ class PasswordResetService(
 
     fun requestReset(email: String) {
         val trimmed = email.trim()
-        val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) ?: return
-        val code = VerificationCode.generatePasswordResetCode()
-        store.store(user.id!!, code)
-        userMailService.sendPasswordResetCode(trimmed, code)
+        val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed)
+        if (user == null) {
+            MailOutcomeLog.outcome("password-reset", "no_account", trimmed)
+            return
+        }
+        MailOutcomeLog.logged("password-reset", trimmed, listOf(user.id!!)) {
+            val code = VerificationCode.generatePasswordResetCode()
+            store.store(user.id!!, code)
+            userMailService.sendPasswordResetCode(trimmed, code)
+        }
     }
 
     fun verifyResetCode(

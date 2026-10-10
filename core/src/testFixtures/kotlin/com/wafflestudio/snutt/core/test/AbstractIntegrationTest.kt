@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.core.test
 
 import com.wafflestudio.snutt.core.common.mail.MailClient
+import com.wafflestudio.snutt.core.common.mail.MailSendOutcome
 import com.wafflestudio.snutt.core.common.push.PushClient
 import com.wafflestudio.snutt.core.common.push.PushSendResult
 import org.junit.jupiter.api.BeforeEach
@@ -29,6 +30,7 @@ abstract class AbstractIntegrationTest {
     @BeforeEach
     fun resetState() {
         whenever(pushClient.sendMessages(any())).thenReturn(PushSendResult())
+        whenever(mailClient.send(any(), any(), any())).thenReturn(MailSendOutcome.SENT)
         clearAllTables()
         redisTemplate.execute { it.serverCommands().flushAll() }
     }

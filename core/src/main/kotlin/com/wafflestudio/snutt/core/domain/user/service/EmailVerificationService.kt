@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
+import com.wafflestudio.snutt.core.common.mail.MailOutcomeLog
 import com.wafflestudio.snutt.core.common.mail.UserMailService
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.VerificationCode
@@ -38,8 +39,10 @@ class EmailVerificationService(
             throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
         val code = VerificationCode.generateEmailVerificationCode()
-        store.store(userId, code, payload = trimmed)
-        userMailService.sendVerificationCode(trimmed, code)
+        MailOutcomeLog.logged("email-verification", trimmed, listOf(userId)) {
+            store.store(userId, code, payload = trimmed)
+            userMailService.sendVerificationCode(trimmed, code)
+        }
     }
 
     @Transactional

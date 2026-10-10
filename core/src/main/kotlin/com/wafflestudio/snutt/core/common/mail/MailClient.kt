@@ -12,12 +12,17 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
+enum class MailSendOutcome {
+    SENT,
+    SUPPRESSED,
+}
+
 interface MailClient {
     fun send(
         to: String,
         subject: String,
         html: String,
-    )
+    ): MailSendOutcome
 }
 
 @Service
@@ -35,7 +40,7 @@ class OciMailClient(
         to: String,
         subject: String,
         html: String,
-    ) {
+    ): MailSendOutcome {
         val details =
             SubmitEmailDetails
                 .builder()
@@ -58,6 +63,10 @@ class OciMailClient(
                 ).subject(subject)
                 .bodyHtml(html)
                 .build()
-        client.submitEmail(SubmitEmailRequest.builder().submitEmailDetails(details).build())
+        val submitted =
+            client
+                .submitEmail(SubmitEmailRequest.builder().submitEmailDetails(details).build())
+                .emailSubmittedResponse
+        return if (submitted.suppressedRecipients.isEmpty()) MailSendOutcome.SENT else MailSendOutcome.SUPPRESSED
     }
 }
