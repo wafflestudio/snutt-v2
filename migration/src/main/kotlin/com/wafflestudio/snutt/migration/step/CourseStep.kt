@@ -25,7 +25,7 @@ class CourseStep(
 
     override fun run() {
         val fromEv = migrateEvLectures()
-        val minted = mintMissingCourses(fromEv)
+        val minted = mintMissingCourses()
         log.info("course 이관: 구 ev {}건 + 신규 {}건 = {}건", fromEv, minted, context.courseIds.size)
     }
 
@@ -57,33 +57,21 @@ class CourseStep(
             out.count
         }
 
-    private fun mintMissingCourses(fromEv: Long): Int {
-        val pending = LinkedHashMap<String, Array<Any?>>()
-        mongo.each("lectures") { doc ->
-            val courseNumber = doc.requireStr("course_number").trim()
-            val instructor = doc.str("instructor").orEmpty().trim()
-            val key = context.courseKey(courseNumber, instructor)
-            if (context.courseIds.containsKey(key)) return@each
-            pending[key] =
-                arrayOf(
-                    courseNumber,
-                    instructor,
-                    doc.requireStr("course_title"),
-                )
-        }
-        if (pending.isEmpty()) return 0
-
+    private fun mintMissingCourses(): Long {
         val ids = IdSequence((context.courseIds.values.maxOrNull() ?: 0L) + 1)
         val now = Instant.now().toSqlTimestamp()
-        writer("course", COLUMNS).use { out ->
-            pending.forEach { (key, values) ->
+        return writer("course", COLUMNS).use { out ->
+            mongo.each("lectures") { doc ->
+                val courseNumber = doc.requireStr("course_number").trim()
+                val instructor = doc.str("instructor").orEmpty().trim()
+                val key = context.courseKey(courseNumber, instructor)
+                if (context.courseIds.containsKey(key)) return@each
                 val id = ids.next()
                 context.courseIds[key] = id
-                out.add(id, *values, now, now)
+                out.add(id, courseNumber, instructor, doc.requireStr("course_title"), now, now)
             }
+            out.count
         }
-        log.info("구 ev에 없던 course {}건을 강의에서 만들었다 (구 ev {}건)", pending.size, fromEv)
-        return pending.size
     }
 
     companion object {
