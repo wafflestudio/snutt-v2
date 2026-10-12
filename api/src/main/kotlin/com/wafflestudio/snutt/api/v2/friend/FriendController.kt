@@ -54,19 +54,17 @@ data class FriendRequestLinkResponse(
     val requestToken: String,
 )
 
-private fun FriendResponse(
-    friend: Friend,
-    user: User,
-    displayName: String?,
-): FriendResponse =
-    FriendResponse(
+private fun Pair<Friend, User>.toResponse(myUserId: Long): FriendResponse {
+    val (friend, partner) = this
+    return FriendResponse(
         id = friend.id!!,
-        userId = user.id!!,
-        displayName = displayName,
-        nickname = user.nickname,
-        nicknameTag = user.nicknameTag,
+        userId = partner.id!!,
+        displayName = friend.getPartnerDisplayName(myUserId),
+        nickname = partner.nickname,
+        nicknameTag = partner.nicknameTag,
         createdAt = checkNotNull(friend.createdAt).toEpochMilli(),
     )
+}
 
 @RestController
 @RequestMapping("/v2/friends")
@@ -78,26 +76,19 @@ class FriendController(
     fun getFriends(
         @CurrentUserId userId: Long,
         @RequestParam state: FriendState,
-    ): List<FriendResponse> =
-        friendService.getMyFriends(userId, state).map { (friend, partner) ->
-            FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
-        }
+    ): List<FriendResponse> = friendService.getMyFriends(userId, state).map { it.toResponse(userId) }
 
     @PostMapping("")
     fun requestFriend(
         @CurrentUserId userId: Long,
         @Valid @RequestBody body: FriendRequest,
-    ) {
-        friendService.requestFriend(userId, Nickname(body.nickname, body.nicknameTag))
-    }
+    ): FriendResponse = friendService.requestFriend(userId, Nickname(body.nickname, body.nicknameTag)).toResponse(userId)
 
     @PostMapping("/{friendId}/accept")
     fun acceptFriend(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
-    ) {
-        friendService.acceptFriend(friendId, userId)
-    }
+    ): FriendResponse = friendService.acceptFriend(friendId, userId).toResponse(userId)
 
     @PostMapping("/{friendId}/decline")
     fun declineFriend(
@@ -112,9 +103,7 @@ class FriendController(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
         @Valid @RequestBody body: UpdateFriendDisplayNameRequest,
-    ) {
-        friendService.updateFriendDisplayName(userId, friendId, body.displayName)
-    }
+    ): FriendResponse = friendService.updateFriendDisplayName(userId, friendId, body.displayName).toResponse(userId)
 
     @DeleteMapping("/{friendId}")
     fun breakFriend(
@@ -133,10 +122,7 @@ class FriendController(
     fun acceptFriendByLink(
         @CurrentUserId userId: Long,
         @PathVariable requestToken: String,
-    ): FriendResponse {
-        val (friend, partner) = friendService.acceptFriendByLink(userId, requestToken)
-        return FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
-    }
+    ): FriendResponse = friendService.acceptFriendByLink(userId, requestToken).toResponse(userId)
 
     @GetMapping("/{friendId}/primary-table")
     fun getPrimaryTable(

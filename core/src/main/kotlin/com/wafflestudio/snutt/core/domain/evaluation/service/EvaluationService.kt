@@ -235,23 +235,25 @@ class EvaluationService(
     fun likeEvaluation(
         userId: Long,
         evaluationId: Long,
-    ) {
-        lockEvaluation(evaluationId)
+    ): EvaluationDisplay {
+        val evaluation = lockEvaluation(evaluationId)
         conflictAs(ErrorType.DUPLICATE_EVALUATION_LIKE) {
             evaluationLikeRepository.save(EvaluationLike(evaluationId = evaluationId, userId = userId))
         }
-        evaluationRepository.incrementLikeCount(evaluationId)
+        evaluation.likeCount += 1
+        return evaluation.toDisplay(userId, isLiked = true)
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun cancelLikeEvaluation(
         userId: Long,
         evaluationId: Long,
-    ) {
-        lockEvaluation(evaluationId)
+    ): EvaluationDisplay {
+        val evaluation = lockEvaluation(evaluationId)
         val deleted = evaluationLikeRepository.deleteByEvaluationIdAndUserId(evaluationId, userId)
         if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_NOT_LIKED)
-        evaluationRepository.decrementLikeCount(evaluationId)
+        evaluation.likeCount = (evaluation.likeCount - 1).coerceAtLeast(0)
+        return evaluation.toDisplay(userId, isLiked = false)
     }
 
     fun getCourse(courseId: Long): Course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)

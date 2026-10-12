@@ -227,21 +227,19 @@ class EvaluationController(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
         @Valid @RequestBody body: EvaluationReportRequestBody,
-    ): Long = evaluationService.reportEvaluation(userId, evaluationId, EvaluationReportRequest(content = body.content)).id!!
+    ) {
+        evaluationService.reportEvaluation(userId, evaluationId, EvaluationReportRequest(content = body.content))
+    }
 
     @PostMapping("/v2/evaluations/{evaluationId}/like")
     fun likeEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
-    ) {
-        evaluationService.likeEvaluation(userId, evaluationId)
-    }
+    ): EvaluationResponse = evaluationResponseMapper.toResponse(evaluationService.likeEvaluation(userId, evaluationId))
 
     @DeleteMapping("/v2/evaluations/{evaluationId}/like")
     fun cancelLikeEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
-    ) {
-        evaluationService.cancelLikeEvaluation(userId, evaluationId)
-    }
+    ): EvaluationResponse = evaluationResponseMapper.toResponse(evaluationService.cancelLikeEvaluation(userId, evaluationId))
 }

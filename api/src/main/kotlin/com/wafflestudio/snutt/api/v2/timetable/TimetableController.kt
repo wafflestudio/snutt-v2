@@ -217,16 +217,18 @@ class TimetableController(
     fun setPrimary(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
-    ) {
+    ): List<TimetableBriefResponse> {
         timetableService.setPrimary(userId, timetableId)
+        return briefs(userId)
     }
 
     @DeleteMapping("/{timetableId}/primary")
     fun unsetPrimary(
         @CurrentUserId userId: Long,
         @PathVariable timetableId: Long,
-    ) {
+    ): List<TimetableBriefResponse> {
         timetableService.unsetPrimary(userId, timetableId)
+        return briefs(userId)
     }
 
     private fun briefs(userId: Long): List<TimetableBriefResponse> =

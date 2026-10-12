@@ -16,9 +16,7 @@ import jakarta.persistence.LockModeType
 import org.springframework.data.domain.Limit
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
-import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
-import org.springframework.transaction.annotation.Transactional
 
 interface EvaluationRepository :
     JpaRepository<Evaluation, Long>,
@@ -41,18 +39,6 @@ interface EvaluationRepository :
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findForUpdateByIdAndIsHiddenFalse(id: Long): Evaluation?
-
-    @Transactional
-    @Modifying
-    @Query("UPDATE Evaluation e SET e.likeCount = e.likeCount + 1 WHERE e.id = :id")
-    fun incrementLikeCount(id: Long): Int
-
-    @Transactional
-    @Modifying
-    @Query(
-        "UPDATE Evaluation e SET e.likeCount = CASE WHEN e.likeCount > 0 THEN e.likeCount - 1 ELSE 0 END WHERE e.id = :id",
-    )
-    fun decrementLikeCount(id: Long): Int
 
     @Query(
         "SELECT new com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluatedCourseSemester(e.courseId, e.year, e.semester) " +
