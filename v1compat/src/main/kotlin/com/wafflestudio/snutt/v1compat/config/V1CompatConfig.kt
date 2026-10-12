@@ -18,13 +18,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 class V1CompatConfig(
     private val apiKeyInterceptor: V1ApiKeyInterceptor,
     private val userAuthInterceptor: V1UserAuthInterceptor,
-    private val deprecationHeaderInterceptor: V1DeprecationHeaderInterceptor,
     private val currentUserArgumentResolver: V1CurrentUserArgumentResolver,
 ) : WebMvcConfigurer {
     override fun addInterceptors(registry: InterceptorRegistry) {
-        registry.addInterceptor(deprecationHeaderInterceptor).addPathPatterns(*PATH_PATTERNS).order(1)
-        registry.addInterceptor(apiKeyInterceptor).addPathPatterns(*PATH_PATTERNS).order(2)
-        registry.addInterceptor(userAuthInterceptor).addPathPatterns(*PATH_PATTERNS).order(3)
+        registry.addInterceptor(apiKeyInterceptor).addPathPatterns(*PATH_PATTERNS).order(1)
+        registry.addInterceptor(userAuthInterceptor).addPathPatterns(*PATH_PATTERNS).order(2)
     }
 
     override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
