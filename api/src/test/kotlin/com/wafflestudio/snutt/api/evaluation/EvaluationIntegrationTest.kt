@@ -373,13 +373,13 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
         courseAggregateUpdater.update(course1.id!!)
         courseAggregateUpdater.update(course2.id!!)
 
-        val wellTaught = get("/v2/evaluations/tags/well-taught", verifiedToken)
+        val wellTaught = get("/v2/evaluations/tags/WELL_TAUGHT", verifiedToken)
         assertEquals(200, wellTaught.statusCode.value())
         val wellTaughtItems = body(wellTaught)["content"]
         assertEquals(1, wellTaughtItems.size())
         assertEquals("최고의 명강", wellTaughtItems[0]["content"].asString())
 
-        val liberalEducation = get("/v2/evaluations/tags/liberal-education", verifiedToken)
+        val liberalEducation = get("/v2/evaluations/tags/LIBERAL_EDUCATION", verifiedToken)
         assertEquals(200, liberalEducation.statusCode.value())
         val liberalItems = body(liberalEducation)["content"]
         assertEquals(1, liberalItems.size())

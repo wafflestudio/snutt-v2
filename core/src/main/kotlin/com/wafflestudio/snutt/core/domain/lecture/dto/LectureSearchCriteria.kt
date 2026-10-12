@@ -3,8 +3,6 @@ package com.wafflestudio.snutt.core.domain.lecture.dto
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 
 enum class LectureSort(
     val fullName: String,
@@ -13,14 +11,6 @@ enum class LectureSort(
     DEFAULT("기본값", "Default"),
     RATING_DESC("평점 높은 순", "Highest rating"),
     COUNT_DESC("강의평 많은 순", "Most reviews"),
-    ;
-
-    companion object {
-        fun fromParameter(value: String?): LectureSort {
-            if (value == null) return DEFAULT
-            return entries.find { it.name.equals(value, ignoreCase = true) } ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
-    }
 }
 
 data class SearchTime(

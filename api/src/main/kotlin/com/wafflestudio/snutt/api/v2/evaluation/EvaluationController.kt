@@ -3,8 +3,6 @@ package com.wafflestudio.snutt.api.v2.evaluation
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
@@ -127,12 +125,12 @@ class EvaluationController(
         @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
         @RequestParam(required = false) cursor: String?,
-        @RequestParam(required = false) sort: String?,
+        @RequestParam(defaultValue = "LATEST") sort: EvaluationSort,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Semester?,
     ): CursorPage<EvaluationResponse> =
         evaluationService
-            .getEvaluationsOfCourse(userId, courseId, cursor, EvaluationSort.fromParameter(sort), year, semester)
+            .getEvaluationsOfCourse(userId, courseId, cursor, sort, year, semester)
             .let(evaluationResponseMapper::toResponse)
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
@@ -188,17 +186,14 @@ class EvaluationController(
     fun getEvaluationTags(
         @CurrentUserId userId: Long,
     ): List<EvaluationTagResponse> =
-        EvaluationTag.entries.map { EvaluationTagResponse(key = it.key, title = it.title, description = it.description) }
+        EvaluationTag.entries.map { EvaluationTagResponse(key = it.name, title = it.title, description = it.description) }
 
-    @GetMapping("/v2/evaluations/tags/{tagKey}")
+    @GetMapping("/v2/evaluations/tags/{tag}")
     fun getEvaluationsByTag(
         @CurrentUserId userId: Long,
-        @PathVariable tagKey: String,
+        @PathVariable tag: EvaluationTag,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> {
-        val tag = EvaluationTag.fromKey(tagKey) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return evaluationService.getEvaluationsByTag(userId, tag, cursor).let(evaluationResponseMapper::toResponse)
-    }
+    ): CursorPage<EvaluationResponse> = evaluationService.getEvaluationsByTag(userId, tag, cursor).let(evaluationResponseMapper::toResponse)
 
     @GetMapping("/v2/evaluations/{evaluationId}")
     fun getEvaluation(

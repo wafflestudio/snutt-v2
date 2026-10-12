@@ -15,8 +15,7 @@ class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
     @MockitoBean(name = "APPLE")
     private lateinit var appleClient: OAuth2Client
 
-    private fun providers(response: ResponseEntity<String>): List<String> =
-        body(response)["authProviders"].values().map { it.asString().uppercase() }
+    private fun providers(response: ResponseEntity<String>): List<String> = body(response)["authProviders"].values().map { it.asString() }
 
     @Test
     fun `구글 소셜 로그인으로 가입하고 재로그인해도 같은 계정이다`() {
@@ -24,16 +23,16 @@ class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
             .`when`(googleClient.getMe("google-token"))
             .thenReturn(OAuth2UserResponse(socialId = "g-sub-1", name = null, email = "gsocial@snu.ac.kr"))
 
-        val first = post("/v2/auth/login/google", """{"token":"google-token"}""")
+        val first = post("/v2/auth/login/GOOGLE", """{"token":"google-token"}""")
         assertEquals(200, first.statusCode.value(), "body=${first.body}")
         val accessToken = body(first)["accessToken"].asString()
         val userId = body(first)["userId"].asLong()
 
-        val second = post("/v2/auth/login/google", """{"token":"google-token"}""")
+        val second = post("/v2/auth/login/GOOGLE", """{"token":"google-token"}""")
         assertEquals(userId, body(second)["userId"].asLong())
 
         val me = body(get("/v2/users/me", accessToken))
-        assertEquals(listOf("GOOGLE"), me["authProviders"].values().map { it.asString().uppercase() })
+        assertEquals(listOf("GOOGLE"), me["authProviders"].values().map { it.asString() })
     }
 
     @Test
@@ -49,11 +48,11 @@ class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
             .`when`(googleClient.getMe("google-token"))
             .thenReturn(OAuth2UserResponse(socialId = "g-sub-2", name = null, email = null))
 
-        val attach = post("/v2/users/me/social/google", """{"token":"google-token"}""", accessToken)
+        val attach = post("/v2/users/me/social/GOOGLE", """{"token":"google-token"}""", accessToken)
         assertEquals(200, attach.statusCode.value(), "body=${attach.body}")
         assertEquals(listOf("LOCAL", "GOOGLE"), providers(attach))
 
-        val detach = delete("/v2/users/me/social/google", body(attach)["accessToken"].asString())
+        val detach = delete("/v2/users/me/social/GOOGLE", body(attach)["accessToken"].asString())
         assertEquals(200, detach.statusCode.value())
         assertEquals(listOf("LOCAL"), providers(detach))
     }
@@ -63,10 +62,10 @@ class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
         Mockito
             .`when`(googleClient.getMe("google-token"))
             .thenReturn(OAuth2UserResponse(socialId = "g-sub-3", name = null, email = "glast@snu.ac.kr"))
-        val login = post("/v2/auth/login/google", """{"token":"google-token"}""")
+        val login = post("/v2/auth/login/GOOGLE", """{"token":"google-token"}""")
         val accessToken = body(login)["accessToken"].asString()
 
-        val detach = delete("/v2/users/me/social/google", accessToken)
+        val detach = delete("/v2/users/me/social/GOOGLE", accessToken)
         assertEquals(409, detach.statusCode.value())
     }
 
@@ -82,7 +81,7 @@ class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
                     transferInfo = "transfer-1",
                 ),
             )
-        val first = post("/v2/auth/login/apple", """{"token":"apple-token-1"}""")
+        val first = post("/v2/auth/login/APPLE", """{"token":"apple-token-1"}""")
         assertEquals(200, first.statusCode.value(), "body=${first.body}")
         val userId = body(first)["userId"].asLong()
 
@@ -96,10 +95,10 @@ class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
                     transferInfo = "transfer-1",
                 ),
             )
-        val relogin = post("/v2/auth/login/apple", """{"token":"apple-token-2"}""")
+        val relogin = post("/v2/auth/login/APPLE", """{"token":"apple-token-2"}""")
         assertEquals(userId, body(relogin)["userId"].asLong())
 
-        val again = post("/v2/auth/login/apple", """{"token":"apple-token-2"}""")
+        val again = post("/v2/auth/login/APPLE", """{"token":"apple-token-2"}""")
         assertEquals(userId, body(again)["userId"].asLong())
     }
 }

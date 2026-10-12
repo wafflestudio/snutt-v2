@@ -80,15 +80,11 @@ class FriendController(
     @GetMapping("")
     fun getFriends(
         @CurrentUserId userId: Long,
-        @RequestParam state: String,
-    ): List<FriendResponse> {
-        val friendState =
-            FriendState.entries.firstOrNull { it.name == state.uppercase() }
-                ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return friendService.getMyFriends(userId, friendState).map { (friend, partner) ->
+        @RequestParam state: FriendState,
+    ): List<FriendResponse> =
+        friendService.getMyFriends(userId, state).map { (friend, partner) ->
             FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
         }
-    }
 
     @PostMapping("")
     fun requestFriend(

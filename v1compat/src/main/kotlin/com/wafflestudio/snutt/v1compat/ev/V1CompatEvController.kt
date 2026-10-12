@@ -118,7 +118,7 @@ class V1CompatEvController(
                 userId = user.id!!,
                 courseId = lectureId,
                 cursor = cursor,
-                sort = EvaluationSort.fromParameter(sort),
+                sort = legacyEvaluationSort(sort),
                 year = year,
                 semester = semester,
             )
@@ -281,4 +281,10 @@ class V1CompatEvController(
     }
 
     private fun courseMap(courseIds: Collection<Long>): Map<Long, LegacyCourseMetadata> = legacyCourseRepository.getByIds(courseIds)
+}
+
+private fun legacyEvaluationSort(value: String?): EvaluationSort {
+    if (value.isNullOrEmpty()) return EvaluationSort.LATEST
+    return EvaluationSort.entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
+        ?: throw SnuttException(ErrorType.INVALID_EVALUATION_SORT)
 }

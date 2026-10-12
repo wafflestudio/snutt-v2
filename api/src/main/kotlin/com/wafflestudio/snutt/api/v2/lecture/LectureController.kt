@@ -31,7 +31,7 @@ data class LectureSearchRequest(
     val timesToExclude: List<SearchTime>? = null,
     val cursor: String? = null,
     val limit: Int = 20,
-    val sort: String? = null,
+    val sort: LectureSort = LectureSort.DEFAULT,
 )
 
 @RestController
@@ -61,7 +61,7 @@ class LectureController(
                 etcTags = request.etcTags,
                 times = request.times,
                 timesToExclude = request.timesToExclude,
-                sort = LectureSort.fromParameter(request.sort),
+                sort = request.sort,
             )
         val page = lectureService.search(criteria, request.cursor, request.limit)
         val classTimesMap = lectureService.classTimesByLectureId(page.content.map { it.lecture.id!! })

@@ -13,9 +13,9 @@ class TakenLectureController(
     @GetMapping("/v2/users/me/lectures/latest")
     fun getMyLatestLectures(
         @CurrentUserId userId: Long,
-        @RequestParam(required = false) filter: String?,
+        @RequestParam(defaultValue = "false") excludeEvaluated: Boolean,
     ): List<TakenLectureResponse> =
         takenLectureService
-            .getMyLatestLectures(userId, excludeEvaluated = filter == "no-my-evaluations")
+            .getMyLatestLectures(userId, excludeEvaluated)
             .map { it.toResponse() }
 }

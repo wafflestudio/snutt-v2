@@ -73,7 +73,7 @@ class TagController(
             sortCriteria =
                 LectureSort.entries
                     .filter { it != LectureSort.DEFAULT }
-                    .map { SortCriterionResponse(it.name.lowercase(), clientInfo.language.select(it.fullName, it.fullNameEn)) },
+                    .map { SortCriterionResponse(it.name, clientInfo.language.select(it.fullName, it.fullNameEn)) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )
     }

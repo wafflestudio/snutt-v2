@@ -25,7 +25,7 @@ data class UserResponse(
     val nicknameTag: String,
     val email: String?,
     val isEmailVerified: Boolean,
-    val authProviders: List<String>,
+    val authProviders: List<AuthProvider>,
     val isAdmin: Boolean,
 )
 
@@ -40,7 +40,7 @@ private fun User.toResponse(authProviders: List<AuthProvider>) =
         nicknameTag = nicknameTag,
         email = email,
         isEmailVerified = isEmailVerified,
-        authProviders = authProviders.map { it.value },
+        authProviders = authProviders,
         isAdmin = isAdmin,
     )
 
@@ -131,7 +131,7 @@ class UserController(
     )
 
     data class AuthProvidersResponse(
-        val authProviders: List<String>,
+        val authProviders: List<AuthProvider>,
         val accessToken: String,
         val refreshToken: String,
     )
@@ -158,32 +158,31 @@ class UserController(
     @PostMapping("/me/social/{provider}")
     fun attachSocial(
         @CurrentUserId userId: Long,
-        @PathVariable provider: String,
+        @PathVariable provider: AuthProvider,
         @RequestBody body: SocialTokenRequest,
     ): AuthProvidersResponse {
-        val user = authService.attachSocial(userId, parseSocialProvider(provider), body.token)
+        val user = authService.attachSocial(userId, provider.requireSocial(), body.token)
         return authProvidersResponse(user)
     }
 
     @DeleteMapping("/me/social/{provider}")
     fun detachSocial(
         @CurrentUserId userId: Long,
-        @PathVariable provider: String,
+        @PathVariable provider: AuthProvider,
     ): AuthProvidersResponse {
-        val user = authService.detachSocial(userId, parseSocialProvider(provider))
+        val user = authService.detachSocial(userId, provider.requireSocial())
         return authProvidersResponse(user)
     }
 
     private fun authProvidersResponse(user: User): AuthProvidersResponse {
         val tokens = authService.issueTokens(user)
         return AuthProvidersResponse(
-            authProviders = authService.getAuthProviders(user.id!!).map { it.value },
+            authProviders = authService.getAuthProviders(user.id!!),
             accessToken = tokens.accessToken,
             refreshToken = tokens.refreshToken,
         )
     }
 
-    private fun parseSocialProvider(value: String): AuthProvider =
-        AuthProvider.from(value)?.takeIf { it != AuthProvider.LOCAL }
-            ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
+    private fun AuthProvider.requireSocial(): AuthProvider =
+        takeIf { it != AuthProvider.LOCAL } ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }

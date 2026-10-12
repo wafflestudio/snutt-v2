@@ -142,7 +142,7 @@ class MiscDomainIntegrationTest : AbstractApiIntegrationTest() {
             )
         whenever(uploadUriIssuer.issue(StorageSource.POPUP, 2)).thenReturn(issued)
 
-        val response = post("/v2/admin/images/popup/upload-uris?count=2", "", adminToken)
+        val response = post("/v2/admin/images/POPUP/upload-uris?count=2", "", adminToken)
         assertEquals(200, response.statusCode.value())
         val uris = body(response)
         assertEquals(2, uris.size())
@@ -150,7 +150,7 @@ class MiscDomainIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals("https://cdn/1.jpg", uris[0]["fileUri"].asString())
         verify(uploadUriIssuer).issue(StorageSource.POPUP, 2)
 
-        val forbidden = post("/v2/admin/images/popup/upload-uris?count=2", "", userAToken)
+        val forbidden = post("/v2/admin/images/POPUP/upload-uris?count=2", "", userAToken)
         assertEquals(403, forbidden.statusCode.value())
     }
 
@@ -171,7 +171,7 @@ class MiscDomainIntegrationTest : AbstractApiIntegrationTest() {
         val count = body(get("/v2/notifications/count", userAToken))
         assertEquals(1, count["count"].asInt())
 
-        body(get("/v2/notifications?explicit=1", userAToken))
+        body(get("/v2/notifications?explicit=true", userAToken))
         val after = body(get("/v2/notifications/count", userAToken))
         assertEquals(0, after["count"].asInt())
     }

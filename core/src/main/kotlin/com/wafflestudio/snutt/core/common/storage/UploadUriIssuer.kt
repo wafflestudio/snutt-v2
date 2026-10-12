@@ -1,16 +1,10 @@
 package com.wafflestudio.snutt.core.common.storage
 
 enum class StorageSource(
-    val value: String,
     val bucketName: String,
     val path: String,
 ) {
-    POPUP("popup", "snutt-asset", "popup-images"),
-    ;
-
-    companion object {
-        fun from(value: String): StorageSource? = entries.find { it.value == value }
-    }
+    POPUP("snutt-asset", "popup-images"),
 }
 
 data class FileUploadUri(
