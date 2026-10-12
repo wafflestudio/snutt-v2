@@ -1,9 +1,9 @@
 package com.wafflestudio.snutt.migration.step
 
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.requireStr
@@ -19,8 +19,7 @@ class CourseStep(
     context: MigrationContext,
     private val mongo: MongoSource,
     private val ev: EvSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "course"
+) : MigrationStep(jdbc, context) {
     override val tables = listOf("course")
 
     override fun run() {

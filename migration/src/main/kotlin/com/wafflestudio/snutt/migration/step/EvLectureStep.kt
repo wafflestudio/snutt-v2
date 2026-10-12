@@ -1,9 +1,9 @@
 package com.wafflestudio.snutt.migration.step
 
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.nullIfBlank
 import org.springframework.jdbc.core.JdbcTemplate
@@ -14,8 +14,7 @@ class EvLectureStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val ev: EvSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "evlecture"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {

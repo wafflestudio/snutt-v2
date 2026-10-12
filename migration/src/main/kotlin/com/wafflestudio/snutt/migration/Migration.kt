@@ -16,14 +16,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
 
-interface MigrationStep {
-    val name: String
-
-    val tables: List<String>
-
-    fun run()
-}
-
 @Component
 class MigrationContext {
     val userIds = HashMap<String, Long>(256_000)
@@ -135,11 +127,15 @@ class IdSequence(
     fun peek(): Long = next
 }
 
-abstract class AbstractMigrationStep(
+abstract class MigrationStep(
     protected val jdbc: JdbcTemplate,
     protected val context: MigrationContext,
-) : MigrationStep {
+) {
     protected val log: Logger = LoggerFactory.getLogger(javaClass)
+
+    abstract val tables: List<String>
+
+    abstract fun run()
 
     protected fun writer(
         table: String,

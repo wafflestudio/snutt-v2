@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.common.client.OsType
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -31,8 +31,7 @@ class CatalogStep(
     context: MigrationContext,
     private val mongo: MongoSource,
     private val jsonMapper: JsonMapper,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "catalog"
+) : MigrationStep(jdbc, context) {
     override val tables =
         listOf(
             "coursebook",

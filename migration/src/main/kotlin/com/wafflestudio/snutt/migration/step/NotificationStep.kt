@@ -1,9 +1,9 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.instant
@@ -21,8 +21,7 @@ class NotificationStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "notification"
+) : MigrationStep(jdbc, context) {
     override val tables = listOf("notification")
 
     override fun run() {

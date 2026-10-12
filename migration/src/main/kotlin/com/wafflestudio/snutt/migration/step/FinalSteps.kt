@@ -3,10 +3,10 @@ package com.wafflestudio.snutt.migration.step
 import com.mongodb.client.model.Accumulators
 import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport.ResolutionReasons
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -26,8 +26,7 @@ import java.util.HexFormat
 class AggregateStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "aggregate"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {
@@ -75,8 +74,7 @@ class AggregateStep(
 class LegacyTokenStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "legacytoken"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {
@@ -106,8 +104,7 @@ class ValidateStep(
     context: MigrationContext,
     private val mongo: MongoSource,
     private val ev: EvSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "validate"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {

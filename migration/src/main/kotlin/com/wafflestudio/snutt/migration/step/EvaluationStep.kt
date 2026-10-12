@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.migration.step
 
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
@@ -12,8 +12,7 @@ class EvaluationStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val ev: EvSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "evaluation"
+) : MigrationStep(jdbc, context) {
     override val tables = listOf("evaluation_like", "evaluation_report", "evaluation")
 
     override fun run() {
