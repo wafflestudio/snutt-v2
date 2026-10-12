@@ -29,39 +29,24 @@ class LectureVocabularyRepository(
     context: JpqlRenderContext,
 ) : KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
     fun findVocabulary(
-        year: Int?,
-        semester: Semester?,
+        year: Int,
+        semester: Semester,
         language: Language,
-    ): LectureVocabulary {
-        val (scopedYear, scopedSemester) = scope(year, semester)
-        val perSemester = scopedYear != null
-        return LectureVocabulary(
-            classification = distinct(scopedYear, scopedSemester, language, Lecture::classification, Lecture::classificationEn),
-            department = distinct(scopedYear, scopedSemester, language, Lecture::department, Lecture::departmentEn),
-            academicYear = distinct(scopedYear, scopedSemester, language, Lecture::academicYear, Lecture::academicYearEn),
-            category = distinct(scopedYear, scopedSemester, language, Lecture::category, Lecture::categoryEn),
-            categoryPre2025 =
-                distinct(
-                    scopedYear,
-                    scopedSemester,
-                    Language.KO,
-                    Lecture::categoryPre2025,
-                    Lecture::categoryPre2025,
-                ),
-            credit = distinctCredits(scopedYear, scopedSemester),
-            instructor =
-                if (perSemester) {
-                    distinct(scopedYear, scopedSemester, language, Lecture::instructor, Lecture::instructorEn)
-                } else {
-                    emptyList()
-                },
-            updatedAt = maxUpdatedAt(scopedYear, scopedSemester),
+    ): LectureVocabulary =
+        LectureVocabulary(
+            classification = distinct(year, semester, language, Lecture::classification, Lecture::classificationEn),
+            department = distinct(year, semester, language, Lecture::department, Lecture::departmentEn),
+            academicYear = distinct(year, semester, language, Lecture::academicYear, Lecture::academicYearEn),
+            category = distinct(year, semester, language, Lecture::category, Lecture::categoryEn),
+            categoryPre2025 = distinctStrings(year, semester, Lecture::categoryPre2025),
+            credit = distinctCredits(year, semester),
+            instructor = distinct(year, semester, language, Lecture::instructor, Lecture::instructorEn),
+            updatedAt = maxUpdatedAt(year, semester),
         )
-    }
 
     private fun maxUpdatedAt(
-        year: Int?,
-        semester: Semester?,
+        year: Int,
+        semester: Semester,
     ): Instant? =
         findAll(offset = null, limit = 1) {
             jpql {
@@ -69,16 +54,16 @@ class LectureVocabularyRepository(
                     .from(entity(Lecture::class))
                     .where(
                         and(
-                            year?.let { path(Lecture::year).equal(it) },
-                            semester?.let { path(Lecture::semester).equal(it) },
+                            path(Lecture::year).equal(year),
+                            path(Lecture::semester).equal(semester),
                         ),
                     )
             }
         }.firstOrNull()
 
     private fun distinct(
-        year: Int?,
-        semester: Semester?,
+        year: Int,
+        semester: Semester,
         language: Language,
         ko: KProperty1<Lecture, String?>,
         en: KProperty1<Lecture, String?>,
@@ -91,8 +76,8 @@ class LectureVocabularyRepository(
     }
 
     private fun distinctStrings(
-        year: Int?,
-        semester: Semester?,
+        year: Int,
+        semester: Semester,
         prop: KProperty1<Lecture, String?>,
     ): List<String> =
         findAll(offset = null, limit = null) {
@@ -101,8 +86,8 @@ class LectureVocabularyRepository(
                     .from(entity(Lecture::class))
                     .where(
                         and(
-                            year?.let { path(Lecture::year).equal(it) },
-                            semester?.let { path(Lecture::semester).equal(it) },
+                            path(Lecture::year).equal(year),
+                            path(Lecture::semester).equal(semester),
                             path(prop).isNotNull(),
                         ),
                     ).orderBy(path(prop).asc())
@@ -110,8 +95,8 @@ class LectureVocabularyRepository(
         }.filterNotNull()
 
     private fun distinctCredits(
-        year: Int?,
-        semester: Semester?,
+        year: Int,
+        semester: Semester,
     ): List<Int> =
         findAll(offset = null, limit = null) {
             jpql {
@@ -119,20 +104,10 @@ class LectureVocabularyRepository(
                     .from(entity(Lecture::class))
                     .where(
                         and(
-                            year?.let { path(Lecture::year).equal(it) },
-                            semester?.let { path(Lecture::semester).equal(it) },
+                            path(Lecture::year).equal(year),
+                            path(Lecture::semester).equal(semester),
                         ),
                     ).orderBy(path(Lecture::credit).asc())
             }
         }.filterNotNull()
-
-    private fun scope(
-        year: Int?,
-        semester: Semester?,
-    ): Pair<Int?, Semester?> =
-        if (year != null && semester != null) {
-            year to semester
-        } else {
-            null to null
-        }
 }

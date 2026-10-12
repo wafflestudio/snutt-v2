@@ -7,6 +7,8 @@ import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
+import com.wafflestudio.snutt.core.domain.evaluation.service.CourseVocabularyService
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
@@ -25,6 +27,8 @@ class SugangSnuSyncJob(
     private val coursebookRepository: CoursebookRepository,
     private val vacancyNotificationRepository: VacancyNotificationRepository,
     private val pushService: PushService,
+    private val lectureVocabularyService: LectureVocabularyService,
+    private val courseVocabularyService: CourseVocabularyService,
 ) : BatchJob {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -93,6 +97,8 @@ class SugangSnuSyncJob(
                     )
                 }.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
         val result = sugangSnuSyncService.sync(year, semester, rows)
+        lectureVocabularyService.evict(year, semester)
+        courseVocabularyService.evict()
         log.info("sugang sync 완료: {}", result)
     }
 
