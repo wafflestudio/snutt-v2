@@ -9,10 +9,8 @@ import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
-import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.nullIfBlank
-import com.wafflestudio.snutt.migration.orNow
 import com.wafflestudio.snutt.migration.requireInt
 import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
@@ -20,6 +18,7 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import java.time.Instant
 
 @Component
 class LectureStep(
@@ -33,6 +32,7 @@ class LectureStep(
         val ids = IdSequence()
         val classTimeIds = IdSequence()
         val offerings = HashMap<String, Long>(256_000)
+        val now = Instant.now().toSqlTimestamp()
 
         writer("lecture", LECTURE_COLUMNS).use { lectures ->
             writer("lecture_class_time", CLASS_TIME_COLUMNS, parent = lectures).use { classTimes ->
@@ -55,7 +55,6 @@ class LectureStep(
                         val instructor = doc.str("instructor").nullIfBlank()
                         val courseId =
                             context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
-                        val createdAt = doc.instant("created_at").orNow()
                         val places = doc.docs("class_time_json")
 
                         lectures.add(
@@ -83,15 +82,15 @@ class LectureStep(
                             doc.requireInt("quota"),
                             doc.int("freshmanQuota"),
                             doc.str("remark").nullIfBlank(),
-                            createdAt.toSqlTimestamp(),
-                            createdAt.toSqlTimestamp(),
+                            now,
+                            now,
                         )
 
                         statuses.add(
                             id,
                             doc.requireInt("registrationCount"),
                             doc.bool("wasFull"),
-                            createdAt.toSqlTimestamp(),
+                            now,
                         )
 
                         places.forEach { place ->
