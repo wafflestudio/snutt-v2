@@ -75,7 +75,6 @@ class AggregateStep(
 class LegacyTokenStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
-    private val mongo: MongoSource,
 ) : AbstractMigrationStep(jdbc, context) {
     override val name = "legacytoken"
     override val tables = emptyList<String>()
@@ -83,15 +82,9 @@ class LegacyTokenStep(
     override fun run() {
         jdbc.execute("DELETE FROM legacy_access_token")
 
-        val owners = HashMap<String, MutableList<String>>()
-        mongo.each("users") { doc ->
-            val hash = legacyTokenHash(doc) ?: return@each
-            owners.getOrPut(hash) { mutableListOf() } += doc.id()
-        }
-
         val ids = IdSequence()
         writer("legacy_access_token", listOf("id", "user_id", "token_hash", "created_at", "updated_at")).use { out ->
-            owners.forEach { (token, externalIds) ->
+            context.legacyTokenOwners.forEach { (token, externalIds) ->
                 if (externalIds.size > 1) {
                     context.resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS, externalIds.size)
                     return@forEach
@@ -105,17 +98,6 @@ class LegacyTokenStep(
 
     private fun sha256Hex(value: String): String =
         HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))
-
-    companion object {
-        private val CREDENTIAL_KEYS = listOf("localId", "fbId", "appleSub", "googleSub", "kakaoSub")
-
-        fun legacyTokenHash(doc: Document): String? {
-            if (!doc.bool("active")) return null
-            val credential = doc.doc("credential") ?: return null
-            if (CREDENTIAL_KEYS.none { credential.str(it) != null }) return null
-            return doc.str("credentialHash")?.takeIf { it.isNotBlank() }
-        }
-    }
 }
 
 @Component
@@ -131,6 +113,7 @@ class ValidateStep(
     override fun run() {
         val failures = mutableListOf<String>()
 
+        val (socialCredentials, legacyTokenOwners) = activeCredentialCounts()
         compare(failures, "user", mongo.count("users"), count("user"))
         compare(
             failures,
@@ -142,14 +125,14 @@ class ValidateStep(
         compare(
             failures,
             "user_social_auth",
-            socialCredentials(),
+            socialCredentials,
             count("user_social_auth"),
             tolerated = resolved(ResolutionReasons.SOCIAL_AUTH_DUPLICATE),
         )
         compare(
             failures,
             "legacy_access_token",
-            legacyTokenOwners(),
+            legacyTokenOwners,
             count("legacy_access_token"),
             tolerated = resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS),
         )
@@ -308,20 +291,16 @@ class ValidateStep(
         return total
     }
 
-    private fun socialCredentials(): Long {
-        var total = 0L
+    private fun activeCredentialCounts(): Pair<Long, Long> {
+        var socialCredentials = 0L
+        var legacyTokenOwners = 0L
         mongo.each("users") { doc ->
+            if (UserStep.legacyTokenHash(doc) != null) legacyTokenOwners++
             if (!doc.bool("active")) return@each
             val credential = doc.doc("credential") ?: return@each
-            total += SOCIAL_KEYS.count { credential.str(it) != null }
+            socialCredentials += UserStep.SOCIAL_KEYS.count { credential.str(it) != null }
         }
-        return total
-    }
-
-    private fun legacyTokenOwners(): Long {
-        var total = 0L
-        mongo.each("users") { doc -> if (LegacyTokenStep.legacyTokenHash(doc) != null) total++ }
-        return total
+        return socialCredentials to legacyTokenOwners
     }
 
     private fun timetableLectureEntries(): Long =
@@ -362,9 +341,5 @@ class ValidateStep(
         } else {
             log.info("{} 행 수: 원본 {}, 대상 {} (제외 {}, 추가 {})", label, expected, actual, tolerated, added)
         }
-    }
-
-    companion object {
-        private val SOCIAL_KEYS = listOf("fbId", "appleSub", "googleSub", "kakaoSub")
     }
 }

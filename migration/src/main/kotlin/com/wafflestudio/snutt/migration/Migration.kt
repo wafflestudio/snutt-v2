@@ -36,6 +36,7 @@ class MigrationContext {
     val diaryQuestionIds = HashMap<String, Long>()
     val timetableLectureIds = HashMap<Pair<String, String>, Long>(1_024_000)
     val timetableLectureIdsByLecture = HashMap<Pair<Long, Long>, Long>(1_024_000)
+    val legacyTokenOwners = HashMap<String, MutableList<String>>()
 
     val courseIds = HashMap<String, Long>(64_000)
     val courseIdRemap = HashMap<Long, Long>()

@@ -54,6 +54,7 @@ class UserStep(
                 val id = ids.next()
                 context.userIds[externalId] = id
                 if (!active) context.inactiveUserIds += id
+                legacyTokenHash(doc)?.let { context.legacyTokenOwners.getOrPut(it) { mutableListOf() } += externalId }
 
                 var localId = credential.str("localId")
                 var localPw = credential.str("localPw")
@@ -183,6 +184,8 @@ class UserStep(
 
     companion object {
         private const val TAG_DELIMITER = "#"
+        val SOCIAL_KEYS = listOf("fbId", "appleSub", "googleSub", "kakaoSub")
+        private val CREDENTIAL_KEYS = listOf("localId") + SOCIAL_KEYS
         private val COLUMNS =
             listOf(
                 "id",
@@ -199,5 +202,12 @@ class UserStep(
                 "created_at",
                 "updated_at",
             )
+
+        fun legacyTokenHash(doc: Document): String? {
+            if (!doc.bool("active")) return null
+            val credential = doc.doc("credential") ?: return null
+            if (CREDENTIAL_KEYS.none { credential.str(it) != null }) return null
+            return doc.str("credentialHash")?.takeIf { it.isNotBlank() }
+        }
     }
 }

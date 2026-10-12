@@ -90,7 +90,7 @@ class MigrationIntegrationTest {
                 NotificationStep(jdbc, context, mongoSource),
                 EvaluationStep(jdbc, context, ev),
                 AggregateStep(jdbc, context),
-                LegacyTokenStep(jdbc, context, mongoSource),
+                LegacyTokenStep(jdbc, context),
                 LegacySearchTagStep(jdbc, context, ev),
                 ValidateStep(jdbc, context, mongoSource, ev),
             )
