@@ -145,7 +145,10 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
-            .thenReturn(listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)))
+            .thenReturn(
+                listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)),
+                listOf(RegistrationStatus("2114.408A", "001", registrationCount = 0, wasFull = false)),
+            )
 
         vacancyNotificationJob.run(null)
 
@@ -188,7 +191,10 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
-            .thenReturn(listOf(RegistrationStatus("400.301", "001", registrationCount = 23, wasFull = true)))
+            .thenReturn(
+                listOf(RegistrationStatus("400.301", "001", registrationCount = 23, wasFull = true)),
+                listOf(RegistrationStatus("400.301", "001", registrationCount = 0, wasFull = false)),
+            )
 
         vacancyNotificationJob.run(null)
 
@@ -236,7 +242,10 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
         whenever(crawler.getPageCount(any(), any())).thenReturn(1)
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
-            .thenReturn(listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)))
+            .thenReturn(
+                listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)),
+                listOf(RegistrationStatus("F31.113", "001", registrationCount = 0, wasFull = false)),
+            )
 
         vacancyNotificationJob.run(null)
 

@@ -42,23 +42,27 @@ class VacancyNotificationJob(
 
     override fun run(target: YearAndSemester?) {
         val (year, semester) = target ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
-        runOnce(year, semester)
+        while (true) {
+            val window = currentRegistrationWindow(year, semester)
+            if (window == null) {
+                log.info("빈자리 조회 대상 등록일이 아니거나 18시 이후이므로 종료한다: {} {}", year, semester)
+                return
+            }
+            if (!pollOnce(year, semester, window)) return
+        }
     }
 
-    private fun runOnce(
+    private fun pollOnce(
         year: Int,
         semester: Semester,
-    ) {
-        val window = currentRegistrationWindow(year, semester)
-        if (window == null) {
-            log.info("빈자리 조회 대상 등록일이 아니거나 18시 이후이므로 건너뛴다: {} {}", year, semester)
-            return
-        }
+        window: RegistrationWindow,
+    ): Boolean {
         val pageCount =
             runCatching { crawler.getPageCount(year, semester) }
                 .getOrElse {
-                    log.error("수강스누 조회 실패(부하 기간 가능성): {}", it.message)
-                    return
+                    log.error("수강스누 조회 실패(부하 기간 가능성), 잠시 뒤 다시 조회한다: {}", it.message)
+                    Thread.sleep(OVERLOAD_RETRY_DELAY_MS)
+                    return true
                 }
         val lectureMap =
             lectureRepository
@@ -75,8 +79,8 @@ class VacancyNotificationJob(
                         return@forEach
                     }
             if (statuses.all { it.registrationCount == 0 }) {
-                log.info("수강신청이 시작되지 않아 중단한다")
-                return
+                log.info("수강신청이 시작되지 않아 종료한다")
+                return false
             }
             val pendingPushes =
                 TransactionTemplate(transactionManager)
@@ -92,6 +96,7 @@ class VacancyNotificationJob(
             }
             Thread.sleep(DELAY_PER_CHUNK_MS)
         }
+        return true
     }
 
     private data class PendingVacancyPush(
@@ -190,6 +195,7 @@ class VacancyNotificationJob(
 
     companion object {
         private const val DELAY_PER_CHUNK_MS = 300L
+        private const val OVERLOAD_RETRY_DELAY_MS = 30_000L
         private val KST: ZoneId = ZoneId.of("Asia/Seoul")
     }
 }
