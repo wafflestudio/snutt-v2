@@ -20,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyServi
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
@@ -83,7 +84,7 @@ private const val ANDROID_LEGACY_DIARY_DATE_MAX_VERSION = "3.12.4"
 private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
     origin: LegacyThemeOriginDto?,
-    publication: ThemePublicationDisplay? = null,
+    publishInfo: LegacyThemePublishInfoDto? = null,
 ) = LegacyThemeDto(
     id = if (kind == ThemeKind.BUILTIN) null else id.toString(),
     userId = if (kind == ThemeKind.BUILTIN) userExternalId else checkNotNull(userId).toString(),
@@ -97,12 +98,9 @@ private fun TimetableThemeDisplay.toLegacy(
         when (kind) {
             ThemeKind.BUILTIN -> LegacyThemeStatus.BASIC
             ThemeKind.DOWNLOADED -> LegacyThemeStatus.DOWNLOADED
-            ThemeKind.CUSTOM -> if (publication == null) LegacyThemeStatus.PRIVATE else LegacyThemeStatus.PUBLISHED
+            ThemeKind.CUSTOM -> if (publishInfo == null) LegacyThemeStatus.PRIVATE else LegacyThemeStatus.PUBLISHED
         },
-    publishInfo =
-        publication?.let {
-            LegacyThemePublishInfoDto(it.name, if (it.authorAnonymous) "익명" else it.authorNickname, it.downloadCount)
-        },
+    publishInfo = publishInfo,
 )
 
 private fun ThemePublicationDisplay.toLegacy() =
@@ -143,6 +141,7 @@ data class LegacyThemeDownloadRequest(
 class V1CompatThemeController(
     private val timetableThemeService: TimetableThemeService,
     private val publishedThemeRepository: PublishedThemeRepository,
+    private val legacyPublishedThemeRepository: LegacyPublishedThemeRepository,
 ) {
     private fun library(
         user: User,
@@ -150,17 +149,19 @@ class V1CompatThemeController(
     ): List<LegacyThemeDto> {
         val sources = publishedThemeRepository.findAllById(themes.mapNotNull { it.publicationId }).associateBy { it.id!! }
         val ownPublications =
-            timetableThemeService
-                .getMyPublications(user.id!!)
-                .filter { it.listed && it.sourceThemeId != null }
-                .sortedBy { it.id }
+            legacyPublishedThemeRepository
+                .findByAuthorIdAndListedTrueAndSourceThemeIdIsNotNullOrderById(user.id!!)
                 .associateBy { it.sourceThemeId }
         return themes.map { theme ->
             val origin =
                 theme.publicationId?.let { id ->
                     sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString().orEmpty()) }
                 }
-            theme.toLegacy(user.id!!.toString(), origin, ownPublications[theme.id])
+            val publishInfo =
+                ownPublications[theme.id]?.let {
+                    LegacyThemePublishInfoDto(it.name, if (it.authorAnonymous) "익명" else user.nickname, it.downloadCount)
+                }
+            theme.toLegacy(user.id!!.toString(), origin, publishInfo)
         }
     }
 
@@ -244,7 +245,7 @@ class V1CompatThemeController(
     ): LegacyOkResponse {
         val publication = timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.isAnonymous)
         listedPublicationsOf(user, themeId).filter { it.id != publication.id }.forEach {
-            timetableThemeService.unpublishTheme(user.id!!, it.id)
+            timetableThemeService.unpublishTheme(user.id!!, it.id!!)
         }
         return LegacyOkResponse()
     }
@@ -256,7 +257,7 @@ class V1CompatThemeController(
     ) {
         val publications = listedPublicationsOf(user, themeId)
         if (publications.isEmpty()) throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
-        publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id) }
+        publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id!!) }
     }
 
     @PostMapping("/{themeId}/download")
@@ -325,8 +326,7 @@ class V1CompatThemeController(
     private fun listedPublicationsOf(
         user: User,
         themeId: Long,
-    ): List<ThemePublicationDisplay> =
-        timetableThemeService.getMyPublications(user.id!!).filter { it.listed && it.sourceThemeId == themeId }
+    ): List<PublishedTheme> = legacyPublishedThemeRepository.findByAuthorIdAndSourceThemeIdAndListedTrue(user.id!!, themeId)
 
     private fun defaultTheme(user: User): TimetableThemeDisplay =
         timetableThemeService.getTheme(user.id!!, timetableThemeService.getDefaultThemeId(user.id!!))

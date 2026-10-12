@@ -285,7 +285,6 @@ class TimetableThemeService(
         return publications.map {
             ThemePublicationDisplay(
                 id = it.id!!,
-                sourceThemeId = it.sourceThemeId,
                 authorId = it.authorId,
                 name = it.name,
                 colors = it.colors,
