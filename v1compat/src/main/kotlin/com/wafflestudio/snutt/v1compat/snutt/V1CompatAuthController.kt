@@ -37,13 +37,6 @@ data class LegacySocialLoginRequest(
     val token: String,
 )
 
-data class LegacyFacebookLoginRequest(
-    @param:JsonProperty("fb_id")
-    val fbId: String? = null,
-    @param:JsonProperty("fb_token")
-    val fbToken: String,
-)
-
 data class LegacyLogoutRequest(
     @param:JsonProperty("registration_id")
     val registrationId: String? = null,

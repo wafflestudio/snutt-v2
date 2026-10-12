@@ -31,7 +31,6 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
-import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
@@ -206,7 +205,6 @@ private fun legacyFriend(
 class V1CompatFriendController(
     private val friendService: FriendService,
     private val timetableService: TimetableService,
-    private val userService: UserService,
 ) {
     @GetMapping("")
     fun getFriends(

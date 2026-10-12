@@ -447,9 +447,7 @@ class V1CompatDiaryController(
     }
 
     @GetMapping("/dailyClassTypes")
-    fun getDailyClassTypes(
-        @V1CurrentUser user: User,
-    ): List<LegacyDiaryDailyClassTypeDto> =
+    fun getDailyClassTypes(): List<LegacyDiaryDailyClassTypeDto> =
         diaryService
             .getActiveDailyClassTypes()
             .map { LegacyDiaryDailyClassTypeDto(id = it.id!!.toString(), name = it.name) }

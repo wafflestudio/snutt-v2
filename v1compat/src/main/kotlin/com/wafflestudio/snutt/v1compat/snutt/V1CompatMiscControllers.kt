@@ -56,7 +56,6 @@ class V1CompatTagController(
 ) {
     @GetMapping("/{year}/{semester}")
     fun getTagList(
-        @V1CurrentUser user: User,
         @PathVariable year: Int,
         @PathVariable semester: Semester,
         @CurrentClient clientInfo: ClientInfo,

@@ -156,7 +156,6 @@ class V1CompatEvController(
 
     @GetMapping("/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
-        @V1CurrentUser user: User,
         @PathVariable lectureId: Long,
     ): LegacyEvLectureSummaryResponse {
         val stats = evaluationService.getCourse(lectureId)
@@ -267,9 +266,7 @@ class V1CompatEvController(
     }
 
     @GetMapping("/tags/main")
-    fun getMainTags(
-        @V1CurrentUser user: User,
-    ): LegacyEvTagGroupDto = legacyMainTagGroup()
+    fun getMainTags(): LegacyEvTagGroupDto = legacyMainTagGroup()
 
     @GetMapping("/tags/main/{tagId}/evaluations")
     fun getMainTagEvaluations(
