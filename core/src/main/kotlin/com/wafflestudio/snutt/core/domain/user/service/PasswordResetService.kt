@@ -84,10 +84,39 @@ class PasswordResetService(
             MailOutcomeLog.outcome("password-reset", "no_account", trimmed)
             return
         }
-        MailOutcomeLog.logged("password-reset", trimmed, listOf(user.id!!)) {
+        sendResetCode(user, trimmed)
+    }
+
+    fun requestResetByLocalId(localId: String) {
+        val trimmed = localId.trim()
+        val user = userRepository.findByLocalIdAndActiveTrue(trimmed)
+        if (user == null) {
+            MailOutcomeLog.outcome("password-reset", "no_account", email = null, requestedLocalId = trimmed)
+            return
+        }
+        val email = user.email
+        if (email.isNullOrBlank()) {
+            MailOutcomeLog.outcome(
+                "password-reset",
+                "no_email",
+                email = null,
+                userIds = listOf(user.id!!),
+                requestedLocalId = trimmed,
+            )
+            return
+        }
+        sendResetCode(user, email, trimmed)
+    }
+
+    private fun sendResetCode(
+        user: User,
+        email: String,
+        requestedLocalId: String? = null,
+    ) {
+        MailOutcomeLog.logged("password-reset", email, listOf(user.id!!), requestedLocalId) {
             val code = VerificationCode.generatePasswordResetCode()
             store.store(user.id!!, code)
-            userMailService.sendPasswordResetCode(trimmed, code)
+            userMailService.sendPasswordResetCode(email, code)
         }
     }
 
@@ -110,13 +139,13 @@ class PasswordResetService(
     }
 
     @Transactional
-    fun confirmResetByEmail(
-        email: String,
+    fun confirmResetByLocalId(
+        localId: String,
         code: String,
         newPassword: String,
     ) {
         val user =
-            userRepository.findForUpdateByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
+            userRepository.findForUpdateByLocalIdAndActiveTrue(localId.trim())
                 ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
         confirmReset(user, code, newPassword)
     }

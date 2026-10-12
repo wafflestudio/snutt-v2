@@ -11,14 +11,16 @@ object MailOutcomeLog {
     fun outcome(
         api: String,
         result: String,
-        email: String,
+        email: String?,
         userIds: List<Long> = emptyList(),
+        requestedLocalId: String? = null,
     ) {
         log.info(
-            "{}: result={} email={} userIds={}",
+            "{}: result={} email={} requestedLocalId={} userIds={}",
             api,
             result,
-            email.replace(emailMaskRegex, "*"),
+            email?.replace(emailMaskRegex, "*"),
+            requestedLocalId,
             userIds,
         )
     }
@@ -27,10 +29,11 @@ object MailOutcomeLog {
         api: String,
         email: String,
         userIds: List<Long>,
+        requestedLocalId: String? = null,
         send: () -> MailSendOutcome,
     ) {
         val result = runCatching(send)
-        outcome(api, result.fold({ it.name.lowercase() }, ::resultOf), email, userIds)
+        outcome(api, result.fold({ it.name.lowercase() }, ::resultOf), email, userIds, requestedLocalId)
         result.getOrThrow()
     }
 

@@ -40,11 +40,11 @@ data class LogoutRequest(
 )
 
 data class RequestPasswordResetRequest(
-    @field:NotBlank val email: String,
+    @field:NotBlank val localId: String,
 )
 
 data class ConfirmPasswordResetRequest(
-    @field:NotBlank val email: String,
+    @field:NotBlank val localId: String,
     @field:NotBlank val code: String,
     @field:NotBlank val newPassword: String,
 )
@@ -125,7 +125,7 @@ class AuthController(
     fun requestPasswordReset(
         @Valid @RequestBody body: RequestPasswordResetRequest,
     ) {
-        passwordResetService.requestReset(body.email)
+        passwordResetService.requestResetByLocalId(body.localId)
     }
 
     @Public
@@ -133,7 +133,7 @@ class AuthController(
     fun confirmPasswordReset(
         @Valid @RequestBody body: ConfirmPasswordResetRequest,
     ) {
-        passwordResetService.confirmResetByEmail(body.email, body.code, body.newPassword)
+        passwordResetService.confirmResetByLocalId(body.localId, body.code, body.newPassword)
     }
 
     @Public
