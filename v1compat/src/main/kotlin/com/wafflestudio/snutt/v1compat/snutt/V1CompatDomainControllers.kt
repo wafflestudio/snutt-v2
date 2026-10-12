@@ -35,7 +35,6 @@ import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
@@ -43,6 +42,7 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColor
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColorIndex
+import com.wafflestudio.snutt.v1compat.snutt.dto.legacyThemeValue
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -104,7 +104,7 @@ data class LegacyFriendTimetableDto(
     val semester: Semester,
     val lectures: List<LegacyFriendTimetableLectureDto>,
     val title: String,
-    val theme: LegacyBasicThemeType,
+    val theme: Int,
     val themeId: String?,
     val isPrimary: Boolean,
     val updatedAt: Instant,
@@ -128,7 +128,6 @@ data class LegacyFriendTimetableLectureDto(
     val color: LegacyColorSetDto?,
     val colorIndex: Int,
     val lectureId: String?,
-    val snuttEvLecture: LegacyFriendEvLectureIdDto? = null,
     val categoryPre2025: String?,
 )
 
@@ -139,16 +138,11 @@ data class LegacyFriendClassPlaceAndTimeDto(
     val endMinute: Int,
 )
 
-data class LegacyFriendEvLectureIdDto(
-    val evLectureId: Long,
-)
-
 private fun TimetableDisplay.toLegacyFriendTimetable(
     userId: Long,
     language: Language,
-): LegacyFriendTimetableDto {
-    val themeId = timetable.themeId
-    return LegacyFriendTimetableDto(
+): LegacyFriendTimetableDto =
+    LegacyFriendTimetableDto(
         id = timetable.id?.toString(),
         userId = userId.toString(),
         year = timetable.year,
@@ -185,17 +179,11 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
                 )
             },
         title = timetable.title,
-        theme =
-            if (themeId in 1..6) {
-                LegacyBasicThemeType.fromValue((themeId - 1).toInt())
-            } else {
-                LegacyBasicThemeType.SNUTT
-            },
-        themeId = themeId.takeUnless { it in 1..6 }?.toString(),
+        theme = legacyThemeValue(theme.builtinCode),
+        themeId = timetable.themeId.takeIf { theme.builtinCode == null }?.toString(),
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
-}
 
 private fun legacyFriend(
     friend: Friend,

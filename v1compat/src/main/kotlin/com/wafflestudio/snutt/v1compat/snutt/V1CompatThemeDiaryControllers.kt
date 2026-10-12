@@ -29,7 +29,6 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureRemi
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
@@ -88,7 +87,7 @@ private fun TimetableThemeDisplay.toLegacy(
 ) = LegacyThemeDto(
     id = if (kind == ThemeKind.BUILTIN) null else id.toString(),
     userId = if (kind == ThemeKind.BUILTIN) userExternalId else checkNotNull(userId).toString(),
-    theme = if (kind == ThemeKind.BUILTIN) legacyThemeValue(checkNotNull(builtinCode)) else 0,
+    theme = legacyThemeValue(builtinCode),
     name = name,
     colors = colors.takeUnless { kind == ThemeKind.BUILTIN }?.map { it.toLegacyColor() },
     isDefault = isDefault,
@@ -290,7 +289,7 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        basicThemeType(basicThemeTypeValue)
+        legacyBuiltinCode(basicThemeTypeValue)
         return defaultTheme(user).toLegacy(user.id!!.toString(), null)
     }
 
@@ -299,9 +298,9 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        val basicThemeType = basicThemeType(basicThemeTypeValue)
+        val builtinCode = legacyBuiltinCode(basicThemeTypeValue)
         val current = defaultTheme(user)
-        if (current.kind != ThemeKind.BUILTIN || current.builtinCode != legacyBuiltinCode(basicThemeType.value)) {
+        if (current.kind != ThemeKind.BUILTIN || current.builtinCode != builtinCode) {
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         }
         return current.toLegacy(user.id!!.toString(), null)
@@ -330,13 +329,6 @@ class V1CompatThemeController(
 
     private fun defaultTheme(user: User): TimetableThemeDisplay =
         timetableThemeService.getTheme(user.id!!, timetableThemeService.getDefaultThemeId(user.id!!))
-
-    private fun basicThemeType(value: Int): LegacyBasicThemeType =
-        try {
-            LegacyBasicThemeType.fromValue(value)
-        } catch (_: IllegalArgumentException) {
-            throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
 
     private fun wrap(publications: List<ThemePublicationDisplay>): LegacyPageResponse<LegacyThemeDto> {
         val content = publications.map { it.toLegacy() }
