@@ -30,6 +30,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
@@ -599,12 +600,6 @@ class V1CompatReminderController(
     )
 }
 
-data class LegacyLectureEvSummaryResponse(
-    val evLectureId: Long?,
-    val avgRating: Double?,
-    val evaluationCount: Long,
-)
-
 @RestController
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
@@ -615,10 +610,10 @@ class V1CompatEvSummaryController(
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: Long,
-    ): LegacyLectureEvSummaryResponse {
+    ): LegacyEvSummary {
         val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         val course = courseRepository.findByIdOrNull(courseId)
-        return LegacyLectureEvSummaryResponse(
+        return LegacyEvSummary(
             evLectureId = courseId,
             avgRating = course?.avgRating,
             evaluationCount = course?.evalCount ?: 0L,

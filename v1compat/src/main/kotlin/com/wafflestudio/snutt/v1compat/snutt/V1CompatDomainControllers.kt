@@ -514,11 +514,6 @@ data class LegacyPopupDto(
     val hiddenDaysSnake: Int?,
 )
 
-data class LegacyListResponse<T>(
-    val content: List<T>,
-    val totalCount: Int,
-)
-
 @V1Public
 @RestController
 @RequestMapping("/v1/popups")
@@ -527,23 +522,22 @@ class V1CompatPopupController(
     private val storageUriResolver: StorageUriResolver,
 ) {
     @GetMapping("")
-    fun getPopups(): LegacyListResponse<LegacyPopupDto> =
-        LegacyListResponse(
-            content =
-                popupService.getPopups().map {
-                    val imageUri = storageUriResolver.resolve(it.imageOriginUri)
-                    LegacyPopupDto(
-                        id = it.id!!.toString(),
-                        key = it.popupKey,
-                        imageUri = imageUri,
-                        imageUrl = imageUri,
-                        linkUrl = it.linkUrl,
-                        hiddenDays = it.hiddenDays,
-                        hiddenDaysSnake = it.hiddenDays,
-                    )
-                },
-            totalCount = popupService.getPopups().size,
-        )
+    fun getPopups(): LegacyPageResponse<LegacyPopupDto> {
+        val popups =
+            popupService.getPopups().map {
+                val imageUri = storageUriResolver.resolve(it.imageOriginUri)
+                LegacyPopupDto(
+                    id = it.id!!.toString(),
+                    key = it.popupKey,
+                    imageUri = imageUri,
+                    imageUrl = imageUri,
+                    linkUrl = it.linkUrl,
+                    hiddenDays = it.hiddenDays,
+                    hiddenDaysSnake = it.hiddenDays,
+                )
+            }
+        return LegacyPageResponse(content = popups, totalCount = popups.size)
+    }
 }
 
 @V1Public
