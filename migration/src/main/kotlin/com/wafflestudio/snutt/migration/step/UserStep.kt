@@ -45,81 +45,72 @@ class UserStep(
 
         val ids = IdSequence()
         val socialIds = IdSequence()
-        val socialRows = mutableListOf<Pair<String, SocialCredential>>()
         writer("user", COLUMNS).use { out ->
-            mongo.each("users") { doc ->
-                val externalId = doc.id()
-                val credential = doc.doc("credential") ?: Document()
-                val active = doc.bool("active")
-                val id = ids.next()
-                context.userIds[externalId] = id
-                if (!active) context.inactiveUserIds += id
-                legacyTokenHash(doc)?.let { context.legacyTokenOwners.getOrPut(it) { mutableListOf() } += externalId }
+            writer("user_social_auth", SOCIAL_COLUMNS, parent = out).use { socialOut ->
+                mongo.each("users") { doc ->
+                    val externalId = doc.id()
+                    val credential = doc.doc("credential") ?: Document()
+                    val active = doc.bool("active")
+                    val id = ids.next()
+                    context.userIds[externalId] = id
+                    if (!active) context.inactiveUserIds += id
+                    legacyTokenHash(doc)?.let { context.legacyTokenOwners.getOrPut(it) { mutableListOf() } += externalId }
 
-                var localId = credential.str("localId")
-                var localPw = credential.str("localPw")
-                if (active && localId != null && localIdOwner[localId] != externalId) {
-                    localId = null
-                    localPw = null
-                    context.resolved(MigrationSupport.ResolutionReasons.LOCAL_ID_DUPLICATE)
-                }
+                    var localId = credential.str("localId")
+                    var localPw = credential.str("localPw")
+                    if (active && localId != null && localIdOwner[localId] != externalId) {
+                        localId = null
+                        localPw = null
+                        context.resolved(MigrationSupport.ResolutionReasons.LOCAL_ID_DUPLICATE)
+                    }
 
-                val email = doc.str("email")
-                var isEmailVerified = doc.bool("isEmailVerified")
-                if (active && isEmailVerified && email != null && emailOwner[email.lowercase()] != externalId) {
-                    isEmailVerified = false
-                    context.resolved(MigrationSupport.ResolutionReasons.VERIFIED_EMAIL_DUPLICATE)
-                }
+                    val email = doc.str("email")
+                    var isEmailVerified = doc.bool("isEmailVerified")
+                    if (active && isEmailVerified && email != null && emailOwner[email.lowercase()] != externalId) {
+                        isEmailVerified = false
+                        context.resolved(MigrationSupport.ResolutionReasons.VERIFIED_EMAIL_DUPLICATE)
+                    }
 
-                val social = socialCredentials(credential)
-                social.forEach { credentialEntry ->
-                    if (active && socialOwner[credentialEntry.subKey] == externalId) {
-                        socialRows += externalId to credentialEntry
-                    } else if (active) {
-                        context.resolved(MigrationSupport.ResolutionReasons.SOCIAL_AUTH_DUPLICATE)
+                    val registeredAt = doc.instant("regDate").orNow()
+                    val nickname = doc.requireStr("nickname")
+                    out.add(
+                        id,
+                        email,
+                        isEmailVerified,
+                        nickname.substringBeforeLast(TAG_DELIMITER),
+                        nickname.substringAfterLast(TAG_DELIMITER),
+                        localId,
+                        localPw,
+                        active,
+                        doc.bool("isAdmin"),
+                        lastLoginAt(doc, registeredAt).toSqlTimestamp(),
+                        doc.instant("notificationCheckedAt").orNow().toSqlTimestamp(),
+                        registeredAt.toSqlTimestamp(),
+                        registeredAt.toSqlTimestamp(),
+                    )
+
+                    socialCredentials(credential).forEach { social ->
+                        if (active && socialOwner[social.subKey] == externalId) {
+                            val now = Instant.now().toSqlTimestamp()
+                            socialOut.add(
+                                socialIds.next(),
+                                id,
+                                social.provider.name,
+                                social.sub,
+                                social.email,
+                                social.displayName,
+                                social.transferSub,
+                                now,
+                                now,
+                            )
+                        } else if (active) {
+                            context.resolved(MigrationSupport.ResolutionReasons.SOCIAL_AUTH_DUPLICATE)
+                        }
                     }
                 }
-
-                val registeredAt = doc.instant("regDate").orNow()
-                val nickname = doc.requireStr("nickname")
-                out.add(
-                    id,
-                    email,
-                    isEmailVerified,
-                    nickname.substringBeforeLast(TAG_DELIMITER),
-                    nickname.substringAfterLast(TAG_DELIMITER),
-                    localId,
-                    localPw,
-                    active,
-                    doc.bool("isAdmin"),
-                    lastLoginAt(doc, registeredAt).toSqlTimestamp(),
-                    doc.instant("notificationCheckedAt").orNow().toSqlTimestamp(),
-                    registeredAt.toSqlTimestamp(),
-                    registeredAt.toSqlTimestamp(),
-                )
             }
         }
-
-        writer(
-            "user_social_auth",
-            listOf("id", "user_id", "provider", "sub", "email", "display_name", "transfer_sub", "created_at", "updated_at"),
-        ).use { out ->
-            socialRows.forEach { (externalId, credential) ->
-                val now = Instant.now().toSqlTimestamp()
-                out.add(
-                    socialIds.next(),
-                    context.userIds[externalId],
-                    credential.provider.name,
-                    credential.sub,
-                    credential.email,
-                    credential.displayName,
-                    credential.transferSub,
-                    now,
-                    now,
-                )
-            }
-        }
-        log.info("사용자 이관: {}건 (소셜 로그인 {}건)", context.userIds.size, socialRows.size)
+        log.info("사용자 이관: {}건 (소셜 로그인 {}건)", context.userIds.size, socialIds.peek() - 1)
     }
 
     private val SocialCredential.subKey: String get() = "$provider|$sub"
@@ -184,6 +175,8 @@ class UserStep(
 
     companion object {
         private const val TAG_DELIMITER = "#"
+        private val SOCIAL_COLUMNS =
+            listOf("id", "user_id", "provider", "sub", "email", "display_name", "transfer_sub", "created_at", "updated_at")
         val SOCIAL_KEYS = listOf("fbId", "appleSub", "googleSub", "kakaoSub")
         private val CREDENTIAL_KEYS = listOf("localId") + SOCIAL_KEYS
         private val COLUMNS =
