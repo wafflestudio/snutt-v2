@@ -192,7 +192,7 @@ class TimetableLectureReminderService(
         val offsetMinutes = option.offsetMinutes
 
         if (offsetMinutes == null) {
-            existing?.let { deleteReminder(it) }
+            existing?.let(timetableLectureReminderRepository::delete)
         } else {
             val reminder =
                 existing ?: timetableLectureReminderRepository.save(TimetableLectureReminder(timetableLecture.id!!, offsetMinutes))
@@ -209,7 +209,7 @@ class TimetableLectureReminderService(
     ) {
         val reminder = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId) ?: return
         if (times.isEmpty()) {
-            deleteReminder(reminder)
+            timetableLectureReminderRepository.delete(reminder)
             return
         }
         val notifiedAtBySchedule =
@@ -224,11 +224,6 @@ class TimetableLectureReminderService(
         times: List<ClassPlaceAndTime>,
         offsetMinutes: Int,
     ): List<Schedule> = times.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }.distinct()
-
-    private fun deleteReminder(reminder: TimetableLectureReminder) {
-        timetableLectureReminderScheduleRepository.deleteByReminderId(reminder.id!!)
-        timetableLectureReminderRepository.delete(reminder)
-    }
 
     private fun replaceSchedules(
         reminderId: Long,
