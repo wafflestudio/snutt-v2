@@ -52,7 +52,7 @@ class LectureStep(
                         context.lectureIds[externalId] = id
                         context.lectureSemesters += doc.requireInt("year") to doc.requireInt("semester")
 
-                        val instructor = context.intern(doc.str("instructor").nullIfBlank())
+                        val instructor = doc.str("instructor").nullIfBlank()
                         val courseId =
                             context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
                         val createdAt = doc.instant("created_at").orNow()
@@ -67,17 +67,17 @@ class LectureStep(
                             doc.requireStr("lecture_number"),
                             doc.requireStr("course_title"),
                             instructor,
-                            context.intern(doc.str("department").nullIfBlank()),
-                            context.intern(doc.str("academic_year").nullIfBlank()),
-                            context.intern(doc.str("category").nullIfBlank()),
-                            context.intern(doc.str("categoryPre2025").nullIfBlank()),
-                            context.intern(doc.str("classification").nullIfBlank()),
+                            doc.str("department").nullIfBlank(),
+                            doc.str("academic_year").nullIfBlank(),
+                            doc.str("category").nullIfBlank(),
+                            doc.str("categoryPre2025").nullIfBlank(),
+                            doc.str("classification").nullIfBlank(),
                             doc.str("course_title_en").nullIfBlank(),
                             doc.str("instructor_en").nullIfBlank(),
-                            context.intern(doc.str("department_en").nullIfBlank()),
-                            context.intern(academicYearEn(doc.str("academic_year_en"))),
-                            context.intern(doc.str("category_en").nullIfBlank()),
-                            context.intern(doc.str("classification_en").nullIfBlank()),
+                            doc.str("department_en").nullIfBlank(),
+                            academicYearEn(doc.str("academic_year_en")),
+                            doc.str("category_en").nullIfBlank(),
+                            doc.str("classification_en").nullIfBlank(),
                             doc.str("remark_en").nullIfBlank(),
                             doc.requireInt("credit"),
                             doc.requireInt("quota"),
