@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.common.util.SugangSnuUrlUtils
 import com.wafflestudio.snutt.core.domain.building.model.GeoCoordinate
 import com.wafflestudio.snutt.core.domain.building.model.LectureBuilding
@@ -16,7 +17,6 @@ import com.wafflestudio.snutt.core.domain.building.model.PlaceInfo
 import com.wafflestudio.snutt.core.domain.building.service.LectureBuildingService
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
-import com.wafflestudio.snutt.core.domain.coursebook.service.SemesterService
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
@@ -225,21 +225,11 @@ data class LegacyYearAndSemesterDto(
 
 @RestController
 @RequestMapping("/v1/semesters")
-class V1CompatSemesterController(
-    private val semesterService: SemesterService,
-) {
+class V1CompatSemesterController {
     @GetMapping("/status")
-    fun getSemesterStatus(): LegacySemesterStatusResponse {
-        val now = Instant.now()
-        return LegacySemesterStatusResponse(
-            current =
-                semesterService.getCurrentYearAndSemester(now)?.let {
-                    LegacyYearAndSemesterDto(year = it.year, semester = it.semester)
-                },
-            next =
-                semesterService.getNextYearAndSemester(now).let {
-                    LegacyYearAndSemesterDto(year = it.year, semester = it.semester)
-                },
+    fun getSemesterStatus(): LegacySemesterStatusResponse =
+        LegacySemesterStatusResponse(
+            current = SemesterCalendar.current()?.let { LegacyYearAndSemesterDto(year = it.year, semester = it.semester) },
+            next = SemesterCalendar.next().let { LegacyYearAndSemesterDto(year = it.year, semester = it.semester) },
         )
-    }
 }

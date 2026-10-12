@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.batch.BatchJob
-import com.wafflestudio.snutt.batch.YearSemesterArgs
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
@@ -34,10 +34,10 @@ class SugangSnuSyncJob(
 
     override val name = "sugangSnuSync"
 
-    override fun run(args: YearSemesterArgs) {
-        if (args.year != null && args.semester != null) {
-            syncSemester(args.year, args.semester)
-            coursebookRepository.touchUpdatedAt(args.year, args.semester, Instant.now())
+    override fun run(target: YearAndSemester?) {
+        if (target != null) {
+            syncSemester(target.year, target.semester)
+            coursebookRepository.touchUpdatedAt(target.year, target.semester, Instant.now())
             return
         }
         val condition = sugangSnuLectureApi.getCoursebookCondition()

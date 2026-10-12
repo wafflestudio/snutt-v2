@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.batch.vacancy
 
 import com.wafflestudio.snutt.batch.BatchJob
-import com.wafflestudio.snutt.batch.YearSemesterArgs
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
@@ -40,9 +40,9 @@ class VacancyNotificationJob(
 
     override val name = "vacancyNotification"
 
-    override fun run(args: YearSemesterArgs) {
-        val coursebook = coursebookService.getLatestCoursebook()
-        runOnce(args.year ?: coursebook.year, args.semester ?: coursebook.semester)
+    override fun run(target: YearAndSemester?) {
+        val (year, semester) = target ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
+        runOnce(year, semester)
     }
 
     private fun runOnce(

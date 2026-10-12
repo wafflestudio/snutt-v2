@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.v1compat.ev
 
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import jakarta.persistence.Entity
 import jakarta.persistence.Id
 import org.springframework.data.jpa.repository.JpaRepository

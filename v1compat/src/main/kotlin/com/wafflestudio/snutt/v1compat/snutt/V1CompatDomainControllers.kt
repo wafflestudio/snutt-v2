@@ -301,7 +301,7 @@ class V1CompatFriendController(
         val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
         return timetableService
             .getCoursebooksWithPrimaryTable(partnerId)
-            .map { LegacyFriendCoursebookDto(year = it.first, semester = it.second.value) }
+            .map { LegacyFriendCoursebookDto(year = it.year, semester = it.semester.value) }
     }
 
     private fun acceptedFriend(

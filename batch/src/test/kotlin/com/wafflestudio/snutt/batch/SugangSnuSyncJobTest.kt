@@ -87,7 +87,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             .getCoursebookCondition()
     }
 
-    private fun runJob() = sugangSnuSyncJob.run(YearSemesterArgs(null, null))
+    private fun runJob() = sugangSnuSyncJob.run(null)
 
     @Autowired
     lateinit var sugangSnuXlsxParser: SugangSnuXlsxParser

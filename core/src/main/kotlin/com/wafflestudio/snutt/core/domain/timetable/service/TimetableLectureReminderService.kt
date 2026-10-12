@@ -3,7 +3,7 @@ package com.wafflestudio.snutt.core.domain.timetable.service
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.util.SemesterCalendar
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
@@ -75,7 +75,7 @@ class TimetableLectureReminderService(
     @Transactional
     fun processDueReminders(
         now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
+        current: YearAndSemester,
     ): List<DueReminderPush> {
         val lastNotifiedBefore = now.toInstant().minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
         return dueWindows(now).flatMap { window -> processWindow(window, now, current, lastNotifiedBefore) }
@@ -84,7 +84,7 @@ class TimetableLectureReminderService(
     private fun processWindow(
         window: DueWindow,
         now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
+        current: YearAndSemester,
         lastNotifiedBefore: Instant,
     ): List<DueReminderPush> {
         val reminderIds =
@@ -140,7 +140,7 @@ class TimetableLectureReminderService(
         }
     }
 
-    fun deletePastSemesterReminders(current: SemesterCalendar.YearSemester) {
+    fun deletePastSemesterReminders(current: YearAndSemester) {
         val deleted = timetableLectureReminderRepository.deleteByPastSemesters(current.year, current.semester.value)
         if (deleted > 0) log.info("과거 학기 리마인더 정리: {}건", deleted)
     }

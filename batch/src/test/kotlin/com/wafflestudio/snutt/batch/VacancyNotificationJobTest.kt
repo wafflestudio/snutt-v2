@@ -147,7 +147,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)))
 
-        vacancyNotificationJob.run(YearSemesterArgs(null, null))
+        vacancyNotificationJob.run(null)
 
         val sent = sentMessages().single()
         assertEquals("fcm-token-1", sent.fcmRegistrationId)
@@ -190,7 +190,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("400.301", "001", registrationCount = 23, wasFull = true)))
 
-        vacancyNotificationJob.run(YearSemesterArgs(null, null))
+        vacancyNotificationJob.run(null)
 
         verify(pushClient, never()).sendMessages(any())
         assertEquals(0, notificationRepository.findAll().size)
@@ -238,7 +238,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
         whenever(crawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)))
 
-        vacancyNotificationJob.run(YearSemesterArgs(null, null))
+        vacancyNotificationJob.run(null)
 
         verify(pushClient, never()).sendMessages(any())
         assertEquals(1, notificationRepository.findAll().size)

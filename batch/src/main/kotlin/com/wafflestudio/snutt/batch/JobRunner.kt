@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.batch
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationArguments
@@ -33,6 +34,6 @@ class JobRunner(
         val year = args.getOptionValues("year")?.single()?.toInt()
         val semester = args.getOptionValues("semester")?.single()?.let { Semester.fromValue(it.toInt()) }
         require((year == null) == (semester == null)) { "year와 semester는 함께 지정해야 한다" }
-        job.run(YearSemesterArgs(year, semester))
+        job.run(if (year != null && semester != null) YearAndSemester(year, semester) else null)
     }
 }

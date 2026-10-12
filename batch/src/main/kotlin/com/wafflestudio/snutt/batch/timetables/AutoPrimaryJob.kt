@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.batch.timetables
 
 import com.wafflestudio.snutt.batch.BatchJob
-import com.wafflestudio.snutt.batch.YearSemesterArgs
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
@@ -19,10 +19,8 @@ class AutoPrimaryJob(
     override val name = "primaryTimetableAutoSet"
 
     @Transactional
-    override fun run(args: YearSemesterArgs) {
-        val coursebook = coursebookService.getLatestCoursebook()
-        val year = args.year ?: coursebook.year
-        val semester = args.semester ?: coursebook.semester
+    override fun run(target: YearAndSemester?) {
+        val (year, semester) = target ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
         val userIdsWithPrimary =
             timetableRepository.findByYearAndSemesterAndIsPrimaryTrue(year, semester).map { it.userId }.toSet()
         val assigned =

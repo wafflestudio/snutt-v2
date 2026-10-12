@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.v2.friend
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
+import com.wafflestudio.snutt.api.v2.coursebook.YearAndSemesterResponse
+import com.wafflestudio.snutt.api.v2.coursebook.toResponse
 import com.wafflestudio.snutt.api.v2.timetable.TimetableResponse
 import com.wafflestudio.snutt.api.v2.timetable.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
@@ -50,11 +52,6 @@ data class UpdateFriendDisplayNameRequest(
 
 data class FriendRequestLinkResponse(
     val requestToken: String,
-)
-
-data class FriendCoursebookResponse(
-    val year: Int,
-    val semester: Semester,
 )
 
 private fun FriendResponse(
@@ -159,11 +156,11 @@ class FriendController(
     fun getCoursebooks(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
-    ): List<FriendCoursebookResponse> {
+    ): List<YearAndSemesterResponse> {
         val friend = getAcceptedFriend(userId, friendId)
         return timetableService
             .getCoursebooksWithPrimaryTable(friend.getPartnerUserId(userId))
-            .map { FriendCoursebookResponse(year = it.first, semester = it.second) }
+            .map { it.toResponse() }
     }
 
     private fun getAcceptedFriend(

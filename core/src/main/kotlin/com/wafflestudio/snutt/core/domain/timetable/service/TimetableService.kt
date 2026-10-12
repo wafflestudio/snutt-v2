@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.timetable.service
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.util.CopyTitle
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
@@ -216,12 +217,12 @@ class TimetableService(
         timetableRepository.findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, year, semester)
             ?: throw SnuttException(ErrorType.PRIMARY_TIMETABLE_NOT_FOUND)
 
-    fun getCoursebooksWithPrimaryTable(userId: Long): List<Pair<Int, Semester>> =
+    fun getCoursebooksWithPrimaryTable(userId: Long): List<YearAndSemester> =
         timetableRepository
             .findByUserIdAndIsPrimaryTrue(userId)
-            .map { it.year to it.semester }
+            .map { YearAndSemester(it.year, it.semester) }
             .distinct()
-            .sortedWith(compareByDescending<Pair<Int, Semester>> { it.first }.thenByDescending { it.second.value })
+            .sortedWith(compareByDescending<YearAndSemester> { it.year }.thenByDescending { it.semester.value })
 
     @EventListener
     @Transactional
