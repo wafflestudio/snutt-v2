@@ -51,10 +51,11 @@ class UserDataStep(
 
     private fun migrateBookmarks() {
         val ids = IdSequence()
+        val bookmarked = HashSet<Pair<Long, Long>>()
         var lectureCount = 0L
         writer(
             "bookmark_lecture",
-            listOf("id", "user_id", "year", "semester", "lecture_id", "created_at", "updated_at"),
+            listOf("id", "user_id", "lecture_id", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("bookmarks") { doc ->
                 val lectureRefs = doc.docs("lectures").map { it.id() }.distinct()
@@ -65,11 +66,11 @@ class UserDataStep(
                 }
                 val lectureIds = lectureRefs.mapNotNull(context.lectureIds::get)
                 context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING, lectureRefs.size - lectureIds.size)
-                val distinctLectureIds = lectureIds.distinct()
-                context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED, lectureIds.size - distinctLectureIds.size)
+                val newLectureIds = lectureIds.filter { bookmarked.add(userId to it) }
+                context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED, lectureIds.size - newLectureIds.size)
                 val now = Instant.now().toSqlTimestamp()
-                distinctLectureIds.forEach { lectureId ->
-                    out.add(ids.next(), userId, doc.requireInt("year"), doc.requireInt("semester"), lectureId, now, now)
+                newLectureIds.forEach { lectureId ->
+                    out.add(ids.next(), userId, lectureId, now, now)
                     lectureCount++
                 }
             }
