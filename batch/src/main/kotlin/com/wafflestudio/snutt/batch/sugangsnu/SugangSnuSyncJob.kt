@@ -81,21 +81,12 @@ class SugangSnuSyncJob(
         year: Int,
         semester: Semester,
     ) {
-        val englishByKey = sugangSnuXlsxParser.parseEnglish(sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"))
         val rows =
             sugangSnuXlsxParser
-                .parse(sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"))
-                .map { row ->
-                    val en = englishByKey[row.courseNumber to row.lectureNumber]
-                    row.copy(
-                        courseTitleEn = en?.courseTitleEn,
-                        instructorEn = en?.instructorEn,
-                        departmentEn = en?.departmentEn,
-                        academicYearEn = en?.academicYearEn,
-                        classificationEn = en?.classificationEn,
-                        remarkEn = en?.remarkEn,
-                    )
-                }.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
+                .parse(
+                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
+                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
+                ).map { sugangSnuLectureEnricher.enrich(year, semester, it) }
         val result = sugangSnuSyncService.sync(year, semester, rows)
         lectureVocabularyService.evict(year, semester)
         courseVocabularyService.evict()
