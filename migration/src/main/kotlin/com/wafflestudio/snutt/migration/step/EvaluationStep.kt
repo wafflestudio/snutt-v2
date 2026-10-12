@@ -19,50 +19,32 @@ class EvaluationStep(
     override val name = "evaluation"
     override val tables = listOf("evaluation_like", "evaluation_report", "evaluation")
 
-    private class Anchor(
-        val courseId: Long,
-        val year: Int,
-        val semester: Int,
-    )
-
     override fun run() {
-        migrateEvaluations(loadAnchors())
+        migrateEvaluations()
         migrateLikes()
         migrateReports()
     }
 
-    private fun loadAnchors(): Map<Long, Anchor> {
-        val anchors = HashMap<Long, Anchor>(256_000)
-        ev.jdbc.query("SELECT id, lecture_id, year, semester FROM semester_lecture") { rs ->
-            anchors[rs.getLong("id")] =
-                Anchor(
-                    courseId = rs.getLong("lecture_id"),
-                    year = rs.getInt("year"),
-                    semester = rs.getInt("semester"),
-                )
-        }
-        return anchors
-    }
-
-    private fun migrateEvaluations(anchors: Map<Long, Anchor>) {
+    private fun migrateEvaluations() {
         val count =
             writer("evaluation", COLUMNS).use { out ->
                 ev.jdbc.query(
-                    "SELECT id, semester_lecture_id, user_id, content, grade_satisfaction, teaching_skill, gains, " +
-                        "life_balance, rating, like_count, is_hidden, is_reported, from_snuev, created_at, updated_at " +
-                        "FROM lecture_evaluation ORDER BY id",
+                    "SELECT le.id, le.user_id, le.content, le.grade_satisfaction, le.teaching_skill, le.gains, " +
+                        "le.life_balance, le.rating, le.like_count, le.is_hidden, le.is_reported, le.from_snuev, " +
+                        "le.created_at, le.updated_at, sl.lecture_id, sl.year, sl.semester " +
+                        "FROM lecture_evaluation le JOIN semester_lecture sl ON sl.id = le.semester_lecture_id ORDER BY le.id",
                 ) { rs ->
                     val id = rs.getLong("id")
-                    val anchor = anchors.getValue(rs.getLong("semester_lecture_id"))
-                    val courseId = context.courseIdRemap[anchor.courseId] ?: anchor.courseId
+                    val evLectureId = rs.getLong("lecture_id")
+                    val courseId = context.courseIdRemap[evLectureId] ?: evLectureId
                     val userId = context.userIds[rs.getString("user_id")]
                     val hidden = rs.getBoolean("is_hidden")
                     out.add(
                         id,
                         courseId,
                         userId,
-                        anchor.year,
-                        anchor.semester,
+                        rs.getInt("year"),
+                        rs.getInt("semester"),
                         rs.getString("content"),
                         rs.getObject("grade_satisfaction") as? Double,
                         rs.getObject("teaching_skill") as? Double,
