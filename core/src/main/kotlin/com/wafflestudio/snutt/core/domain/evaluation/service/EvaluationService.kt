@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
@@ -54,11 +53,6 @@ data class EvaluationDisplay(
     val isLiked: Boolean,
     val isModifiable: Boolean,
     val isReportable: Boolean,
-)
-
-data class CourseEvaluationSummary(
-    val course: Course,
-    val aggregate: CourseAggregate,
 )
 
 @Service
@@ -116,7 +110,7 @@ class EvaluationService(
         year: Int? = null,
         semester: Semester? = null,
     ): CursorPage<EvaluationDisplay> {
-        courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        getCourse(courseId)
         val totalCount = evaluationRepository.countVisible(courseId, year, semester)
         val page =
             evaluationRepository.findOthers(
@@ -135,7 +129,7 @@ class EvaluationService(
         userId: Long,
         courseId: Long,
     ): List<EvaluationDisplay> {
-        courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        getCourse(courseId)
         return evaluationRepository
             .findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(courseId, userId)
             .toDisplays(userId)
@@ -262,10 +256,7 @@ class EvaluationService(
         evaluationRepository.decrementLikeCount(evaluationId)
     }
 
-    fun getEvaluationSummaryOfCourse(courseId: Long): CourseEvaluationSummary {
-        val course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
-        return CourseEvaluationSummary(course, evaluationRepository.findCourseAggregate(courseId))
-    }
+    fun getCourse(courseId: Long): Course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
 
     private fun getLecture(lectureId: Long): Lecture =
         lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)

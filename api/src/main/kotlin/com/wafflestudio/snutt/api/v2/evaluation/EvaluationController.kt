@@ -166,16 +166,15 @@ class EvaluationController(
         @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
     ): CourseEvaluationDetailsResponse {
-        val summary = evaluationService.getEvaluationSummaryOfCourse(courseId)
-        val averages = summary.aggregate.averages
+        val course = evaluationService.getCourse(courseId)
         return CourseEvaluationDetailsResponse(
             courseId = courseId,
-            count = summary.aggregate.evalCount,
-            avgGradeSatisfaction = averages.avgGradeSatisfaction,
-            avgTeachingSkill = averages.avgTeachingSkill,
-            avgGains = averages.avgGains,
-            avgLifeBalance = averages.avgLifeBalance,
-            avgRating = averages.avgRating,
+            count = course.evalCount,
+            avgGradeSatisfaction = course.avgGradeSatisfaction,
+            avgTeachingSkill = course.avgTeachingSkill,
+            avgGains = course.avgGains,
+            avgLifeBalance = course.avgLifeBalance,
+            avgRating = course.avgRating,
         )
     }
 

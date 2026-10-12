@@ -8,7 +8,6 @@ import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpql
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutorImpl
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
-import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationAverages
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -117,38 +116,25 @@ class EvaluationRepositoryImpl(
             }
         }.firstOrNull() ?: 0L
 
-    override fun findCourseAggregate(courseId: Long): CourseAggregate {
-        val row =
-            findAll(offset = null, limit = 1) {
-                jpql {
-                    selectNew<AggregateRow>(
-                        count(path(Evaluation::id)),
-                        avg(path(Evaluation::gradeSatisfaction)),
-                        avg(path(Evaluation::teachingSkill)),
-                        avg(path(Evaluation::gains)),
-                        avg(path(Evaluation::lifeBalance)),
-                        avg(path(Evaluation::rating)),
-                    ).from(entity(Evaluation::class))
-                        .where(
-                            and(
-                                path(Evaluation::courseId).equal(courseId),
-                                path(Evaluation::isHidden).equal(false),
-                            ),
-                        )
-                }
-            }.firstOrNull()
-        return CourseAggregate(
-            evalCount = row?.count ?: 0L,
-            averages =
-                EvaluationAverages(
-                    avgGradeSatisfaction = row?.avgGradeSatisfaction,
-                    avgTeachingSkill = row?.avgTeachingSkill,
-                    avgGains = row?.avgGains,
-                    avgLifeBalance = row?.avgLifeBalance,
-                    avgRating = row?.avgRating,
-                ),
-        )
-    }
+    override fun findCourseAggregate(courseId: Long): CourseAggregate =
+        findAll {
+            jpql {
+                selectNew<CourseAggregate>(
+                    count(path(Evaluation::id)),
+                    avg(path(Evaluation::gradeSatisfaction)),
+                    avg(path(Evaluation::teachingSkill)),
+                    avg(path(Evaluation::gains)),
+                    avg(path(Evaluation::lifeBalance)),
+                    avg(path(Evaluation::rating)),
+                ).from(entity(Evaluation::class))
+                    .where(
+                        and(
+                            path(Evaluation::courseId).equal(courseId),
+                            path(Evaluation::isHidden).equal(false),
+                        ),
+                    )
+            }
+        }.filterNotNull().single()
 
     override fun findEvaluatedCourseSemesters(
         userId: Long,
@@ -265,13 +251,4 @@ class EvaluationRepositoryImpl(
                     path(Course::avgGains).greaterThanOrEqualTo(4.0),
                 )
         }
-
-    private data class AggregateRow(
-        val count: Long,
-        val avgGradeSatisfaction: Double?,
-        val avgTeachingSkill: Double?,
-        val avgGains: Double?,
-        val avgLifeBalance: Double?,
-        val avgRating: Double?,
-    )
 }

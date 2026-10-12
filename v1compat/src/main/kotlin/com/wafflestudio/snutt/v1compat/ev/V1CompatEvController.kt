@@ -159,9 +159,8 @@ class V1CompatEvController(
         @V1CurrentUser user: User,
         @PathVariable lectureId: Long,
     ): LegacyEvLectureSummaryResponse {
-        val summary = evaluationService.getEvaluationSummaryOfCourse(lectureId)
+        val stats = evaluationService.getCourse(lectureId)
         val course = legacyCourseRepository.get(lectureId)
-        val averages = summary.aggregate.averages
         return LegacyEvLectureSummaryResponse(
             id = course.id,
             title = course.title,
@@ -174,11 +173,11 @@ class V1CompatEvController(
             classification = course.classification,
             evaluation =
                 LegacyEvAveragesDto(
-                    avgGradeSatisfaction = averages.avgGradeSatisfaction,
-                    avgTeachingSkill = averages.avgTeachingSkill,
-                    avgGains = averages.avgGains,
-                    avgLifeBalance = averages.avgLifeBalance,
-                    avgRating = averages.avgRating,
+                    avgGradeSatisfaction = stats.avgGradeSatisfaction,
+                    avgTeachingSkill = stats.avgTeachingSkill,
+                    avgGains = stats.avgGains,
+                    avgLifeBalance = stats.avgLifeBalance,
+                    avgRating = stats.avgRating,
                     evaluationCount = course.evalCount,
                 ),
         )
