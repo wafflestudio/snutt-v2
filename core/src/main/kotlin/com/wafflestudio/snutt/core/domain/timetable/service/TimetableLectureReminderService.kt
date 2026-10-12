@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
@@ -54,6 +55,7 @@ class TimetableLectureReminderService(
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
     private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
+    private val lectureRepository: LectureRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -98,7 +100,8 @@ class TimetableLectureReminderService(
                 .findAllById(timetableLecturesById.values.map { it.timetableId })
                 .filter { it.isPrimary && it.year == current.year && it.semester == current.semester }
                 .associateBy { it.id!! }
-        val displaysByTimetableId = timetableService.displaysOf(timetablesById.values.toList())
+        val lecturesById =
+            lectureRepository.findAllById(timetableLecturesById.values.mapNotNull { it.lectureId }).associateBy { it.id!! }
 
         return reminders.mapNotNull { reminder ->
             val timetableLecture = timetableLecturesById[reminder.timetableLectureId] ?: return@mapNotNull null
@@ -110,11 +113,7 @@ class TimetableLectureReminderService(
                 }
             if (dueSchedules.isEmpty()) return@mapNotNull null
             val courseTitle =
-                displaysByTimetableId
-                    .getValue(timetable.id!!)
-                    .lectures
-                    .firstOrNull { it.id == timetableLecture.id }
-                    ?.courseTitle ?: return@mapNotNull null
+                timetableLecture.overrides?.courseTitle ?: lecturesById[timetableLecture.lectureId]?.courseTitle.orEmpty()
             dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
             timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
             DueReminderPush(userId = timetable.userId, body = reminderBody(courseTitle, reminder.offsetMinutes))
