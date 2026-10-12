@@ -30,7 +30,7 @@ data class CourseResponse(
 
 data class CourseEvaluationSummaryResponse(
     val avgRating: Double?,
-    val count: Long,
+    val evalCount: Long,
 )
 
 data class CourseLectureResponse(
@@ -58,7 +58,7 @@ private fun Course.toResponse() =
         title = title,
         instructor = instructor,
         courseNumber = courseNumber,
-        evaluation = CourseEvaluationSummaryResponse(avgRating = avgRating, count = evalCount),
+        evaluation = CourseEvaluationSummaryResponse(avgRating = avgRating, evalCount = evalCount),
     )
 
 @RestController
@@ -69,7 +69,6 @@ class CourseController(
 ) {
     @GetMapping("")
     fun searchCourses(
-        @CurrentUserId userId: Long,
         @RequestParam(required = false, defaultValue = "") query: String,
         @RequestParam(required = false) classification: List<String>?,
         @RequestParam(required = false) department: List<String>?,

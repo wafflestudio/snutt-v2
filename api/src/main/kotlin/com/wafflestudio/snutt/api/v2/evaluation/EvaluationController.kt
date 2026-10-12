@@ -88,19 +88,16 @@ data class EvaluationResponse(
     val lifeBalance: Double?,
     val rating: Double,
     val likeCount: Long,
-    val isHidden: Boolean,
-    val isReported: Boolean,
     val isLiked: Boolean,
     val fromSnuev: Boolean,
     val year: Int,
     val semester: Semester,
     val isModifiable: Boolean,
-    val isReportable: Boolean,
 )
 
 data class CourseEvaluationDetailsResponse(
     val courseId: Long,
-    val count: Long,
+    val evalCount: Long,
     val avgGradeSatisfaction: Double?,
     val avgTeachingSkill: Double?,
     val avgGains: Double?,
@@ -161,13 +158,12 @@ class EvaluationController(
 
     @GetMapping("/v2/courses/{courseId}/evaluation-summary")
     fun getEvaluationSummaryOfCourse(
-        @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
     ): CourseEvaluationDetailsResponse {
         val course = evaluationService.getCourse(courseId)
         return CourseEvaluationDetailsResponse(
             courseId = courseId,
-            count = course.evalCount,
+            evalCount = course.evalCount,
             avgGradeSatisfaction = course.avgGradeSatisfaction,
             avgTeachingSkill = course.avgTeachingSkill,
             avgGains = course.avgGains,
@@ -183,9 +179,7 @@ class EvaluationController(
     ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(userId, cursor).let(evaluationResponseMapper::toResponse)
 
     @GetMapping("/v2/evaluations/tags")
-    fun getEvaluationTags(
-        @CurrentUserId userId: Long,
-    ): List<EvaluationTagResponse> =
+    fun getEvaluationTags(): List<EvaluationTagResponse> =
         EvaluationTag.entries.map { EvaluationTagResponse(key = it.name, title = it.title, description = it.description) }
 
     @GetMapping("/v2/evaluations/tags/{tag}")

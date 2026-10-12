@@ -56,9 +56,8 @@ class OciUploadUriIssuer(
     override fun issue(
         source: StorageSource,
         count: Int,
-    ): List<FileUploadUri> {
-        require(count in 1..MAX_FILE_COUNT) { "업로드 파일 개수는 1..$MAX_FILE_COUNT 이어야 한다" }
-        return (1..count).map {
+    ): List<FileUploadUri> =
+        (1..count).map {
             val key = "${source.path}/${UUID.randomUUID()}.jpg"
             val details =
                 CreatePreauthenticatedRequestDetails
@@ -86,10 +85,8 @@ class OciUploadUriIssuer(
                 fileUri = storageUriResolver.resolve(originUri),
             )
         }
-    }
 
     companion object {
-        private const val MAX_FILE_COUNT = 10
         private val UPLOAD_TTL: Duration = Duration.ofMinutes(10)
     }
 }

@@ -89,11 +89,6 @@ class UserController(
         emailVerificationService.sendVerificationCode(userId, body.email)
     }
 
-    @GetMapping("/me/email/verification")
-    fun getEmailVerification(
-        @CurrentUserId userId: Long,
-    ): EmailVerificationResultResponse = EmailVerificationResultResponse(userService.get(userId).isEmailVerified)
-
     @DeleteMapping("/me/email/verification")
     fun resetEmailVerification(
         @CurrentUserId userId: Long,

@@ -146,9 +146,7 @@ class DiaryController(
     }
 
     @GetMapping("/daily-class-types")
-    fun getDailyClassTypes(
-        @CurrentUserId userId: Long,
-    ): List<DiaryDailyClassTypeResponse> = diaryService.getActiveDailyClassTypes().map { it.toResponse() }
+    fun getDailyClassTypes(): List<DiaryDailyClassTypeResponse> = diaryService.getActiveDailyClassTypes().map { it.toResponse() }
 
     @GetMapping("/me")
     fun getMySubmissions(

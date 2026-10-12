@@ -20,7 +20,6 @@ data class CoursebookResponse(
 
 data class CoursebookOfficialResponse(
     val url: String,
-    val proxyUrl: String?,
 )
 
 private fun Coursebook.toResponse() =
@@ -54,10 +53,6 @@ class CoursebookController(
         @RequestParam lectureNumber: String,
     ): CoursebookOfficialResponse {
         val syllabusPath = SugangSnuUrlUtils.parseSyllabusPath(year, semester, courseNumber, lectureNumber)
-        val proxyUrl = syllabusProxyBaseUrl + syllabusPath
-        return CoursebookOfficialResponse(
-            url = proxyUrl,
-            proxyUrl = proxyUrl,
-        )
+        return CoursebookOfficialResponse(url = syllabusProxyBaseUrl + syllabusPath)
     }
 }

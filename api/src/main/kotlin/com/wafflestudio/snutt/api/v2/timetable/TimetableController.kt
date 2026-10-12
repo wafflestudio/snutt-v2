@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 data class TimetableAddRequest(
@@ -165,14 +164,9 @@ class TimetableController(
     @PostMapping("")
     fun addTimetable(
         @CurrentUserId userId: Long,
-        @RequestParam(required = false) source: Long?,
         @Valid @RequestBody body: TimetableAddRequest,
     ): List<TimetableBriefResponse> {
-        if (source == null) {
-            timetableService.addTimetable(userId, body.year, body.semester, body.title)
-        } else {
-            timetableService.copyTimetable(userId, source)
-        }
+        timetableService.addTimetable(userId, body.year, body.semester, body.title)
         return briefs(userId)
     }
 
