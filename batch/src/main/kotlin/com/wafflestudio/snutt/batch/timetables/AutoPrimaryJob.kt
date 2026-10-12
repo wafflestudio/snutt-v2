@@ -7,7 +7,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
 
 @Component
 class AutoPrimaryJob(
@@ -21,14 +20,13 @@ class AutoPrimaryJob(
     @Transactional
     override fun run(target: YearAndSemester?) {
         val (year, semester) = target ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
-        val userIdsWithPrimary =
-            timetableRepository.findByYearAndSemesterAndIsPrimaryTrue(year, semester).map { it.userId }.toSet()
         val assigned =
             timetableRepository
                 .findByYearAndSemester(year, semester)
-                .filter { it.userId !in userIdsWithPrimary }
                 .groupBy { it.userId }
-                .map { (_, userTimetables) -> userTimetables.maxBy { it.updatedAt ?: Instant.EPOCH } }
+                .values
+                .filter { userTimetables -> userTimetables.none { it.isPrimary } }
+                .map { userTimetables -> userTimetables.maxBy { checkNotNull(it.updatedAt) } }
         assigned.forEach { it.isPrimary = true }
         log.info("대표 시간표 자동 지정: {}명", assigned.size)
     }

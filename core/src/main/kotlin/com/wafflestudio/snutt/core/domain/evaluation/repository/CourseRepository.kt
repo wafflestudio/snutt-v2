@@ -49,10 +49,11 @@ interface CourseRepository :
         value = """
         UPDATE course c
         LEFT JOIN (
-            SELECT course_id, id
+            SELECT course_id, id, course_title
             FROM (
                 SELECT id,
                        course_id,
+                       course_title,
                        ROW_NUMBER() OVER (
                            PARTITION BY course_id
                            ORDER BY year DESC, semester DESC, updated_at DESC, id DESC
@@ -62,15 +63,12 @@ interface CourseRepository :
             ) ranked
             WHERE rn = 1
         ) latest ON latest.course_id = c.id
-        SET c.latest_lecture_id = latest.id
+        SET c.latest_lecture_id = latest.id, c.title = COALESCE(latest.course_title, c.title)
         WHERE c.id IN (:courseIds)
         """,
         nativeQuery = true,
     )
     fun refreshLatestLectures(courseIds: Collection<Long>): Int
-
-    @Query("SELECT l FROM Lecture l JOIN Course c ON c.latestLectureId = l.id WHERE c.id IN :courseIds")
-    fun findLatestLectures(courseIds: Collection<Long>): List<Lecture>
 
     fun search(
         criteria: CourseSearchCriteria,

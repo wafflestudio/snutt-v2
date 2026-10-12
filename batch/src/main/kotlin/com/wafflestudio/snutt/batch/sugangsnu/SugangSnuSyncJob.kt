@@ -87,10 +87,9 @@ class SugangSnuSyncJob(
                     sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
                     sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
                 ).map { sugangSnuLectureEnricher.enrich(year, semester, it) }
-        val result = sugangSnuSyncService.sync(year, semester, rows)
+        sugangSnuSyncService.sync(year, semester, rows)
         lectureVocabularyService.evict(year, semester)
         courseVocabularyService.evict()
-        log.info("sugang sync 완료: {}", result)
     }
 
     private fun nextCoursebook(coursebook: Coursebook): Coursebook =

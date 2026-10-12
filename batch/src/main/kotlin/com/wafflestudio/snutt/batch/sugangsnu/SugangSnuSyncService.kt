@@ -27,12 +27,6 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 
-data class SugangSnuSyncResult(
-    val createdCount: Int,
-    val updatedCount: Int,
-    val deletedCount: Int,
-)
-
 private data class LectureInput(
     val lecture: Lecture,
     val classTimes: List<ClassPlaceAndTime>,
@@ -72,7 +66,7 @@ class SugangSnuSyncService(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
-    ): SugangSnuSyncResult {
+    ) {
         val synced = checkNotNull(transactionTemplate.execute { syncLectures(year, semester, rows) })
 
         pushService.sendTargetedPushes(
@@ -85,10 +79,7 @@ class SugangSnuSyncService(
         val inputs = synced.created + synced.updated.map { it.input }
         lectureBuildingSync.sync(inputs.flatMap { input -> input.classTimes.map { it.place } })
 
-        val result =
-            SugangSnuSyncResult(createdCount = synced.created.size, updatedCount = synced.updated.size, deletedCount = synced.deleted.size)
-        log.info("sugang sync: {}", result)
-        return result
+        log.info("sugang sync: created={}, updated={}, deleted={}", synced.created.size, synced.updated.size, synced.deleted.size)
     }
 
     private fun syncLectures(
@@ -137,10 +128,6 @@ class SugangSnuSyncService(
             (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                 .distinct()
         courseRepository.refreshLatestLectures(affectedCourses)
-        val latest = courseRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
-        courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
-            course.title = latest.getValue(course.id!!).courseTitle
-        }
         return SyncedLectures(created, updated, deleted, timetableChangeCounts)
     }
 
