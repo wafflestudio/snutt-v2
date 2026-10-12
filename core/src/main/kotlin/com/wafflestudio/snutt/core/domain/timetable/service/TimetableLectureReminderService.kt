@@ -18,7 +18,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Duration
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -57,7 +56,6 @@ class TimetableLectureReminderService(
     private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private var lastCleanupAt: Instant? = null
 
     private companion object {
         const val TIME_WINDOW_MINUTES = 10L
@@ -77,7 +75,6 @@ class TimetableLectureReminderService(
         now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
     ): List<DueReminderPush> {
-        cleanupPastSemesterReminders(now, current)
         val lastNotifiedBefore = now.toInstant().minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
         return dueWindows(now).flatMap { window -> processWindow(window, now, current, lastNotifiedBefore) }
     }
@@ -144,15 +141,9 @@ class TimetableLectureReminderService(
         }
     }
 
-    private fun cleanupPastSemesterReminders(
-        now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
-    ) {
-        val last = lastCleanupAt
-        if (last != null && now.toInstant().isBefore(last.plus(Duration.ofHours(1)))) return
+    fun deletePastSemesterReminders(current: SemesterCalendar.YearSemester) {
         val deleted = timetableLectureReminderRepository.deleteByPastSemesters(current.year, current.semester.value)
         if (deleted > 0) log.info("과거 학기 리마인더 정리: {}건", deleted)
-        lastCleanupAt = now.toInstant()
     }
 
     fun getReminder(

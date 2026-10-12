@@ -41,6 +41,14 @@ class ReminderScheduler(
         }
     }
 
+    @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
+    fun deletePastSemesterReminders() {
+        schedulerLock.withLock("reminder-cleanup", Duration.ofMinutes(10)) {
+            val current = SemesterCalendar.current() ?: return@withLock
+            timetableLectureReminderService.deletePastSemesterReminders(current)
+        }
+    }
+
     fun fireDueReminders(
         now: ZonedDateTime,
         current: SemesterCalendar.YearSemester,
