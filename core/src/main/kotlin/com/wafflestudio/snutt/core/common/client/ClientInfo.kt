@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.common.client
 
 data class ClientInfo(
-    val osType: String,
+    val osType: OsType,
     val osVersion: String? = null,
     val appType: String? = null,
     val appVersion: String? = null,

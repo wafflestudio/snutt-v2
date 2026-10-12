@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.v1compat.auth
 
 import com.wafflestudio.snutt.core.common.client.CLIENT_INFO_ATTRIBUTE
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -77,7 +78,13 @@ class V1ApiKeyInterceptor(
     ): Boolean {
         val apiKey = request.getHeader("x-access-apikey")
         if (apiKey == null || !isLegacyApiKey(apiKey)) throw SnuttException(ErrorType.WRONG_API_KEY)
-        request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, osType = request.getHeader("x-os-type") ?: "unknown"))
+        request.setAttribute(
+            CLIENT_INFO_ATTRIBUTE,
+            clientInfoOf(
+                request::getHeader,
+                OsType.from(request.getHeader("x-os-type")) ?: OsType.UNKNOWN,
+            ),
+        )
         return true
     }
 

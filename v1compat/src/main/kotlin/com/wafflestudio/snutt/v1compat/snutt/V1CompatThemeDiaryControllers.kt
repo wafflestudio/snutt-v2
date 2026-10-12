@@ -458,7 +458,7 @@ class V1CompatDiaryController(
     ): List<LegacyDiarySemesterSubmissionsDto> {
         val appVersion = clientInfo.appVersion
         val dateFormatter =
-            if (OsType.from(clientInfo.osType) == OsType.ANDROID &&
+            if (clientInfo.osType == OsType.ANDROID &&
                 appVersion != null &&
                 compareAppVersions(appVersion, ANDROID_LEGACY_DIARY_DATE_MAX_VERSION) <= 0
             ) {

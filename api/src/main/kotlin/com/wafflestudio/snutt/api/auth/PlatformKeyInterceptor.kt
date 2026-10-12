@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.auth
 
 import com.wafflestudio.snutt.core.common.client.CLIENT_INFO_ATTRIBUTE
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.PlatformKeys
 import com.wafflestudio.snutt.core.common.client.clientInfoOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
@@ -25,7 +26,7 @@ class PlatformKeyInterceptor(
         handler: Any,
     ): Boolean {
         val osType =
-            request.getHeader(OS_TYPE_HEADER)?.takeIf { platformKeys.matches(it, request.getHeader(KEY_HEADER)) }
+            OsType.from(request.getHeader(OS_TYPE_HEADER))?.takeIf { platformKeys.matches(it, request.getHeader(KEY_HEADER)) }
                 ?: throw SnuttException(ErrorType.WRONG_API_KEY)
         request.setAttribute(CLIENT_INFO_ATTRIBUTE, clientInfoOf(request::getHeader, osType))
         return true

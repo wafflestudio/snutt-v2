@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
@@ -541,9 +540,8 @@ class V1CompatConfigController(
     fun getConfigs(
         @CurrentClient clientInfo: ClientInfo,
     ): Map<String, JsonNode> {
-        val osType = OsType.from(clientInfo.osType) ?: return emptyMap()
         val appVersion = clientInfo.appVersion ?: return emptyMap()
-        return configService.getConfigs(osType, appVersion)
+        return configService.getConfigs(clientInfo.osType, appVersion)
     }
 }
 
