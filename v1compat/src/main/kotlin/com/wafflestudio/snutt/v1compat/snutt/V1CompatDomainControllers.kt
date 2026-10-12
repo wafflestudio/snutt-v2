@@ -553,9 +553,7 @@ class V1CompatConfigController(
     ): Map<String, JsonNode> {
         val osType = OsType.from(clientInfo.osType) ?: return emptyMap()
         val appVersion = clientInfo.appVersion ?: return emptyMap()
-        return configService
-            .getConfigs(osType, appVersion)
-            .associate { it.name to it.value }
+        return configService.getConfigs(osType, appVersion)
     }
 }
 

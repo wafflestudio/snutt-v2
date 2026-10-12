@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.core.domain.clientconfig.model
 
 import com.wafflestudio.snutt.core.common.client.OsType
-import com.wafflestudio.snutt.core.common.client.compareAppVersions
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -21,12 +20,4 @@ class ClientConfig(
     var maxVersion: String? = null,
     @JdbcTypeCode(SqlTypes.JSON)
     var value: JsonNode,
-) : BaseEntity() {
-    fun isAdaptable(
-        osType: OsType,
-        appVersion: String,
-    ): Boolean =
-        this.osType == osType &&
-            (minVersion == null || compareAppVersions(appVersion, minVersion!!) >= 0) &&
-            (maxVersion == null || compareAppVersions(appVersion, maxVersion!!) <= 0)
-}
+) : BaseEntity()

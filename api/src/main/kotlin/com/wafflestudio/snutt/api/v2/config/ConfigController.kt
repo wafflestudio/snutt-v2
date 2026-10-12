@@ -21,8 +21,6 @@ class ConfigController(
         @CurrentClient clientInfo: ClientInfo,
     ): Map<String, JsonNode> {
         val appVersion = clientInfo.appVersion ?: return emptyMap()
-        return configService
-            .getConfigs(OsType.fromValue(clientInfo.osType), appVersion)
-            .associate { it.name to it.value }
+        return configService.getConfigs(OsType.fromValue(clientInfo.osType), appVersion)
     }
 }
