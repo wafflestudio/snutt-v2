@@ -5,7 +5,6 @@ import com.mongodb.client.model.Projections
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
-import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
@@ -155,7 +154,7 @@ class TimetableStep(
                     }
                     val schedules =
                         doc.docs("schedules").map { schedule ->
-                            Schedule(DayOfWeek.fromValue(schedule.requireInt("day")), schedule.requireInt("minute"))
+                            DayOfWeek.fromValue(schedule.requireInt("day")).value to schedule.requireInt("minute")
                         }
 
                     val now = Instant.now().toSqlTimestamp()
@@ -167,12 +166,12 @@ class TimetableStep(
                         now,
                         now,
                     )
-                    schedules.forEach { schedule ->
+                    schedules.forEach { (day, minute) ->
                         scheduleOut.add(
                             scheduleIds.next(),
                             reminderId,
-                            schedule.day.value,
-                            schedule.minute,
+                            day,
+                            minute,
                             null,
                             now,
                             now,
