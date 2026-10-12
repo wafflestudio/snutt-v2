@@ -186,7 +186,7 @@ class UserDataStep(
     }
 
     private fun migrateFriends() {
-        val winners = LinkedHashMap<String, org.bson.Document>()
+        val winners = LinkedHashMap<String, Document>()
         mongo.each("friend") { doc ->
             val fromUserId = context.userIds[doc.oid("fromUserId")]
             val toUserId = context.userIds[doc.oid("toUserId")]

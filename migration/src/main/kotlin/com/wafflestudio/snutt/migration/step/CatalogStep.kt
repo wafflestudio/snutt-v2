@@ -1,9 +1,9 @@
 package com.wafflestudio.snutt.migration.step
 
 import com.wafflestudio.snutt.core.common.client.OsType
+import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationStep
-import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.dbl
@@ -24,6 +24,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
+import java.time.ZoneId
 
 @Component
 class CatalogStep(
@@ -55,8 +56,7 @@ class CatalogStep(
 
     private fun migrateCoursebooks() {
         val ids =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer("coursebook", listOf("id", "year", "semester", "created_at", "updated_at")).use { out ->
             mongo.each("coursebooks") { doc ->
                 val updatedAt = doc.instant("updated_at").orNow()
@@ -67,8 +67,7 @@ class CatalogStep(
 
     private fun migrateLectureBuildings() {
         val ids =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer(
             "lecture_building",
             listOf(
@@ -108,8 +107,7 @@ class CatalogStep(
 
     private fun migrateRegistrationPeriods() {
         val ids =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer(
             "semester_registration_period",
             listOf("id", "year", "semester", "registration_period_list", "created_at", "updated_at"),
@@ -119,7 +117,7 @@ class CatalogStep(
                 val periods =
                     doc.docs("registrationPeriods").map { period ->
                         mapOf(
-                            "date" to MigrationSupport.toLocalDate(checkNotNull(period.instant("date"))).toString(),
+                            "date" to checkNotNull(period.instant("date")).atZone(KST).toLocalDate().toString(),
                             "vacantSeatRegistrationTimes" to
                                 period.docs("vacantSeatRegistrationTimes").map { slot ->
                                     mapOf("startMinute" to slot.requireInt("startMinute"), "endMinute" to slot.requireInt("endMinute"))
@@ -134,8 +132,7 @@ class CatalogStep(
 
     private fun migrateClientConfigs() {
         val ids =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer(
             "client_config",
             listOf(
@@ -166,8 +163,7 @@ class CatalogStep(
 
     private fun migratePopups() {
         val ids =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer(
             "popup",
             listOf("id", "popup_key", "image_origin_uri", "link_url", "hidden_days", "created_at", "updated_at"),
@@ -188,8 +184,7 @@ class CatalogStep(
 
     private fun migrateDiaryDefinitions() {
         val typeIds =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer("diary_daily_class_type", listOf("id", "name", "active", "created_at", "updated_at")).use { out ->
             mongo.each("diaryDailyClassType") { doc ->
                 val id = typeIds.next()
@@ -200,11 +195,9 @@ class CatalogStep(
         }
 
         val questionIds =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         val targetIds =
-            com.wafflestudio.snutt.migration
-                .IdSequence()
+            IdSequence()
         writer(
             "diary_question",
             listOf(
@@ -255,5 +248,9 @@ class CatalogStep(
             context.diaryClassTypeIds.size,
             context.diaryQuestionIds.size,
         )
+    }
+
+    companion object {
+        private val KST: ZoneId = ZoneId.of("Asia/Seoul")
     }
 }

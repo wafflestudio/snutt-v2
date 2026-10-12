@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component
 import java.sql.PreparedStatement
 import java.sql.Timestamp
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import java.util.Date
 
 @Component
@@ -145,8 +143,6 @@ abstract class MigrationStep(
 }
 
 object MigrationSupport {
-    private val KST: ZoneId = ZoneId.of("Asia/Seoul")
-
     object ResolutionReasons {
         const val TIMETABLE_USER_MISSING = "사용자가 없는 시간표를 제외"
         const val BOOKMARK_USER_MISSING = "사용자가 없는 북마크 항목을 제외"
@@ -228,8 +224,6 @@ object MigrationSupport {
     }
 
     private fun migratedRowFilter(table: String): String = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
-
-    fun toLocalDate(instant: Instant): LocalDate = instant.atZone(KST).toLocalDate()
 }
 
 fun Document.oid(key: String): String? =
@@ -261,10 +255,8 @@ fun Document.bool(key: String): Boolean = get(key) as? Boolean ?: false
 
 fun Document.doc(key: String): Document? = get(key) as? Document
 
-@Suppress("UNCHECKED_CAST")
 fun Document.docs(key: String): List<Document> = (get(key) as? List<*>)?.filterIsInstance<Document>() ?: emptyList()
 
-@Suppress("UNCHECKED_CAST")
 fun Document.strings(key: String): List<String> = (get(key) as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
 
 fun Document.oids(key: String): List<String> =
