@@ -8,8 +8,6 @@ import com.wafflestudio.snutt.api.v2.timetable.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
@@ -132,7 +130,7 @@ class FriendController(
         @RequestParam semester: Semester,
         @CurrentClient clientInfo: ClientInfo,
     ): TimetableResponse {
-        val friend = getAcceptedFriend(userId, friendId)
+        val friend = friendService.getAccepted(userId, friendId)
         val partnerId = friend.getPartnerUserId(userId)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         return timetableService.displayOf(timetable).toResponse(clientInfo.language)
@@ -143,18 +141,9 @@ class FriendController(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
     ): List<YearAndSemesterResponse> {
-        val friend = getAcceptedFriend(userId, friendId)
+        val friend = friendService.getAccepted(userId, friendId)
         return timetableService
             .getCoursebooksWithPrimaryTable(friend.getPartnerUserId(userId))
             .map { it.toResponse() }
-    }
-
-    private fun getAcceptedFriend(
-        userId: Long,
-        friendId: Long,
-    ): Friend {
-        val friend = friendService.get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.isAccepted || !friend.includes(userId)) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        return friend
     }
 }

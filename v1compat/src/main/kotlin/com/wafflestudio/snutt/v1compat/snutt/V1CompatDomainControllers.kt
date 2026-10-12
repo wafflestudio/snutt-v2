@@ -287,7 +287,7 @@ class V1CompatFriendController(
         @RequestParam semester: Semester,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyFriendTimetableDto {
-        val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
+        val partnerId = friendService.getAccepted(user.id!!, friendId).getPartnerUserId(user.id!!)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         val display = timetableService.getTimetableDisplay(partnerId, timetable.id!!)
         return display.toLegacyFriendTimetable(partnerId, clientInfo.language)
@@ -298,19 +298,10 @@ class V1CompatFriendController(
         @V1CurrentUser user: User,
         @PathVariable friendId: Long,
     ): List<LegacyFriendCoursebookDto> {
-        val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
+        val partnerId = friendService.getAccepted(user.id!!, friendId).getPartnerUserId(user.id!!)
         return timetableService
             .getCoursebooksWithPrimaryTable(partnerId)
             .map { LegacyFriendCoursebookDto(year = it.year, semester = it.semester.value) }
-    }
-
-    private fun acceptedFriend(
-        userId: Long,
-        friendId: Long,
-    ): Friend {
-        val friend = friendService.get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.isAccepted || !friend.includes(userId)) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        return friend
     }
 }
 

@@ -82,8 +82,7 @@ class FriendService(
         friendId: Long,
         toUserId: Long,
     ): Pair<Friend, User> {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = getRequestedTo(toUserId, friendId)
         friend.isAccepted = true
         val toUser = userRepository.findByIdAndActiveTrue(toUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val fromUser = userRepository.findByIdAndActiveTrue(friend.fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
@@ -100,8 +99,7 @@ class FriendService(
         friendId: Long,
         toUserId: Long,
     ) {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = getRequestedTo(toUserId, friendId)
         friendRepository.delete(friend)
     }
 
@@ -110,8 +108,7 @@ class FriendService(
         friendId: Long,
         userId: Long,
     ) {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = getAccepted(userId, friendId)
         friendRepository.delete(friend)
     }
 
@@ -121,8 +118,7 @@ class FriendService(
         friendId: Long,
         displayName: String,
     ): Pair<Friend, User> {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = getAccepted(userId, friendId)
         val valid = displayName.length <= DISPLAY_NAME_MAX_LENGTH && displayName.matches(friendDisplayNameRegex)
         if (!valid) throw SnuttException(ErrorType.INVALID_DISPLAY_NAME)
         friend.updatePartnerDisplayName(userId, displayName)
@@ -131,7 +127,19 @@ class FriendService(
         return friend to partner
     }
 
-    fun get(friendId: Long): Friend? = friendRepository.findByIdOrNull(friendId)
+    fun getAccepted(
+        userId: Long,
+        friendId: Long,
+    ): Friend =
+        friendRepository.findByIdOrNull(friendId)?.takeIf { it.isAccepted && it.includes(userId) }
+            ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+
+    private fun getRequestedTo(
+        toUserId: Long,
+        friendId: Long,
+    ): Friend =
+        friendRepository.findByIdOrNull(friendId)?.takeIf { !it.isAccepted && it.toUserId == toUserId }
+            ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
 
     fun generateFriendRequestLink(userId: Long): String = friendLinkTokenProvider.issue(userId)
 
