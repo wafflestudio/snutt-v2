@@ -146,8 +146,8 @@ class ThemeStep(
                         downloads.add(
                             source.id,
                             source.userId,
-                            null,
-                            null,
+                            publication.name,
+                            jsonMapper.writeValueAsString(publication.palette),
                             publication.id,
                             d.instant("createdAt").orNow().toSqlTimestamp(),
                             d.instant("updatedAt").orNow().toSqlTimestamp(),

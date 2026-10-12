@@ -121,7 +121,7 @@ class TimetableThemeService(
         }
         val timetables = timetableRepository.findForUpdateByUserIdAndThemeId(userId, themeId)
         timetables.forEach { it.themeId = fallbackId }
-        val paletteSize = checkNotNull(fallback.colors).size
+        val paletteSize = fallback.colors.size
         timetableLectureRepository.findForUpdateByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
             if (lecture.paletteIndex >= paletteSize) lecture.paletteIndex %= paletteSize
         }
@@ -176,7 +176,7 @@ class TimetableThemeService(
         validateName(name)
         val publication =
             publishedThemeRepository.save(
-                PublishedTheme(userId, themeId, name, checkNotNull(source.colors).toList(), authorAnonymous),
+                PublishedTheme(userId, themeId, name, source.colors.toList(), authorAnonymous),
             )
         return publicationDisplays(listOf(publication)).single()
     }
@@ -192,7 +192,9 @@ class TimetableThemeService(
                 ?.takeIf { it.listed } ?: throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
         val theme =
             conflictAs(ErrorType.ALREADY_DOWNLOADED_THEME) {
-                timetableThemeRepository.saveAndFlush(TimetableTheme(userId, publicationId = publicationId))
+                timetableThemeRepository.saveAndFlush(
+                    TimetableTheme(userId, name = publication.name, colors = publication.colors, publicationId = publicationId),
+                )
             }
         publishedThemeRepository.incrementDownloadCount(publication.id!!)
         return displays(listOf(theme)).getValue(theme.id!!)
@@ -262,23 +264,20 @@ class TimetableThemeService(
     private fun displays(
         themes: List<TimetableTheme>,
         defaultId: Long? = null,
-    ): Map<Long, TimetableThemeDisplay> {
-        val publications = publishedThemeRepository.findAllById(themes.mapNotNull { it.publicationId }.distinct()).associateBy { it.id!! }
-        return themes.associate { theme ->
-            val publication = theme.publicationId?.let(publications::getValue)
+    ): Map<Long, TimetableThemeDisplay> =
+        themes.associate { theme ->
             theme.id!! to
                 TimetableThemeDisplay(
                     id = theme.id!!,
                     userId = theme.userId,
-                    name = if (publication != null) publication.name else checkNotNull(theme.name),
-                    colors = if (publication != null) publication.colors else checkNotNull(theme.colors),
+                    name = theme.name,
+                    colors = theme.colors,
                     kind = theme.kind,
                     builtinCode = theme.builtinCode,
                     publicationId = theme.publicationId,
                     isDefault = theme.id == defaultId,
                 )
         }
-    }
 
     private fun publicationDisplays(publications: List<PublishedTheme>): List<ThemePublicationDisplay> {
         val authors = userRepository.findAllById(publications.mapNotNull { it.authorId }.distinct()).associateBy { it.id!! }

@@ -15,9 +15,9 @@ enum class ThemeKind {
 class TimetableTheme(
     val userId: Long?,
     val builtinCode: String? = null,
-    var name: String? = null,
+    var name: String,
     @JdbcTypeCode(SqlTypes.JSON)
-    var colors: List<ColorSet>? = null,
+    var colors: List<ColorSet>,
     val publicationId: Long? = null,
 ) : BaseEntity() {
     val kind: ThemeKind
