@@ -231,9 +231,6 @@ class EvaluationService(
         return evaluationReportRepository.save(EvaluationReport(evaluationId = evaluationId, userId = userId, content = request.content))
     }
 
-    fun getCourses(courseIds: Collection<Long>): Map<Long, Course> =
-        courseRepository.findAllById(courseIds.distinct()).associateBy { it.id!! }
-
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun likeEvaluation(
         userId: Long,

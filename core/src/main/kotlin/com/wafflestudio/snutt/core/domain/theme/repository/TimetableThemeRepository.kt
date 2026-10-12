@@ -12,8 +12,6 @@ interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
 
     fun findByBuiltinCodeIsNotNullOrderById(): List<TimetableTheme>
 
-    fun findByUserIdOrderByUpdatedAtDesc(userId: Long): List<TimetableTheme>
-
     fun findByIdAndUserId(
         id: Long,
         userId: Long,
