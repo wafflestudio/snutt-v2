@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.migration.step
 
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
@@ -43,7 +44,7 @@ class NotificationStep(
                     userId,
                     doc.requireStr("title"),
                     doc.requireStr("message"),
-                    TYPE_NAMES.getValue(doc.requireInt("type")),
+                    NotificationType.fromValue(doc.requireInt("type")).name,
                     rewriteDeeplink(doc.str("deeplink") ?: doc.str("urlScheme")),
                     createdAt,
                     createdAt,
@@ -90,16 +91,5 @@ class NotificationStep(
         private val OBJECT_ID = Regex("[0-9a-fA-F]{24}")
         private val TIMETABLE_ID = Regex("timetableId=([0-9a-fA-F]{24})")
         private val LECTURE_ID = Regex("lectureId=([0-9a-fA-F]{24})")
-        private val TYPE_NAMES =
-            mapOf(
-                0 to "NORMAL",
-                1 to "COURSEBOOK",
-                2 to "LECTURE_UPDATE",
-                3 to "LECTURE_REMOVE",
-                4 to "LECTURE_VACANCY",
-                5 to "FRIEND",
-                6 to "FEATURE_NEW",
-                7 to "DIARY",
-            )
     }
 }
