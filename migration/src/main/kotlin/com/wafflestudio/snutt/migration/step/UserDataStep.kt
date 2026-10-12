@@ -105,18 +105,15 @@ class UserDataStep(
     }
 
     private fun migrateUserDevices() {
-        val devices = mutableListOf<Document>()
-        mongo.each("userDevice", devices::add)
-        val activeOwnerByRegistrationId =
-            devices.indices
-                .filter { index ->
-                    val doc = devices[index]
-                    val userId = context.userIds[doc.oid("userId")]
-                    userId != null && userId !in context.inactiveUserIds && !doc.bool("isDeleted")
-                }.groupBy { devices[it].requireStr("fcmRegistrationId") }
-                .mapValues { (_, indexes) ->
-                    indexes.maxWith(compareBy<Int> { devices[it].instant("updatedAt") ?: Instant.EPOCH }.thenBy { it })
-                }
+        val activeOwner = HashMap<String, Pair<Instant, String>>()
+        mongo.each("userDevice") { doc ->
+            val userId = context.userIds[doc.oid("userId")]
+            if (userId == null || userId in context.inactiveUserIds || doc.bool("isDeleted")) return@each
+            val registrationId = doc.requireStr("fcmRegistrationId")
+            val updatedAt = doc.instant("updatedAt") ?: Instant.EPOCH
+            val owner = activeOwner[registrationId]
+            if (owner == null || updatedAt >= owner.first) activeOwner[registrationId] = updatedAt to doc.id()
+        }
 
         val ids = IdSequence()
         writer(
@@ -136,16 +133,16 @@ class UserDataStep(
                 "updated_at",
             ),
         ).use { out ->
-            devices.forEachIndexed { index, doc ->
+            mongo.each("userDevice") { doc ->
                 val userId = context.userIds[doc.oid("userId")]
                 if (userId == null) {
                     context.resolved(MigrationSupport.ResolutionReasons.DEVICE_USER_MISSING)
-                    return@forEachIndexed
+                    return@each
                 }
                 val registrationId = doc.requireStr("fcmRegistrationId")
                 val inactiveUser = !doc.bool("isDeleted") && userId in context.inactiveUserIds
                 val duplicateActiveRegistrationId =
-                    !doc.bool("isDeleted") && !inactiveUser && activeOwnerByRegistrationId[registrationId] != index
+                    !doc.bool("isDeleted") && !inactiveUser && activeOwner.getValue(registrationId).second != doc.id()
                 val missingRegistrationId = !doc.bool("isDeleted") && registrationId.isBlank()
                 if (inactiveUser) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_USER_INACTIVE)
                 if (duplicateActiveRegistrationId) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_REGISTRATION_DUPLICATE)
