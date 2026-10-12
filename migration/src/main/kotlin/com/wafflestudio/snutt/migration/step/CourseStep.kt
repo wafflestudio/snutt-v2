@@ -26,12 +26,6 @@ class CourseStep(
     override fun run() {
         val fromEv = migrateEvLectures()
         val minted = mintMissingCourses(fromEv)
-        alignAutoIncrement(
-            "course",
-            context.courseIds.values
-                .maxOrNull()
-                ?.plus(1) ?: 1L,
-        )
         log.info("course 이관: 구 ev {}건 + 신규 {}건 = {}건", fromEv, minted, context.courseIds.size)
     }
 

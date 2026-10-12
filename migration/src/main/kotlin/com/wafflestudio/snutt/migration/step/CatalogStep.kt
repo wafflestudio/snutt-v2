@@ -64,7 +64,6 @@ class CatalogStep(
                 out.add(ids.next(), doc.int("year"), doc.int("semester"), updatedAt.toSqlTimestamp(), updatedAt.toSqlTimestamp())
             }
         }
-        alignAutoIncrement("coursebook", ids.peek())
     }
 
     private fun migrateLectureBuildings() {
@@ -100,7 +99,6 @@ class CatalogStep(
                 )
             }
         }
-        alignAutoIncrement("lecture_building", ids.peek())
     }
 
     private fun Document.toGeoJson(): String? {
@@ -133,7 +131,6 @@ class CatalogStep(
                 out.add(ids.next(), doc.requireInt("year"), doc.requireInt("semester"), jsonMapper.writeValueAsString(periods), now, now)
             }
         }
-        alignAutoIncrement("semester_registration_period", ids.peek())
     }
 
     private fun migrateClientConfigs() {
@@ -166,7 +163,6 @@ class CatalogStep(
                 }
             }
         }
-        alignAutoIncrement("client_config", ids.peek())
     }
 
     private fun migratePopups() {
@@ -189,7 +185,6 @@ class CatalogStep(
                 )
             }
         }
-        alignAutoIncrement("popup", ids.peek())
     }
 
     private fun migrateDiaryDefinitions() {
@@ -204,7 +199,6 @@ class CatalogStep(
                 out.add(id, doc.requireStr("name"), doc.bool("active"), now, now)
             }
         }
-        alignAutoIncrement("diary_daily_class_type", typeIds.peek())
 
         val questionIds =
             com.wafflestudio.snutt.migration
@@ -257,8 +251,6 @@ class CatalogStep(
                 }
             }
         }
-        alignAutoIncrement("diary_question", questionIds.peek())
-        alignAutoIncrement("diary_question_target", targetIds.peek())
         log.info(
             "카탈로그 이관: 일기장 종류 {}건, 질문 {}건",
             context.diaryClassTypeIds.size,

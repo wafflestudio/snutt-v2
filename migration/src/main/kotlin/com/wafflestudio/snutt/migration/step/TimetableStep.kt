@@ -97,8 +97,6 @@ class TimetableStep(
                 }
             }
         }
-        alignAutoIncrement("timetable", timetableIds.peek())
-        alignAutoIncrement("timetable_lecture", lectureIds.peek())
         log.info("시간표 이관: {}건 (제외 {}건), 시간표 강의 {}건", timetableIds.peek() - 1, skipped, lectureCount)
         migrateReminders()
     }
@@ -192,8 +190,6 @@ class TimetableStep(
                 }
             }
         }
-        alignAutoIncrement("timetable_lecture_reminder", ids.peek())
-        alignAutoIncrement("timetable_lecture_reminder_schedule", scheduleIds.peek())
         log.info("리마인더 이관: {}건(스케줄 {}건)", count, scheduleCount)
     }
 

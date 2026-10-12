@@ -98,7 +98,6 @@ class UserStep(
                 )
             }
         }
-        alignAutoIncrement("user", ids.peek())
 
         writer(
             "user_social_auth",
@@ -119,7 +118,6 @@ class UserStep(
                 )
             }
         }
-        alignAutoIncrement("user_social_auth", socialIds.peek())
         log.info("사용자 이관: {}건 (소셜 로그인 {}건)", context.userIds.size, socialRows.size)
     }
 

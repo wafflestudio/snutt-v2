@@ -167,8 +167,6 @@ class ThemeStep(
         writer("user_preference", listOf("user_id", "default_theme_id")).use { out ->
             defaults.values.forEach { out.add(it.userId, context.themeIds.getValue(it.document.id())) }
         }
-        alignAutoIncrement("timetable_theme", ids.peek())
-        alignAutoIncrement("published_theme", publicationIds.peek())
         log.info("테마 이관: {}건, 온라인 스냅샷 {}건", context.themeIds.size, publicationIds.peek() - 1)
     }
 

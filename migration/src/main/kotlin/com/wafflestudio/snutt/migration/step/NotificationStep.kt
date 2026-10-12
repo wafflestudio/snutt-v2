@@ -52,7 +52,6 @@ class NotificationStep(
                 )
             }
         }
-        alignAutoIncrement("notification", ids.peek())
         log.info("알림 이관: {}건 (사용자가 없어 제외 {}건)", ids.peek() - 1, skipped)
     }
 

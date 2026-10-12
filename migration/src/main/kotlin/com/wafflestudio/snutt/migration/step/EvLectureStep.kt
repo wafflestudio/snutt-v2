@@ -61,7 +61,6 @@ class EvLectureStep(
                 count++
             }
         }
-        alignAutoIncrement("lecture", ids.peek())
         log.info("구 SNUTT 강의가 없는 학기의 구 ev 강의 이관: {}건", count)
     }
 

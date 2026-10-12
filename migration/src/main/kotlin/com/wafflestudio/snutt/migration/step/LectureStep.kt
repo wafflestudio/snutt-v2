@@ -113,8 +113,6 @@ class LectureStep(
                 }
             }
         }
-        alignAutoIncrement("lecture", ids.peek())
-        alignAutoIncrement("lecture_class_time", classTimeIds.peek())
         log.info("강의 이관: {}건, 수업 시간 {}건", offerings.size, classTimeCount)
     }
 

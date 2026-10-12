@@ -145,13 +145,6 @@ abstract class AbstractMigrationStep(
         columns: List<String>,
         parent: BatchWriter? = null,
     ) = BatchWriter(jdbc, table, columns, parent = parent)
-
-    protected fun alignAutoIncrement(
-        table: String,
-        next: Long,
-    ) {
-        jdbc.execute("ALTER TABLE `$table` AUTO_INCREMENT = ${maxOf(next, 1L)}")
-    }
 }
 
 object MigrationSupport {

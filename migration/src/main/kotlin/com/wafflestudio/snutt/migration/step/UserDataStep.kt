@@ -75,7 +75,6 @@ class UserDataStep(
                 }
             }
         }
-        alignAutoIncrement("bookmark_lecture", ids.peek())
         log.info("북마크 이관: 담긴 강의 {}건", lectureCount)
     }
 
@@ -105,7 +104,6 @@ class UserDataStep(
                 out.add(ids.next(), userId, lectureId, now, now)
             }
         }
-        alignAutoIncrement("vacancy_notification", ids.peek())
         log.info("빈자리 알림 이관: {}건", ids.peek() - 1)
     }
 
@@ -171,7 +169,6 @@ class UserDataStep(
                 )
             }
         }
-        alignAutoIncrement("user_device", ids.peek())
         log.info("기기 이관: {}건", ids.peek() - 1)
     }
 
@@ -191,7 +188,6 @@ class UserDataStep(
                 }
             }
         }
-        alignAutoIncrement("push_preference", ids.peek())
         log.info("푸시 설정 이관: {}건", ids.peek() - 1)
     }
 
@@ -249,7 +245,6 @@ class UserDataStep(
                 )
             }
         }
-        alignAutoIncrement("friend", ids.peek())
         log.info("친구 이관: {}건", winners.size)
     }
 
@@ -318,9 +313,6 @@ class UserDataStep(
                 }
             }
         }
-        alignAutoIncrement("diary_submission", ids.peek())
-        alignAutoIncrement("diary_submission_daily_class_type", dctIds.peek())
-        alignAutoIncrement("diary_submission_answer", answerIds.peek())
         log.info("강의 일기장 기록 이관: {}건", ids.peek() - 1)
     }
 }

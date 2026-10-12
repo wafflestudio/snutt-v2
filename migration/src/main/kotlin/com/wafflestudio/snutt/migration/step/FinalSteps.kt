@@ -104,7 +104,6 @@ class LegacyTokenStep(
                 count++
             }
         }
-        alignAutoIncrement("legacy_access_token", ids.peek())
         log.info("구 토큰 이관: {}건 (특정 불가로 제외 {}건)", count, ambiguous)
     }
 

@@ -45,7 +45,6 @@ class EvaluationStep(
     }
 
     private fun migrateEvaluations(anchors: Map<Long, Anchor>) {
-        var maxId = 0L
         var count = 0L
         writer("evaluation", COLUMNS).use { out ->
             ev.jdbc.query(
@@ -58,7 +57,6 @@ class EvaluationStep(
                 val courseId = context.courseIdRemap[anchor.courseId] ?: anchor.courseId
                 val userId = context.userIds[rs.getString("user_id")]
                 val hidden = rs.getBoolean("is_hidden")
-                maxId = maxOf(maxId, id)
                 count++
                 out.add(
                     id,
@@ -81,12 +79,10 @@ class EvaluationStep(
                 )
             }
         }
-        alignAutoIncrement("evaluation", maxId + 1)
         log.info("강의평 이관: {}건", count)
     }
 
     private fun migrateLikes() {
-        var maxId = 0L
         var count = 0L
         writer("evaluation_like", listOf("id", "evaluation_id", "user_id", "created_at", "updated_at")).use { out ->
             ev.jdbc.query("SELECT id, lecture_evaluation_id, user_id, created_at, updated_at FROM evaluation_like") { rs ->
@@ -96,12 +92,10 @@ class EvaluationStep(
                     return@query
                 }
                 val id = rs.getLong("id")
-                maxId = maxOf(maxId, id)
                 count++
                 out.add(id, rs.getLong("lecture_evaluation_id"), userId, rs.getTimestamp("created_at"), rs.getTimestamp("updated_at"))
             }
         }
-        alignAutoIncrement("evaluation_like", maxId + 1)
         syncLikeCounts()
         log.info("공감 이관: {}건", count)
     }
@@ -114,7 +108,6 @@ class EvaluationStep(
     }
 
     private fun migrateReports() {
-        var maxId = 0L
         var count = 0L
         writer(
             "evaluation_report",
@@ -129,7 +122,6 @@ class EvaluationStep(
                     return@query
                 }
                 val id = rs.getLong("id")
-                maxId = maxOf(maxId, id)
                 count++
                 out.add(
                     id,
@@ -142,7 +134,6 @@ class EvaluationStep(
                 )
             }
         }
-        alignAutoIncrement("evaluation_report", maxId + 1)
         log.info("신고 이관: {}건", count)
     }
 
