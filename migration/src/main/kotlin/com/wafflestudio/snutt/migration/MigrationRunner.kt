@@ -11,7 +11,6 @@ import kotlin.system.measureTimeMillis
 class MigrationRunner(
     private val steps: List<MigrationStep>,
     private val jdbc: JdbcTemplate,
-    private val context: MigrationContext,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -35,10 +34,6 @@ class MigrationRunner(
                     log.info("[{}] 완료 ({} ms)", step.name, elapsed)
                 }
             }
-        if (context.resolutions.isNotEmpty()) {
-            log.warn("원본이 v2 제약을 위반해 손본 항목:")
-            context.resolutions.forEach { (reason, count) -> log.warn("  - {}: {}건", reason, count) }
-        }
         log.info("이관 완료 ({} ms)", total)
     }
 

@@ -284,8 +284,8 @@ class ValidateStep(
         if (leakedObjectIds > 0L) failures += "알림 deeplink에 구 ObjectId가 남아 있다: ${leakedObjectIds}건"
 
         if (context.resolutions.isNotEmpty()) {
-            log.info("원본 정리 요약:")
-            context.resolutions.forEach { (reason, count) -> log.info("  - {}: {}건", reason, count) }
+            log.warn("원본이 v2 제약을 위반해 손본 항목:")
+            context.resolutions.forEach { (reason, count) -> log.warn("  - {}: {}건", reason, count) }
         }
         check(failures.isEmpty()) { "검증 실패:\n" + failures.joinToString("\n") { "  - $it" } }
         log.info("검증 통과")
