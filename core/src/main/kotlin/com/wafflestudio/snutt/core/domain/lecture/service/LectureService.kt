@@ -39,9 +39,6 @@ class LectureService(
 
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
-    fun getAllByIds(lectureIds: Collection<Long>): Map<Long, Lecture> =
-        lectureRepository.findAllById(lectureIds.distinct()).associateBy { it.id!! }
-
     fun classTimesByLectureId(lectureIds: Collection<Long>): Map<Long, List<ClassPlaceAndTime>> =
         lectureClassTimeRepository
             .findAllByLectureIdInOrderById(lectureIds)

@@ -9,7 +9,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
-import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -49,22 +48,18 @@ data class LegacyTimetableDto(
 )
 
 fun LegacyTimetableDto(
-    timetable: Timetable,
     userId: String,
     display: TimetableDisplay,
-    evLectureIds: Map<String, Long>,
-    language: Language = Language.KO,
+    language: Language,
 ): LegacyTimetableDto {
+    val timetable = display.timetable
     val builtinCode = display.theme.builtinCode
     return LegacyTimetableDto(
         id = timetable.id!!.toString(),
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
-        lectures =
-            display.lectures.map {
-                LegacyTimetableLectureDto(it, display.theme.kind, it.lectureId?.toString()?.let(evLectureIds::get), language)
-            },
+        lectures = display.lectures.map { LegacyTimetableLectureDto(it, display.theme.kind, language) },
         title = timetable.title,
         theme = builtinCode?.let(::legacyThemeValue) ?: LegacyBasicThemeType.SNUTT.value,
         themeId = if (builtinCode == null) timetable.themeId.toString() else null,
@@ -108,8 +103,7 @@ data class LegacyTimetableLectureDto(
 fun LegacyTimetableLectureDto(
     display: TimetableLectureDisplay,
     themeKind: ThemeKind,
-    evLectureId: Long?,
-    language: Language = Language.KO,
+    language: Language,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
         id = display.id.toString(),
@@ -129,7 +123,7 @@ fun LegacyTimetableLectureDto(
         color = display.legacyColor(themeKind),
         colorIndex = display.legacyColorIndex(themeKind),
         lectureId = display.lectureId?.toString(),
-        snuttEvLecture = evLectureId?.let { LegacyEvLectureIdDto(it) },
+        snuttEvLecture = display.courseId?.let { LegacyEvLectureIdDto(it) },
         categoryPre2025 = display.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
     )
 
