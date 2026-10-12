@@ -49,6 +49,11 @@ data class LegacyTagListResponse(
     val categoryPre2025: List<String>,
 )
 
+data class LegacyTagUpdateTimeResponse(
+    @param:JsonProperty("updated_at")
+    val updatedAt: Long,
+)
+
 @RestController
 @RequestMapping("/v1/tags")
 class V1CompatTagController(
@@ -86,6 +91,18 @@ class V1CompatTagController(
                     LectureCategoryPre2025.localize(it, clientInfo.language)
                 },
         )
+    }
+
+    @GetMapping("/{year}/{semester}/update_time")
+    fun getTagListUpdateTime(
+        @PathVariable year: Int,
+        @PathVariable semester: Semester,
+        @CurrentClient clientInfo: ClientInfo,
+    ): LegacyTagUpdateTimeResponse {
+        val updatedAt =
+            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language).updatedAt
+                ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
+        return LegacyTagUpdateTimeResponse(updatedAt = updatedAt.toEpochMilli())
     }
 }
 

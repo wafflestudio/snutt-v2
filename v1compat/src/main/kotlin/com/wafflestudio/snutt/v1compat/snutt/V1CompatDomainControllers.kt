@@ -570,9 +570,8 @@ class V1CompatPushPreferenceController(
     fun savePushPreferences(
         @V1CurrentUser user: User,
         @RequestBody dto: PushPreferenceDto,
-    ): PushPreferenceDto {
+    ) {
         pushPreferenceService.savePushPreferences(user.id!!, dto)
-        return pushPreferenceService.getPushPreferences(user.id!!)
     }
 }
 

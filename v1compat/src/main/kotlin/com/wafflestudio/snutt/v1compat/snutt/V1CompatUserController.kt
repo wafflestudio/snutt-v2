@@ -95,13 +95,10 @@ class V1CompatUsersController(
     private val userService: UserService,
     private val userSocialAuthRepository: UserSocialAuthRepository,
 ) {
-    private fun legacyFbName(userId: Long): String? =
-        userSocialAuthRepository.findByUserIdAndProvider(userId, AuthProvider.FACEBOOK)?.displayName
-
     @GetMapping("/me")
     fun getMe(
         @V1CurrentUser user: User,
-    ): LegacyUserDto = user.toLegacyUserDto(legacyFbName(user.id!!))
+    ): LegacyUserDto = user.toLegacyUserDto(userSocialAuthRepository.facebookName(user.id!!))
 
     @PatchMapping("/me")
     fun updateMe(
@@ -109,8 +106,8 @@ class V1CompatUsersController(
         @RequestBody body: LegacyUpdateUserRequest,
     ): LegacyUserDto {
         val nickname = body.nickname?.trim().orEmpty()
-        if (nickname.isEmpty() || nickname == user.nickname) return user.toLegacyUserDto(legacyFbName(user.id!!))
-        return userService.updateNickname(user.id!!, nickname).toLegacyUserDto(legacyFbName(user.id!!))
+        if (nickname.isEmpty() || nickname == user.nickname) return user.toLegacyUserDto(userSocialAuthRepository.facebookName(user.id!!))
+        return userService.updateNickname(user.id!!, nickname).toLegacyUserDto(userSocialAuthRepository.facebookName(user.id!!))
     }
 
     @GetMapping("/me/social_providers", "/me/auth-providers")
@@ -140,7 +137,7 @@ class V1CompatUserController(
     @GetMapping("/info")
     fun getUserInfo(
         @V1CurrentUser user: User,
-    ): LegacyUserInfoDto = user.toLegacyUserInfoDto(legacyFbName(user.id!!))
+    ): LegacyUserInfoDto = user.toLegacyUserInfoDto(userSocialAuthRepository.facebookName(user.id!!))
 
     @DeleteMapping("/account")
     fun deleteAccount(
@@ -218,13 +215,13 @@ class V1CompatUserController(
         return LegacyTokenResponse(token = legacyTokenService.issue(user))
     }
 
-    private fun legacyFbName(userId: Long): String? =
-        userSocialAuthRepository.findByUserIdAndProvider(userId, AuthProvider.FACEBOOK)?.displayName
-
     private fun socialProvider(value: String): AuthProvider =
         AuthProvider.from(value)?.takeIf { it != AuthProvider.LOCAL }
             ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
 }
+
+private fun UserSocialAuthRepository.facebookName(userId: Long): String? =
+    findByUserIdAndProvider(userId, AuthProvider.FACEBOOK)?.displayName
 
 internal fun User.toLegacyUserDto(fbName: String?) =
     LegacyUserDto(

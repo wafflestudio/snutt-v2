@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.OsType
@@ -16,7 +15,6 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -518,29 +516,6 @@ class V1CompatDiaryController(
     ): LegacyOkResponse {
         diaryService.removeSubmission(submissionId, user.id!!)
         return LegacyOkResponse()
-    }
-}
-
-data class LegacyTagUpdateTimeResponse(
-    @param:JsonProperty("updated_at")
-    val updatedAt: Long,
-)
-
-@RestController
-@RequestMapping("/v1/tags")
-class V1CompatTagUpdateTimeController(
-    private val lectureVocabularyService: LectureVocabularyService,
-) {
-    @GetMapping("/{year}/{semester}/update_time")
-    fun getTagListUpdateTime(
-        @PathVariable year: Int,
-        @PathVariable semester: Semester,
-        @CurrentClient clientInfo: ClientInfo,
-    ): LegacyTagUpdateTimeResponse {
-        val updatedAt =
-            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language).updatedAt
-                ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
-        return LegacyTagUpdateTimeResponse(updatedAt = updatedAt.toEpochMilli())
     }
 }
 
