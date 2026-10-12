@@ -13,6 +13,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.HandlerMethod
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 data class V1ErrorResponse(
@@ -126,13 +127,29 @@ fun ErrorType.toV1ErrorResponse(displayMessage: String = this.displayMessage): R
         .body(V1ErrorResponse(errcode = error.errcode, title = title, message = displayMessage, displayMessage = displayMessage))
 }
 
-@Order(Ordered.HIGHEST_PRECEDENCE + 1)
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
 class V1CompatExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(SnuttException::class)
-    fun handleSnuttException(e: SnuttException): ResponseEntity<V1ErrorResponse> = e.error.toV1ErrorResponse(e.message)
+    fun handleSnuttException(
+        e: SnuttException,
+        handler: HandlerMethod,
+    ): ResponseEntity<V1ErrorResponse> {
+        if (e is UpstreamException) {
+            log.error("upstream failure: provider={} error={}", e.provider, e.error, e)
+            val legacy = if (e.error == ErrorType.SOCIAL_PROVIDER_UNAVAILABLE) ErrorType.SOCIAL_LOGIN_FAILED else e.error
+            return legacy.toV1ErrorResponse()
+        }
+        val evCode =
+            EV_ERROR_CODES[e.error]?.takeIf { handler.beanType.packageName == EV_PACKAGE }
+                ?: return e.error.toV1ErrorResponse(e.message)
+        return ResponseEntity
+            .status(e.error.v1.status)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(V1ErrorResponse(errcode = evCode, title = "", message = e.message, displayMessage = e.message))
+    }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleUnreadableBody(): ResponseEntity<V1ErrorResponse> = ErrorType.INVALID_REQUEST_BODY.toV1ErrorResponse()
@@ -140,10 +157,24 @@ class V1CompatExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
     fun handleInvalidParameter(): ResponseEntity<V1ErrorResponse> = ErrorType.INVALID_PARAMETER.toV1ErrorResponse()
 
-    @ExceptionHandler(UpstreamException::class)
-    fun handleUpstreamException(e: UpstreamException): ResponseEntity<V1ErrorResponse> {
-        log.error("upstream failure: provider={} error={}", e.provider, e.error, e)
-        val legacy = if (e.error == ErrorType.SOCIAL_PROVIDER_UNAVAILABLE) ErrorType.SOCIAL_LOGIN_FAILED else e.error
-        return legacy.toV1ErrorResponse()
+    companion object {
+        private const val EV_PACKAGE = "com.wafflestudio.snutt.v1compat.ev"
+        private val EV_ERROR_CODES =
+            mapOf(
+                ErrorType.INVALID_CURSOR to 20001L,
+                ErrorType.EVALUATION_CONTENT_BLANK to 20004L,
+                ErrorType.INVALID_EVALUATION_SORT to 20005L,
+                ErrorType.NOT_MY_EVALUATION to 23001L,
+                ErrorType.LECTURE_NOT_FOUND to 24001L,
+                ErrorType.EVALUATION_TARGET_NOT_FOUND to 24001L,
+                ErrorType.COURSE_NOT_FOUND to 24002L,
+                ErrorType.EVALUATION_NOT_FOUND to 24005L,
+                ErrorType.DUPLICATE_EVALUATION to 29001L,
+                ErrorType.MY_EVALUATION_REPORT to 29002L,
+                ErrorType.DUPLICATE_EVALUATION_REPORT to 29003L,
+                ErrorType.DUPLICATE_EVALUATION_LIKE to 29004L,
+                ErrorType.EVALUATION_NOT_LIKED to 29005L,
+                ErrorType.EVALUATION_LECTURE_MISMATCH to 29006L,
+            )
     }
 }
