@@ -62,9 +62,9 @@ class MigrationRunner(
     override fun run(args: ApplicationArguments) {
         require(args.nonOptionArgs.isEmpty()) { "부분 이관은 지원하지 않는다. --truncate 외의 인자는 받지 않는다" }
         val truncate = args.getOptionValues("truncate")?.let { it.singleOrNull()?.toBooleanStrictOrNull() ?: it.isEmpty() } ?: false
-        val tables = steps.flatMap { it.tables }.distinct()
+        val tables = steps.flatMap { it.tables }
         if (truncate) {
-            MigrationSupport.truncate(jdbc, tables.reversed())
+            MigrationSupport.truncate(jdbc, tables)
         } else {
             MigrationSupport.requireEmpty(jdbc, tables)
         }
