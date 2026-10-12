@@ -73,6 +73,29 @@ class SugangSnuSyncService(
         semester: Semester,
         rows: List<SugangLectureRow>,
     ): SugangSnuSyncResult {
+        val synced = checkNotNull(transactionTemplate.execute { syncLectures(year, semester, rows) })
+
+        pushService.sendTargetedPushes(
+            synced.timetableChangeCounts.mapValues { (_, counts) ->
+                PushMessage(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
+            },
+            PushPreferenceType.LECTURE_UPDATE,
+        )
+
+        val inputs = synced.created + synced.updated.map { it.input }
+        lectureBuildingSync.sync(inputs.flatMap { input -> input.classTimes.map { it.place } })
+
+        val result =
+            SugangSnuSyncResult(createdCount = synced.created.size, updatedCount = synced.updated.size, deletedCount = synced.deleted.size)
+        log.info("sugang sync: {}", result)
+        return result
+    }
+
+    private fun syncLectures(
+        year: Int,
+        semester: Semester,
+        rows: List<SugangLectureRow>,
+    ): SyncedLectures {
         val newMap = rows.associateBy { it.courseNumber to it.lectureNumber }
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
         val oldMap = oldLectures.associateBy { it.courseNumber to it.lectureNumber }
@@ -103,40 +126,22 @@ class SugangSnuSyncService(
         val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newMap }
 
         val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
-        val timetableChangeCounts =
-            transactionTemplate
-                .execute {
-                    upsertLectures(created, updated)
-                    val changedTimetableIds =
-                        timetableLectureRepository.findTimetableIdsByLectureIdIn(
-                            updated.map { it.lecture.id!! } + deleted.map { it.id!! },
-                        )
-                    val changeCounts = syncUserLectures(updated, deleted)
-                    deleted.forEach(lectureRepository::delete)
-                    lectureRepository.flush()
-                    if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
-                    val affectedCourses =
-                        (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
-                            .distinct()
-                    courseRepository.refreshLatestLectures(affectedCourses)
-                    val latest = courseRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
-                    courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
-                        course.title = latest.getValue(course.id!!).courseTitle
-                    }
-                    changeCounts
-                }.orEmpty()
-
-        pushService.sendTargetedPushes(
-            timetableChangeCounts.mapValues { (_, counts) ->
-                PushMessage(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
-            },
-            PushPreferenceType.LECTURE_UPDATE,
-        )
-
-        lectureBuildingSync.sync((created + updated.map { it.input }).flatMap { input -> input.classTimes.map { it.place } })
-
-        log.info("sugang sync: created={} updated={} deleted={}", created.size, updated.size, deleted.size)
-        return SugangSnuSyncResult(createdCount = created.size, updatedCount = updated.size, deletedCount = deleted.size)
+        upsertLectures(created, updated)
+        val affectedEntries = timetableLectureRepository.findByLectureIdIn(updated.map { it.lecture.id!! } + deleted.map { it.id!! })
+        val timetableChangeCounts = syncUserLectures(updated, deleted, affectedEntries)
+        deleted.forEach(lectureRepository::delete)
+        lectureRepository.flush()
+        val changedTimetableIds = affectedEntries.map { it.timetableId }.distinct()
+        if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
+        val affectedCourses =
+            (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
+                .distinct()
+        courseRepository.refreshLatestLectures(affectedCourses)
+        val latest = courseRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
+        courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
+            course.title = latest.getValue(course.id!!).courseTitle
+        }
+        return SyncedLectures(created, updated, deleted, timetableChangeCounts)
     }
 
     private fun upsertLectures(
@@ -161,7 +166,6 @@ class SugangSnuSyncService(
                 lectureClassTimeRepository.deleteByLectureId(old.id!!)
                 saveClassTimes(old, update.input.classTimes)
             }
-            lectureRepository.save(old)
         }
     }
 
@@ -213,12 +217,13 @@ class SugangSnuSyncService(
     private fun syncUserLectures(
         updated: List<LectureUpdate>,
         deleted: List<Lecture>,
+        changedEntries: List<TimetableLecture>,
     ): Map<Long, TimetableChangeCount> {
         val notifiableUpdates = updated.filter { it.notifiable }
-        val affectedLectureIds = notifiableUpdates.map { it.lecture.id!! } + deleted.map { it.id!! }
+        val affectedLectureIds = (notifiableUpdates.map { it.lecture.id!! } + deleted.map { it.id!! }).toSet()
         if (affectedLectureIds.isEmpty()) return emptyMap()
 
-        val affected = loadAffectedTimetables(affectedLectureIds)
+        val affected = loadAffectedTimetables(changedEntries.filter { it.lectureId in affectedLectureIds })
         val bookmarkUserIds =
             bookmarkLectureRepository
                 .findByLectureIdIn(affectedLectureIds)
@@ -275,7 +280,6 @@ class SugangSnuSyncService(
         deleted.forEach { lecture ->
             affected.forEachEntry(lecture.id!!) { timetable, entry ->
                 timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
-                removedEntryIds += entry.id!!
                 timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
                 notifications +=
                     timetableNotification(
@@ -294,8 +298,7 @@ class SugangSnuSyncService(
         return timetableChangeCounts.toMap()
     }
 
-    private fun loadAffectedTimetables(lectureIds: List<Long>): AffectedTimetables {
-        val affectedEntries = timetableLectureRepository.findByLectureIdIn(lectureIds)
+    private fun loadAffectedTimetables(affectedEntries: List<TimetableLecture>): AffectedTimetables {
         val timetablesById =
             timetableRepository.findAllById(affectedEntries.map { it.timetableId }.distinct()).associateBy { it.id!! }
         val entriesByTimetableId =
@@ -345,6 +348,13 @@ class SugangSnuSyncService(
             }
         }
     }
+
+    private data class SyncedLectures(
+        val created: List<LectureInput>,
+        val updated: List<LectureUpdate>,
+        val deleted: List<Lecture>,
+        val timetableChangeCounts: Map<Long, TimetableChangeCount>,
+    )
 
     private class TimetableChangeCount(
         var updated: Int = 0,
