@@ -47,8 +47,6 @@ class TimetableStep(
         val timetableIds = IdSequence()
         val lectureIds = IdSequence()
         val takenTitles = HashSet<String>(1_024_000)
-        var lectureCount = 0L
-        var skipped = 0L
         val primaries = primaryTimetableIds()
 
         writer("timetable", TIMETABLE_COLUMNS).use { timetables ->
@@ -56,7 +54,6 @@ class TimetableStep(
                 mongo.each("timetables") { doc ->
                     val userId = context.userIds[doc.oid("user_id")]
                     if (userId == null) {
-                        skipped++
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING, doc.docs("lecture_list").size)
                         return@each
@@ -92,12 +89,11 @@ class TimetableStep(
                             context.timetableLectureIdsByLecture.putIfAbsent(id to it, lectureId)
                         }
                         lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
-                        lectureCount++
                     }
                 }
             }
         }
-        log.info("시간표 이관: {}건 (제외 {}건), 시간표 강의 {}건", timetableIds.peek() - 1, skipped, lectureCount)
+        log.info("시간표 이관: {}건, 시간표 강의 {}건", timetableIds.peek() - 1, lectureIds.peek() - 1)
         migrateReminders()
     }
 
@@ -124,9 +120,7 @@ class TimetableStep(
 
     private fun migrateReminders() {
         val ids = IdSequence()
-        var count = 0L
         val scheduleIds = IdSequence()
-        var scheduleCount = 0L
         writer(
             "timetable_lecture_reminder",
             listOf(
@@ -184,13 +178,11 @@ class TimetableStep(
                             now,
                             now,
                         )
-                        scheduleCount++
                     }
-                    count++
                 }
             }
         }
-        log.info("리마인더 이관: {}건(스케줄 {}건)", count, scheduleCount)
+        log.info("리마인더 이관: {}건(스케줄 {}건)", ids.peek() - 1, scheduleIds.peek() - 1)
     }
 
     private fun Document.toRow(

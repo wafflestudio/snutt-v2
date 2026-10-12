@@ -52,7 +52,6 @@ class UserDataStep(
     private fun migrateBookmarks() {
         val ids = IdSequence()
         val bookmarked = HashSet<Pair<Long, Long>>()
-        var lectureCount = 0L
         writer(
             "bookmark_lecture",
             listOf("id", "user_id", "lecture_id", "created_at", "updated_at"),
@@ -71,11 +70,10 @@ class UserDataStep(
                 val now = Instant.now().toSqlTimestamp()
                 newLectureIds.forEach { lectureId ->
                     out.add(ids.next(), userId, lectureId, now, now)
-                    lectureCount++
                 }
             }
         }
-        log.info("북마크 이관: 담긴 강의 {}건", lectureCount)
+        log.info("북마크 이관: 담긴 강의 {}건", ids.peek() - 1)
     }
 
     private fun migrateVacancyNotifications() {

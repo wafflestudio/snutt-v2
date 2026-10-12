@@ -34,7 +34,6 @@ class LectureStep(
         val ids = IdSequence()
         val classTimeIds = IdSequence()
         val offerings = HashMap<String, Long>(256_000)
-        var classTimeCount = 0L
 
         writer("lecture", LECTURE_COLUMNS).use { lectures ->
             writer("lecture_class_time", CLASS_TIME_COLUMNS, parent = lectures).use { classTimes ->
@@ -105,7 +104,6 @@ class LectureStep(
                                 place.requireInt("startMinute"),
                                 place.requireInt("endMinute"),
                             )
-                            classTimeCount++
                         }
 
                         context.lectureSnapshots[id] = doc.toSnapshot(places)
@@ -113,7 +111,7 @@ class LectureStep(
                 }
             }
         }
-        log.info("강의 이관: {}건, 수업 시간 {}건", offerings.size, classTimeCount)
+        log.info("강의 이관: {}건, 수업 시간 {}건", offerings.size, classTimeIds.peek() - 1)
     }
 
     private fun offeringKey(doc: Document): String =

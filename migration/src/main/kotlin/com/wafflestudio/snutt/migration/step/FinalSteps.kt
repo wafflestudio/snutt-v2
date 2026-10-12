@@ -90,21 +90,17 @@ class LegacyTokenStep(
         }
 
         val ids = IdSequence()
-        var count = 0L
-        var ambiguous = 0L
         writer("legacy_access_token", listOf("id", "user_id", "token_hash", "created_at", "updated_at")).use { out ->
             owners.forEach { (token, externalIds) ->
                 if (externalIds.size > 1) {
-                    ambiguous++
                     context.resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS, externalIds.size)
                     return@forEach
                 }
                 val now = Timestamp.from(Instant.now())
                 out.add(ids.next(), context.userIds.getValue(externalIds.single()), sha256Hex(token), now, now)
-                count++
             }
         }
-        log.info("구 토큰 이관: {}건 (특정 불가로 제외 {}건)", count, ambiguous)
+        log.info("구 토큰 이관: {}건", ids.peek() - 1)
     }
 
     private fun sha256Hex(value: String): String =

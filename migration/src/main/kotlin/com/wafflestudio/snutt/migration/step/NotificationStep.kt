@@ -26,7 +26,6 @@ class NotificationStep(
 
     override fun run() {
         val ids = IdSequence()
-        var skipped = 0L
         writer(
             "notification",
             listOf("id", "user_id", "title", "message", "type", "deeplink", "created_at", "updated_at"),
@@ -35,7 +34,6 @@ class NotificationStep(
                 val ownerExternalId = doc.oid("user_id")
                 val userId = ownerExternalId?.let(context.userIds::get)
                 if (ownerExternalId != null && userId == null) {
-                    skipped++
                     context.resolved(MigrationSupport.ResolutionReasons.NOTIFICATION_USER_MISSING)
                     return@each
                 }
@@ -52,7 +50,7 @@ class NotificationStep(
                 )
             }
         }
-        log.info("알림 이관: {}건 (사용자가 없어 제외 {}건)", ids.peek() - 1, skipped)
+        log.info("알림 이관: {}건", ids.peek() - 1)
     }
 
     private fun rewriteDeeplink(value: String?): String? {

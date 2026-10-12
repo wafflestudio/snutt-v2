@@ -45,57 +45,57 @@ class EvaluationStep(
     }
 
     private fun migrateEvaluations(anchors: Map<Long, Anchor>) {
-        var count = 0L
-        writer("evaluation", COLUMNS).use { out ->
-            ev.jdbc.query(
-                "SELECT id, semester_lecture_id, user_id, content, grade_satisfaction, teaching_skill, gains, " +
-                    "life_balance, rating, like_count, is_hidden, is_reported, from_snuev, created_at, updated_at " +
-                    "FROM lecture_evaluation ORDER BY id",
-            ) { rs ->
-                val id = rs.getLong("id")
-                val anchor = anchors.getValue(rs.getLong("semester_lecture_id"))
-                val courseId = context.courseIdRemap[anchor.courseId] ?: anchor.courseId
-                val userId = context.userIds[rs.getString("user_id")]
-                val hidden = rs.getBoolean("is_hidden")
-                count++
-                out.add(
-                    id,
-                    courseId,
-                    userId,
-                    anchor.year,
-                    anchor.semester,
-                    rs.getString("content"),
-                    rs.getObject("grade_satisfaction") as? Double,
-                    rs.getObject("teaching_skill") as? Double,
-                    rs.getObject("gains") as? Double,
-                    rs.getObject("life_balance") as? Double,
-                    rs.getDouble("rating"),
-                    rs.getLong("like_count"),
-                    hidden,
-                    rs.getBoolean("is_reported"),
-                    rs.getBoolean("from_snuev"),
-                    rs.getTimestamp("created_at") ?: Instant.now().toSqlTimestamp(),
-                    rs.getTimestamp("updated_at") ?: Instant.now().toSqlTimestamp(),
-                )
+        val count =
+            writer("evaluation", COLUMNS).use { out ->
+                ev.jdbc.query(
+                    "SELECT id, semester_lecture_id, user_id, content, grade_satisfaction, teaching_skill, gains, " +
+                        "life_balance, rating, like_count, is_hidden, is_reported, from_snuev, created_at, updated_at " +
+                        "FROM lecture_evaluation ORDER BY id",
+                ) { rs ->
+                    val id = rs.getLong("id")
+                    val anchor = anchors.getValue(rs.getLong("semester_lecture_id"))
+                    val courseId = context.courseIdRemap[anchor.courseId] ?: anchor.courseId
+                    val userId = context.userIds[rs.getString("user_id")]
+                    val hidden = rs.getBoolean("is_hidden")
+                    out.add(
+                        id,
+                        courseId,
+                        userId,
+                        anchor.year,
+                        anchor.semester,
+                        rs.getString("content"),
+                        rs.getObject("grade_satisfaction") as? Double,
+                        rs.getObject("teaching_skill") as? Double,
+                        rs.getObject("gains") as? Double,
+                        rs.getObject("life_balance") as? Double,
+                        rs.getDouble("rating"),
+                        rs.getLong("like_count"),
+                        hidden,
+                        rs.getBoolean("is_reported"),
+                        rs.getBoolean("from_snuev"),
+                        rs.getTimestamp("created_at") ?: Instant.now().toSqlTimestamp(),
+                        rs.getTimestamp("updated_at") ?: Instant.now().toSqlTimestamp(),
+                    )
+                }
+                out.count
             }
-        }
         log.info("강의평 이관: {}건", count)
     }
 
     private fun migrateLikes() {
-        var count = 0L
-        writer("evaluation_like", listOf("id", "evaluation_id", "user_id", "created_at", "updated_at")).use { out ->
-            ev.jdbc.query("SELECT id, lecture_evaluation_id, user_id, created_at, updated_at FROM evaluation_like") { rs ->
-                val userId = context.userIds[rs.getString("user_id")]
-                if (userId == null) {
-                    context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_LIKE_USER_MISSING)
-                    return@query
+        val count =
+            writer("evaluation_like", listOf("id", "evaluation_id", "user_id", "created_at", "updated_at")).use { out ->
+                ev.jdbc.query("SELECT id, lecture_evaluation_id, user_id, created_at, updated_at FROM evaluation_like") { rs ->
+                    val userId = context.userIds[rs.getString("user_id")]
+                    if (userId == null) {
+                        context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_LIKE_USER_MISSING)
+                        return@query
+                    }
+                    val id = rs.getLong("id")
+                    out.add(id, rs.getLong("lecture_evaluation_id"), userId, rs.getTimestamp("created_at"), rs.getTimestamp("updated_at"))
                 }
-                val id = rs.getLong("id")
-                count++
-                out.add(id, rs.getLong("lecture_evaluation_id"), userId, rs.getTimestamp("created_at"), rs.getTimestamp("updated_at"))
+                out.count
             }
-        }
         syncLikeCounts()
         log.info("공감 이관: {}건", count)
     }
@@ -108,32 +108,32 @@ class EvaluationStep(
     }
 
     private fun migrateReports() {
-        var count = 0L
-        writer(
-            "evaluation_report",
-            listOf("id", "evaluation_id", "user_id", "content", "is_hidden", "created_at", "updated_at"),
-        ).use { out ->
-            ev.jdbc.query(
-                "SELECT id, lecture_evaluation_id, user_id, content, is_hidden, created_at, updated_at FROM evaluation_report",
-            ) { rs ->
-                val userId = context.userIds[rs.getString("user_id")]
-                if (userId == null) {
-                    context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_REPORT_USER_MISSING)
-                    return@query
+        val count =
+            writer(
+                "evaluation_report",
+                listOf("id", "evaluation_id", "user_id", "content", "is_hidden", "created_at", "updated_at"),
+            ).use { out ->
+                ev.jdbc.query(
+                    "SELECT id, lecture_evaluation_id, user_id, content, is_hidden, created_at, updated_at FROM evaluation_report",
+                ) { rs ->
+                    val userId = context.userIds[rs.getString("user_id")]
+                    if (userId == null) {
+                        context.resolved(MigrationSupport.ResolutionReasons.EVALUATION_REPORT_USER_MISSING)
+                        return@query
+                    }
+                    val id = rs.getLong("id")
+                    out.add(
+                        id,
+                        rs.getLong("lecture_evaluation_id"),
+                        userId,
+                        rs.getString("content"),
+                        rs.getBoolean("is_hidden"),
+                        rs.getTimestamp("created_at") ?: Timestamp.from(Instant.now()),
+                        rs.getTimestamp("updated_at") ?: Timestamp.from(Instant.now()),
+                    )
                 }
-                val id = rs.getLong("id")
-                count++
-                out.add(
-                    id,
-                    rs.getLong("lecture_evaluation_id"),
-                    userId,
-                    rs.getString("content"),
-                    rs.getBoolean("is_hidden"),
-                    rs.getTimestamp("created_at") ?: Timestamp.from(Instant.now()),
-                    rs.getTimestamp("updated_at") ?: Timestamp.from(Instant.now()),
-                )
+                out.count
             }
-        }
         log.info("신고 이관: {}건", count)
     }
 

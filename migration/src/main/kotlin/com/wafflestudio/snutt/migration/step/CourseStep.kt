@@ -29,8 +29,7 @@ class CourseStep(
         log.info("course 이관: 구 ev {}건 + 신규 {}건 = {}건", fromEv, minted, context.courseIds.size)
     }
 
-    private fun migrateEvLectures(): Int {
-        var count = 0
+    private fun migrateEvLectures(): Long =
         writer("course", COLUMNS).use { out ->
             ev.jdbc.query(
                 "SELECT id, course_number, instructor, title, created_at, updated_at FROM lecture ORDER BY id",
@@ -54,13 +53,11 @@ class CourseStep(
                     rs.getTimestamp("created_at"),
                     rs.getTimestamp("updated_at"),
                 )
-                count++
             }
+            out.count
         }
-        return count
-    }
 
-    private fun mintMissingCourses(fromEv: Int): Int {
+    private fun mintMissingCourses(fromEv: Long): Int {
         val pending = LinkedHashMap<String, Array<Any?>>()
         mongo.each("lectures") { doc ->
             val courseNumber = doc.requireStr("course_number").trim()

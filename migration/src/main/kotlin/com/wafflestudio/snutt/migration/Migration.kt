@@ -89,7 +89,7 @@ class BatchWriter(
             "VALUES (${columns.joinToString(",") { "?" }})"
     private val buffer = ArrayList<Array<Any?>>(batchSize)
 
-    var written: Long = 0
+    var count: Long = 0
         private set
 
     fun add(vararg values: Any?) {
@@ -98,6 +98,7 @@ class BatchWriter(
         }
         @Suppress("UNCHECKED_CAST")
         buffer.add(values as Array<Any?>)
+        count++
         if (buffer.size >= batchSize) flush()
     }
 
@@ -117,7 +118,6 @@ class BatchWriter(
                 }
             },
         )
-        written += buffer.size
         buffer.clear()
     }
 
