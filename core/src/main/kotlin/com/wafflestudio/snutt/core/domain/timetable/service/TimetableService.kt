@@ -14,7 +14,9 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
+import com.wafflestudio.snutt.core.domain.user.event.UserRegisteredEvent
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -221,17 +223,18 @@ class TimetableService(
             .distinct()
             .sortedWith(compareByDescending<Pair<Int, Semester>> { it.first }.thenByDescending { it.second.value })
 
+    @EventListener
     @Transactional
-    fun createDefaultTable(userId: Long): Timetable {
-        val coursebook = coursebookService.getLatestCoursebook()
-        val defaultThemeId = timetableThemeService.getDefaultThemeId(userId)
-        return timetableRepository.save(
+    fun createDefaultTimetable(event: UserRegisteredEvent) {
+        val coursebook = coursebookService.findLatestCoursebook() ?: return
+        timetableRepository.save(
             Timetable(
-                userId = userId,
+                userId = event.userId,
                 year = coursebook.year,
                 semester = coursebook.semester,
                 title = "나의 시간표",
-                themeId = defaultThemeId,
+                themeId = timetableThemeService.getDefaultThemeId(event.userId),
+                isPrimary = true,
             ),
         )
     }
