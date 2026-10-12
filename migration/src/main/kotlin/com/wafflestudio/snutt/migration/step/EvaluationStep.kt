@@ -4,11 +4,8 @@ import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationSupport
-import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
-import java.sql.Timestamp
-import java.time.Instant
 
 @Component
 class EvaluationStep(
@@ -30,7 +27,7 @@ class EvaluationStep(
             writer("evaluation", COLUMNS).use { out ->
                 ev.jdbc.query(
                     "SELECT le.id, le.user_id, le.content, le.grade_satisfaction, le.teaching_skill, le.gains, " +
-                        "le.life_balance, le.rating, le.like_count, le.is_hidden, le.is_reported, le.from_snuev, " +
+                        "le.life_balance, le.rating, le.is_hidden, le.is_reported, le.from_snuev, " +
                         "le.created_at, le.updated_at, sl.lecture_id, sl.year, sl.semester " +
                         "FROM lecture_evaluation le JOIN semester_lecture sl ON sl.id = le.semester_lecture_id ORDER BY le.id",
                 ) { rs ->
@@ -38,7 +35,6 @@ class EvaluationStep(
                     val evLectureId = rs.getLong("lecture_id")
                     val courseId = context.courseIdRemap[evLectureId] ?: evLectureId
                     val userId = context.userIds[rs.getString("user_id")]
-                    val hidden = rs.getBoolean("is_hidden")
                     out.add(
                         id,
                         courseId,
@@ -51,12 +47,11 @@ class EvaluationStep(
                         rs.getObject("gains") as? Double,
                         rs.getObject("life_balance") as? Double,
                         rs.getDouble("rating"),
-                        rs.getLong("like_count"),
-                        hidden,
+                        rs.getBoolean("is_hidden"),
                         rs.getBoolean("is_reported"),
                         rs.getBoolean("from_snuev"),
-                        rs.getTimestamp("created_at") ?: Instant.now().toSqlTimestamp(),
-                        rs.getTimestamp("updated_at") ?: Instant.now().toSqlTimestamp(),
+                        rs.getTimestamp("created_at"),
+                        rs.getTimestamp("updated_at"),
                     )
                 }
                 out.count
@@ -110,8 +105,8 @@ class EvaluationStep(
                         userId,
                         rs.getString("content"),
                         rs.getBoolean("is_hidden"),
-                        rs.getTimestamp("created_at") ?: Timestamp.from(Instant.now()),
-                        rs.getTimestamp("updated_at") ?: Timestamp.from(Instant.now()),
+                        rs.getTimestamp("created_at"),
+                        rs.getTimestamp("updated_at"),
                     )
                 }
                 out.count
@@ -133,7 +128,6 @@ class EvaluationStep(
                 "gains",
                 "life_balance",
                 "rating",
-                "like_count",
                 "is_hidden",
                 "is_reported",
                 "from_snuev",
