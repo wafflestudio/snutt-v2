@@ -14,16 +14,21 @@ import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
 import com.wafflestudio.snutt.core.domain.theme.model.UserPreference
-import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeCursor
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.UserPreferenceRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import org.springframework.data.domain.Limit
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+
+data class PublishedThemeCursor(
+    val downloadCount: Long,
+    val publicationId: Long,
+)
 
 @Service
 class TimetableThemeService(
@@ -226,7 +231,9 @@ class TimetableThemeService(
         query: String? = null,
     ): CursorPage<ThemePublicationDisplay> {
         val after = decodeCursor(cursor)
-        return publishedThemeRepository.findListed(query, after, PAGE_SIZE + 1).toPublicationPage()
+        return publishedThemeRepository
+            .findListed(query, after?.downloadCount, after?.publicationId, Limit.of(PAGE_SIZE + 1))
+            .toPublicationPage()
     }
 
     fun getFriendsPublications(
@@ -235,8 +242,9 @@ class TimetableThemeService(
     ): CursorPage<ThemePublicationDisplay> {
         val userIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
         if (userIds.isEmpty()) return CursorPage.of(emptyList(), null, PAGE_SIZE)
+        val after = decodeCursor(cursor)
         return publishedThemeRepository
-            .findListedAuthoredOrDownloadedBy(userIds, decodeCursor(cursor), PAGE_SIZE + 1)
+            .findListedAuthoredOrDownloadedBy(userIds, after?.downloadCount, after?.publicationId, Limit.of(PAGE_SIZE + 1))
             .toPublicationPage()
     }
 

@@ -11,7 +11,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureSearchRow
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Service
 @Service
 class LectureService(
     private val lectureRepository: LectureRepository,
-    private val lectureSearchRepository: LectureSearchRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val cursorCodec: CursorCodec,
 ) {
@@ -35,7 +33,7 @@ class LectureService(
                     throw SnuttException(ErrorType.INVALID_CURSOR)
                 }
             }
-        val results = lectureSearchRepository.search(criteria, decoded?.lectureId, limit + 1)
+        val results = lectureRepository.search(criteria, decoded?.lectureId, limit + 1)
         return cursorCodec.pageOf(results, limit, cursorOf = { LectureSearchCursor(criteria.sort, it.lecture.id!!) }) { it }
     }
 
@@ -45,7 +43,7 @@ class LectureService(
         limit: Int,
     ): List<LectureSearchRow> {
         if (offset < 0 || limit !in 1..MAX_PAGE_SIZE) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return lectureSearchRepository.search(criteria, cursorLectureId = null, limit = limit, offset = offset)
+        return lectureRepository.search(criteria, cursorLectureId = null, limit = limit, offset = offset)
     }
 
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)

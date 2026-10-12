@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
-import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
@@ -27,7 +26,6 @@ data class CourseWithLectures(
 
 @Service
 class CourseSearchService(
-    private val courseSearchRepository: CourseSearchRepository,
     private val courseRepository: CourseRepository,
     private val lectureRepository: LectureRepository,
     private val evaluationRepository: EvaluationRepository,
@@ -43,7 +41,7 @@ class CourseSearchService(
                 if (it.evalCount < 0 || it.courseId <= 0) throw SnuttException(ErrorType.INVALID_CURSOR)
             }
         return cursorCodec.pageOf(
-            items = courseSearchRepository.search(criteria, decoded, PAGE_SIZE + 1),
+            items = courseRepository.search(criteria, decoded, PAGE_SIZE + 1),
             pageSize = PAGE_SIZE,
             cursorOf = { CourseSearchCursor(it.evalCount, it.id!!) },
             transform = { it },

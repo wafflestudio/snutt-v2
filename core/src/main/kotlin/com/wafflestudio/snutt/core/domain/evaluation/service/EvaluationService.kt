@@ -20,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationReport
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import org.springframework.data.domain.Limit
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
@@ -140,7 +141,7 @@ class EvaluationService(
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
-        val page = evaluationRepository.findMine(userId, decodeEvaluationIdCursor(cursor), PAGE_SIZE + 1)
+        val page = evaluationRepository.findMine(userId, decodeEvaluationIdCursor(cursor), Limit.of(PAGE_SIZE + 1))
         return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
     }
 

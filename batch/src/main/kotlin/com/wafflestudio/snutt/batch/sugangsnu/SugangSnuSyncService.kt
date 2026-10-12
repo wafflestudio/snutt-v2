@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
-import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseSearchRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
@@ -57,7 +56,6 @@ class SugangSnuSyncService(
     private val lectureRepository: LectureRepository,
     private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val courseRepository: CourseRepository,
-    private val courseSearchRepository: CourseSearchRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableRepository: TimetableRepository,
     private val bookmarkLectureRepository: BookmarkLectureRepository,
@@ -121,7 +119,7 @@ class SugangSnuSyncService(
                         (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                             .distinct()
                     courseRepository.refreshLatestLectures(affectedCourses)
-                    val latest = courseSearchRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
+                    val latest = courseRepository.findLatestLectures(affectedCourses).associateBy { it.courseId }
                     courseRepository.findAllById(latest.keys.filterNotNull()).forEach { course ->
                         course.title = latest.getValue(course.id!!).courseTitle
                     }

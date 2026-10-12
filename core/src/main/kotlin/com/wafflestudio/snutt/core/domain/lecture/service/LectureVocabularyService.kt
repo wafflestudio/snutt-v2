@@ -3,14 +3,14 @@ package com.wafflestudio.snutt.core.domain.lecture.service
 import com.wafflestudio.snutt.core.common.cache.RedisCache
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabulary
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabularyRepository
 import org.springframework.stereotype.Service
 import java.time.Duration
 
 @Service
 class LectureVocabularyService(
-    private val lectureVocabularyRepository: LectureVocabularyRepository,
+    private val lectureRepository: LectureRepository,
     private val redisCache: RedisCache,
 ) {
     fun getVocabulary(
@@ -19,7 +19,7 @@ class LectureVocabularyService(
         language: Language,
     ): LectureVocabulary =
         redisCache.getOrPut(key(year, semester, language), TTL, LectureVocabulary::class.java) {
-            lectureVocabularyRepository.findVocabulary(year, semester, language)
+            lectureRepository.findVocabulary(year, semester, language)
         }
 
     fun evict(

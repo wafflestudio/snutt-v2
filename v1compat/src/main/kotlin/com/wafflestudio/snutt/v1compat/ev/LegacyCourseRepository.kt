@@ -3,9 +3,7 @@ package com.wafflestudio.snutt.v1compat.ev
 import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
 import com.linecorp.kotlinjdsl.dsl.jpql.jpql
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
-import com.linecorp.kotlinjdsl.render.jpql.JpqlRenderContext
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
-import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutorImpl
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -14,8 +12,7 @@ import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
-import jakarta.persistence.EntityManager
-import org.springframework.stereotype.Repository
+import org.springframework.data.repository.Repository
 
 data class LegacyCourseSearchCriteria(
     val query: String = "",
@@ -41,11 +38,9 @@ data class LegacyCourseMetadata(
     val avgRating: Double?,
 )
 
-@Repository
-class LegacyCourseRepository(
-    entityManager: EntityManager,
-    context: JpqlRenderContext,
-) : KotlinJdslJpqlExecutor by KotlinJdslJpqlExecutorImpl(entityManager, context, null) {
+interface LegacyCourseRepository :
+    Repository<Course, Long>,
+    KotlinJdslJpqlExecutor {
     fun get(courseId: Long): LegacyCourseMetadata = getByIds(listOf(courseId))[courseId] ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
 
     fun getByIds(courseIds: Collection<Long>): Map<Long, LegacyCourseMetadata> {
