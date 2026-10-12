@@ -48,9 +48,6 @@ class MigrationDataSourceConfig {
     }
 
     @Bean
-    fun jdbcTemplate(dataSource: DataSource): JdbcTemplate = JdbcTemplate(dataSource)
-
-    @Bean
     fun mongoClient(
         @Value("\${migration.mongo.uri}") uri: String,
     ): MongoClient = MongoClients.create(uri)
