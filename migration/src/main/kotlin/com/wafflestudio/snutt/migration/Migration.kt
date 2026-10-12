@@ -206,7 +206,10 @@ object MigrationSupport {
                         }
                     statement.execute("SET FOREIGN_KEY_CHECKS = 0")
                     try {
-                        tables.forEach { statement.execute("TRUNCATE TABLE `$it`") }
+                        tables.forEach { table ->
+                            val filter = migratedRowFilter(table)
+                            statement.execute(if (filter.isEmpty()) "TRUNCATE TABLE `$table`" else "DELETE FROM `$table`$filter")
+                        }
                     } finally {
                         statement.execute("SET FOREIGN_KEY_CHECKS = $foreignKeyChecks")
                     }
@@ -220,13 +223,14 @@ object MigrationSupport {
         tables: List<String>,
     ) {
         tables.forEach { table ->
-            val filter = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
-            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`$filter", Long::class.java)!!
+            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`${migratedRowFilter(table)}", Long::class.java)!!
             check(count == 0L) {
                 "$table 에 이미 $count 행이 있다. 부분 재실행은 행을 중복시키므로 --truncate 로 비우고 다시 실행한다"
             }
         }
     }
+
+    private fun migratedRowFilter(table: String): String = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
 
     fun toLocalDate(instant: Instant): LocalDate = instant.atZone(KST).toLocalDate()
 }

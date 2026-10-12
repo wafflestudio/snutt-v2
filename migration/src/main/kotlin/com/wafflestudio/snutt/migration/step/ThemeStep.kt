@@ -21,6 +21,7 @@ import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.readValue
 
 @Component
 class ThemeStep(
@@ -49,8 +50,8 @@ class ThemeStep(
     )
 
     override fun run() {
-        reseedBuiltins()
-        val ids = IdSequence(7)
+        loadBuiltinPalettes()
+        val ids = IdSequence(context.themePalettes.keys.max() + 1)
         val themes = mutableListOf<SourceTheme>()
         mongo.each("timetableTheme") { doc ->
             if (!doc.bool("isCustom")) return@each
@@ -170,18 +171,9 @@ class ThemeStep(
         log.info("테마 이관: {}건, 온라인 스냅샷 {}건", context.themeIds.size, publicationIds.peek() - 1)
     }
 
-    private fun reseedBuiltins() {
-        BUILTINS.forEachIndexed { index, builtin ->
-            val palette = builtin.third.map { ColorSet(it, "#ffffff") }
-            jdbc.update(
-                "INSERT INTO timetable_theme (id,user_id,builtin_code,name,colors,created_at,updated_at) " +
-                    "VALUES (?,NULL,?,?,?,NOW(6),NOW(6)) ON DUPLICATE KEY UPDATE id=id",
-                index + 1L,
-                builtin.first,
-                builtin.second,
-                jsonMapper.writeValueAsString(palette),
-            )
-            context.themePalettes[index + 1L] = palette
+    private fun loadBuiltinPalettes() {
+        jdbc.query("SELECT id, colors FROM timetable_theme WHERE builtin_code IS NOT NULL") { rs ->
+            context.themePalettes[rs.getLong("id")] = jsonMapper.readValue<List<ColorSet>>(rs.getString("colors"))
         }
     }
 
@@ -199,39 +191,6 @@ class ThemeStep(
                 "download_count",
                 "created_at",
                 "updated_at",
-            )
-        private val BUILTINS =
-            listOf(
-                Triple(
-                    "snutt",
-                    "SNUTT",
-                    listOf("#E54459", "#F58D3D", "#FAC42D", "#A6D930", "#2BC267", "#1BD0C8", "#1D99E8", "#4F48C4", "#AF56B3"),
-                ),
-                Triple(
-                    "fall",
-                    "가을",
-                    listOf("#B82E31", "#DB701C", "#EAA32A", "#C6C013", "#3A856E", "#19B2AC", "#3994CE", "#3F3A9C", "#924396"),
-                ),
-                Triple(
-                    "modern",
-                    "모던",
-                    listOf("#F0652A", "#F5AD3E", "#998F36", "#89C291", "#266F55", "#13808F", "#366689", "#432920", "#D82F3D"),
-                ),
-                Triple(
-                    "blossom",
-                    "벚꽃",
-                    listOf("#FD79A8", "#FEC9DD", "#FEB0CC", "#FE93BF", "#E9B1D0", "#C67D97", "#BB8EA7", "#BDB4BF", "#E16597"),
-                ),
-                Triple(
-                    "ice",
-                    "얼음",
-                    listOf("#AABDCF", "#C0E9E8", "#66B6CA", "#015F95", "#A8D0DB", "#66B6CA", "#62A9D1", "#20363D", "#6D8A96"),
-                ),
-                Triple(
-                    "lawn",
-                    "잔디",
-                    listOf("#4FBEAA", "#9FC1A4", "#5A8173", "#84AEB1", "#266F55", "#D0E0C4", "#59886D", "#476060", "#3D7068"),
-                ),
             )
     }
 }
