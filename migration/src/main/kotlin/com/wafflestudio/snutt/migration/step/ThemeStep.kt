@@ -66,93 +66,89 @@ class ThemeStep(
             check(palette.size in 1..9) { "잘못된 팔레트: ${doc.id()}" }
             val id = ids.next()
             context.themeIds[doc.id()] = id
+            context.themePalettes[id] = palette
             themes += SourceTheme(doc, id, userId, doc.requireStr("name"), palette)
-        }
-        writer("timetable_theme", THEME_COLUMNS).use { out ->
-            themes.filterNot { it.downloaded }.forEach { source ->
-                val d = source.document
-                out.add(
-                    source.id,
-                    source.userId,
-                    source.name,
-                    jsonMapper.writeValueAsString(source.palette),
-                    null,
-                    d.instant("createdAt").orNow().toSqlTimestamp(),
-                    d.instant("updatedAt").orNow().toSqlTimestamp(),
-                )
-                context.themePalettes[source.id] = source.palette
-            }
         }
         val publicationIds = IdSequence()
         val publicationsBySource = mutableMapOf<String, Publication>()
-        writer("published_theme", PUBLICATION_COLUMNS).use { publications ->
-            themes.filterNot { it.downloaded }.forEach { source ->
-                val d = source.document
-                val info = d.doc("publishInfo") ?: return@forEach
-                val name = info.str("publishName") ?: return@forEach
-                val publication = Publication(publicationIds.next(), name, source.palette)
-                publicationsBySource[d.id()] = publication
-                publications.add(
-                    publication.id,
-                    source.userId,
-                    source.id,
-                    name,
-                    jsonMapper.writeValueAsString(source.palette),
-                    info.bool("authorAnonymous"),
-                    d.str("status") == "PUBLISHED",
-                    info.long("downloads") ?: 0L,
-                    d.instant("createdAt").orNow().toSqlTimestamp(),
-                    d.instant("updatedAt").orNow().toSqlTimestamp(),
-                )
-            }
-            val archives = mutableMapOf<String, Publication>()
-            val downloadsByUser = mutableMapOf<Pair<Long, Long>, Long>()
-            writer("timetable_theme", THEME_COLUMNS, parent = publications).use { downloads ->
-                themes.filter { it.downloaded }.forEach { source ->
+        writer("timetable_theme", THEME_COLUMNS).use { out ->
+            writer("published_theme", PUBLICATION_COLUMNS, parent = out).use { publications ->
+                themes.filterNot { it.downloaded }.forEach { source ->
                     val d = source.document
-                    val origin = d.doc("origin")
-                    val originId = origin?.oid("originId")
-                    val current = publicationsBySource[originId]
-                    val publication =
-                        if (current != null && current.name == source.name && current.palette == source.palette) {
-                            current
-                        } else {
-                            val key = "${originId.orEmpty()}\u0000${source.name}\u0000${jsonMapper.writeValueAsString(source.palette)}"
-                            archives.getOrPut(key) {
-                                context.resolved(MigrationSupport.ResolutionReasons.PUBLISHED_THEME_ARCHIVED)
-                                val archived = Publication(publicationIds.next(), source.name, source.palette)
-                                publications.add(
-                                    archived.id,
-                                    origin?.oid("authorId")?.let(context.userIds::get),
-                                    null,
-                                    archived.name,
-                                    jsonMapper.writeValueAsString(archived.palette),
-                                    true,
-                                    false,
-                                    0L,
-                                    d.instant("createdAt").orNow().toSqlTimestamp(),
-                                    d.instant("updatedAt").orNow().toSqlTimestamp(),
-                                )
-                                archived
+                    out.add(
+                        source.id,
+                        source.userId,
+                        source.name,
+                        jsonMapper.writeValueAsString(source.palette),
+                        null,
+                        d.instant("createdAt").orNow().toSqlTimestamp(),
+                        d.instant("updatedAt").orNow().toSqlTimestamp(),
+                    )
+                    val info = d.doc("publishInfo") ?: return@forEach
+                    val name = info.str("publishName") ?: return@forEach
+                    val publication = Publication(publicationIds.next(), name, source.palette)
+                    publicationsBySource[d.id()] = publication
+                    publications.add(
+                        publication.id,
+                        source.userId,
+                        source.id,
+                        name,
+                        jsonMapper.writeValueAsString(source.palette),
+                        info.bool("authorAnonymous"),
+                        d.str("status") == "PUBLISHED",
+                        info.long("downloads") ?: 0L,
+                        d.instant("createdAt").orNow().toSqlTimestamp(),
+                        d.instant("updatedAt").orNow().toSqlTimestamp(),
+                    )
+                }
+                val archives = mutableMapOf<String, Publication>()
+                val downloadsByUser = mutableMapOf<Pair<Long, Long>, Long>()
+                writer("timetable_theme", THEME_COLUMNS, parent = publications).use { downloads ->
+                    themes.filter { it.downloaded }.forEach { source ->
+                        val d = source.document
+                        val origin = d.doc("origin")
+                        val originId = origin?.oid("originId")
+                        val current = publicationsBySource[originId]
+                        val publication =
+                            if (current != null && current.name == source.name && current.palette == source.palette) {
+                                current
+                            } else {
+                                val key = "${originId.orEmpty()}\u0000${source.name}\u0000${jsonMapper.writeValueAsString(source.palette)}"
+                                archives.getOrPut(key) {
+                                    context.resolved(MigrationSupport.ResolutionReasons.PUBLISHED_THEME_ARCHIVED)
+                                    val archived = Publication(publicationIds.next(), source.name, source.palette)
+                                    publications.add(
+                                        archived.id,
+                                        origin?.oid("authorId")?.let(context.userIds::get),
+                                        null,
+                                        archived.name,
+                                        jsonMapper.writeValueAsString(archived.palette),
+                                        true,
+                                        false,
+                                        0L,
+                                        d.instant("createdAt").orNow().toSqlTimestamp(),
+                                        d.instant("updatedAt").orNow().toSqlTimestamp(),
+                                    )
+                                    archived
+                                }
                             }
+                        val key = source.userId to publication.id
+                        val previous = downloadsByUser[key]
+                        if (previous != null) {
+                            context.themeIds[d.id()] = previous
+                            context.resolved(MigrationSupport.ResolutionReasons.THEME_DOWNLOAD_MERGED)
+                        } else {
+                            downloadsByUser[key] = source.id
+                            downloads.add(
+                                source.id,
+                                source.userId,
+                                publication.name,
+                                jsonMapper.writeValueAsString(publication.palette),
+                                publication.id,
+                                d.instant("createdAt").orNow().toSqlTimestamp(),
+                                d.instant("updatedAt").orNow().toSqlTimestamp(),
+                            )
                         }
-                    val key = source.userId to publication.id
-                    val previous = downloadsByUser[key]
-                    if (previous != null) {
-                        context.themeIds[d.id()] = previous
-                        context.resolved(MigrationSupport.ResolutionReasons.THEME_DOWNLOAD_MERGED)
-                    } else {
-                        downloadsByUser[key] = source.id
-                        downloads.add(
-                            source.id,
-                            source.userId,
-                            publication.name,
-                            jsonMapper.writeValueAsString(publication.palette),
-                            publication.id,
-                            d.instant("createdAt").orNow().toSqlTimestamp(),
-                            d.instant("updatedAt").orNow().toSqlTimestamp(),
-                        )
-                        context.themePalettes[source.id] = publication.palette
                     }
                 }
             }
