@@ -54,29 +54,6 @@ class NotificationService(
         )
     }
 
-    @Transactional
-    fun getNotificationsByOffset(
-        userId: Long,
-        offset: Long,
-        limit: Int,
-        explicit: Boolean,
-    ): List<Notification> {
-        if (offset < 0 || limit !in 1..MAX_PAGE_SIZE || offset > Int.MAX_VALUE - limit) {
-            throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
-        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        val results =
-            notificationRepository.findNotifications(
-                userId = userId,
-                registeredAt = checkNotNull(user.createdAt),
-                cursorCreatedAt = null,
-                cursorId = null,
-                limit = (offset + limit).toInt(),
-            )
-        if (explicit) markChecked(user)
-        return results.drop(offset.toInt())
-    }
-
     private fun markChecked(user: User) {
         user.notificationCheckedAt = Instant.now()
         userRepository.save(user)

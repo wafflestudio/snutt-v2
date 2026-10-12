@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.common.storage.StorageUriResolver
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
@@ -20,6 +21,7 @@ import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
+import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
@@ -28,6 +30,7 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
@@ -41,6 +44,7 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColor
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColorIndex
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -345,8 +349,10 @@ data class LegacyNotificationCountResponse(
 @RequestMapping("/v1/notification")
 class V1CompatNotificationController(
     private val notificationService: NotificationService,
-    private val userService: UserService,
+    private val notificationRepository: NotificationRepository,
+    private val userRepository: UserRepository,
 ) {
+    @Transactional
     @GetMapping("")
     fun getNotifications(
         @V1CurrentUser user: User,
@@ -354,7 +360,20 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): List<LegacyNotificationDto> {
-        val notifications = notificationService.getNotificationsByOffset(user.id!!, offset, limit, explicit > 0)
+        if (offset < 0 || limit !in 1..MAX_PAGE_SIZE || offset > Int.MAX_VALUE - limit) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
+        val me = userRepository.findByIdAndActiveTrue(user.id!!) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val notifications =
+            notificationRepository
+                .findNotifications(
+                    userId = me.id!!,
+                    registeredAt = checkNotNull(me.createdAt),
+                    cursorCreatedAt = null,
+                    cursorId = null,
+                    limit = (offset + limit).toInt(),
+                ).drop(offset.toInt())
+        if (explicit > 0) me.notificationCheckedAt = Instant.now()
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(

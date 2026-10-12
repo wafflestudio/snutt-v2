@@ -7,10 +7,12 @@ import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSearchCriteria
 import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyEvSummary
@@ -49,6 +51,7 @@ private val LEGACY_SORTS = LectureSort.entries.flatMap { listOf(it.fullName to i
 @RequestMapping("/v1/search_query")
 class V1CompatLectureSearchController(
     private val lectureService: LectureService,
+    private val lectureRepository: LectureRepository,
     private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
 ) {
     @PostMapping("")
@@ -75,8 +78,8 @@ class V1CompatLectureSearchController(
                 sort = LEGACY_SORTS[query.sortCriteria] ?: LectureSort.DEFAULT,
             )
         val offset = query.offset ?: query.page * 20L
-        if (offset !in 0..Int.MAX_VALUE.toLong()) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val lectures = lectureService.searchByOffset(criteria, offset.toInt(), query.limit)
+        if (offset !in 0..Int.MAX_VALUE.toLong() || query.limit !in 1..MAX_PAGE_SIZE) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val lectures = lectureRepository.search(criteria, cursorLectureId = null, limit = query.limit, offset = offset.toInt())
         val lectureIds = lectures.mapNotNull { it.lecture.id }
         val classTimesMap = lectureService.classTimesByLectureId(lectureIds)
         val statuses = lectureRegistrationStatusRepository.findAllById(lectureIds).associateBy { it.lectureId }

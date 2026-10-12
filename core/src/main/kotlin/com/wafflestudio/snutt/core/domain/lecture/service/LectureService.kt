@@ -37,15 +37,6 @@ class LectureService(
         return cursorCodec.pageOf(results, limit, cursorOf = { LectureSearchCursor(criteria.sort, it.lecture.id!!) }) { it }
     }
 
-    fun searchByOffset(
-        criteria: LectureSearchCriteria,
-        offset: Int,
-        limit: Int,
-    ): List<LectureSearchRow> {
-        if (offset < 0 || limit !in 1..MAX_PAGE_SIZE) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return lectureRepository.search(criteria, cursorLectureId = null, limit = limit, offset = offset)
-    }
-
     fun get(lectureId: Long): Lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
 
     fun getAllByIds(lectureIds: Collection<Long>): Map<Long, Lecture> =
