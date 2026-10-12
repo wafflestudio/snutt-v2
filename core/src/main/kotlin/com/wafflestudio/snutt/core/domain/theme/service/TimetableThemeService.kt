@@ -235,13 +235,8 @@ class TimetableThemeService(
     ): CursorPage<ThemePublicationDisplay> {
         val userIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
         if (userIds.isEmpty()) return CursorPage.of(emptyList(), null, PAGE_SIZE)
-        val after = decodeCursor(cursor)
-        val authored = publishedThemeRepository.findListedByAuthorIds(userIds, after, PAGE_SIZE + 1)
-        val downloaded = publishedThemeRepository.findListedDownloadedByUsers(userIds, after, PAGE_SIZE + 1)
-        return (authored + downloaded)
-            .distinctBy { it.id }
-            .sortedWith(compareByDescending<PublishedTheme> { it.downloadCount }.thenByDescending { it.id })
-            .take(PAGE_SIZE + 1)
+        return publishedThemeRepository
+            .findListedAuthoredOrDownloadedBy(userIds, decodeCursor(cursor), PAGE_SIZE + 1)
             .toPublicationPage()
     }
 

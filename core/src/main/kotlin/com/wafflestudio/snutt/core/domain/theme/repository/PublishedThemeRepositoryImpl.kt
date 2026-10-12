@@ -26,27 +26,21 @@ class PublishedThemeRepositoryImpl(
             query?.let { lower(path(PublishedTheme::name)).like("%${it.lowercase()}%") }
         }
 
-    override fun findListedByAuthorIds(
-        authorIds: Collection<Long>,
-        cursor: PublishedThemeCursor?,
-        limit: Int,
-    ): List<PublishedTheme> =
-        findListedBy(cursor, limit) {
-            path(PublishedTheme::authorId).`in`(authorIds)
-        }
-
-    override fun findListedDownloadedByUsers(
+    override fun findListedAuthoredOrDownloadedBy(
         userIds: Collection<Long>,
         cursor: PublishedThemeCursor?,
         limit: Int,
     ): List<PublishedTheme> =
         findListedBy(cursor, limit) {
-            path(PublishedTheme::id).`in`(
-                jpql {
-                    select(path(TimetableTheme::publicationId))
-                        .from(entity(TimetableTheme::class))
-                        .where(path(TimetableTheme::userId).`in`(userIds))
-                }.asSubquery(),
+            or(
+                path(PublishedTheme::authorId).`in`(userIds),
+                path(PublishedTheme::id).`in`(
+                    jpql {
+                        select(path(TimetableTheme::publicationId))
+                            .from(entity(TimetableTheme::class))
+                            .where(path(TimetableTheme::userId).`in`(userIds))
+                    }.asSubquery(),
+                ),
             )
         }
 

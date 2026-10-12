@@ -14,13 +14,7 @@ interface PublishedThemeSearchRepository {
         limit: Int,
     ): List<PublishedTheme>
 
-    fun findListedByAuthorIds(
-        authorIds: Collection<Long>,
-        cursor: PublishedThemeCursor?,
-        limit: Int,
-    ): List<PublishedTheme>
-
-    fun findListedDownloadedByUsers(
+    fun findListedAuthoredOrDownloadedBy(
         userIds: Collection<Long>,
         cursor: PublishedThemeCursor?,
         limit: Int,
