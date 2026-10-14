@@ -29,7 +29,7 @@ class OidcJwtVerifier(
         try {
             Jwts
                 .parser()
-                .keyLocator { header -> findKey(jwksUri, (header as? ProtectedHeader)?.keyId) }
+                .keyLocator { header -> (header as? ProtectedHeader)?.keyId?.let { findKey(jwksUri, it) } }
                 .requireIssuer(issuer)
                 .requireAudience(audience)
                 .build()
@@ -46,7 +46,7 @@ class OidcJwtVerifier(
 
     private fun findKey(
         jwksUri: String,
-        keyId: String?,
+        keyId: String,
     ): Key? {
         jwkSets[jwksUri]?.findKey(keyId)?.let { return it }
         val fetched = fetchJwkSet(jwksUri) ?: return null
@@ -68,5 +68,5 @@ class OidcJwtVerifier(
         return json?.let { Jwks.setParser().build().parse(it) }
     }
 
-    private fun JwkSet.findKey(keyId: String?): Key? = getKeys().firstOrNull { it.id == keyId }?.toKey()
+    private fun JwkSet.findKey(keyId: String): Key? = getKeys().firstOrNull { it.id == keyId }?.toKey()
 }
