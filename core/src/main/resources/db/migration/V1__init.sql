@@ -256,8 +256,8 @@ CREATE TABLE timetable_theme
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id          BIGINT       NULL,
     builtin_code     VARCHAR(32)  NULL,
-    name             VARCHAR(128) NULL,
-    colors           JSON         NULL,
+    name             VARCHAR(128) NOT NULL,
+    colors           JSON         NOT NULL,
     publication_id   BIGINT       NULL,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
@@ -268,11 +268,7 @@ CREATE TABLE timetable_theme
         (builtin_code IS NOT NULL AND user_id IS NULL AND publication_id IS NULL)
         OR (builtin_code IS NULL AND user_id IS NOT NULL)
     ),
-    CONSTRAINT ck_timetable_theme_content CHECK (
-        (publication_id IS NULL AND name IS NOT NULL AND colors IS NOT NULL)
-        OR (publication_id IS NOT NULL AND name IS NULL AND colors IS NULL)
-    ),
-    CONSTRAINT ck_timetable_theme_palette CHECK (colors IS NULL OR (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9)),
+    CONSTRAINT ck_timetable_theme_palette CHECK (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9),
     INDEX idx_timetable_theme_user_updated (user_id, updated_at DESC)
 );
 
@@ -391,12 +387,10 @@ CREATE TABLE bookmark_lecture
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id    BIGINT      NOT NULL,
-    year       INT         NOT NULL,
-    semester   TINYINT     NOT NULL,
     lecture_id BIGINT      NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    CONSTRAINT uk_bookmark_lecture UNIQUE (user_id, year, semester, lecture_id),
+    CONSTRAINT uk_bookmark_lecture UNIQUE (user_id, lecture_id),
     CONSTRAINT fk_bookmark_lecture_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_bookmark_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE,
     INDEX idx_bookmark_lecture_lecture (lecture_id)
@@ -556,6 +550,7 @@ CREATE TABLE diary_submission_answer
     CONSTRAINT fk_diary_submission_answer_submission FOREIGN KEY (submission_id) REFERENCES diary_submission (id) ON DELETE CASCADE,
     INDEX idx_diary_submission_answer_submission (submission_id)
 );
+
 CREATE TABLE legacy_access_token
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
