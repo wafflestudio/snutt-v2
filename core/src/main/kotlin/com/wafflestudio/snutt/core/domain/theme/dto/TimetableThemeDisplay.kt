@@ -16,7 +16,6 @@ data class TimetableThemeDisplay(
 
 data class ThemePublicationDisplay(
     val id: Long,
-    val sourceThemeId: Long?,
     val authorId: Long?,
     val name: String,
     val colors: List<ColorSet>,

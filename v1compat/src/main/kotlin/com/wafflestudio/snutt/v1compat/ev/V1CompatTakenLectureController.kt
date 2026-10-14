@@ -3,7 +3,7 @@ package com.wafflestudio.snutt.v1compat.ev
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.domain.coursebook.service.SemesterService
+import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
 
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
@@ -160,7 +159,6 @@ class V1CompatCourseSearchController(
     private val legacyCourseRepository: LegacyCourseRepository,
     private val courseRepository: CourseRepository,
     private val lectureRepository: LectureRepository,
-    private val semesterService: SemesterService,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -214,7 +212,7 @@ class V1CompatCourseSearchController(
     ): LegacyCourseWithSemestersResponse {
         val result = courseSearchService.getCourseWithLectures(courseId, user.id!!)
         val course = legacyCourseRepository.get(courseId)
-        val next = semesterService.getNextYearAndSemester(Instant.now())
+        val next = SemesterCalendar.next()
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = course.title,

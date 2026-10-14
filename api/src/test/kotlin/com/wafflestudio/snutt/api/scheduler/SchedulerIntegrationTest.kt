@@ -3,8 +3,8 @@ package com.wafflestudio.snutt.api.scheduler
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
-import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
@@ -134,7 +134,7 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
             ),
         )
 
-        reminderScheduler.fireDueReminders(now, SemesterCalendar.YearSemester(2026, Semester.AUTUMN))
+        reminderScheduler.fireDueReminders(now, YearAndSemester(2026, Semester.AUTUMN))
 
         val sent = sentMessages().single()
         assertEquals("fcm-reminder", sent.fcmRegistrationId)

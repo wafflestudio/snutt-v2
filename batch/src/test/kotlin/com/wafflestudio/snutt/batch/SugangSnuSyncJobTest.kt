@@ -16,7 +16,6 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabularyRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
@@ -49,9 +48,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
     @Autowired
     lateinit var courseRepository: CourseRepository
-
-    @Autowired
-    lateinit var lectureVocabularyRepository: LectureVocabularyRepository
 
     @Autowired
     lateinit var notificationRepository: NotificationRepository
@@ -91,7 +87,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
             .getCoursebookCondition()
     }
 
-    private fun runJob() = sugangSnuSyncJob.run(YearSemesterArgs(null, null))
+    private fun runJob() = sugangSnuSyncJob.run(null)
 
     @Autowired
     lateinit var sugangSnuXlsxParser: SugangSnuXlsxParser
@@ -124,7 +120,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         Mockito.doReturn(xlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "ko")
         Mockito.doReturn(englishXlsx).`when`(sugangSnuLectureApi).downloadLectureXlsx(2026, Semester.AUTUMN, "en")
         stubCurrentCoursebook()
-        assertEquals(2, sugangSnuXlsxParser.parse(xlsx).size)
+        assertEquals(2, sugangSnuXlsxParser.parse(xlsx, englishXlsx).size)
 
         runJob()
 
@@ -141,7 +137,7 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         assertEquals("이제희", courseRepository.findById(first.courseId!!).get().instructor)
 
         val vocabulary =
-            lectureVocabularyRepository.findVocabulary(
+            lectureRepository.findVocabulary(
                 2026,
                 Semester.AUTUMN,
                 Language.KO,

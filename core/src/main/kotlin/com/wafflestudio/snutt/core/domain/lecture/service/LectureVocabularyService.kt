@@ -1,29 +1,42 @@
 package com.wafflestudio.snutt.core.domain.lecture.service
 
+import com.wafflestudio.snutt.core.common.cache.RedisCache
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookVersionedCache
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabulary
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureVocabularyRepository
 import org.springframework.stereotype.Service
+import java.time.Duration
 
 @Service
 class LectureVocabularyService(
-    private val lectureVocabularyRepository: LectureVocabularyRepository,
-    private val cache: CoursebookVersionedCache,
+    private val lectureRepository: LectureRepository,
+    private val redisCache: RedisCache,
 ) {
     fun getVocabulary(
-        year: Int?,
-        semester: Semester?,
+        year: Int,
+        semester: Semester,
         language: Language,
-    ): LectureVocabulary {
-        val scope = if (year != null && semester != null) "$year-${semester.value}" else "all"
-        return cache.getOrPut(PREFIX, "$scope:$language", LectureVocabulary::class.java) {
-            lectureVocabularyRepository.findVocabulary(year, semester, language)
+    ): LectureVocabulary =
+        redisCache.getOrPut(key(year, semester, language), TTL, LectureVocabulary::class.java) {
+            lectureRepository.findVocabulary(year, semester, language)
         }
+
+    fun evict(
+        year: Int,
+        semester: Semester,
+    ) {
+        redisCache.evict(*Language.entries.map { key(year, semester, it) }.toTypedArray())
     }
+
+    private fun key(
+        year: Int,
+        semester: Semester,
+        language: Language,
+    ): String = "$PREFIX:$year-${semester.value}:$language"
 
     companion object {
         private const val PREFIX = "lecture-vocabulary"
+        private val TTL: Duration = Duration.ofDays(1)
     }
 }

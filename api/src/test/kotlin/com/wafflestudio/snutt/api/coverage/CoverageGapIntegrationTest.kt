@@ -196,11 +196,11 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
                 userBToken,
             )
         assertEquals(200, created.statusCode.value())
-        val themeId = body(created)["id"].asLong()
+        val themeId = body(created).first { it["name"].asString() == "기본테마후보" }["id"].asLong()
 
         val setDefault = post("/v2/themes/$themeId/default", token = userBToken)
         assertEquals(200, setDefault.statusCode.value())
-        assertEquals(true, body(setDefault)["isDefault"].asBoolean())
+        assertEquals(themeId, body(setDefault).single { it["isDefault"].asBoolean() }["id"].asLong())
 
         val marked = body(get("/v2/themes", userBToken)).filter { it["isDefault"].asBoolean() }
         assertEquals(1, marked.size)
@@ -208,7 +208,7 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
 
         val unset = delete("/v2/themes/$themeId/default", userBToken)
         assertEquals(200, unset.statusCode.value())
-        assertEquals("SNUTT", body(unset)["name"].asString())
+        assertEquals("SNUTT", body(unset).single { it["isDefault"].asBoolean() }["name"].asString())
     }
 
     @Test
@@ -220,7 +220,7 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
                 userBToken,
             )
         assertEquals(200, created.statusCode.value())
-        val themeId = body(created)["id"].asLong()
+        val themeId = body(created).first { it["name"].asString() == "삭제할기본테마" }["id"].asLong()
         post("/v2/themes/$themeId/default", token = userBToken)
 
         val deleted = delete("/v2/themes/$themeId", userBToken)

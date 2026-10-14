@@ -28,8 +28,6 @@ class UserService(
 
     fun get(userId: Long): User = findActive(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
-    fun getAllByIds(userIds: Collection<Long>): Map<Long, User> = userRepository.findAllById(userIds.distinct()).associateBy { it.id!! }
-
     fun searchByEmail(email: String): List<User> = userRepository.findByEmailContainingIgnoreCaseAndActiveTrue(email)
 
     @Transactional(readOnly = true)

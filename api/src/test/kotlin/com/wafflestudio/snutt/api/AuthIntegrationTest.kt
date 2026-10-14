@@ -45,7 +45,7 @@ class AuthIntegrationTest : AbstractApiIntegrationTest() {
         val node = body(response)
         assertEquals(registered["userId"].asString(), node["id"].asString())
         assertEquals("testuser1@snu.ac.kr", node["email"].asString())
-        assertEquals(listOf("local"), node["authProviders"].values().map { it.asString() })
+        assertEquals(listOf("LOCAL"), node["authProviders"].values().map { it.asString() })
     }
 
     @Test

@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.evaluation.dto
 
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.domain.coursebook.service.YearAndSemester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 
 data class CourseSearchCriteria(
     val query: String = "",

@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.api.v2.tag
 
+import com.wafflestudio.snutt.api.v2.coursebook.YearAndSemesterResponse
+import com.wafflestudio.snutt.api.v2.coursebook.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.select
@@ -30,11 +32,6 @@ data class SortCriterionResponse(
     val label: String,
 )
 
-data class SemesterResponse(
-    val year: Int,
-    val semester: Semester,
-)
-
 data class CourseTagListResponse(
     val classification: List<String>,
     val department: List<String>,
@@ -42,7 +39,7 @@ data class CourseTagListResponse(
     val credit: List<Int>,
     val category: List<String>,
     val categoryPre2025: List<String>,
-    val semesters: List<SemesterResponse>,
+    val semesters: List<YearAndSemesterResponse>,
     val updatedAt: Long?,
 )
 
@@ -73,7 +70,7 @@ class TagController(
             sortCriteria =
                 LectureSort.entries
                     .filter { it != LectureSort.DEFAULT }
-                    .map { SortCriterionResponse(it.name.lowercase(), clientInfo.language.select(it.fullName, it.fullNameEn)) },
+                    .map { SortCriterionResponse(it.name, clientInfo.language.select(it.fullName, it.fullNameEn)) },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )
     }
@@ -93,7 +90,7 @@ class TagController(
                 vocabulary.categoryPre2025.map {
                     LectureCategoryPre2025.localize(it, clientInfo.language)
                 },
-            semesters = vocabulary.semesters.map { SemesterResponse(it.year, it.semester) },
+            semesters = vocabulary.semesters.map { it.toResponse() },
             updatedAt = vocabulary.updatedAt?.toEpochMilli(),
         )
     }

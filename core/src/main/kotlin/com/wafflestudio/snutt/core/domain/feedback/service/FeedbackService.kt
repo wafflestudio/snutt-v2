@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.feedback.service
 
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.UpstreamException
 import org.springframework.beans.factory.annotation.Value
@@ -24,13 +25,13 @@ class FeedbackService(
     fun postFeedback(
         email: String,
         message: String,
-        osType: String,
+        osType: OsType,
         osVersion: String?,
         appVersion: String,
         deviceModel: String,
     ) {
         check(token.isNotBlank()) { "깃허브 토큰이 설정되지 않았습니다" }
-        val platform = osVersion?.let { "$osType ($osVersion)" } ?: osType
+        val platform = osVersion?.let { "${osType.value} ($osVersion)" } ?: osType.value
         val currentSeoulTime =
             ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val body =
@@ -51,9 +52,9 @@ class FeedbackService(
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
                     mapOf(
-                        "title" to "[SNUTT] $appVersion $osType 피드백",
+                        "title" to "[SNUTT] $appVersion ${osType.value} 피드백",
                         "body" to body,
-                        "labels" to listOf(osType.lowercase()),
+                        "labels" to listOf(osType.value),
                     ),
                 ).retrieve()
                 .toBodilessEntity()

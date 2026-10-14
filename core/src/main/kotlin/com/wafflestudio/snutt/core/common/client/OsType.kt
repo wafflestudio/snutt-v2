@@ -9,6 +9,7 @@ enum class OsType(
     IOS("ios"),
     ANDROID("android"),
     WEB("web"),
+    UNKNOWN("unknown"),
     ;
 
     companion object {

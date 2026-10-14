@@ -1,18 +1,16 @@
 package com.wafflestudio.snutt.migration.step
 
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.docs
 import com.wafflestudio.snutt.migration.id
-import com.wafflestudio.snutt.migration.instant
 import com.wafflestudio.snutt.migration.int
 import com.wafflestudio.snutt.migration.nullIfBlank
-import com.wafflestudio.snutt.migration.orNow
 import com.wafflestudio.snutt.migration.requireInt
 import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
@@ -20,21 +18,21 @@ import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
+import java.time.Instant
 
 @Component
 class LectureStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "lecture"
+) : MigrationStep(jdbc, context) {
     override val tables = listOf("lecture_class_time", "lecture_registration_status", "lecture")
 
     override fun run() {
         val ids = IdSequence()
         val classTimeIds = IdSequence()
         val offerings = HashMap<String, Long>(256_000)
-        var classTimeCount = 0L
+        val now = Instant.now().toSqlTimestamp()
 
         writer("lecture", LECTURE_COLUMNS).use { lectures ->
             writer("lecture_class_time", CLASS_TIME_COLUMNS, parent = lectures).use { classTimes ->
@@ -54,10 +52,9 @@ class LectureStep(
                         context.lectureIds[externalId] = id
                         context.lectureSemesters += doc.requireInt("year") to doc.requireInt("semester")
 
-                        val instructor = context.intern(doc.str("instructor").nullIfBlank())
+                        val instructor = doc.str("instructor").nullIfBlank()
                         val courseId =
                             context.courseIds[context.courseKey(doc.str("course_number"), instructor)]
-                        val createdAt = doc.instant("created_at").orNow()
                         val places = doc.docs("class_time_json")
 
                         lectures.add(
@@ -69,31 +66,31 @@ class LectureStep(
                             doc.requireStr("lecture_number"),
                             doc.requireStr("course_title"),
                             instructor,
-                            context.intern(doc.str("department").nullIfBlank()),
-                            context.intern(doc.str("academic_year").nullIfBlank()),
-                            context.intern(doc.str("category").nullIfBlank()),
-                            context.intern(doc.str("categoryPre2025").nullIfBlank()),
-                            context.intern(doc.str("classification").nullIfBlank()),
+                            doc.str("department").nullIfBlank(),
+                            doc.str("academic_year").nullIfBlank(),
+                            doc.str("category").nullIfBlank(),
+                            doc.str("categoryPre2025").nullIfBlank(),
+                            doc.str("classification").nullIfBlank(),
                             doc.str("course_title_en").nullIfBlank(),
                             doc.str("instructor_en").nullIfBlank(),
-                            context.intern(doc.str("department_en").nullIfBlank()),
-                            context.intern(academicYearEn(doc.str("academic_year_en"))),
-                            context.intern(doc.str("category_en").nullIfBlank()),
-                            context.intern(doc.str("classification_en").nullIfBlank()),
+                            doc.str("department_en").nullIfBlank(),
+                            academicYearEn(doc.str("academic_year_en")),
+                            doc.str("category_en").nullIfBlank(),
+                            doc.str("classification_en").nullIfBlank(),
                             doc.str("remark_en").nullIfBlank(),
                             doc.requireInt("credit"),
                             doc.requireInt("quota"),
                             doc.int("freshmanQuota"),
                             doc.str("remark").nullIfBlank(),
-                            createdAt.toSqlTimestamp(),
-                            createdAt.toSqlTimestamp(),
+                            now,
+                            now,
                         )
 
                         statuses.add(
                             id,
                             doc.requireInt("registrationCount"),
                             doc.bool("wasFull"),
-                            createdAt.toSqlTimestamp(),
+                            now,
                         )
 
                         places.forEach { place ->
@@ -105,7 +102,6 @@ class LectureStep(
                                 place.requireInt("startMinute"),
                                 place.requireInt("endMinute"),
                             )
-                            classTimeCount++
                         }
 
                         context.lectureSnapshots[id] = doc.toSnapshot(places)
@@ -113,9 +109,7 @@ class LectureStep(
                 }
             }
         }
-        alignAutoIncrement("lecture", ids.peek())
-        alignAutoIncrement("lecture_class_time", classTimeIds.peek())
-        log.info("강의 이관: {}건, 수업 시간 {}건", offerings.size, classTimeCount)
+        log.info("강의 이관: {}건, 수업 시간 {}건", offerings.size, classTimeIds.peek() - 1)
     }
 
     private fun offeringKey(doc: Document): String =

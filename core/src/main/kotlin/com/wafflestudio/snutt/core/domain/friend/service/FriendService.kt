@@ -55,7 +55,7 @@ class FriendService(
     fun requestFriend(
         fromUserId: Long,
         toUserNickname: Nickname,
-    ) {
+    ): Pair<Friend, User> {
         val toUser =
             userRepository.findByNicknameAndNicknameTagAndActiveTrue(toUserNickname.name, toUserNickname.tag)
                 ?: throw SnuttException(ErrorType.USER_NOT_FOUND_BY_NICKNAME)
@@ -64,31 +64,34 @@ class FriendService(
         if (friendRepository.findByUserPair(fromUserId, toUserId) != null) {
             throw SnuttException(ErrorType.DUPLICATE_FRIEND)
         }
-        conflictAs(ErrorType.DUPLICATE_FRIEND) {
-            friendRepository.save(Friend(fromUserId = fromUserId, toUserId = toUserId))
-        }
+        val friend =
+            conflictAs(ErrorType.DUPLICATE_FRIEND) {
+                friendRepository.save(Friend(fromUserId = fromUserId, toUserId = toUserId))
+            }
         val fromUser = userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(
             userId = toUserId,
             title = "친구 요청",
             body = "'${fromUser.nickname}'님의 친구 요청을 수락하고 서로의 대표 시간표를 확인해보세요!",
         )
+        return friend to toUser
     }
 
     @Transactional
     fun acceptFriend(
         friendId: Long,
         toUserId: Long,
-    ) {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+    ): Pair<Friend, User> {
+        val friend = getRequestedTo(toUserId, friendId)
         friend.isAccepted = true
         val toUser = userRepository.findByIdAndActiveTrue(toUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val fromUser = userRepository.findByIdAndActiveTrue(friend.fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(
             userId = friend.fromUserId,
             title = "친구 요청 수락",
             body = "'${toUser.nickname}'님과 친구가 되었어요.",
         )
+        return friend to fromUser
     }
 
     @Transactional
@@ -96,8 +99,7 @@ class FriendService(
         friendId: Long,
         toUserId: Long,
     ) {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (friend.toUserId != toUserId || friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = getRequestedTo(toUserId, friendId)
         friendRepository.delete(friend)
     }
 
@@ -106,8 +108,7 @@ class FriendService(
         friendId: Long,
         userId: Long,
     ) {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+        val friend = getAccepted(userId, friendId)
         friendRepository.delete(friend)
     }
 
@@ -116,15 +117,29 @@ class FriendService(
         userId: Long,
         friendId: Long,
         displayName: String,
-    ) {
-        val friend = get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.includes(userId) || !friend.isAccepted) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+    ): Pair<Friend, User> {
+        val friend = getAccepted(userId, friendId)
         val valid = displayName.length <= DISPLAY_NAME_MAX_LENGTH && displayName.matches(friendDisplayNameRegex)
         if (!valid) throw SnuttException(ErrorType.INVALID_DISPLAY_NAME)
         friend.updatePartnerDisplayName(userId, displayName)
+        val partner =
+            userRepository.findByIdAndActiveTrue(friend.getPartnerUserId(userId)) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        return friend to partner
     }
 
-    fun get(friendId: Long): Friend? = friendRepository.findByIdOrNull(friendId)
+    fun getAccepted(
+        userId: Long,
+        friendId: Long,
+    ): Friend =
+        friendRepository.findByIdOrNull(friendId)?.takeIf { it.isAccepted && it.includes(userId) }
+            ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
+
+    private fun getRequestedTo(
+        toUserId: Long,
+        friendId: Long,
+    ): Friend =
+        friendRepository.findByIdOrNull(friendId)?.takeIf { !it.isAccepted && it.toUserId == toUserId }
+            ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
 
     fun generateFriendRequestLink(userId: Long): String = friendLinkTokenProvider.issue(userId)
 

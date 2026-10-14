@@ -14,16 +14,21 @@ import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
 import com.wafflestudio.snutt.core.domain.theme.model.UserPreference
-import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeCursor
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.UserPreferenceRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import org.springframework.data.domain.Limit
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+
+data class PublishedThemeCursor(
+    val downloadCount: Long,
+    val publicationId: Long,
+)
 
 @Service
 class TimetableThemeService(
@@ -116,7 +121,7 @@ class TimetableThemeService(
         }
         val timetables = timetableRepository.findForUpdateByUserIdAndThemeId(userId, themeId)
         timetables.forEach { it.themeId = fallbackId }
-        val paletteSize = checkNotNull(fallback.colors).size
+        val paletteSize = fallback.colors.size
         timetableLectureRepository.findForUpdateByTimetableIdIn(timetables.map { it.id!! }).forEach { lecture ->
             if (lecture.paletteIndex >= paletteSize) lecture.paletteIndex %= paletteSize
         }
@@ -171,7 +176,7 @@ class TimetableThemeService(
         validateName(name)
         val publication =
             publishedThemeRepository.save(
-                PublishedTheme(userId, themeId, name, checkNotNull(source.colors).toList(), authorAnonymous),
+                PublishedTheme(userId, themeId, name, source.colors.toList(), authorAnonymous),
             )
         return publicationDisplays(listOf(publication)).single()
     }
@@ -187,7 +192,9 @@ class TimetableThemeService(
                 ?.takeIf { it.listed } ?: throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
         val theme =
             conflictAs(ErrorType.ALREADY_DOWNLOADED_THEME) {
-                timetableThemeRepository.saveAndFlush(TimetableTheme(userId, publicationId = publicationId))
+                timetableThemeRepository.saveAndFlush(
+                    TimetableTheme(userId, name = publication.name, colors = publication.colors, publicationId = publicationId),
+                )
             }
         publishedThemeRepository.incrementDownloadCount(publication.id!!)
         return displays(listOf(theme)).getValue(theme.id!!)
@@ -226,7 +233,9 @@ class TimetableThemeService(
         query: String? = null,
     ): CursorPage<ThemePublicationDisplay> {
         val after = decodeCursor(cursor)
-        return publishedThemeRepository.findListed(query, after, PAGE_SIZE + 1).toPublicationPage()
+        return publishedThemeRepository
+            .findListed(query, after?.downloadCount, after?.publicationId, Limit.of(PAGE_SIZE + 1))
+            .toPublicationPage()
     }
 
     fun getFriendsPublications(
@@ -236,12 +245,8 @@ class TimetableThemeService(
         val userIds = friendRepository.findActiveByUserId(userId).map { it.getPartnerUserId(userId) }
         if (userIds.isEmpty()) return CursorPage.of(emptyList(), null, PAGE_SIZE)
         val after = decodeCursor(cursor)
-        val authored = publishedThemeRepository.findListedByAuthorIds(userIds, after, PAGE_SIZE + 1)
-        val downloaded = publishedThemeRepository.findListedDownloadedByUsers(userIds, after, PAGE_SIZE + 1)
-        return (authored + downloaded)
-            .distinctBy { it.id }
-            .sortedWith(compareByDescending<PublishedTheme> { it.downloadCount }.thenByDescending { it.id })
-            .take(PAGE_SIZE + 1)
+        return publishedThemeRepository
+            .findListedAuthoredOrDownloadedBy(userIds, after?.downloadCount, after?.publicationId, Limit.of(PAGE_SIZE + 1))
             .toPublicationPage()
     }
 
@@ -259,30 +264,26 @@ class TimetableThemeService(
     private fun displays(
         themes: List<TimetableTheme>,
         defaultId: Long? = null,
-    ): Map<Long, TimetableThemeDisplay> {
-        val publications = publishedThemeRepository.findAllById(themes.mapNotNull { it.publicationId }.distinct()).associateBy { it.id!! }
-        return themes.associate { theme ->
-            val publication = theme.publicationId?.let(publications::getValue)
+    ): Map<Long, TimetableThemeDisplay> =
+        themes.associate { theme ->
             theme.id!! to
                 TimetableThemeDisplay(
                     id = theme.id!!,
                     userId = theme.userId,
-                    name = if (publication != null) publication.name else checkNotNull(theme.name),
-                    colors = if (publication != null) publication.colors else checkNotNull(theme.colors),
+                    name = theme.name,
+                    colors = theme.colors,
                     kind = theme.kind,
                     builtinCode = theme.builtinCode,
                     publicationId = theme.publicationId,
                     isDefault = theme.id == defaultId,
                 )
         }
-    }
 
     private fun publicationDisplays(publications: List<PublishedTheme>): List<ThemePublicationDisplay> {
         val authors = userRepository.findAllById(publications.mapNotNull { it.authorId }.distinct()).associateBy { it.id!! }
         return publications.map {
             ThemePublicationDisplay(
                 id = it.id!!,
-                sourceThemeId = it.sourceThemeId,
                 authorId = it.authorId,
                 name = it.name,
                 colors = it.colors,

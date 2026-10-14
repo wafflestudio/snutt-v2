@@ -1,19 +1,18 @@
 package com.wafflestudio.snutt.core.domain.clientconfig.service
 
+import com.wafflestudio.snutt.core.common.cache.RedisCache
 import com.wafflestudio.snutt.core.common.client.OsType
+import com.wafflestudio.snutt.core.common.client.compareAppVersions
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.transaction.afterCommit
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.clientconfig.repository.ClientConfigRepository
-import org.springframework.boot.context.event.ApplicationReadyEvent
-import org.springframework.context.event.EventListener
 import org.springframework.data.repository.findByIdOrNull
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.JsonNode
-import java.time.Instant
+import java.time.Duration
 
 data class ClientConfigWriteRequest(
     val value: JsonNode,
@@ -22,32 +21,39 @@ data class ClientConfigWriteRequest(
     val maxVersion: String? = null,
 )
 
+private data class CachedClientConfig(
+    val name: String,
+    val osType: OsType,
+    val minVersion: String?,
+    val maxVersion: String?,
+    val value: JsonNode,
+) {
+    fun isAdaptable(
+        osType: OsType,
+        appVersion: String,
+    ): Boolean =
+        this.osType == osType &&
+            (minVersion == null || compareAppVersions(appVersion, minVersion) >= 0) &&
+            (maxVersion == null || compareAppVersions(appVersion, maxVersion) <= 0)
+}
+
 @Service
 class ClientConfigService(
     private val clientConfigRepository: ClientConfigRepository,
+    private val redisCache: RedisCache,
 ) {
-    @Volatile
-    private var snapshot: List<ClientConfig> = emptyList()
-
-    @EventListener(ApplicationReadyEvent::class)
-    fun warmUp() {
-        refresh()
-    }
-
-    @Scheduled(fixedDelay = REFRESH_INTERVAL_MILLIS)
-    @Synchronized
-    fun refresh() {
-        snapshot = clientConfigRepository.findAll()
-    }
-
     fun getConfigs(
         osType: OsType,
         appVersion: String,
-    ): List<ClientConfig> =
-        snapshot
-            .filter { it.isAdaptable(osType, appVersion) }
-            .groupBy { it.name }
-            .map { (_, configs) -> configs.maxWith(WINNER) }
+    ): Map<String, JsonNode> =
+        redisCache
+            .getOrPut(CACHE_KEY, CACHE_TTL, Array<CachedClientConfig>::class.java) {
+                clientConfigRepository
+                    .findAllByOrderByCreatedAtAscIdAsc()
+                    .map { CachedClientConfig(it.name, it.osType, it.minVersion, it.maxVersion, it.value) }
+                    .toTypedArray()
+            }.filter { it.isAdaptable(osType, appVersion) }
+            .associate { it.name to it.value }
 
     fun getConfigsByName(name: String): List<ClientConfig> = clientConfigRepository.findByNameOrderByCreatedAtDesc(name)
 
@@ -65,7 +71,7 @@ class ClientConfigService(
                     minVersion = request.minVersion,
                     maxVersion = request.maxVersion,
                 ),
-            ).also { afterCommit(::refresh) }
+            ).also { evictAfterCommit() }
 
     @Transactional
     fun patchConfig(
@@ -81,7 +87,7 @@ class ClientConfigService(
         config.osType = request.osType
         config.minVersion = request.minVersion
         config.maxVersion = request.maxVersion
-        afterCommit(::refresh)
+        evictAfterCommit()
         return config
     }
 
@@ -95,11 +101,15 @@ class ClientConfigService(
                 ?: throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         if (config.name != name) throw SnuttException(ErrorType.CONFIG_NOT_FOUND)
         clientConfigRepository.delete(config)
-        afterCommit(::refresh)
+        evictAfterCommit()
+    }
+
+    private fun evictAfterCommit() {
+        afterCommit { redisCache.evict(CACHE_KEY) }
     }
 
     companion object {
-        private const val REFRESH_INTERVAL_MILLIS = 60_000L
-        private val WINNER = compareBy<ClientConfig>({ it.createdAt ?: Instant.EPOCH }, { it.id ?: 0L })
+        private const val CACHE_KEY = "client-configs"
+        private val CACHE_TTL: Duration = Duration.ofMinutes(5)
     }
 }

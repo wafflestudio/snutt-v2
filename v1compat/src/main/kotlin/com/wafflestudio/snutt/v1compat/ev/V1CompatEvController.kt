@@ -118,7 +118,7 @@ class V1CompatEvController(
                 userId = user.id!!,
                 courseId = lectureId,
                 cursor = cursor,
-                sort = EvaluationSort.fromParameter(sort),
+                sort = legacyEvaluationSort(sort),
                 year = year,
                 semester = semester,
             )
@@ -156,12 +156,10 @@ class V1CompatEvController(
 
     @GetMapping("/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
-        @V1CurrentUser user: User,
         @PathVariable lectureId: Long,
     ): LegacyEvLectureSummaryResponse {
-        val summary = evaluationService.getEvaluationSummaryOfCourse(lectureId)
+        val stats = evaluationService.getCourse(lectureId)
         val course = legacyCourseRepository.get(lectureId)
-        val averages = summary.aggregate.averages
         return LegacyEvLectureSummaryResponse(
             id = course.id,
             title = course.title,
@@ -174,17 +172,17 @@ class V1CompatEvController(
             classification = course.classification,
             evaluation =
                 LegacyEvAveragesDto(
-                    avgGradeSatisfaction = averages.avgGradeSatisfaction,
-                    avgTeachingSkill = averages.avgTeachingSkill,
-                    avgGains = averages.avgGains,
-                    avgLifeBalance = averages.avgLifeBalance,
-                    avgRating = averages.avgRating,
+                    avgGradeSatisfaction = stats.avgGradeSatisfaction,
+                    avgTeachingSkill = stats.avgTeachingSkill,
+                    avgGains = stats.avgGains,
+                    avgLifeBalance = stats.avgLifeBalance,
+                    avgRating = stats.avgRating,
                     evaluationCount = course.evalCount,
                 ),
         )
     }
 
-    @GetMapping("/evaluations/me", "/evaluations/users/me")
+    @GetMapping("/evaluations/users/me")
     fun getMyEvaluations(
         @V1CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
@@ -268,9 +266,7 @@ class V1CompatEvController(
     }
 
     @GetMapping("/tags/main")
-    fun getMainTags(
-        @V1CurrentUser user: User,
-    ): LegacyEvTagGroupDto = legacyMainTagGroup()
+    fun getMainTags(): LegacyEvTagGroupDto = legacyMainTagGroup()
 
     @GetMapping("/tags/main/{tagId}/evaluations")
     fun getMainTagEvaluations(
@@ -285,4 +281,10 @@ class V1CompatEvController(
     }
 
     private fun courseMap(courseIds: Collection<Long>): Map<Long, LegacyCourseMetadata> = legacyCourseRepository.getByIds(courseIds)
+}
+
+private fun legacyEvaluationSort(value: String?): EvaluationSort {
+    if (value.isNullOrEmpty()) return EvaluationSort.LATEST
+    return EvaluationSort.entries.firstOrNull { it.name.equals(value, ignoreCase = true) }
+        ?: throw SnuttException(ErrorType.INVALID_EVALUATION_SORT)
 }

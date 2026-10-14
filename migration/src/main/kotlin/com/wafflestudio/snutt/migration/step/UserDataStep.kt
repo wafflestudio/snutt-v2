@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.migration.step
 
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -26,8 +26,7 @@ class UserDataStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
     private val mongo: MongoSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "userdata"
+) : MigrationStep(jdbc, context) {
     override val tables =
         listOf(
             "bookmark_lecture",
@@ -51,10 +50,10 @@ class UserDataStep(
 
     private fun migrateBookmarks() {
         val ids = IdSequence()
-        var lectureCount = 0L
+        val bookmarked = HashSet<Pair<Long, Long>>()
         writer(
             "bookmark_lecture",
-            listOf("id", "user_id", "year", "semester", "lecture_id", "created_at", "updated_at"),
+            listOf("id", "user_id", "lecture_id", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("bookmarks") { doc ->
                 val lectureRefs = doc.docs("lectures").map { it.id() }.distinct()
@@ -65,17 +64,15 @@ class UserDataStep(
                 }
                 val lectureIds = lectureRefs.mapNotNull(context.lectureIds::get)
                 context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MISSING, lectureRefs.size - lectureIds.size)
-                val distinctLectureIds = lectureIds.distinct()
-                context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED, lectureIds.size - distinctLectureIds.size)
+                val newLectureIds = lectureIds.filter { bookmarked.add(userId to it) }
+                context.resolved(MigrationSupport.ResolutionReasons.BOOKMARK_LECTURE_MERGED, lectureIds.size - newLectureIds.size)
                 val now = Instant.now().toSqlTimestamp()
-                distinctLectureIds.forEach { lectureId ->
-                    out.add(ids.next(), userId, doc.requireInt("year"), doc.requireInt("semester"), lectureId, now, now)
-                    lectureCount++
+                newLectureIds.forEach { lectureId ->
+                    out.add(ids.next(), userId, lectureId, now, now)
                 }
             }
         }
-        alignAutoIncrement("bookmark_lecture", ids.peek())
-        log.info("북마크 이관: 담긴 강의 {}건", lectureCount)
+        log.info("북마크 이관: 담긴 강의 {}건", ids.peek() - 1)
     }
 
     private fun migrateVacancyNotifications() {
@@ -104,23 +101,19 @@ class UserDataStep(
                 out.add(ids.next(), userId, lectureId, now, now)
             }
         }
-        alignAutoIncrement("vacancy_notification", ids.peek())
         log.info("빈자리 알림 이관: {}건", ids.peek() - 1)
     }
 
     private fun migrateUserDevices() {
-        val devices = mutableListOf<Document>()
-        mongo.each("userDevice", devices::add)
-        val activeOwnerByRegistrationId =
-            devices.indices
-                .filter { index ->
-                    val doc = devices[index]
-                    val userId = context.userIds[doc.oid("userId")]
-                    userId != null && userId !in context.inactiveUserIds && !doc.bool("isDeleted")
-                }.groupBy { devices[it].requireStr("fcmRegistrationId") }
-                .mapValues { (_, indexes) ->
-                    indexes.maxWith(compareBy<Int> { devices[it].instant("updatedAt") ?: Instant.EPOCH }.thenBy { it })
-                }
+        val activeOwner = HashMap<String, Pair<Instant, String>>()
+        mongo.each("userDevice") { doc ->
+            val userId = context.userIds[doc.oid("userId")]
+            if (userId == null || userId in context.inactiveUserIds || doc.bool("isDeleted")) return@each
+            val registrationId = doc.requireStr("fcmRegistrationId")
+            val updatedAt = doc.instant("updatedAt") ?: Instant.EPOCH
+            val owner = activeOwner[registrationId]
+            if (owner == null || updatedAt >= owner.first) activeOwner[registrationId] = updatedAt to doc.id()
+        }
 
         val ids = IdSequence()
         writer(
@@ -140,16 +133,16 @@ class UserDataStep(
                 "updated_at",
             ),
         ).use { out ->
-            devices.forEachIndexed { index, doc ->
+            mongo.each("userDevice") { doc ->
                 val userId = context.userIds[doc.oid("userId")]
                 if (userId == null) {
                     context.resolved(MigrationSupport.ResolutionReasons.DEVICE_USER_MISSING)
-                    return@forEachIndexed
+                    return@each
                 }
                 val registrationId = doc.requireStr("fcmRegistrationId")
                 val inactiveUser = !doc.bool("isDeleted") && userId in context.inactiveUserIds
                 val duplicateActiveRegistrationId =
-                    !doc.bool("isDeleted") && !inactiveUser && activeOwnerByRegistrationId[registrationId] != index
+                    !doc.bool("isDeleted") && !inactiveUser && activeOwner.getValue(registrationId).second != doc.id()
                 val missingRegistrationId = !doc.bool("isDeleted") && registrationId.isBlank()
                 if (inactiveUser) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_USER_INACTIVE)
                 if (duplicateActiveRegistrationId) context.resolved(MigrationSupport.ResolutionReasons.DEVICE_REGISTRATION_DUPLICATE)
@@ -170,7 +163,6 @@ class UserDataStep(
                 )
             }
         }
-        alignAutoIncrement("user_device", ids.peek())
         log.info("기기 이관: {}건", ids.peek() - 1)
     }
 
@@ -190,12 +182,11 @@ class UserDataStep(
                 }
             }
         }
-        alignAutoIncrement("push_preference", ids.peek())
         log.info("푸시 설정 이관: {}건", ids.peek() - 1)
     }
 
     private fun migrateFriends() {
-        val winners = LinkedHashMap<String, org.bson.Document>()
+        val winners = LinkedHashMap<String, Document>()
         mongo.each("friend") { doc ->
             val fromUserId = context.userIds[doc.oid("fromUserId")]
             val toUserId = context.userIds[doc.oid("toUserId")]
@@ -248,7 +239,6 @@ class UserDataStep(
                 )
             }
         }
-        alignAutoIncrement("friend", ids.peek())
         log.info("친구 이관: {}건", winners.size)
     }
 
@@ -317,9 +307,6 @@ class UserDataStep(
                 }
             }
         }
-        alignAutoIncrement("diary_submission", ids.peek())
-        alignAutoIncrement("diary_submission_daily_class_type", dctIds.peek())
-        alignAutoIncrement("diary_submission_answer", answerIds.peek())
         log.info("강의 일기장 기록 이관: {}건", ids.peek() - 1)
     }
 }

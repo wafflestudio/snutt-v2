@@ -170,13 +170,9 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `v1 경로와 Deprecation 헤더`() {
+    fun `v1 경로`() {
         val add = v1Post("/v1/tables", """{"year":2026,"semester":3,"title":"테스트 시간표"}""", legacyToken)
         assertEquals(200, add.statusCode.value())
-        assertTrue(add.headers.containsHeader("Deprecation"))
-        assertEquals("true", add.headers.getFirst("Deprecation"))
-        assertTrue(add.headers.containsHeader("Sunset"))
-        assertTrue(add.headers.getFirst("Link")!!.contains("successor-version"))
 
         val brief = body(add).first { it["title"].asString() == "테스트 시간표" }
         assertEquals("2026", brief["year"].asString())

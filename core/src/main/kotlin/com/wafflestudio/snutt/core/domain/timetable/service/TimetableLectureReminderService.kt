@@ -3,8 +3,9 @@ package com.wafflestudio.snutt.core.domain.timetable.service
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.util.SemesterCalendar
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
@@ -18,7 +19,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Duration
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -55,9 +55,9 @@ class TimetableLectureReminderService(
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
     private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
+    private val lectureRepository: LectureRepository,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private var lastCleanupAt: Instant? = null
 
     private companion object {
         const val TIME_WINDOW_MINUTES = 10L
@@ -75,9 +75,8 @@ class TimetableLectureReminderService(
     @Transactional
     fun processDueReminders(
         now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
+        current: YearAndSemester,
     ): List<DueReminderPush> {
-        cleanupPastSemesterReminders(now, current)
         val lastNotifiedBefore = now.toInstant().minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
         return dueWindows(now).flatMap { window -> processWindow(window, now, current, lastNotifiedBefore) }
     }
@@ -85,7 +84,7 @@ class TimetableLectureReminderService(
     private fun processWindow(
         window: DueWindow,
         now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
+        current: YearAndSemester,
         lastNotifiedBefore: Instant,
     ): List<DueReminderPush> {
         val reminderIds =
@@ -101,7 +100,8 @@ class TimetableLectureReminderService(
                 .findAllById(timetableLecturesById.values.map { it.timetableId })
                 .filter { it.isPrimary && it.year == current.year && it.semester == current.semester }
                 .associateBy { it.id!! }
-        val displaysByTimetableId = timetableService.displaysOf(timetablesById.values.toList())
+        val lecturesById =
+            lectureRepository.findAllById(timetableLecturesById.values.mapNotNull { it.lectureId }).associateBy { it.id!! }
 
         return reminders.mapNotNull { reminder ->
             val timetableLecture = timetableLecturesById[reminder.timetableLectureId] ?: return@mapNotNull null
@@ -113,11 +113,7 @@ class TimetableLectureReminderService(
                 }
             if (dueSchedules.isEmpty()) return@mapNotNull null
             val courseTitle =
-                displaysByTimetableId
-                    .getValue(timetable.id!!)
-                    .lectures
-                    .firstOrNull { it.id == timetableLecture.id }
-                    ?.courseTitle ?: return@mapNotNull null
+                timetableLecture.overrides?.courseTitle ?: lecturesById[timetableLecture.lectureId]?.courseTitle.orEmpty()
             dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
             timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
             DueReminderPush(userId = timetable.userId, body = reminderBody(courseTitle, reminder.offsetMinutes))
@@ -144,15 +140,9 @@ class TimetableLectureReminderService(
         }
     }
 
-    private fun cleanupPastSemesterReminders(
-        now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
-    ) {
-        val last = lastCleanupAt
-        if (last != null && now.toInstant().isBefore(last.plus(Duration.ofHours(1)))) return
+    fun deletePastSemesterReminders(current: YearAndSemester) {
         val deleted = timetableLectureReminderRepository.deleteByPastSemesters(current.year, current.semester.value)
         if (deleted > 0) log.info("과거 학기 리마인더 정리: {}건", deleted)
-        lastCleanupAt = now.toInstant()
     }
 
     fun getReminder(
@@ -201,7 +191,7 @@ class TimetableLectureReminderService(
         val offsetMinutes = option.offsetMinutes
 
         if (offsetMinutes == null) {
-            existing?.let { deleteReminder(it) }
+            existing?.let(timetableLectureReminderRepository::delete)
         } else {
             val reminder =
                 existing ?: timetableLectureReminderRepository.save(TimetableLectureReminder(timetableLecture.id!!, offsetMinutes))
@@ -218,7 +208,7 @@ class TimetableLectureReminderService(
     ) {
         val reminder = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId) ?: return
         if (times.isEmpty()) {
-            deleteReminder(reminder)
+            timetableLectureReminderRepository.delete(reminder)
             return
         }
         val notifiedAtBySchedule =
@@ -233,11 +223,6 @@ class TimetableLectureReminderService(
         times: List<ClassPlaceAndTime>,
         offsetMinutes: Int,
     ): List<Schedule> = times.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }.distinct()
-
-    private fun deleteReminder(reminder: TimetableLectureReminder) {
-        timetableLectureReminderScheduleRepository.deleteByReminderId(reminder.id!!)
-        timetableLectureReminderRepository.delete(reminder)
-    }
 
     private fun replaceSchedules(
         reminderId: Long,

@@ -5,8 +5,6 @@ import io.swagger.v3.oas.annotations.Hidden
 import org.springframework.core.io.Resource
 import org.springframework.core.io.ResourceLoader
 import org.springframework.http.CacheControl
-import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
@@ -36,20 +34,5 @@ class StaticPageController(
     @GetMapping("/v2/static/terms-of-service", produces = ["text/html; charset=utf-8"])
     fun termsOfService(): ResponseEntity<Resource> = serve("terms_of_service.html")
 
-    @GetMapping("/member")
-    fun memberLegacy(): ResponseEntity<Void> = permanentRedirectTo("/v2/static/member")
-
-    @GetMapping("/privacy_policy")
-    fun privacyPolicyLegacy(): ResponseEntity<Void> = permanentRedirectTo("/v2/static/privacy-policy")
-
-    @GetMapping("/terms_of_service")
-    fun termsOfServiceLegacy(): ResponseEntity<Void> = permanentRedirectTo("/v2/static/terms-of-service")
-
     private fun serve(name: String): ResponseEntity<Resource> = staticResponse.body(resourceLoader.getResource("$RESOURCE_PATH/$name"))
-
-    private fun permanentRedirectTo(location: String): ResponseEntity<Void> =
-        ResponseEntity
-            .status(HttpStatus.MOVED_PERMANENTLY)
-            .header(HttpHeaders.LOCATION, location)
-            .build()
 }

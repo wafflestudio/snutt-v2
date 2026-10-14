@@ -8,7 +8,6 @@ import com.wafflestudio.snutt.core.domain.building.model.PlaceInfo
 import com.wafflestudio.snutt.core.domain.building.repository.LectureBuildingRepository
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.json.JsonMapper
@@ -38,17 +37,19 @@ data class SnuMapSearchItem(
     val facType: String,
 )
 
-@Component
-class SnuMapClient(
-    @Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") baseUrl: String,
+@Service
+class LectureBuildingSync(
+    @Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") snuMapBaseUrl: String,
     restClientBuilder: RestClient.Builder,
     private val jsonMapper: JsonMapper,
+    private val lectureBuildingRepository: LectureBuildingRepository,
 ) {
-    private val restClient = restClientBuilder.baseUrl(baseUrl).build()
+    private val log = LoggerFactory.getLogger(javaClass)
+    private val snuMapClient = restClientBuilder.baseUrl(snuMapBaseUrl).build()
 
-    fun search(buildingNumber: String): SnuMapSearchResult {
+    private fun searchSnuMap(buildingNumber: String): SnuMapSearchResult {
         val body =
-            restClient
+            snuMapClient
                 .get()
                 .uri {
                     it
@@ -61,14 +62,6 @@ class SnuMapClient(
                 ?: throw IllegalStateException("SNU 지도 검색 실패: $buildingNumber")
         return jsonMapper.readValue(body, SnuMapSearchResult::class.java)
     }
-}
-
-@Service
-class LectureBuildingSync(
-    private val snuMapClient: SnuMapClient,
-    private val lectureBuildingRepository: LectureBuildingRepository,
-) {
-    private val log = LoggerFactory.getLogger(javaClass)
 
     fun sync(places: List<String>) {
         val buildingNumbers =
@@ -91,7 +84,7 @@ class LectureBuildingSync(
         buildingNumber: String,
         current: LectureBuilding?,
     ) {
-        val item = snuMapClient.search(buildingNumber).mostProbableItem(buildingNumber) ?: return
+        val item = searchSnuMap(buildingNumber).mostProbableItem(buildingNumber) ?: return
         val fetched =
             LectureBuilding(
                 buildingNumber = buildingNumber,

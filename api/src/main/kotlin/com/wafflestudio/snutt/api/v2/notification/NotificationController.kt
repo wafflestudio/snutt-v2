@@ -34,9 +34,9 @@ class NotificationController(
         @CurrentUserId userId: Long,
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "20") limit: Int,
-        @RequestParam(defaultValue = "0") explicit: Int,
+        @RequestParam(defaultValue = "false") explicit: Boolean,
     ): CursorPage<NotificationResponse> {
-        val page = notificationService.getNotifications(userId, cursor, limit, explicit > 0)
+        val page = notificationService.getNotifications(userId, cursor, limit, explicit)
         return page.map { it.toResponse() }
     }
 

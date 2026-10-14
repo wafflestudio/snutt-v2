@@ -93,13 +93,11 @@ class AuthController(
     @Public
     @PostMapping("/login/{provider}")
     fun loginSocial(
-        @PathVariable provider: String,
+        @PathVariable provider: AuthProvider,
         @Valid @RequestBody request: SocialLoginRequest,
     ): TokenResponse {
-        val authProvider =
-            AuthProvider.from(provider)?.takeIf { it != AuthProvider.LOCAL }
-                ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val user = authService.loginSocial(authProvider, request.token)
+        if (provider == AuthProvider.LOCAL) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val user = authService.loginSocial(provider, request.token)
         return authService.issueTokens(user).toResponse(user.id!!)
     }
 

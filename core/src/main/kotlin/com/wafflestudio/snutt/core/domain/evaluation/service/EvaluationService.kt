@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.common.pagination.CursorCodec
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseAggregate
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationIdCursor
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
@@ -21,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationReport
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import org.springframework.data.domain.Limit
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
@@ -54,11 +54,6 @@ data class EvaluationDisplay(
     val isLiked: Boolean,
     val isModifiable: Boolean,
     val isReportable: Boolean,
-)
-
-data class CourseEvaluationSummary(
-    val course: Course,
-    val aggregate: CourseAggregate,
 )
 
 @Service
@@ -116,7 +111,7 @@ class EvaluationService(
         year: Int? = null,
         semester: Semester? = null,
     ): CursorPage<EvaluationDisplay> {
-        courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        getCourse(courseId)
         val totalCount = evaluationRepository.countVisible(courseId, year, semester)
         val page =
             evaluationRepository.findOthers(
@@ -135,7 +130,7 @@ class EvaluationService(
         userId: Long,
         courseId: Long,
     ): List<EvaluationDisplay> {
-        courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        getCourse(courseId)
         return evaluationRepository
             .findByCourseIdAndUserIdAndIsHiddenFalseOrderByYearDescSemesterDescIdDesc(courseId, userId)
             .toDisplays(userId)
@@ -146,7 +141,7 @@ class EvaluationService(
         cursor: String?,
     ): CursorPage<EvaluationDisplay> {
         val totalCount = evaluationRepository.countByUserIdAndIsHiddenFalse(userId)
-        val page = evaluationRepository.findMine(userId, decodeEvaluationIdCursor(cursor), PAGE_SIZE + 1)
+        val page = evaluationRepository.findMine(userId, decodeEvaluationIdCursor(cursor), Limit.of(PAGE_SIZE + 1))
         return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { EvaluationIdCursor(it.id!!) }) { it.toDisplays(userId) }
     }
 
@@ -236,36 +231,32 @@ class EvaluationService(
         return evaluationReportRepository.save(EvaluationReport(evaluationId = evaluationId, userId = userId, content = request.content))
     }
 
-    fun getCourses(courseIds: Collection<Long>): Map<Long, Course> =
-        courseRepository.findAllById(courseIds.distinct()).associateBy { it.id!! }
-
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun likeEvaluation(
         userId: Long,
         evaluationId: Long,
-    ) {
-        lockEvaluation(evaluationId)
+    ): EvaluationDisplay {
+        val evaluation = lockEvaluation(evaluationId)
         conflictAs(ErrorType.DUPLICATE_EVALUATION_LIKE) {
             evaluationLikeRepository.save(EvaluationLike(evaluationId = evaluationId, userId = userId))
         }
-        evaluationRepository.incrementLikeCount(evaluationId)
+        evaluation.likeCount += 1
+        return evaluation.toDisplay(userId, isLiked = true)
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     fun cancelLikeEvaluation(
         userId: Long,
         evaluationId: Long,
-    ) {
-        lockEvaluation(evaluationId)
+    ): EvaluationDisplay {
+        val evaluation = lockEvaluation(evaluationId)
         val deleted = evaluationLikeRepository.deleteByEvaluationIdAndUserId(evaluationId, userId)
         if (deleted == 0) throw SnuttException(ErrorType.EVALUATION_NOT_LIKED)
-        evaluationRepository.decrementLikeCount(evaluationId)
+        evaluation.likeCount = (evaluation.likeCount - 1).coerceAtLeast(0)
+        return evaluation.toDisplay(userId, isLiked = false)
     }
 
-    fun getEvaluationSummaryOfCourse(courseId: Long): CourseEvaluationSummary {
-        val course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
-        return CourseEvaluationSummary(course, evaluationRepository.findCourseAggregate(courseId))
-    }
+    fun getCourse(courseId: Long): Course = courseRepository.findByIdOrNull(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
 
     private fun getLecture(lectureId: Long): Lecture =
         lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)

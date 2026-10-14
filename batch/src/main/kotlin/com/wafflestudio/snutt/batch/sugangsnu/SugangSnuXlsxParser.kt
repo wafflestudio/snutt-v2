@@ -37,9 +37,7 @@ class SugangSnuXlsxParser {
     private val log = LoggerFactory.getLogger(javaClass)
     private val quotaRegex = """(?<quota>\d+)(\s*\((?<quotaForCurrentStudent>\d+)\))?""".toRegex()
 
-    data class SugangLectureRowEnglish(
-        val courseNumber: String,
-        val lectureNumber: String,
+    private data class SugangLectureRowEnglish(
         val courseTitleEn: String?,
         val instructorEn: String?,
         val departmentEn: String?,
@@ -48,7 +46,7 @@ class SugangSnuXlsxParser {
         val remarkEn: String?,
     )
 
-    fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> =
+    private fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> =
         WorkbookFactory.create(englishXlsx.inputStream).use { workbook ->
             val sheet = workbook.getSheetAt(0)
             val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
@@ -68,8 +66,6 @@ class SugangSnuXlsxParser {
                     if (courseTitle.isEmpty()) return@mapNotNull null
                     (courseNumber to lectureNumber) to
                         SugangLectureRowEnglish(
-                            courseNumber = courseNumber,
-                            lectureNumber = lectureNumber,
                             courseTitleEn = if (subtitle.isEmpty()) courseTitle else "$courseTitle ($subtitle)",
                             instructorEn = get("Instructor").ifEmpty { null },
                             departmentEn = department.replace("null", "").ifEmpty { college }.ifEmpty { null },
@@ -80,17 +76,22 @@ class SugangSnuXlsxParser {
                 }.toMap()
         }
 
-    fun parse(koreanXlsx: Resource): List<SugangLectureRow> =
-        WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
+    fun parse(
+        koreanXlsx: Resource,
+        englishXlsx: Resource,
+    ): List<SugangLectureRow> {
+        val englishByKey = parseEnglish(englishXlsx)
+        return WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
             val sheet = workbook.getSheetAt(0)
             val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
             val rows =
                 (3..sheet.lastRowNum)
-                    .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex) }
+                    .mapNotNull { rowNum -> convertRow(sheet.getRow(rowNum), headerIndex, englishByKey) }
             if (rows.isEmpty()) throw IllegalArgumentException("xlsx에 강의 행이 없다")
             log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
             rows
         }
+    }
 
     private fun headerIndex(
         sheet: Sheet,
@@ -108,6 +109,7 @@ class SugangSnuXlsxParser {
     private fun convertRow(
         row: Row?,
         headerIndex: Map<String, Int>,
+        englishByKey: Map<Pair<String, String>, SugangLectureRowEnglish>,
     ): SugangLectureRow? {
         if (row == null) return null
 
@@ -146,6 +148,7 @@ class SugangSnuXlsxParser {
                 ?.toInt()
                 ?.let { (quota - it).takeIf { diff -> diff > 0 } }
         val remark = get("비고").ifEmpty { null }
+        val english = englishByKey[courseNumber to lectureNumber]
 
         return SugangLectureRow(
             classification = classification,
@@ -161,6 +164,12 @@ class SugangSnuXlsxParser {
             quota = quota,
             freshmanQuota = freshmanQuota,
             classPlaceAndTimes = SugangSnuClassTimeUtils.convertTextToClassTimeObject(classTimeTexts, locationTexts),
+            courseTitleEn = english?.courseTitleEn,
+            instructorEn = english?.instructorEn,
+            departmentEn = english?.departmentEn,
+            academicYearEn = english?.academicYearEn,
+            classificationEn = english?.classificationEn,
+            remarkEn = english?.remarkEn,
         )
     }
 

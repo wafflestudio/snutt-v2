@@ -5,11 +5,10 @@ import com.mongodb.client.model.Projections
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
-import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -39,16 +38,13 @@ class TimetableStep(
     context: MigrationContext,
     private val mongo: MongoSource,
     private val jsonMapper: JsonMapper,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "timetable"
+) : MigrationStep(jdbc, context) {
     override val tables = listOf("timetable_lecture_reminder_schedule", "timetable_lecture_reminder", "timetable_lecture", "timetable")
 
     override fun run() {
         val timetableIds = IdSequence()
         val lectureIds = IdSequence()
         val takenTitles = HashSet<String>(1_024_000)
-        var lectureCount = 0L
-        var skipped = 0L
         val primaries = primaryTimetableIds()
 
         writer("timetable", TIMETABLE_COLUMNS).use { timetables ->
@@ -56,7 +52,6 @@ class TimetableStep(
                 mongo.each("timetables") { doc ->
                     val userId = context.userIds[doc.oid("user_id")]
                     if (userId == null) {
-                        skipped++
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_USER_MISSING)
                         context.resolved(MigrationSupport.ResolutionReasons.TIMETABLE_LECTURE_USER_MISSING, doc.docs("lecture_list").size)
                         return@each
@@ -92,14 +87,11 @@ class TimetableStep(
                             context.timetableLectureIdsByLecture.putIfAbsent(id to it, lectureId)
                         }
                         lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
-                        lectureCount++
                     }
                 }
             }
         }
-        alignAutoIncrement("timetable", timetableIds.peek())
-        alignAutoIncrement("timetable_lecture", lectureIds.peek())
-        log.info("시간표 이관: {}건 (제외 {}건), 시간표 강의 {}건", timetableIds.peek() - 1, skipped, lectureCount)
+        log.info("시간표 이관: {}건, 시간표 강의 {}건", timetableIds.peek() - 1, lectureIds.peek() - 1)
         migrateReminders()
     }
 
@@ -126,9 +118,7 @@ class TimetableStep(
 
     private fun migrateReminders() {
         val ids = IdSequence()
-        var count = 0L
         val scheduleIds = IdSequence()
-        var scheduleCount = 0L
         writer(
             "timetable_lecture_reminder",
             listOf(
@@ -164,7 +154,7 @@ class TimetableStep(
                     }
                     val schedules =
                         doc.docs("schedules").map { schedule ->
-                            Schedule(DayOfWeek.fromValue(schedule.requireInt("day")), schedule.requireInt("minute"))
+                            DayOfWeek.fromValue(schedule.requireInt("day")).value to schedule.requireInt("minute")
                         }
 
                     val now = Instant.now().toSqlTimestamp()
@@ -176,25 +166,21 @@ class TimetableStep(
                         now,
                         now,
                     )
-                    schedules.forEach { schedule ->
+                    schedules.forEach { (day, minute) ->
                         scheduleOut.add(
                             scheduleIds.next(),
                             reminderId,
-                            schedule.day.value,
-                            schedule.minute,
+                            day,
+                            minute,
                             null,
                             now,
                             now,
                         )
-                        scheduleCount++
                     }
-                    count++
                 }
             }
         }
-        alignAutoIncrement("timetable_lecture_reminder", ids.peek())
-        alignAutoIncrement("timetable_lecture_reminder_schedule", scheduleIds.peek())
-        log.info("리마인더 이관: {}건(스케줄 {}건)", count, scheduleCount)
+        log.info("리마인더 이관: {}건(스케줄 {}건)", ids.peek() - 1, scheduleIds.peek() - 1)
     }
 
     private fun Document.toRow(

@@ -222,7 +222,7 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
                 token,
             )
         assertEquals(200, theme.statusCode.value())
-        val themeId = body(theme)["id"].asLong()
+        val themeId = body(theme).first { it["name"].asString() == "내테마" }["id"].asLong()
 
         val timetableId = createTimetable("테스트 시간표")
         val apply = put("/v2/timetables/$timetableId/theme", """{"themeId":$themeId}""", token)

@@ -219,8 +219,6 @@ class DiaryService(
             diarySubmissionRepository.findByIdOrNull(submissionId)
                 ?: throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
         if (submission.userId != userId) throw SnuttException(ErrorType.DIARY_SUBMISSION_NOT_FOUND)
-        diarySubmissionAnswerRepository.deleteBySubmissionId(submissionId)
-        diarySubmissionDailyClassTypeRepository.deleteBySubmissionId(submissionId)
         diarySubmissionRepository.delete(submission)
     }
 

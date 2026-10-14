@@ -1,5 +1,19 @@
 package com.wafflestudio.snutt.migration
 
+import com.wafflestudio.snutt.migration.step.AggregateStep
+import com.wafflestudio.snutt.migration.step.CatalogStep
+import com.wafflestudio.snutt.migration.step.CourseStep
+import com.wafflestudio.snutt.migration.step.EvLectureStep
+import com.wafflestudio.snutt.migration.step.EvaluationStep
+import com.wafflestudio.snutt.migration.step.LectureStep
+import com.wafflestudio.snutt.migration.step.LegacySearchTagStep
+import com.wafflestudio.snutt.migration.step.LegacyTokenStep
+import com.wafflestudio.snutt.migration.step.NotificationStep
+import com.wafflestudio.snutt.migration.step.ThemeStep
+import com.wafflestudio.snutt.migration.step.TimetableStep
+import com.wafflestudio.snutt.migration.step.UserDataStep
+import com.wafflestudio.snutt.migration.step.UserStep
+import com.wafflestudio.snutt.migration.step.ValidateStep
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -9,56 +23,60 @@ import kotlin.system.measureTimeMillis
 
 @Component
 class MigrationRunner(
-    private val steps: List<MigrationStep>,
     private val jdbc: JdbcTemplate,
-    private val context: MigrationContext,
+    catalog: CatalogStep,
+    user: UserStep,
+    course: CourseStep,
+    lecture: LectureStep,
+    evLecture: EvLectureStep,
+    theme: ThemeStep,
+    timetable: TimetableStep,
+    userData: UserDataStep,
+    notification: NotificationStep,
+    evaluation: EvaluationStep,
+    aggregate: AggregateStep,
+    legacyToken: LegacyTokenStep,
+    legacyTag: LegacySearchTagStep,
+    validate: ValidateStep,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
+
+    private val steps =
+        listOf(
+            catalog,
+            user,
+            course,
+            lecture,
+            evLecture,
+            theme,
+            timetable,
+            userData,
+            notification,
+            evaluation,
+            aggregate,
+            legacyToken,
+            legacyTag,
+            validate,
+        )
 
     override fun run(args: ApplicationArguments) {
         require(args.nonOptionArgs.isEmpty()) { "부분 이관은 지원하지 않는다. --truncate 외의 인자는 받지 않는다" }
         val truncate = args.getOptionValues("truncate")?.let { it.singleOrNull()?.toBooleanStrictOrNull() ?: it.isEmpty() } ?: false
-        val byName = steps.associateBy { it.name }
-        val selected = ORDER.map { name -> checkNotNull(byName[name]) { "이관 단계가 없다: $name" } }
-        val tables = selected.flatMap { it.tables }.distinct()
+        val tables = steps.flatMap { it.tables }
         if (truncate) {
-            MigrationSupport.truncate(jdbc, tables.reversed())
+            MigrationSupport.truncate(jdbc, tables)
         } else {
             MigrationSupport.requireEmpty(jdbc, tables)
         }
 
-        log.info("이관 시작: {} (truncate={})", selected.joinToString { it.name }, truncate)
+        log.info("이관 시작: {} (truncate={})", steps.joinToString { it.javaClass.simpleName }, truncate)
         val total =
             measureTimeMillis {
-                selected.forEach { step ->
+                steps.forEach { step ->
                     val elapsed = measureTimeMillis { step.run() }
-                    log.info("[{}] 완료 ({} ms)", step.name, elapsed)
+                    log.info("[{}] 완료 ({} ms)", step.javaClass.simpleName, elapsed)
                 }
             }
-        if (context.resolutions.isNotEmpty()) {
-            log.warn("원본이 v2 제약을 위반해 손본 항목:")
-            context.resolutions.forEach { (reason, count) -> log.warn("  - {}: {}건", reason, count) }
-        }
         log.info("이관 완료 ({} ms)", total)
-    }
-
-    companion object {
-        val ORDER =
-            listOf(
-                "catalog",
-                "user",
-                "course",
-                "lecture",
-                "evlecture",
-                "theme",
-                "timetable",
-                "userdata",
-                "notification",
-                "evaluation",
-                "aggregate",
-                "legacytoken",
-                "legacytag",
-                "validate",
-            )
     }
 }

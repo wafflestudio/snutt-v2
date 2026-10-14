@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.api.scheduler
 
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
@@ -41,9 +42,17 @@ class ReminderScheduler(
         }
     }
 
+    @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
+    fun deletePastSemesterReminders() {
+        schedulerLock.withLock("reminder-cleanup", Duration.ofMinutes(10)) {
+            val current = SemesterCalendar.current() ?: return@withLock
+            timetableLectureReminderService.deletePastSemesterReminders(current)
+        }
+    }
+
     fun fireDueReminders(
         now: ZonedDateTime,
-        current: SemesterCalendar.YearSemester,
+        current: YearAndSemester,
     ) {
         timetableLectureReminderService.processDueReminders(now, current).forEach { push ->
             pushService.sendPushAndNotification(
@@ -88,7 +97,7 @@ class DiaryScheduler(
     fun sendDiaryNotifications() {
         val target =
             SemesterCalendar.current()
-                ?: coursebookService.getLatestCoursebook().let { SemesterCalendar.YearSemester(it.year, it.semester) }
+                ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
         val primaries =
             timetableRepository
                 .findByYearAndSemesterAndIsPrimaryTrue(target.year, target.semester)

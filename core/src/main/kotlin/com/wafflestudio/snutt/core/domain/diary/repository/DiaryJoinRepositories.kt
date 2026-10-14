@@ -9,12 +9,8 @@ interface DiaryQuestionTargetRepository : JpaRepository<DiaryQuestionTarget, Lon
     fun findByDailyClassTypeIdIn(dailyClassTypeIds: Collection<Long>): List<DiaryQuestionTarget>
 }
 
-interface DiarySubmissionDailyClassTypeRepository : JpaRepository<DiarySubmissionDailyClassType, Long> {
-    fun deleteBySubmissionId(submissionId: Long)
-}
+interface DiarySubmissionDailyClassTypeRepository : JpaRepository<DiarySubmissionDailyClassType, Long>
 
 interface DiarySubmissionAnswerRepository : JpaRepository<DiarySubmissionAnswer, Long> {
     fun findBySubmissionIdIn(submissionIds: Collection<Long>): List<DiarySubmissionAnswer>
-
-    fun deleteBySubmissionId(submissionId: Long)
 }

@@ -4,13 +4,13 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.LectureCategoryPre2025
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.pagination.MAX_PAGE_SIZE
 import com.wafflestudio.snutt.core.common.storage.StorageUriResolver
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
@@ -20,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
+import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
@@ -28,11 +29,10 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.service.UserService
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
@@ -40,7 +40,9 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColor
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColorIndex
+import com.wafflestudio.snutt.v1compat.snutt.dto.legacyThemeValue
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -100,7 +102,7 @@ data class LegacyFriendTimetableDto(
     val semester: Semester,
     val lectures: List<LegacyFriendTimetableLectureDto>,
     val title: String,
-    val theme: LegacyBasicThemeType,
+    val theme: Int,
     val themeId: String?,
     val isPrimary: Boolean,
     val updatedAt: Instant,
@@ -124,7 +126,6 @@ data class LegacyFriendTimetableLectureDto(
     val color: LegacyColorSetDto?,
     val colorIndex: Int,
     val lectureId: String?,
-    val snuttEvLecture: LegacyFriendEvLectureIdDto? = null,
     val categoryPre2025: String?,
 )
 
@@ -135,16 +136,11 @@ data class LegacyFriendClassPlaceAndTimeDto(
     val endMinute: Int,
 )
 
-data class LegacyFriendEvLectureIdDto(
-    val evLectureId: Long,
-)
-
 private fun TimetableDisplay.toLegacyFriendTimetable(
     userId: Long,
     language: Language,
-): LegacyFriendTimetableDto {
-    val themeId = timetable.themeId
-    return LegacyFriendTimetableDto(
+): LegacyFriendTimetableDto =
+    LegacyFriendTimetableDto(
         id = timetable.id?.toString(),
         userId = userId.toString(),
         year = timetable.year,
@@ -181,17 +177,11 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
                 )
             },
         title = timetable.title,
-        theme =
-            if (themeId in 1..6) {
-                LegacyBasicThemeType.fromValue((themeId - 1).toInt())
-            } else {
-                LegacyBasicThemeType.SNUTT
-            },
-        themeId = themeId.takeUnless { it in 1..6 }?.toString(),
+        theme = legacyThemeValue(theme.builtinCode),
+        themeId = timetable.themeId.takeIf { theme.builtinCode == null }?.toString(),
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
-}
 
 private fun legacyFriend(
     friend: Friend,
@@ -214,7 +204,6 @@ private fun legacyFriend(
 class V1CompatFriendController(
     private val friendService: FriendService,
     private val timetableService: TimetableService,
-    private val userService: UserService,
 ) {
     @GetMapping("")
     fun getFriends(
@@ -297,7 +286,7 @@ class V1CompatFriendController(
         @RequestParam semester: Semester,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyFriendTimetableDto {
-        val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
+        val partnerId = friendService.getAccepted(user.id!!, friendId).getPartnerUserId(user.id!!)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         val display = timetableService.getTimetableDisplay(partnerId, timetable.id!!)
         return display.toLegacyFriendTimetable(partnerId, clientInfo.language)
@@ -308,19 +297,10 @@ class V1CompatFriendController(
         @V1CurrentUser user: User,
         @PathVariable friendId: Long,
     ): List<LegacyFriendCoursebookDto> {
-        val partnerId = acceptedFriend(user.id!!, friendId).getPartnerUserId(user.id!!)
+        val partnerId = friendService.getAccepted(user.id!!, friendId).getPartnerUserId(user.id!!)
         return timetableService
             .getCoursebooksWithPrimaryTable(partnerId)
-            .map { LegacyFriendCoursebookDto(year = it.first, semester = it.second.value) }
-    }
-
-    private fun acceptedFriend(
-        userId: Long,
-        friendId: Long,
-    ): Friend {
-        val friend = friendService.get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.isAccepted || !friend.includes(userId)) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        return friend
+            .map { LegacyFriendCoursebookDto(year = it.year, semester = it.semester.value) }
     }
 }
 
@@ -345,8 +325,10 @@ data class LegacyNotificationCountResponse(
 @RequestMapping("/v1/notification")
 class V1CompatNotificationController(
     private val notificationService: NotificationService,
-    private val userService: UserService,
+    private val notificationRepository: NotificationRepository,
+    private val userRepository: UserRepository,
 ) {
+    @Transactional
     @GetMapping("")
     fun getNotifications(
         @V1CurrentUser user: User,
@@ -354,7 +336,20 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
     ): List<LegacyNotificationDto> {
-        val notifications = notificationService.getNotificationsByOffset(user.id!!, offset, limit, explicit > 0)
+        if (offset < 0 || limit !in 1..MAX_PAGE_SIZE || offset > Int.MAX_VALUE - limit) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
+        val me = userRepository.findByIdAndActiveTrue(user.id!!) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val notifications =
+            notificationRepository
+                .findNotifications(
+                    userId = me.id!!,
+                    registeredAt = checkNotNull(me.createdAt),
+                    cursorCreatedAt = null,
+                    cursorId = null,
+                    limit = (offset + limit).toInt(),
+                ).drop(offset.toInt())
+        if (explicit > 0) me.notificationCheckedAt = Instant.now()
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(
@@ -509,11 +504,6 @@ data class LegacyPopupDto(
     val hiddenDaysSnake: Int?,
 )
 
-data class LegacyListResponse<T>(
-    val content: List<T>,
-    val totalCount: Int,
-)
-
 @V1Public
 @RestController
 @RequestMapping("/v1/popups")
@@ -522,23 +512,22 @@ class V1CompatPopupController(
     private val storageUriResolver: StorageUriResolver,
 ) {
     @GetMapping("")
-    fun getPopups(): LegacyListResponse<LegacyPopupDto> =
-        LegacyListResponse(
-            content =
-                popupService.getPopups().map {
-                    val imageUri = storageUriResolver.resolve(it.imageOriginUri)
-                    LegacyPopupDto(
-                        id = it.id!!.toString(),
-                        key = it.popupKey,
-                        imageUri = imageUri,
-                        imageUrl = imageUri,
-                        linkUrl = it.linkUrl,
-                        hiddenDays = it.hiddenDays,
-                        hiddenDaysSnake = it.hiddenDays,
-                    )
-                },
-            totalCount = popupService.getPopups().size,
-        )
+    fun getPopups(): LegacyPageResponse<LegacyPopupDto> {
+        val popups =
+            popupService.getPopups().map {
+                val imageUri = storageUriResolver.resolve(it.imageOriginUri)
+                LegacyPopupDto(
+                    id = it.id!!.toString(),
+                    key = it.popupKey,
+                    imageUri = imageUri,
+                    imageUrl = imageUri,
+                    linkUrl = it.linkUrl,
+                    hiddenDays = it.hiddenDays,
+                    hiddenDaysSnake = it.hiddenDays,
+                )
+            }
+        return LegacyPageResponse(content = popups, totalCount = popups.size)
+    }
 }
 
 @V1Public
@@ -551,11 +540,8 @@ class V1CompatConfigController(
     fun getConfigs(
         @CurrentClient clientInfo: ClientInfo,
     ): Map<String, JsonNode> {
-        val osType = OsType.from(clientInfo.osType) ?: return emptyMap()
         val appVersion = clientInfo.appVersion ?: return emptyMap()
-        return configService
-            .getConfigs(osType, appVersion)
-            .associate { it.name to it.value }
+        return configService.getConfigs(clientInfo.osType, appVersion)
     }
 }
 
@@ -573,9 +559,8 @@ class V1CompatPushPreferenceController(
     fun savePushPreferences(
         @V1CurrentUser user: User,
         @RequestBody dto: PushPreferenceDto,
-    ): PushPreferenceDto {
+    ) {
         pushPreferenceService.savePushPreferences(user.id!!, dto)
-        return pushPreferenceService.getPushPreferences(user.id!!)
     }
 }
 

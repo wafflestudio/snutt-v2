@@ -71,7 +71,7 @@ data class AdminUserSearchResponse(
     val active: Boolean,
     val createdAt: Long,
     val lastLoginAt: Long,
-    val authProviders: List<String>,
+    val authProviders: List<AuthProvider>,
     val socialAccounts: AdminSocialAccountsResponse,
 )
 
@@ -106,12 +106,11 @@ class AdminController(
 ) {
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
-        @PathVariable source: String,
+        @PathVariable source: StorageSource,
         @RequestParam(defaultValue = "1") count: Int,
     ): List<FileUploadUri> {
-        val storageSource = StorageSource.from(source) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         if (count !in 1..MAX_UPLOAD_FILE_COUNT) throw SnuttException(ErrorType.TOO_MANY_FILES)
-        return uploadUriIssuer.issue(storageSource, count)
+        return uploadUriIssuer.issue(source, count)
     }
 
     private companion object {
@@ -230,7 +229,7 @@ class AdminController(
                 active = user.active,
                 createdAt = checkNotNull(user.createdAt).toEpochMilli(),
                 lastLoginAt = user.lastLoginAt.toEpochMilli(),
-                authProviders = info.authProviders.map { it.value },
+                authProviders = info.authProviders,
                 socialAccounts =
                     AdminSocialAccountsResponse(
                         googleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.GOOGLE }?.email,

@@ -12,17 +12,7 @@ import org.springframework.stereotype.Component
 import java.sql.PreparedStatement
 import java.sql.Timestamp
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import java.util.Date
-
-interface MigrationStep {
-    val name: String
-
-    val tables: List<String>
-
-    fun run()
-}
 
 @Component
 class MigrationContext {
@@ -36,6 +26,7 @@ class MigrationContext {
     val diaryQuestionIds = HashMap<String, Long>()
     val timetableLectureIds = HashMap<Pair<String, String>, Long>(1_024_000)
     val timetableLectureIdsByLecture = HashMap<Pair<Long, Long>, Long>(1_024_000)
+    val legacyTokenOwners = HashMap<String, MutableList<String>>()
 
     val courseIds = HashMap<String, Long>(64_000)
     val courseIdRemap = HashMap<Long, Long>()
@@ -89,7 +80,7 @@ class BatchWriter(
             "VALUES (${columns.joinToString(",") { "?" }})"
     private val buffer = ArrayList<Array<Any?>>(batchSize)
 
-    var written: Long = 0
+    var count: Long = 0
         private set
 
     fun add(vararg values: Any?) {
@@ -98,6 +89,7 @@ class BatchWriter(
         }
         @Suppress("UNCHECKED_CAST")
         buffer.add(values as Array<Any?>)
+        count++
         if (buffer.size >= batchSize) flush()
     }
 
@@ -117,7 +109,6 @@ class BatchWriter(
                 }
             },
         )
-        written += buffer.size
         buffer.clear()
     }
 
@@ -134,29 +125,24 @@ class IdSequence(
     fun peek(): Long = next
 }
 
-abstract class AbstractMigrationStep(
+abstract class MigrationStep(
     protected val jdbc: JdbcTemplate,
     protected val context: MigrationContext,
-) : MigrationStep {
+) {
     protected val log: Logger = LoggerFactory.getLogger(javaClass)
+
+    abstract val tables: List<String>
+
+    abstract fun run()
 
     protected fun writer(
         table: String,
         columns: List<String>,
         parent: BatchWriter? = null,
     ) = BatchWriter(jdbc, table, columns, parent = parent)
-
-    protected fun alignAutoIncrement(
-        table: String,
-        next: Long,
-    ) {
-        jdbc.execute("ALTER TABLE `$table` AUTO_INCREMENT = ${maxOf(next, 1L)}")
-    }
 }
 
 object MigrationSupport {
-    private val KST: ZoneId = ZoneId.of("Asia/Seoul")
-
     object ResolutionReasons {
         const val TIMETABLE_USER_MISSING = "사용자가 없는 시간표를 제외"
         const val BOOKMARK_USER_MISSING = "사용자가 없는 북마크 항목을 제외"
@@ -213,7 +199,10 @@ object MigrationSupport {
                         }
                     statement.execute("SET FOREIGN_KEY_CHECKS = 0")
                     try {
-                        tables.forEach { statement.execute("TRUNCATE TABLE `$it`") }
+                        tables.forEach { table ->
+                            val filter = migratedRowFilter(table)
+                            statement.execute(if (filter.isEmpty()) "TRUNCATE TABLE `$table`" else "DELETE FROM `$table`$filter")
+                        }
                     } finally {
                         statement.execute("SET FOREIGN_KEY_CHECKS = $foreignKeyChecks")
                     }
@@ -227,15 +216,14 @@ object MigrationSupport {
         tables: List<String>,
     ) {
         tables.forEach { table ->
-            val filter = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
-            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`$filter", Long::class.java)!!
+            val count = jdbc.queryForObject("SELECT COUNT(*) FROM `$table`${migratedRowFilter(table)}", Long::class.java)!!
             check(count == 0L) {
                 "$table 에 이미 $count 행이 있다. 부분 재실행은 행을 중복시키므로 --truncate 로 비우고 다시 실행한다"
             }
         }
     }
 
-    fun toLocalDate(instant: Instant): LocalDate = instant.atZone(KST).toLocalDate()
+    private fun migratedRowFilter(table: String): String = if (table == "timetable_theme") " WHERE builtin_code IS NULL" else ""
 }
 
 fun Document.oid(key: String): String? =
@@ -267,10 +255,8 @@ fun Document.bool(key: String): Boolean = get(key) as? Boolean ?: false
 
 fun Document.doc(key: String): Document? = get(key) as? Document
 
-@Suppress("UNCHECKED_CAST")
 fun Document.docs(key: String): List<Document> = (get(key) as? List<*>)?.filterIsInstance<Document>() ?: emptyList()
 
-@Suppress("UNCHECKED_CAST")
 fun Document.strings(key: String): List<String> = (get(key) as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
 
 fun Document.oids(key: String): List<String> =

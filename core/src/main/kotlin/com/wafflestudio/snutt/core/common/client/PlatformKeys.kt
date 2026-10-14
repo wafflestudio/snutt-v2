@@ -13,14 +13,14 @@ class PlatformKeys(
             }
 
     fun matches(
-        platform: String?,
+        osType: OsType,
         key: String?,
-    ): Boolean = key != null && OsType.from(platform)?.let(keys::get) == key
+    ): Boolean = key != null && keys[osType] == key
 }
 
 fun clientInfoOf(
     header: (String) -> String?,
-    osType: String,
+    osType: OsType,
 ): ClientInfo =
     ClientInfo(
         osType = osType,

@@ -1,13 +1,13 @@
 package com.wafflestudio.snutt.api.v2.friend
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
+import com.wafflestudio.snutt.api.v2.coursebook.YearAndSemesterResponse
+import com.wafflestudio.snutt.api.v2.coursebook.toResponse
 import com.wafflestudio.snutt.api.v2.timetable.TimetableResponse
 import com.wafflestudio.snutt.api.v2.timetable.toResponse
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.error.ErrorType
-import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
@@ -52,24 +52,17 @@ data class FriendRequestLinkResponse(
     val requestToken: String,
 )
 
-data class FriendCoursebookResponse(
-    val year: Int,
-    val semester: Semester,
-)
-
-private fun FriendResponse(
-    friend: Friend,
-    user: User,
-    displayName: String?,
-): FriendResponse =
-    FriendResponse(
+private fun Pair<Friend, User>.toResponse(myUserId: Long): FriendResponse {
+    val (friend, partner) = this
+    return FriendResponse(
         id = friend.id!!,
-        userId = user.id!!,
-        displayName = displayName,
-        nickname = user.nickname,
-        nicknameTag = user.nicknameTag,
+        userId = partner.id!!,
+        displayName = friend.getPartnerDisplayName(myUserId),
+        nickname = partner.nickname,
+        nicknameTag = partner.nicknameTag,
         createdAt = checkNotNull(friend.createdAt).toEpochMilli(),
     )
+}
 
 @RestController
 @RequestMapping("/v2/friends")
@@ -80,31 +73,20 @@ class FriendController(
     @GetMapping("")
     fun getFriends(
         @CurrentUserId userId: Long,
-        @RequestParam state: String,
-    ): List<FriendResponse> {
-        val friendState =
-            FriendState.entries.firstOrNull { it.name == state.uppercase() }
-                ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return friendService.getMyFriends(userId, friendState).map { (friend, partner) ->
-            FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
-        }
-    }
+        @RequestParam state: FriendState,
+    ): List<FriendResponse> = friendService.getMyFriends(userId, state).map { it.toResponse(userId) }
 
     @PostMapping("")
     fun requestFriend(
         @CurrentUserId userId: Long,
         @Valid @RequestBody body: FriendRequest,
-    ) {
-        friendService.requestFriend(userId, Nickname(body.nickname, body.nicknameTag))
-    }
+    ): FriendResponse = friendService.requestFriend(userId, Nickname(body.nickname, body.nicknameTag)).toResponse(userId)
 
     @PostMapping("/{friendId}/accept")
     fun acceptFriend(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
-    ) {
-        friendService.acceptFriend(friendId, userId)
-    }
+    ): FriendResponse = friendService.acceptFriend(friendId, userId).toResponse(userId)
 
     @PostMapping("/{friendId}/decline")
     fun declineFriend(
@@ -119,9 +101,7 @@ class FriendController(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
         @Valid @RequestBody body: UpdateFriendDisplayNameRequest,
-    ) {
-        friendService.updateFriendDisplayName(userId, friendId, body.displayName)
-    }
+    ): FriendResponse = friendService.updateFriendDisplayName(userId, friendId, body.displayName).toResponse(userId)
 
     @DeleteMapping("/{friendId}")
     fun breakFriend(
@@ -140,10 +120,7 @@ class FriendController(
     fun acceptFriendByLink(
         @CurrentUserId userId: Long,
         @PathVariable requestToken: String,
-    ): FriendResponse {
-        val (friend, partner) = friendService.acceptFriendByLink(userId, requestToken)
-        return FriendResponse(friend, partner, friend.getPartnerDisplayName(userId))
-    }
+    ): FriendResponse = friendService.acceptFriendByLink(userId, requestToken).toResponse(userId)
 
     @GetMapping("/{friendId}/primary-table")
     fun getPrimaryTable(
@@ -153,7 +130,7 @@ class FriendController(
         @RequestParam semester: Semester,
         @CurrentClient clientInfo: ClientInfo,
     ): TimetableResponse {
-        val friend = getAcceptedFriend(userId, friendId)
+        val friend = friendService.getAccepted(userId, friendId)
         val partnerId = friend.getPartnerUserId(userId)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         return timetableService.displayOf(timetable).toResponse(clientInfo.language)
@@ -163,19 +140,10 @@ class FriendController(
     fun getCoursebooks(
         @CurrentUserId userId: Long,
         @PathVariable friendId: Long,
-    ): List<FriendCoursebookResponse> {
-        val friend = getAcceptedFriend(userId, friendId)
+    ): List<YearAndSemesterResponse> {
+        val friend = friendService.getAccepted(userId, friendId)
         return timetableService
             .getCoursebooksWithPrimaryTable(friend.getPartnerUserId(userId))
-            .map { FriendCoursebookResponse(year = it.first, semester = it.second) }
-    }
-
-    private fun getAcceptedFriend(
-        userId: Long,
-        friendId: Long,
-    ): Friend {
-        val friend = friendService.get(friendId) ?: throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        if (!friend.isAccepted || !friend.includes(userId)) throw SnuttException(ErrorType.FRIEND_NOT_FOUND)
-        return friend
+            .map { it.toResponse() }
     }
 }

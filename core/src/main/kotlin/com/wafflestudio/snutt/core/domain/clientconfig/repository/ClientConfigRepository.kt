@@ -5,4 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface ClientConfigRepository : JpaRepository<ClientConfig, Long> {
     fun findByNameOrderByCreatedAtDesc(name: String): List<ClientConfig>
+
+    fun findAllByOrderByCreatedAtAscIdAsc(): List<ClientConfig>
 }

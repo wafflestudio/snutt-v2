@@ -44,7 +44,7 @@ class EmailVerificationIntegrationTest : AbstractApiIntegrationTest() {
 
         val reset = delete("/v2/users/me/email/verification", token)
         assertEquals(false, body(reset)["isEmailVerified"].asBoolean())
-        assertEquals(false, body(get("/v2/users/me/email/verification", token))["isEmailVerified"].asBoolean())
+        assertEquals(false, body(get("/v2/users/me", token))["isEmailVerified"].asBoolean())
     }
 
     @Test

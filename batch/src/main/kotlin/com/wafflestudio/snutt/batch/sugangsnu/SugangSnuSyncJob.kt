@@ -1,12 +1,14 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.batch.BatchJob
-import com.wafflestudio.snutt.batch.YearSemesterArgs
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
+import com.wafflestudio.snutt.core.domain.evaluation.service.CourseVocabularyService
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
@@ -25,15 +27,17 @@ class SugangSnuSyncJob(
     private val coursebookRepository: CoursebookRepository,
     private val vacancyNotificationRepository: VacancyNotificationRepository,
     private val pushService: PushService,
+    private val lectureVocabularyService: LectureVocabularyService,
+    private val courseVocabularyService: CourseVocabularyService,
 ) : BatchJob {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override val name = "sugangSnuSync"
 
-    override fun run(args: YearSemesterArgs) {
-        if (args.year != null && args.semester != null) {
-            syncSemester(args.year, args.semester)
-            coursebookRepository.touchUpdatedAt(args.year, args.semester, Instant.now())
+    override fun run(target: YearAndSemester?) {
+        if (target != null) {
+            syncSemester(target.year, target.semester)
+            coursebookRepository.touchUpdatedAt(target.year, target.semester, Instant.now())
             return
         }
         val condition = sugangSnuLectureApi.getCoursebookCondition()
@@ -77,23 +81,15 @@ class SugangSnuSyncJob(
         year: Int,
         semester: Semester,
     ) {
-        val englishByKey = sugangSnuXlsxParser.parseEnglish(sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"))
         val rows =
             sugangSnuXlsxParser
-                .parse(sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"))
-                .map { row ->
-                    val en = englishByKey[row.courseNumber to row.lectureNumber]
-                    row.copy(
-                        courseTitleEn = en?.courseTitleEn,
-                        instructorEn = en?.instructorEn,
-                        departmentEn = en?.departmentEn,
-                        academicYearEn = en?.academicYearEn,
-                        classificationEn = en?.classificationEn,
-                        remarkEn = en?.remarkEn,
-                    )
-                }.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
-        val result = sugangSnuSyncService.sync(year, semester, rows)
-        log.info("sugang sync 완료: {}", result)
+                .parse(
+                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
+                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
+                ).map { sugangSnuLectureEnricher.enrich(year, semester, it) }
+        sugangSnuSyncService.sync(year, semester, rows)
+        lectureVocabularyService.evict(year, semester)
+        courseVocabularyService.evict()
     }
 
     private fun nextCoursebook(coursebook: Coursebook): Coursebook =

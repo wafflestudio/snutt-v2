@@ -42,7 +42,7 @@ class DeviceService(
                 deviceByDeviceId ?: UserDevice(user = user, fcmRegistrationId = registrationId)
             }
         device.fcmRegistrationId = registrationId
-        device.osType = clientInfo.osType
+        device.osType = clientInfo.osType.value
         device.osVersion = clientInfo.osVersion
         device.deviceId = clientInfo.deviceId
         device.deviceModel = clientInfo.deviceModel

@@ -45,10 +45,10 @@ class V1AdminController(
     private val userService: UserService,
     private val diaryService: DiaryService,
 ) {
-    @GetMapping("/registration-periods", "/registrationPeriods")
+    @GetMapping("/registrationPeriods")
     fun getSemesterRegistrationPeriods(): List<SemesterRegistrationPeriod> = semesterRegistrationPeriodService.getAll()
 
-    @GetMapping("/registration-periods/{year}/{semester}", "/registrationPeriods/{year}/{semester}")
+    @GetMapping("/registrationPeriods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Semester,
@@ -81,7 +81,7 @@ class V1AdminController(
             )
         }
 
-    @GetMapping("/diary/daily-class-types", "/diary/dailyClassTypes")
+    @GetMapping("/diary/dailyClassTypes")
     fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
 
     @GetMapping("/diary/questions")

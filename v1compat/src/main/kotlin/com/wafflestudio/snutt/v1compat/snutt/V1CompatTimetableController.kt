@@ -10,7 +10,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
@@ -32,7 +31,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
@@ -71,7 +69,6 @@ class V1CompatTimetableController(
     private val timetableService: TimetableService,
     private val timetableLectureService: TimetableLectureService,
     private val timetableThemeService: TimetableThemeService,
-    private val lectureService: LectureService,
 ) {
     @GetMapping("")
     fun getTimetableBriefs(
@@ -133,10 +130,7 @@ class V1CompatTimetableController(
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId), clientInfo.language)
 
-    @RequestMapping(
-        value = ["/{timetableId}"],
-        method = [RequestMethod.PUT, RequestMethod.PATCH],
-    )
+    @PutMapping("/{timetableId}")
     fun modifyTimetable(
         @V1CurrentUser user: User,
         @PathVariable timetableId: Long,
@@ -332,31 +326,14 @@ class V1CompatTimetableController(
     private fun toLegacy(
         user: User,
         timetable: Timetable,
-        language: Language = Language.KO,
+        language: Language,
     ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetableDisplay(user.id!!, timetable.id!!), language)
 
     private fun toLegacy(
         user: User,
         display: TimetableDisplay,
-        language: Language = Language.KO,
-    ): LegacyTimetableDto {
-        val evLectureIds = fetchEvLectureIds(display.lectures.mapNotNull { it.lectureId })
-        return LegacyTimetableDto(
-            timetable = display.timetable,
-            userId = user.id!!.toString(),
-            display = display,
-            evLectureIds = evLectureIds,
-            language = language,
-        )
-    }
-
-    private fun fetchEvLectureIds(lectureIds: List<Long>): Map<String, Long> {
-        if (lectureIds.isEmpty()) return emptyMap()
-        val lectures = lectureService.getAllByIds(lectureIds)
-        return lectures
-            .mapNotNull { (lectureId, lecture) -> lecture.courseId?.let { lectureId.toString() to it } }
-            .toMap()
-    }
+        language: Language,
+    ): LegacyTimetableDto = LegacyTimetableDto(user.id!!.toString(), display, language)
 }
 
 data class LegacyForcedRequest(

@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.fetchSocialProfile
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
-import com.wafflestudio.snutt.core.domain.auth.oidc.OidcVerificationOptions
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -18,7 +17,7 @@ private data class FacebookOAuth2UserResponse(
 @Component("FACEBOOK")
 class FacebookClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
-    @param:Value("\${snutt.auth.oidc.facebook-app-id:}") private val facebookAppId: String,
+    @param:Value("\${snutt.auth.oidc.facebook-app-id:dummy}") private val facebookAppId: String,
     private val restClient: RestClient,
 ) : OAuth2Client {
     companion object {
@@ -46,12 +45,9 @@ class FacebookClient(
         val claims =
             oidcJwtVerifier.verifyAndDecodeToken(
                 token = token,
-                options =
-                    OidcVerificationOptions(
-                        jwksUri = FACEBOOK_JWK_URI,
-                        expectedIssuer = FACEBOOK_ISSUER,
-                        expectedAudience = facebookAppId,
-                    ),
+                jwksUri = FACEBOOK_JWK_URI,
+                issuer = FACEBOOK_ISSUER,
+                audience = facebookAppId,
             ) ?: return null
 
         return OAuth2UserResponse(

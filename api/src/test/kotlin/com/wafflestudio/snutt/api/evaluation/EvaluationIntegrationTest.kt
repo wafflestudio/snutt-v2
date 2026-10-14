@@ -6,7 +6,9 @@ import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
+import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationLike
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
+import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationLikeRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseAggregateUpdater
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -32,6 +34,9 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
 
     @Autowired
     lateinit var evaluationRepository: EvaluationRepository
+
+    @Autowired
+    lateinit var evaluationLikeRepository: EvaluationLikeRepository
 
     @Autowired
     lateinit var userRepository: UserRepository
@@ -373,13 +378,13 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
         courseAggregateUpdater.update(course1.id!!)
         courseAggregateUpdater.update(course2.id!!)
 
-        val wellTaught = get("/v2/evaluations/tags/well-taught", verifiedToken)
+        val wellTaught = get("/v2/evaluations/tags/WELL_TAUGHT", verifiedToken)
         assertEquals(200, wellTaught.statusCode.value())
         val wellTaughtItems = body(wellTaught)["content"]
         assertEquals(1, wellTaughtItems.size())
         assertEquals("최고의 명강", wellTaughtItems[0]["content"].asString())
 
-        val liberalEducation = get("/v2/evaluations/tags/liberal-education", verifiedToken)
+        val liberalEducation = get("/v2/evaluations/tags/LIBERAL_EDUCATION", verifiedToken)
         assertEquals(200, liberalEducation.statusCode.value())
         val liberalItems = body(liberalEducation)["content"]
         assertEquals(1, liberalItems.size())
@@ -390,8 +395,9 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
     fun `likeCount는 0 미만으로 감소하지 않는다`() {
         val create = post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
         val evalId = body(create)["id"].asLong()
-        evaluationRepository.decrementLikeCount(evalId)
-        val eval = evaluationRepository.findById(evalId).get()
-        assertEquals(0L, eval.likeCount)
+        val secondUserId = userRepository.findByLocalIdAndActiveTrue("evaluser3")!!.id!!
+        evaluationLikeRepository.save(EvaluationLike(evaluationId = evalId, userId = secondUserId))
+        val cancel = delete("/v2/evaluations/$evalId/like", secondVerifiedToken)
+        assertEquals(0, body(cancel)["likeCount"].asInt())
     }
 }

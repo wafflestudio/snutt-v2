@@ -1,6 +1,5 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.client.ClientInfo
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.OsType
@@ -16,10 +15,10 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
 import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
+import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
@@ -28,8 +27,8 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureRemi
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBasicThemeType
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
+import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
@@ -83,11 +82,11 @@ private const val ANDROID_LEGACY_DIARY_DATE_MAX_VERSION = "3.12.4"
 private fun TimetableThemeDisplay.toLegacy(
     userExternalId: String,
     origin: LegacyThemeOriginDto?,
-    publication: ThemePublicationDisplay? = null,
+    publishInfo: LegacyThemePublishInfoDto? = null,
 ) = LegacyThemeDto(
     id = if (kind == ThemeKind.BUILTIN) null else id.toString(),
     userId = if (kind == ThemeKind.BUILTIN) userExternalId else checkNotNull(userId).toString(),
-    theme = if (kind == ThemeKind.BUILTIN) legacyThemeValue(checkNotNull(builtinCode)) else 0,
+    theme = legacyThemeValue(builtinCode),
     name = name,
     colors = colors.takeUnless { kind == ThemeKind.BUILTIN }?.map { it.toLegacyColor() },
     isDefault = isDefault,
@@ -97,12 +96,9 @@ private fun TimetableThemeDisplay.toLegacy(
         when (kind) {
             ThemeKind.BUILTIN -> LegacyThemeStatus.BASIC
             ThemeKind.DOWNLOADED -> LegacyThemeStatus.DOWNLOADED
-            ThemeKind.CUSTOM -> if (publication == null) LegacyThemeStatus.PRIVATE else LegacyThemeStatus.PUBLISHED
+            ThemeKind.CUSTOM -> if (publishInfo == null) LegacyThemeStatus.PRIVATE else LegacyThemeStatus.PUBLISHED
         },
-    publishInfo =
-        publication?.let {
-            LegacyThemePublishInfoDto(it.name, if (it.authorAnonymous) "익명" else it.authorNickname, it.downloadCount)
-        },
+    publishInfo = publishInfo,
 )
 
 private fun ThemePublicationDisplay.toLegacy() =
@@ -143,6 +139,7 @@ data class LegacyThemeDownloadRequest(
 class V1CompatThemeController(
     private val timetableThemeService: TimetableThemeService,
     private val publishedThemeRepository: PublishedThemeRepository,
+    private val legacyPublishedThemeRepository: LegacyPublishedThemeRepository,
 ) {
     private fun library(
         user: User,
@@ -150,17 +147,19 @@ class V1CompatThemeController(
     ): List<LegacyThemeDto> {
         val sources = publishedThemeRepository.findAllById(themes.mapNotNull { it.publicationId }).associateBy { it.id!! }
         val ownPublications =
-            timetableThemeService
-                .getMyPublications(user.id!!)
-                .filter { it.listed && it.sourceThemeId != null }
-                .sortedBy { it.id }
+            legacyPublishedThemeRepository
+                .findByAuthorIdAndListedTrueAndSourceThemeIdIsNotNullOrderById(user.id!!)
                 .associateBy { it.sourceThemeId }
         return themes.map { theme ->
             val origin =
                 theme.publicationId?.let { id ->
                     sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString().orEmpty()) }
                 }
-            theme.toLegacy(user.id!!.toString(), origin, ownPublications[theme.id])
+            val publishInfo =
+                ownPublications[theme.id]?.let {
+                    LegacyThemePublishInfoDto(it.name, if (it.authorAnonymous) "익명" else user.nickname, it.downloadCount)
+                }
+            theme.toLegacy(user.id!!.toString(), origin, publishInfo)
         }
     }
 
@@ -244,7 +243,7 @@ class V1CompatThemeController(
     ): LegacyOkResponse {
         val publication = timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.isAnonymous)
         listedPublicationsOf(user, themeId).filter { it.id != publication.id }.forEach {
-            timetableThemeService.unpublishTheme(user.id!!, it.id)
+            timetableThemeService.unpublishTheme(user.id!!, it.id!!)
         }
         return LegacyOkResponse()
     }
@@ -256,7 +255,7 @@ class V1CompatThemeController(
     ) {
         val publications = listedPublicationsOf(user, themeId)
         if (publications.isEmpty()) throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
-        publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id) }
+        publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id!!) }
     }
 
     @PostMapping("/{themeId}/download")
@@ -289,7 +288,7 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        basicThemeType(basicThemeTypeValue)
+        legacyBuiltinCode(basicThemeTypeValue)
         return defaultTheme(user).toLegacy(user.id!!.toString(), null)
     }
 
@@ -298,9 +297,9 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
-        val basicThemeType = basicThemeType(basicThemeTypeValue)
+        val builtinCode = legacyBuiltinCode(basicThemeTypeValue)
         val current = defaultTheme(user)
-        if (current.kind != ThemeKind.BUILTIN || current.builtinCode != legacyBuiltinCode(basicThemeType.value)) {
+        if (current.kind != ThemeKind.BUILTIN || current.builtinCode != builtinCode) {
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         }
         return current.toLegacy(user.id!!.toString(), null)
@@ -325,18 +324,10 @@ class V1CompatThemeController(
     private fun listedPublicationsOf(
         user: User,
         themeId: Long,
-    ): List<ThemePublicationDisplay> =
-        timetableThemeService.getMyPublications(user.id!!).filter { it.listed && it.sourceThemeId == themeId }
+    ): List<PublishedTheme> = legacyPublishedThemeRepository.findByAuthorIdAndSourceThemeIdAndListedTrue(user.id!!, themeId)
 
     private fun defaultTheme(user: User): TimetableThemeDisplay =
         timetableThemeService.getTheme(user.id!!, timetableThemeService.getDefaultThemeId(user.id!!))
-
-    private fun basicThemeType(value: Int): LegacyBasicThemeType =
-        try {
-            LegacyBasicThemeType.fromValue(value)
-        } catch (_: IllegalArgumentException) {
-            throw SnuttException(ErrorType.INVALID_PARAMETER)
-        }
 
     private fun wrap(publications: List<ThemePublicationDisplay>): LegacyPageResponse<LegacyThemeDto> {
         val content = publications.map { it.toLegacy() }
@@ -455,9 +446,7 @@ class V1CompatDiaryController(
     }
 
     @GetMapping("/dailyClassTypes")
-    fun getDailyClassTypes(
-        @V1CurrentUser user: User,
-    ): List<LegacyDiaryDailyClassTypeDto> =
+    fun getDailyClassTypes(): List<LegacyDiaryDailyClassTypeDto> =
         diaryService
             .getActiveDailyClassTypes()
             .map { LegacyDiaryDailyClassTypeDto(id = it.id!!.toString(), name = it.name) }
@@ -469,7 +458,7 @@ class V1CompatDiaryController(
     ): List<LegacyDiarySemesterSubmissionsDto> {
         val appVersion = clientInfo.appVersion
         val dateFormatter =
-            if (OsType.from(clientInfo.osType) == OsType.ANDROID &&
+            if (clientInfo.osType == OsType.ANDROID &&
                 appVersion != null &&
                 compareAppVersions(appVersion, ANDROID_LEGACY_DIARY_DATE_MAX_VERSION) <= 0
             ) {
@@ -530,29 +519,6 @@ class V1CompatDiaryController(
     }
 }
 
-data class LegacyTagUpdateTimeResponse(
-    @param:JsonProperty("updated_at")
-    val updatedAt: Long,
-)
-
-@RestController
-@RequestMapping("/v1/tags")
-class V1CompatTagUpdateTimeController(
-    private val lectureVocabularyService: LectureVocabularyService,
-) {
-    @GetMapping("/{year}/{semester}/update_time")
-    fun getTagListUpdateTime(
-        @PathVariable year: Int,
-        @PathVariable semester: Semester,
-        @CurrentClient clientInfo: ClientInfo,
-    ): LegacyTagUpdateTimeResponse {
-        val updatedAt =
-            lectureVocabularyService.getVocabulary(year, semester, clientInfo.language).updatedAt
-                ?: throw SnuttException(ErrorType.COURSEBOOK_NOT_FOUND)
-        return LegacyTagUpdateTimeResponse(updatedAt = updatedAt.toEpochMilli())
-    }
-}
-
 data class LegacyReminderModifyRequest(
     val option: TimetableLectureReminderOption,
 )
@@ -609,12 +575,6 @@ class V1CompatReminderController(
     )
 }
 
-data class LegacyLectureEvSummaryResponse(
-    val evLectureId: Long?,
-    val avgRating: Double?,
-    val evaluationCount: Long,
-)
-
 @RestController
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
@@ -625,10 +585,10 @@ class V1CompatEvSummaryController(
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: Long,
-    ): LegacyLectureEvSummaryResponse {
+    ): LegacyEvSummary {
         val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         val course = courseRepository.findByIdOrNull(courseId)
-        return LegacyLectureEvSummaryResponse(
+        return LegacyEvSummary(
             evLectureId = courseId,
             avgRating = course?.avgRating,
             evaluationCount = course?.evalCount ?: 0L,

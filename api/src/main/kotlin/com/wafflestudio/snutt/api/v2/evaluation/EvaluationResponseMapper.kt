@@ -43,14 +43,11 @@ class EvaluationResponseMapper(
             lifeBalance = evaluation.lifeBalance,
             rating = evaluation.rating,
             likeCount = evaluation.likeCount,
-            isHidden = evaluation.isHidden,
-            isReported = evaluation.isReported,
             isLiked = display.isLiked,
             fromSnuev = evaluation.fromSnuev,
             year = evaluation.year,
             semester = evaluation.semester,
             isModifiable = display.isModifiable,
-            isReportable = display.isReportable,
         )
     }
 }

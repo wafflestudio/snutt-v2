@@ -3,10 +3,10 @@ package com.wafflestudio.snutt.migration.step
 import com.mongodb.client.model.Accumulators
 import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
-import com.wafflestudio.snutt.migration.AbstractMigrationStep
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport.ResolutionReasons
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
@@ -26,8 +26,7 @@ import java.util.HexFormat
 class AggregateStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "aggregate"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {
@@ -75,52 +74,28 @@ class AggregateStep(
 class LegacyTokenStep(
     jdbc: JdbcTemplate,
     context: MigrationContext,
-    private val mongo: MongoSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "legacytoken"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {
         jdbc.execute("DELETE FROM legacy_access_token")
 
-        val owners = HashMap<String, MutableList<String>>()
-        mongo.each("users") { doc ->
-            val hash = legacyTokenHash(doc) ?: return@each
-            owners.getOrPut(hash) { mutableListOf() } += doc.id()
-        }
-
         val ids = IdSequence()
-        var count = 0L
-        var ambiguous = 0L
         writer("legacy_access_token", listOf("id", "user_id", "token_hash", "created_at", "updated_at")).use { out ->
-            owners.forEach { (token, externalIds) ->
+            context.legacyTokenOwners.forEach { (token, externalIds) ->
                 if (externalIds.size > 1) {
-                    ambiguous++
                     context.resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS, externalIds.size)
                     return@forEach
                 }
                 val now = Timestamp.from(Instant.now())
                 out.add(ids.next(), context.userIds.getValue(externalIds.single()), sha256Hex(token), now, now)
-                count++
             }
         }
-        alignAutoIncrement("legacy_access_token", ids.peek())
-        log.info("구 토큰 이관: {}건 (특정 불가로 제외 {}건)", count, ambiguous)
+        log.info("구 토큰 이관: {}건", ids.peek() - 1)
     }
 
     private fun sha256Hex(value: String): String =
         HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))
-
-    companion object {
-        private val CREDENTIAL_KEYS = listOf("localId", "fbId", "appleSub", "googleSub", "kakaoSub")
-
-        fun legacyTokenHash(doc: Document): String? {
-            if (!doc.bool("active")) return null
-            val credential = doc.doc("credential") ?: return null
-            if (CREDENTIAL_KEYS.none { credential.str(it) != null }) return null
-            return doc.str("credentialHash")?.takeIf { it.isNotBlank() }
-        }
-    }
 }
 
 @Component
@@ -129,13 +104,13 @@ class ValidateStep(
     context: MigrationContext,
     private val mongo: MongoSource,
     private val ev: EvSource,
-) : AbstractMigrationStep(jdbc, context) {
-    override val name = "validate"
+) : MigrationStep(jdbc, context) {
     override val tables = emptyList<String>()
 
     override fun run() {
         val failures = mutableListOf<String>()
 
+        val (socialCredentials, legacyTokenOwners) = activeCredentialCounts()
         compare(failures, "user", mongo.count("users"), count("user"))
         compare(
             failures,
@@ -147,14 +122,14 @@ class ValidateStep(
         compare(
             failures,
             "user_social_auth",
-            socialCredentials(),
+            socialCredentials,
             count("user_social_auth"),
             tolerated = resolved(ResolutionReasons.SOCIAL_AUTH_DUPLICATE),
         )
         compare(
             failures,
             "legacy_access_token",
-            legacyTokenOwners(),
+            legacyTokenOwners,
             count("legacy_access_token"),
             tolerated = resolved(ResolutionReasons.LEGACY_TOKEN_AMBIGUOUS),
         )
@@ -289,8 +264,8 @@ class ValidateStep(
         if (leakedObjectIds > 0L) failures += "알림 deeplink에 구 ObjectId가 남아 있다: ${leakedObjectIds}건"
 
         if (context.resolutions.isNotEmpty()) {
-            log.info("원본 정리 요약:")
-            context.resolutions.forEach { (reason, count) -> log.info("  - {}: {}건", reason, count) }
+            log.warn("원본이 v2 제약을 위반해 손본 항목:")
+            context.resolutions.forEach { (reason, count) -> log.warn("  - {}: {}건", reason, count) }
         }
         check(failures.isEmpty()) { "검증 실패:\n" + failures.joinToString("\n") { "  - $it" } }
         log.info("검증 통과")
@@ -313,20 +288,16 @@ class ValidateStep(
         return total
     }
 
-    private fun socialCredentials(): Long {
-        var total = 0L
+    private fun activeCredentialCounts(): Pair<Long, Long> {
+        var socialCredentials = 0L
+        var legacyTokenOwners = 0L
         mongo.each("users") { doc ->
+            if (UserStep.legacyTokenHash(doc) != null) legacyTokenOwners++
             if (!doc.bool("active")) return@each
             val credential = doc.doc("credential") ?: return@each
-            total += SOCIAL_KEYS.count { credential.str(it) != null }
+            socialCredentials += UserStep.SOCIAL_KEYS.count { credential.str(it) != null }
         }
-        return total
-    }
-
-    private fun legacyTokenOwners(): Long {
-        var total = 0L
-        mongo.each("users") { doc -> if (LegacyTokenStep.legacyTokenHash(doc) != null) total++ }
-        return total
+        return socialCredentials to legacyTokenOwners
     }
 
     private fun timetableLectureEntries(): Long =
@@ -367,9 +338,5 @@ class ValidateStep(
         } else {
             log.info("{} 행 수: 원본 {}, 대상 {} (제외 {}, 추가 {})", label, expected, actual, tolerated, added)
         }
-    }
-
-    companion object {
-        private val SOCIAL_KEYS = listOf("fbId", "appleSub", "googleSub", "kakaoSub")
     }
 }

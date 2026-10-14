@@ -5,14 +5,13 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
-import com.wafflestudio.snutt.core.domain.auth.oidc.OidcVerificationOptions
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component("APPLE")
 class AppleClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
-    @param:Value("\${snutt.auth.oidc.apple-app-id:}") private val appleAppId: String,
+    @param:Value("\${snutt.auth.oidc.apple-app-id:dummy}") private val appleAppId: String,
 ) : OAuth2Client {
     companion object {
         private const val APPLE_JWK_URI = "https://appleid.apple.com/auth/keys"
@@ -24,12 +23,9 @@ class AppleClient(
         val claims =
             oidcJwtVerifier.verifyAndDecodeToken(
                 token = token,
-                options =
-                    OidcVerificationOptions(
-                        jwksUri = APPLE_JWK_URI,
-                        expectedIssuer = APPLE_ISSUER,
-                        expectedAudience = appleAppId,
-                    ),
+                jwksUri = APPLE_JWK_URI,
+                issuer = APPLE_ISSUER,
+                audience = appleAppId,
             ) ?: return null
 
         return OAuth2UserResponse(

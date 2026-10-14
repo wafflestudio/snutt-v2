@@ -77,7 +77,7 @@ class ThemeController(
     @GetMapping("")
     fun getThemes(
         @CurrentUserId userId: Long,
-    ): List<ThemeResponse> = timetableThemeService.getThemes(userId).map { it.toResponse() }
+    ): List<ThemeResponse> = themes(userId)
 
     @GetMapping("/{themeId}")
     fun getTheme(
@@ -89,38 +89,56 @@ class ThemeController(
     fun addTheme(
         @CurrentUserId userId: Long,
         @Valid @RequestBody body: ThemeAddRequest,
-    ): ThemeResponse = timetableThemeService.addTheme(userId, body.name, body.colors).toResponse()
+    ): List<ThemeResponse> {
+        timetableThemeService.addTheme(userId, body.name, body.colors)
+        return themes(userId)
+    }
 
     @PatchMapping("/{themeId}")
     fun modifyTheme(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
         @RequestBody body: ThemeModifyRequest,
-    ): ThemeResponse = timetableThemeService.modifyTheme(userId, themeId, body.name, body.colors).toResponse()
+    ): List<ThemeResponse> {
+        timetableThemeService.modifyTheme(userId, themeId, body.name, body.colors)
+        return themes(userId)
+    }
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
-    ) = timetableThemeService.deleteTheme(userId, themeId)
+    ): List<ThemeResponse> {
+        timetableThemeService.deleteTheme(userId, themeId)
+        return themes(userId)
+    }
 
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
-    ): ThemeResponse = timetableThemeService.copyTheme(userId, themeId).toResponse()
+    ): List<ThemeResponse> {
+        timetableThemeService.copyTheme(userId, themeId)
+        return themes(userId)
+    }
 
     @PostMapping("/{themeId}/default")
     fun setDefault(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
-    ): ThemeResponse = timetableThemeService.setDefault(userId, themeId).toResponse()
+    ): List<ThemeResponse> {
+        timetableThemeService.setDefault(userId, themeId)
+        return themes(userId)
+    }
 
     @DeleteMapping("/{themeId}/default")
     fun unsetDefault(
         @CurrentUserId userId: Long,
         @PathVariable themeId: Long,
-    ): ThemeResponse = timetableThemeService.unsetDefault(userId, themeId).toResponse()
+    ): List<ThemeResponse> {
+        timetableThemeService.unsetDefault(userId, themeId)
+        return themes(userId)
+    }
 
     @PostMapping("/{themeId}/publish")
     fun publishTheme(
@@ -128,6 +146,8 @@ class ThemeController(
         @PathVariable themeId: Long,
         @Valid @RequestBody body: ThemePublishRequest,
     ): ThemePublicationResponse = timetableThemeService.publishTheme(userId, themeId, body.name, body.authorAnonymous).toResponse()
+
+    private fun themes(userId: Long): List<ThemeResponse> = timetableThemeService.getThemes(userId).map { it.toResponse() }
 }
 
 @RestController
@@ -162,7 +182,10 @@ class ThemePublicationController(
     fun downloadTheme(
         @CurrentUserId userId: Long,
         @PathVariable publicationId: Long,
-    ): ThemeResponse = timetableThemeService.downloadTheme(userId, publicationId).toResponse()
+    ): List<ThemeResponse> {
+        timetableThemeService.downloadTheme(userId, publicationId)
+        return timetableThemeService.getThemes(userId).map { it.toResponse() }
+    }
 
     @DeleteMapping("/{publicationId}")
     fun unpublishTheme(
