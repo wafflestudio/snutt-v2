@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.util.EmailMask
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
@@ -95,10 +96,6 @@ class V1CompatAuthController(
     private val passwordResetService: PasswordResetService,
     private val userRepository: UserRepository,
 ) {
-    companion object {
-        private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
-    }
-
     @V1Public
     @PostMapping("/register_local")
     fun registerLocal(
@@ -173,7 +170,7 @@ class V1CompatAuthController(
         @RequestBody body: LegacyMaskedEmailRequest,
     ): LegacyMaskedEmailResponse {
         val email = activeUserByLocalId(body.userId).email ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        return LegacyMaskedEmailResponse(email = email.replace(emailMaskRegex, "*"))
+        return LegacyMaskedEmailResponse(email = EmailMask.mask(email))
     }
 
     @V1Public

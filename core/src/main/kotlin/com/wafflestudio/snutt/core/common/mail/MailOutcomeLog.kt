@@ -2,11 +2,11 @@ package com.wafflestudio.snutt.core.common.mail
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.util.EmailMask
 import org.slf4j.LoggerFactory
 
 object MailOutcomeLog {
     private val log = LoggerFactory.getLogger(MailOutcomeLog::class.java)
-    private val emailMaskRegex = Regex("(?<=.{3}).(?=.*@)")
 
     fun outcome(
         api: String,
@@ -19,7 +19,7 @@ object MailOutcomeLog {
             "{}: result={} email={} requestedLocalId={} userIds={}",
             api,
             result,
-            email?.replace(emailMaskRegex, "*"),
+            email?.let(EmailMask::mask),
             requestedLocalId,
             userIds,
         )
