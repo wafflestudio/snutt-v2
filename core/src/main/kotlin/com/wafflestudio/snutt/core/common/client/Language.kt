@@ -22,3 +22,5 @@ fun Language.select(
     ko: String?,
     en: String?,
 ): String? = if (this == Language.EN) en ?: ko else ko
+
+fun languageOf(header: (String) -> String?): Language = Language.from(header("x-language")) ?: Language.KO
