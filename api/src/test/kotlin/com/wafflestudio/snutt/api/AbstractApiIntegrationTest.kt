@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.api
 
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
 import com.wafflestudio.snutt.core.test.AbstractIntegrationTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -21,22 +22,26 @@ abstract class AbstractApiIntegrationTest : AbstractIntegrationTest() {
 
     protected val jsonMapper: JsonMapper = JsonMapper.builder().build()
 
-    protected fun client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-os-type", "ios")
-            .defaultHeader("x-client-key", "test-ios-key")
-            .defaultHeader("Content-Type", "application/json")
-            .build()
+    protected fun client(language: Language? = null): RestClient {
+        val builder =
+            RestClient
+                .builder()
+                .baseUrl("http://localhost:$port")
+                .defaultStatusHandler({ true }) { _, _ -> }
+                .defaultHeader("x-os-type", "ios")
+                .defaultHeader("x-client-key", "test-ios-key")
+                .defaultHeader("Content-Type", "application/json")
+        language?.let { builder.defaultHeader("x-language", it.name.lowercase()) }
+        return builder.build()
+    }
 
     protected fun post(
         uri: String,
         body: String? = null,
         token: String? = null,
+        language: Language? = null,
     ): ResponseEntity<String> {
-        val spec = client().post().uri(uri)
+        val spec = client(language).post().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
         body?.let { spec.body(it) }
         return spec.retrieve().toEntity(String::class.java)
@@ -45,8 +50,9 @@ abstract class AbstractApiIntegrationTest : AbstractIntegrationTest() {
     protected fun get(
         uri: String,
         token: String? = null,
+        language: Language? = null,
     ): ResponseEntity<String> {
-        val spec = client().get().uri(uri)
+        val spec = client(language).get().uri(uri)
         token?.let { spec.headers { h -> h.setBearerAuth(it) } }
         return spec.retrieve().toEntity(String::class.java)
     }
