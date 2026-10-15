@@ -5,11 +5,14 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.mail.MailOutcomeLog
 import com.wafflestudio.snutt.core.common.mail.UserMailService
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
+import com.wafflestudio.snutt.core.common.util.EmailMask
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
 import com.wafflestudio.snutt.core.common.util.VerificationCode
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
+import com.wafflestudio.snutt.core.domain.auth.service.PasswordResetTokenPayload
+import com.wafflestudio.snutt.core.domain.auth.service.PasswordResetTokenService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
@@ -29,6 +32,7 @@ class PasswordResetService(
     private val userMailService: UserMailService,
     private val passwordEncoder: PasswordEncoder,
     private val authService: AuthService,
+    private val passwordResetTokenService: PasswordResetTokenService,
 ) {
     private val store = CodeChallengeStore(redisTemplate, jsonMapper, "reset-password", ttl = Duration.ofMinutes(15))
 
@@ -84,10 +88,40 @@ class PasswordResetService(
             MailOutcomeLog.outcome("password-reset", "no_account", trimmed)
             return
         }
-        MailOutcomeLog.logged("password-reset", trimmed, listOf(user.id!!)) {
+        sendResetCode(user, trimmed)
+    }
+
+    fun requestResetByLocalId(localId: String): String {
+        val trimmed = localId.trim()
+        val user = userRepository.findByLocalIdAndActiveTrue(trimmed)
+        if (user == null) {
+            MailOutcomeLog.outcome("password-reset", "no_account", email = null, requestedLocalId = trimmed)
+            throw SnuttException(ErrorType.USER_NOT_FOUND)
+        }
+        val email = user.email
+        if (email.isNullOrBlank()) {
+            MailOutcomeLog.outcome(
+                "password-reset",
+                "no_email",
+                email = null,
+                userIds = listOf(user.id!!),
+                requestedLocalId = trimmed,
+            )
+            throw SnuttException(ErrorType.EMAIL_NOT_REGISTERED)
+        }
+        sendResetCode(user, email, trimmed)
+        return EmailMask.mask(email)
+    }
+
+    private fun sendResetCode(
+        user: User,
+        email: String,
+        requestedLocalId: String? = null,
+    ) {
+        MailOutcomeLog.logged("password-reset", email, listOf(user.id!!), requestedLocalId) {
             val code = VerificationCode.generatePasswordResetCode()
             store.store(user.id!!, code)
-            userMailService.sendPasswordResetCode(trimmed, code)
+            userMailService.sendPasswordResetCode(email, code)
         }
     }
 
@@ -97,6 +131,21 @@ class PasswordResetService(
     ) {
         store.verify(userId, code)
         store.extend(userId, Duration.ofHours(1))
+    }
+
+    fun verifyResetCodeByLocalId(
+        localId: String,
+        code: String,
+    ): String {
+        val user =
+            userRepository.findByLocalIdAndActiveTrue(localId.trim())
+                ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
+        val userId = user.id!!
+        store.verify(userId, code)
+        store.clear(userId)
+        return passwordResetTokenService.issue(
+            PasswordResetTokenPayload(userId = userId, tokenVersion = user.tokenVersion),
+        )
     }
 
     @Transactional
@@ -110,15 +159,18 @@ class PasswordResetService(
     }
 
     @Transactional
-    fun confirmResetByEmail(
-        email: String,
-        code: String,
+    fun confirmResetWithToken(
+        resetToken: String,
         newPassword: String,
     ) {
+        val payload = passwordResetTokenService.verify(resetToken)
         val user =
-            userRepository.findForUpdateByEmailAndIsEmailVerifiedTrueAndActiveTrue(email.trim())
-                ?: throw SnuttException(ErrorType.INVALID_VERIFICATION_CODE)
-        confirmReset(user, code, newPassword)
+            userRepository.findForUpdateByIdAndActiveTrue(payload.userId)
+                ?: throw SnuttException(ErrorType.INVALID_PASSWORD_RESET_TOKEN)
+        if (user.tokenVersion != payload.tokenVersion) throw SnuttException(ErrorType.INVALID_PASSWORD_RESET_TOKEN)
+        if (!PasswordPolicy.isValidPassword(newPassword)) throw SnuttException(ErrorType.INVALID_PASSWORD)
+        user.localPw = passwordEncoder.encode(newPassword)
+        authService.revokeSessions(user)
     }
 
     private fun confirmReset(

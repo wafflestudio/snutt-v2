@@ -40,12 +40,24 @@ data class LogoutRequest(
 )
 
 data class RequestPasswordResetRequest(
-    @field:NotBlank val email: String,
+    @field:NotBlank val localId: String,
+)
+
+data class RequestPasswordResetResponse(
+    val email: String,
+)
+
+data class VerifyPasswordResetCodeRequest(
+    @field:NotBlank val localId: String,
+    @field:NotBlank val code: String,
+)
+
+data class VerifyPasswordResetCodeResponse(
+    val resetToken: String,
 )
 
 data class ConfirmPasswordResetRequest(
-    @field:NotBlank val email: String,
-    @field:NotBlank val code: String,
+    @field:NotBlank val resetToken: String,
     @field:NotBlank val newPassword: String,
 )
 
@@ -122,8 +134,18 @@ class AuthController(
     @PostMapping("/password/reset/request")
     fun requestPasswordReset(
         @Valid @RequestBody body: RequestPasswordResetRequest,
-    ) {
-        passwordResetService.requestReset(body.email)
+    ): RequestPasswordResetResponse {
+        val email = passwordResetService.requestResetByLocalId(body.localId)
+        return RequestPasswordResetResponse(email = email)
+    }
+
+    @Public
+    @PostMapping("/password/reset/verify")
+    fun verifyPasswordResetCode(
+        @Valid @RequestBody body: VerifyPasswordResetCodeRequest,
+    ): VerifyPasswordResetCodeResponse {
+        val resetToken = passwordResetService.verifyResetCodeByLocalId(body.localId, body.code)
+        return VerifyPasswordResetCodeResponse(resetToken = resetToken)
     }
 
     @Public
@@ -131,7 +153,7 @@ class AuthController(
     fun confirmPasswordReset(
         @Valid @RequestBody body: ConfirmPasswordResetRequest,
     ) {
-        passwordResetService.confirmResetByEmail(body.email, body.code, body.newPassword)
+        passwordResetService.confirmResetWithToken(body.resetToken, body.newPassword)
     }
 
     @Public

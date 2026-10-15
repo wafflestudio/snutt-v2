@@ -27,6 +27,11 @@ enum class ErrorType(
         "인증 요청 실패",
     ),
     INVALID_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "인증 코드가 유효하지 않습니다", "올바르지 않은 인증 코드"),
+    INVALID_PASSWORD_RESET_TOKEN(
+        HttpStatus.BAD_REQUEST,
+        "비밀번호 재설정 인증이 만료되었습니다. 인증 코드를 다시 받아 주세요",
+        "재설정 인증 만료",
+    ),
     ALREADY_LOCAL_ACCOUNT(HttpStatus.BAD_REQUEST, "이미 로컬 계정이 존재합니다", "로컬 계정 중복"),
     ALREADY_SOCIAL_ACCOUNT(HttpStatus.BAD_REQUEST, "이미 소셜 계정이 존재합니다", "소셜 계정 중복"),
     NOT_PUBLISHED_THEME(HttpStatus.BAD_REQUEST, "공유한 테마가 아닙니다", "공유되지 않은 테마"),
@@ -65,6 +70,11 @@ enum class ErrorType(
     LECTURE_TIME_OVERLAP(HttpStatus.CONFLICT, "%s 강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?", "시간대 겹침"),
     CANNOT_RESET_CUSTOM_LECTURE(HttpStatus.FORBIDDEN, "직접 만든 강좌는 초기화할 수 없습니다", "강좌 초기화 불가"),
     INVALID_EMAIL(HttpStatus.BAD_REQUEST, "이메일 형식이 올바르지 않습니다. 다시 입력해 주세요", "올바르지 않은 이메일"),
+    EMAIL_NOT_REGISTERED(
+        HttpStatus.BAD_REQUEST,
+        "이 계정에는 등록된 이메일이 없어 비밀번호를 재설정할 수 없습니다",
+        "이메일 없음",
+    ),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "이메일 인증이 완료된 후 강의평을 확인할 수 있습니다", "이메일 인증 필요"),
 
     TIMETABLE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 시간표입니다", "시간표 없음"),
