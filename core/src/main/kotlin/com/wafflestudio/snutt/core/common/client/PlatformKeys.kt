@@ -29,5 +29,5 @@ fun clientInfoOf(
         appVersion = header("x-app-version"),
         deviceId = header("x-device-id"),
         deviceModel = header("x-device-model"),
-        language = Language.from(header("x-language")) ?: Language.KO,
+        language = languageOf(header),
     )

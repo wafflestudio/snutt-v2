@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.v1compat
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -103,22 +104,26 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
         assertEquals("ok", body(registered)["message"].asString())
     }
 
-    private fun v1Client(): RestClient =
-        RestClient
-            .builder()
-            .baseUrl("http://localhost:$port")
-            .defaultStatusHandler({ true }) { _, _ -> }
-            .defaultHeader("x-access-apikey", legacyApiKey("ios", "0"))
-            .defaultHeader("Content-Type", "application/json")
-            .build()
+    private fun v1Client(language: Language? = null): RestClient {
+        val builder =
+            RestClient
+                .builder()
+                .baseUrl("http://localhost:$port")
+                .defaultStatusHandler({ true }) { _, _ -> }
+                .defaultHeader("x-access-apikey", legacyApiKey("ios", "0"))
+                .defaultHeader("Content-Type", "application/json")
+        language?.let { builder.defaultHeader("x-language", it.name.lowercase()) }
+        return builder.build()
+    }
 
     private fun v1Send(
         method: HttpMethod,
         uri: String,
         body: String?,
         legacyToken: String?,
+        language: Language? = null,
     ): ResponseEntity<String> {
-        val spec = v1Client().method(method).uri(uri)
+        val spec = v1Client(language).method(method).uri(uri)
         legacyToken?.let { spec.headers { h -> h.set("x-access-token", it) } }
         body?.let { spec.body(it) }
         return spec.retrieve().toEntity(String::class.java)
@@ -133,7 +138,8 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     private fun v1Get(
         uri: String,
         legacyToken: String? = null,
-    ): ResponseEntity<String> = v1Send(HttpMethod.GET, uri, null, legacyToken)
+        language: Language? = null,
+    ): ResponseEntity<String> = v1Send(HttpMethod.GET, uri, null, legacyToken, language)
 
     @Test
     fun `v1 로그인은 credentialHash 토큰을 발급한다`() {
@@ -186,6 +192,20 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
         assertEquals(400, invalidSemester.statusCode.value())
         assertEquals(40001L, body(invalidSemester)["errcode"].asLong())
         assertTrue(body(invalidSemester).has("message"))
+    }
+
+    @Test
+    fun `v1 error dto도 x-language를 따른다`() {
+        val en = v1Get("/v1/tables/99999999", legacyToken, Language.EN)
+        assertEquals(404, en.statusCode.value())
+        assertEquals(40400L, body(en)["errcode"].asLong())
+        assertEquals("Timetable not found", body(en)["title"].asString())
+        assertEquals("That timetable doesn't exist", body(en)["displayMessage"].asString())
+
+        val ko = v1Get("/v1/tables/99999999", legacyToken)
+        assertEquals(40400L, body(ko)["errcode"].asLong())
+        assertEquals("시간표 없음", body(ko)["title"].asString())
+        assertEquals("존재하지 않는 시간표입니다", body(ko)["displayMessage"].asString())
     }
 
     @Test

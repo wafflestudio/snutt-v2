@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.timetable
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -42,6 +43,7 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
                         courseNumber = "F27.301",
                         lectureNumber = "001",
                         courseTitle = "고급한국어",
+                        courseTitleEn = "Advanced Korean",
                         instructor = "황현동",
                         department = "국어국문학과",
                         academicYear = "1학년",
@@ -60,6 +62,7 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
                         courseNumber = "F31.113",
                         lectureNumber = "001",
                         courseTitle = "경영학을 위한 수학",
+                        courseTitleEn = "Mathematics for Business",
                         instructor = "안명숙",
                         department = "수리과학부",
                         academicYear = "1학년",
@@ -78,6 +81,7 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
                         courseNumber = "400.320",
                         lectureNumber = "002",
                         courseTitle = "공학연구의 실습 1",
+                        courseTitleEn = "Practice of Engineering Research 1",
                         instructor = "이제희",
                         department = "컴퓨터공학부",
                         academicYear = "3학년",
@@ -138,6 +142,22 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
         val addAnother = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[2]}}""", token)
         assertEquals(200, addAnother.statusCode.value())
         assertEquals(2, body(addAnother)["lectures"].size())
+    }
+
+    @Test
+    fun `시간 겹침 메시지는 x-language에 따라 한글과 영문을 선택한다`() {
+        val timetableId = createTimetable("테스트 시간표")
+        post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""", token)
+
+        val en = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]}}""", token, Language.EN)
+        assertEquals(409, en.statusCode.value())
+        assertEquals("Time conflict", body(en)["title"].asString())
+        assertEquals("This overlaps with 'Advanced Korean'. Overwrite?", body(en)["detail"].asString())
+
+        val ko = post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[1]}}""", token)
+        assertEquals(409, ko.statusCode.value())
+        assertEquals("시간대 겹침", body(ko)["title"].asString())
+        assertEquals("'고급한국어' 강의와 시간이 겹칩니다. 강의를 덮어씌우겠습니까?", body(ko)["detail"].asString())
     }
 
     @Test
