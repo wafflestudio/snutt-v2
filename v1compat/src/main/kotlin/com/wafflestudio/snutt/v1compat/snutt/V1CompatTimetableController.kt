@@ -126,9 +126,12 @@ class V1CompatTimetableController(
     @GetMapping("/{timetableId}")
     fun getTimetable(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: Long,
+        @PathVariable timetableId: String,
         @CurrentClient clientInfo: ClientInfo,
-    ): LegacyTimetableDto = toLegacy(user, timetableService.getTimetable(user.id!!, timetableId), clientInfo.language)
+    ): LegacyTimetableDto {
+        val id = timetableId.toLongOrNull() ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
+        return toLegacy(user, timetableService.getTimetable(user.id!!, id), clientInfo.language)
+    }
 
     @PutMapping("/{timetableId}")
     fun modifyTimetable(
