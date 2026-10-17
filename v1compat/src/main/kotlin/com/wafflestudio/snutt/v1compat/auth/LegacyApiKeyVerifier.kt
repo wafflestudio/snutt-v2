@@ -11,11 +11,9 @@ class LegacyApiKeyVerifier(
     secretKey: String,
     private val jsonMapper: JsonMapper,
 ) {
-    private val key: SecretKeySpec? =
-        secretKey.takeIf { it.isNotBlank() }?.let { SecretKeySpec(it.toByteArray(), MAC_ALGORITHM) }
+    private val key = SecretKeySpec(secretKey.toByteArray(), MAC_ALGORITHM)
 
     fun claimsOf(token: String): Map<String, Any?>? {
-        val key = this.key ?: return null
         val parts = token.split('.')
         if (parts.size != 3) return null
         val (header, payload, signature) = parts

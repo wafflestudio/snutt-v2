@@ -11,6 +11,7 @@ import com.oracle.bmc.objectstorage.requests.GetNamespaceRequest
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Lazy
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 import java.time.Duration
@@ -30,6 +31,7 @@ class OciConfig(
     @param:Value("\${snutt.storage.oci.config-profile:DEFAULT}") private val configProfile: String,
 ) {
     @Bean
+    @Lazy
     fun ociAuthProvider(): BasicAuthenticationDetailsProvider =
         when (authType) {
             OciAuthType.INSTANCE -> InstancePrincipalsAuthenticationDetailsProvider.builder().build()
@@ -38,11 +40,12 @@ class OciConfig(
 }
 
 @Service
+@Lazy
 @Profile("!test")
 class OciUploadUriIssuer(
     authProvider: BasicAuthenticationDetailsProvider,
     private val storageUriResolver: StorageUriResolver,
-    @param:Value("\${snutt.storage.endpoint:https://objectstorage.ap-chuncheon-1.oraclecloud.com}")
+    @param:Value("\${snutt.storage.endpoint}")
     private val endpoint: String,
     @Value("\${snutt.storage.region:ap-chuncheon-1}") region: String,
 ) : UploadUriIssuer {

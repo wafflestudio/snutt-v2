@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.common.mail
 
+import org.springframework.context.annotation.Lazy
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Service
 
@@ -11,7 +12,7 @@ enum class UserMailType {
 
 @Service
 class UserMailService(
-    private val mailClient: MailClient,
+    @param:Lazy private val mailClient: MailClient,
     resourceLoader: ResourceLoader,
 ) {
     private data class Template(

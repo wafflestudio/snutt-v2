@@ -33,3 +33,13 @@ spring:
 springdoc:
   swagger-ui:
     enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+snutt:
+  auth:
+    platform-keys: ios:local-ios-key,android:local-android-key,web:local-web-key
+    legacy-secret-key: local-legacy-secret-key

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class StorageUriResolver(
-    @param:Value("\${snutt.storage.endpoint:https://objectstorage.ap-chuncheon-1.oraclecloud.com}")
+    @param:Value("\${snutt.storage.endpoint}")
     private val endpoint: String,
     @param:Value("\${snutt.storage.namespace:}")
     private val namespace: String,

@@ -5,5 +5,10 @@ snutt:
       public-key: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq09ytNYWbyfk+iDyVE+rPSBuOHv5csJIxN/tVqRnabmScM+fQGaIQrCDr/FhLGNJsNuZU16hTaZpB1QdwN8pHQ==
       access-token-ttl: PT2H
     refresh-token-ttl: P180D
+    oidc:
+      apple-app-id: test-apple-app-id
+      facebook-app-id: test-facebook-app-id
     legacy-secret-key: test-legacy-secret-key-0123456789abcdef
     platform-keys: ios:test-ios-key,android:test-android-key,web:test-web-key
+  github:
+    token: test-github-token

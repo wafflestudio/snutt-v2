@@ -1,9 +1,8 @@
 snutt:
   syllabus-proxy:
     base-url: https://snutt-proxy.wafflestudio.com
-  mail:
-    compartment-id: ocid1.compartment.oc1..aaaaaaaaxzo4fga6br76o3e34rshtsl6alzripmgdh7f4lg4u4tzezosypaq
   storage:
+    endpoint: https://objectstorage.ap-chuncheon-1.oraclecloud.com
     oci:
       auth-type: config
 
@@ -45,6 +44,19 @@ spring:
     properties:
       hibernate:
         format_sql: true
+snutt:
+  auth:
+    jwt:
+      private-key: MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+udr/B9371D5u+OdsLtUSXOdF4YDAVDGtGEzTBCwqFihRANCAAQrmzLFzjz2xkcwKD6BVdbvVDyfRKjyturS+jv+SRkfRgoiRYV4bocCBYoljpGL9DV0i1oA+6fPG4v7Oaj/cXnJ
+      public-key: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEK5syxc489sZHMCg+gVXW71Q8n0So8rbq0vo7/kkZH0YKIkWFeG6HAgWKJY6Ri/Q1dItaAPunzxuL+zmo/3F5yQ==
+    oidc:
+      apple-app-id: local-apple-app-id
+      facebook-app-id: local-facebook-app-id
+  fcm:
+    service-account: '{"type":"service_account","project_id":"snutt-local","private_key_id":"local","private_key":"-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCOtDggmdhAd8Kg\nVqvvZ60HYvQqQdLPsV2V2YMX6cEt9XQ2Ey5a6cFo1YNaiW5hUn5QGSpdtppj1PQj\nXe2fBVMaYNIwXUVFup3cfU93M6HXBfcpMSp4sLLvHlnNxvXHTD1VIdfek3weJ5EO\n9+fQdEkP7D2A6h+Sj1RP/qsvhjNVMs74dNfp4quW66TyNBFcEiy0cI13Pbt6vfnD\nBCADsNJ0Q2wS5jHAxpbycpI1f6htaDSj0c+pm33Vb9dny79aKXVgDMnsOUsv4JpM\nq1Zn36YHqgOmftcBDpDghjaq/z2mgFKW5W+jp8M1Inq5/oSaxBAx32ZE8awMda0q\no8yVwhk3AgMBAAECggEADmjJMBWIvf25w8nso4hi8td9kxTBbiJZMkvbzlrWnEbo\nHJu0Nw7abjT9BfPRlvcm9PyNiBfrn//9ROLznvaBLS0wnByW5ZMR5JUspHsssNMT\n4W9q+/PPpZB5fetEnwKmQMXhj8JxqnPRVGMY37YWOIrgrPc3B+v8FfW/oFVbMpN/\nrshrZddTvZHIbIwXYYxwZpW2AIdLjn7Qc8SOInFeDGtxy8mIxIflGsnP5pMbH3xA\nLbbrOe3NVnurNcoaPhCA24+A2M0dQ/v5KdABvLRY6ZLeNVZOhQ42YpWD6VNXy0ji\nYGUnzVTCOm/4gQqpP8jhTstlVhm2Sy9FHBtqLx3dRQKBgQDFhnIR8mh0XS8kHlBm\nfKevJXuAXB54OwZbMNvWBF7Tg9cev5JJsQt8GaocM2IWv+yg/edEJl6VVIyWt6+f\nQGRL4Y7rnZoQsZf3XB+3qtriglpqTXHiGVD57g3W6Mx320Etw4CLbx0VZPANgiSd\nHtUzGYXbLx71Auvpwm9HfTRBkwKBgQC48x57/YXgTbxZR05sHqdw7T+TN/hIsTmV\nsIF2Y4jVJd34cOPQTmAcnoa1PmgC4v1IQHXQeZ+fb2vI9WIWJu7ZODmmgtlA/RW9\ngWBoG0WnYVeTnU9sbcazy3+lplXHOGjhCc3CeOCAAJWoHbZ+9WFtNeDNKO6IqFa+\nzunnbsggTQKBgCE1KzRNNrZpfCVsW0P/rQlLGepIkm7QLY9jNXJTpcWVorLurh9p\nfm7Mucan9NOyTIv8Y8cXVEtyvXgRRZtWbgY705VVF7O6x7u0ZzivpsDx/VVl08GZ\nU/3Qwc7hsI5t9BVHivLmKVORdrIusQ0hQ+KlZdWlpGS4qwTPxXmVWRW1AoGBAKmH\nqNTMwe+mMdTASQFQY/leb10Z+8teMEOm5DTJ7f47VKlLiXdCsFTrdt0h1CN5P+P/\nuj6bjZaOgoVVcFCP5XZVVHruDAjHNCteMSmcfg98adNUah4gzfe2vE3yF0Siz3gg\nDWyKcnbCkmvkuIjNkj2SGnrUXzoC3GjQr5VFdcotAoGACVUTTCYT9o9+T9pJOMxY\nc6v1lBWrw4sqTS5FrcNoI3yaaTSVeJJ3S+/vpJN4WETrs07El6CXGB/fLBhNjhk2\nBELyaqE+rMsnNOT9LnhhZuiHtXs0HLsHiTN/RbJosr9RxLrAn+4Xqz8gYJVvO8M0\n8y2F8y9rtUy1CZLa8zXpgtc=\n-----END PRIVATE KEY-----\n","client_email":"local@snutt-local.iam.gserviceaccount.com","client_id":"0","token_uri":"https://oauth2.googleapis.com/token"}'
+    ios-bundle-id: local-ios-bundle-id
+  github:
+    token: local-github-token
 
 ---
 spring:
