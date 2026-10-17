@@ -58,6 +58,11 @@ enum class ErrorType(
         "인증 코드가 유효하지 않습니다" en "That verification code isn't valid",
         "올바르지 않은 인증 코드" en "Invalid verification code",
     ),
+    INVALID_PASSWORD_RESET_TOKEN(
+        HttpStatus.BAD_REQUEST,
+        "비밀번호 재설정 인증이 만료되었습니다. 인증 코드를 다시 받아 주세요" en "Your password reset verification has expired. Please request a new code",
+        "재설정 인증 만료" en "Reset verification expired",
+    ),
     ALREADY_LOCAL_ACCOUNT(
         HttpStatus.BAD_REQUEST,
         "이미 로컬 계정이 존재합니다" en "You already have an account with an ID and password",
@@ -224,6 +229,11 @@ enum class ErrorType(
         HttpStatus.BAD_REQUEST,
         "이메일 형식이 올바르지 않습니다. 다시 입력해 주세요" en "That email address isn't valid. Please try again",
         "올바르지 않은 이메일" en "Invalid email",
+    ),
+    EMAIL_NOT_REGISTERED(
+        HttpStatus.BAD_REQUEST,
+        "이 계정에는 등록된 이메일이 없어 비밀번호를 재설정할 수 없습니다" en "This account has no registered email, so its password can't be reset",
+        "이메일 없음" en "No registered email",
     ),
     EMAIL_NOT_VERIFIED(
         HttpStatus.FORBIDDEN,
