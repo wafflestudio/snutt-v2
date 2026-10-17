@@ -195,7 +195,7 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `v1 에러 봉투도 x-language를 따른다`() {
+    fun `v1 error dto도 x-language를 따른다`() {
         val en = v1Get("/v1/tables/99999999", legacyToken, Language.EN)
         assertEquals(404, en.statusCode.value())
         assertEquals(40400L, body(en)["errcode"].asLong())
