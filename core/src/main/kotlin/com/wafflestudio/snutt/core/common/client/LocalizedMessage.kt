@@ -6,5 +6,3 @@ data class LocalizedMessage(
 ) {
     fun of(language: Language): String = if (language == Language.EN) en else ko
 }
-
-infix fun String.en(en: String): LocalizedMessage = LocalizedMessage(this, en)

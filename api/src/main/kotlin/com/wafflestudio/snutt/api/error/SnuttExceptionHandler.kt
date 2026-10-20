@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.api.error
 
 import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.en
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.client.languageOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -108,7 +108,7 @@ class SnuttExceptionHandler {
 
     companion object {
         private val INTERNAL_ERROR_MESSAGE =
-            "서버에 문제가 있으니, 잠시 후 다시 시도해주세요" en "Something went wrong on our end. Please try again in a moment"
+            LocalizedMessage(ko = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요", en = "Something went wrong on our end. Please try again in a moment")
     }
 }
 

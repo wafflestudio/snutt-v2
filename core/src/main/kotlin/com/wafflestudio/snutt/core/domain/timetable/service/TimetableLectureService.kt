@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.core.domain.timetable.service
 
 import com.wafflestudio.snutt.core.common.client.LocalizedMessage
-import com.wafflestudio.snutt.core.common.client.en
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -283,9 +282,9 @@ class TimetableLectureService(
         val titles = overlappingLectures.map { "'${it.courseTitle}'" }.take(2).joinToString(", ")
         val titlesEn = overlappingLectures.map { "'${it.courseTitleEn ?: it.courseTitle}'" }.take(2).joinToString(", ")
         val others = overlappingLectures.size - 2
-        if (others <= 0) return titles en titlesEn
+        if (others <= 0) return LocalizedMessage(ko = titles, en = titlesEn)
         val othersEn = if (others == 1) "1 other lecture" else "$others other lectures"
-        return "$titles 외 ${others}개의" en "$titlesEn and $othersEn"
+        return LocalizedMessage(ko = "$titles 외 ${others}개의", en = "$titlesEn and $othersEn")
     }
 
     companion object {
