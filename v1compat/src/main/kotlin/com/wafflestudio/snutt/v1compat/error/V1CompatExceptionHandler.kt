@@ -1,8 +1,11 @@
 package com.wafflestudio.snutt.v1compat.error
 
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.languageOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.UpstreamException
+import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.LoggerFactory
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -121,12 +124,22 @@ internal val ErrorType.v1: V1Error
             ErrorType.FEEDBACK_UPSTREAM_UNAVAILABLE -> V1Error(HttpStatus.BAD_GATEWAY, 50201)
         }
 
-fun ErrorType.toV1ErrorResponse(displayMessage: String = this.displayMessage): ResponseEntity<V1ErrorResponse> {
+fun ErrorType.toV1ErrorResponse(
+    language: Language,
+    displayMessage: String = this.displayMessage.of(language),
+): ResponseEntity<V1ErrorResponse> {
     val error = v1
     return ResponseEntity
         .status(error.status)
         .contentType(MediaType.APPLICATION_JSON)
-        .body(V1ErrorResponse(errcode = error.errcode, title = title, message = displayMessage, displayMessage = displayMessage))
+        .body(
+            V1ErrorResponse(
+                errcode = error.errcode,
+                title = title.of(language),
+                message = displayMessage,
+                displayMessage = displayMessage,
+            ),
+        )
 }
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -138,26 +151,31 @@ class V1CompatExceptionHandler {
     fun handleSnuttException(
         e: SnuttException,
         handler: HandlerMethod,
+        request: HttpServletRequest,
     ): ResponseEntity<V1ErrorResponse> {
+        val language = request.language
         if (e is UpstreamException) {
             log.error("upstream failure: provider={} error={}", e.provider, e.error, e)
             val legacy = if (e.error == ErrorType.SOCIAL_PROVIDER_UNAVAILABLE) ErrorType.SOCIAL_LOGIN_FAILED else e.error
-            return legacy.toV1ErrorResponse()
+            return legacy.toV1ErrorResponse(language)
         }
+        val displayMessage = e.displayMessage(language)
         val evCode =
             EV_ERROR_CODES[e.error]?.takeIf { handler.beanType.packageName == EV_PACKAGE }
-                ?: return e.error.toV1ErrorResponse(e.message)
+                ?: return e.error.toV1ErrorResponse(language, displayMessage)
         return ResponseEntity
             .status(e.error.v1.status)
             .contentType(MediaType.APPLICATION_JSON)
-            .body(V1ErrorResponse(errcode = evCode, title = "", message = e.message, displayMessage = e.message))
+            .body(V1ErrorResponse(errcode = evCode, title = "", message = displayMessage, displayMessage = displayMessage))
     }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleUnreadableBody(): ResponseEntity<V1ErrorResponse> = ErrorType.INVALID_REQUEST_BODY.toV1ErrorResponse()
+    fun handleUnreadableBody(request: HttpServletRequest): ResponseEntity<V1ErrorResponse> =
+        ErrorType.INVALID_REQUEST_BODY.toV1ErrorResponse(request.language)
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
-    fun handleInvalidParameter(): ResponseEntity<V1ErrorResponse> = ErrorType.INVALID_PARAMETER.toV1ErrorResponse()
+    fun handleInvalidParameter(request: HttpServletRequest): ResponseEntity<V1ErrorResponse> =
+        ErrorType.INVALID_PARAMETER.toV1ErrorResponse(request.language)
 
     companion object {
         private const val EV_PACKAGE = "com.wafflestudio.snutt.v1compat.ev"
@@ -180,3 +198,6 @@ class V1CompatExceptionHandler {
             )
     }
 }
+
+private val HttpServletRequest.language: Language
+    get() = languageOf(this::getHeader)

@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.api.error
 
 import com.wafflestudio.snutt.api.auth.UserAuthInterceptor
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
+import com.wafflestudio.snutt.core.common.client.languageOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.UpstreamException
@@ -30,7 +33,8 @@ class SnuttExceptionHandler {
         request: HttpServletRequest,
     ): ErrorResponse {
         if (e is UpstreamException) logUpstreamFailure(e, request)
-        return errorResponse(e, e.error, e.message)
+        val language = request.language
+        return errorResponse(e, e.error, language, e.displayMessage(language))
     }
 
     private fun logUpstreamFailure(
@@ -52,8 +56,11 @@ class SnuttExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
-    fun handleValidationException(e: MethodArgumentNotValidException): ErrorResponse =
-        errorResponse(e, ErrorType.INVALID_REQUEST_BODY).apply {
+    fun handleValidationException(
+        e: MethodArgumentNotValidException,
+        request: HttpServletRequest,
+    ): ErrorResponse =
+        errorResponse(e, ErrorType.INVALID_REQUEST_BODY, request.language).apply {
             body.setProperty(
                 "errors",
                 e.bindingResult.fieldErrors.map {
@@ -66,30 +73,44 @@ class SnuttExceptionHandler {
         }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleUnreadableBody(e: HttpMessageNotReadableException): ErrorResponse = errorResponse(e, ErrorType.INVALID_REQUEST_BODY)
+    fun handleUnreadableBody(
+        e: HttpMessageNotReadableException,
+        request: HttpServletRequest,
+    ): ErrorResponse = errorResponse(e, ErrorType.INVALID_REQUEST_BODY, request.language)
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
-    fun handleInvalidParameter(e: Exception): ErrorResponse = errorResponse(e, ErrorType.INVALID_PARAMETER)
+    fun handleInvalidParameter(
+        e: Exception,
+        request: HttpServletRequest,
+    ): ErrorResponse = errorResponse(e, ErrorType.INVALID_PARAMETER, request.language)
 
     @ExceptionHandler(Exception::class)
-    fun handleUnexpectedException(e: Exception): ErrorResponse {
+    fun handleUnexpectedException(
+        e: Exception,
+        request: HttpServletRequest,
+    ): ErrorResponse {
         if (e is ErrorResponse) return e
         log.error("unhandled exception", e)
-        return ErrorResponse.create(e, HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE)
+        return ErrorResponse.create(e, HttpStatus.INTERNAL_SERVER_ERROR, INTERNAL_ERROR_MESSAGE.of(request.language))
     }
 
     private fun errorResponse(
         e: Exception,
         error: ErrorType,
-        detail: String = error.displayMessage,
+        language: Language,
+        detail: String = error.displayMessage.of(language),
     ): ErrorResponse =
         ErrorResponse
             .builder(e, error.httpStatus, detail)
             .type(error.problemType)
-            .title(error.title)
+            .title(error.title.of(language))
             .build()
 
     companion object {
-        private const val INTERNAL_ERROR_MESSAGE = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요"
+        private val INTERNAL_ERROR_MESSAGE =
+            LocalizedMessage(ko = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요", en = "Something went wrong on our end. Please try again in a moment")
     }
 }
+
+private val HttpServletRequest.language: Language
+    get() = languageOf(this::getHeader)
