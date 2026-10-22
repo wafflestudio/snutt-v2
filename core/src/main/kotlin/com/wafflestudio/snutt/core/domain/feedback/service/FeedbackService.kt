@@ -16,8 +16,8 @@ import java.time.format.DateTimeFormatter
 @Service
 class FeedbackService(
     @param:Value("\${snutt.github.token}") private val token: String,
-    @param:Value("\${snutt.github.repo-owner:wafflestudio}") private val repoOwner: String,
-    @param:Value("\${snutt.github.repo-name:snutt-feedbacks}") private val repoName: String,
+    @param:Value("\${snutt.github.repo-owner}") private val repoOwner: String,
+    @param:Value("\${snutt.github.repo-name}") private val repoName: String,
     restClientBuilder: RestClient.Builder,
 ) {
     private val restClient = restClientBuilder.baseUrl("https://api.github.com").build()

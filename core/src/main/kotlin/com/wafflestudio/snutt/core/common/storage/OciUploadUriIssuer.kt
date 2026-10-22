@@ -28,7 +28,7 @@ enum class OciAuthType {
 @Profile("!test")
 class OciConfig(
     @param:Value("\${snutt.storage.oci.auth-type}") private val authType: OciAuthType,
-    @param:Value("\${snutt.storage.oci.config-profile:DEFAULT}") private val configProfile: String,
+    @param:Value("\${snutt.storage.oci.config-profile}") private val configProfile: String,
 ) {
     @Bean
     @Lazy
@@ -47,7 +47,7 @@ class OciUploadUriIssuer(
     private val storageUriResolver: StorageUriResolver,
     @param:Value("\${snutt.storage.endpoint}")
     private val endpoint: String,
-    @Value("\${snutt.storage.region:ap-chuncheon-1}") region: String,
+    @Value("\${snutt.storage.region}") region: String,
 ) : UploadUriIssuer {
     private val client: ObjectStorageClient =
         ObjectStorageClient.builder().region(Region.fromRegionId(region)).build(authProvider)

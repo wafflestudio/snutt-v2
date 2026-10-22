@@ -19,7 +19,7 @@ data class AccessTokenPayload(
 @Service
 class AccessTokenService(
     private val es256Keys: Es256Keys,
-    @param:Value("\${snutt.auth.jwt.access-token-ttl:PT2H}") private val accessTokenTtl: Duration,
+    @param:Value("\${snutt.auth.jwt.access-token-ttl}") private val accessTokenTtl: Duration,
 ) {
     companion object {
         private const val ISSUER = "snutt"

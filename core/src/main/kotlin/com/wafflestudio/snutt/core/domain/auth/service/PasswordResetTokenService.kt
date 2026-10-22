@@ -18,7 +18,7 @@ data class PasswordResetTokenPayload(
 @Service
 class PasswordResetTokenService(
     private val es256Keys: Es256Keys,
-    @param:Value("\${snutt.auth.jwt.password-reset-token-ttl:PT15M}") private val passwordResetTokenTtl: Duration,
+    @param:Value("\${snutt.auth.jwt.password-reset-token-ttl}") private val passwordResetTokenTtl: Duration,
 ) {
     companion object {
         private const val ISSUER = "snutt"

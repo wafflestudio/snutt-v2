@@ -11,6 +11,10 @@ spring:
   config:
     import: classpath:application-core.yml
 
+snutt:
+  diary:
+    push-sample-rate: 0.1
+
 server:
   port: 8080
 
@@ -39,6 +43,7 @@ spring:
   config:
     activate:
       on-profile: local | test
+# Not real credentials
 snutt:
   auth:
     platform-keys: ios:test-ios-key,android:test-android-key,web:test-web-key

@@ -31,11 +31,10 @@ interface MailClient {
 @Profile("!test")
 class OciMailClient(
     authProvider: BasicAuthenticationDetailsProvider,
-    @param:Value("\${snutt.mail.compartment-id:ocid1.compartment.oc1..aaaaaaaaxzo4fga6br76o3e34rshtsl6alzripmgdh7f4lg4u4tzezosypaq}")
-    private val compartmentId: String,
-    @param:Value("\${snutt.mail.sender-address:snutt@wafflestudio.com}") private val senderAddress: String,
-    @param:Value("\${snutt.mail.sender-name:SNUTT}") private val senderName: String,
-    @Value("\${snutt.mail.region:ap-chuncheon-1}") region: String,
+    @param:Value("\${snutt.mail.compartment-id}") private val compartmentId: String,
+    @param:Value("\${snutt.mail.sender-address}") private val senderAddress: String,
+    @param:Value("\${snutt.mail.sender-name}") private val senderName: String,
+    @Value("\${snutt.mail.region}") region: String,
 ) : MailClient {
     private val client = EmailDPClient.builder().region(Region.fromRegionId(region)).build(authProvider)
 
