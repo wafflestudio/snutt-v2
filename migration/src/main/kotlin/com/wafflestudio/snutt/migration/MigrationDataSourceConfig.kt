@@ -56,7 +56,7 @@ class MigrationDataSourceConfig {
 @Component
 class MongoSource(
     private val mongoClient: MongoClient,
-    @param:Value("\${migration.mongo.database:snutt}") private val database: String,
+    @param:Value("\${migration.mongo.database}") private val database: String,
 ) {
     fun collection(name: String): MongoCollection<Document> = db().getCollection(name)
 

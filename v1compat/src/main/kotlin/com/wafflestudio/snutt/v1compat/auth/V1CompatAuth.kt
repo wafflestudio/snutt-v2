@@ -61,7 +61,7 @@ class V1UserAuthInterceptor(
 
 @Component
 class V1ApiKeyInterceptor(
-    @Value("\${snutt.auth.legacy-secret-key:}") legacySecretKey: String,
+    @Value("\${snutt.auth.legacy-secret-key}") legacySecretKey: String,
     jsonMapper: JsonMapper,
 ) : HandlerInterceptor {
     private val legacyApiKeyVerifier = LegacyApiKeyVerifier(legacySecretKey, jsonMapper)

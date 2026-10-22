@@ -9,6 +9,7 @@ import com.oracle.bmc.emaildataplane.model.Sender
 import com.oracle.bmc.emaildataplane.model.SubmitEmailDetails
 import com.oracle.bmc.emaildataplane.requests.SubmitEmailRequest
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Lazy
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
@@ -26,13 +27,14 @@ interface MailClient {
 }
 
 @Service
+@Lazy
 @Profile("!test")
 class OciMailClient(
     authProvider: BasicAuthenticationDetailsProvider,
     @param:Value("\${snutt.mail.compartment-id}") private val compartmentId: String,
-    @param:Value("\${snutt.mail.sender-address:snutt@wafflestudio.com}") private val senderAddress: String,
-    @param:Value("\${snutt.mail.sender-name:SNUTT}") private val senderName: String,
-    @Value("\${snutt.mail.region:ap-chuncheon-1}") region: String,
+    @param:Value("\${snutt.mail.sender-address}") private val senderAddress: String,
+    @param:Value("\${snutt.mail.sender-name}") private val senderName: String,
+    @Value("\${snutt.mail.region}") region: String,
 ) : MailClient {
     private val client = EmailDPClient.builder().region(Region.fromRegionId(region)).build(authProvider)
 
