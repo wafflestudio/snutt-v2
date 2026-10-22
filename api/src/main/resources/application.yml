@@ -38,8 +38,8 @@ springdoc:
 spring:
   config:
     activate:
-      on-profile: local
+      on-profile: local | test
 snutt:
   auth:
-    platform-keys: ios:local-ios-key,android:local-android-key,web:local-web-key
-    legacy-secret-key: local-legacy-secret-key
+    platform-keys: ios:test-ios-key,android:test-android-key,web:test-web-key
+    legacy-secret-key: test-legacy-secret-key-0123456789abcdef
