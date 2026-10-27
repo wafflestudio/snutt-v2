@@ -9,7 +9,6 @@ import com.oracle.bmc.emaildataplane.model.Sender
 import com.oracle.bmc.emaildataplane.model.SubmitEmailDetails
 import com.oracle.bmc.emaildataplane.requests.SubmitEmailRequest
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.context.annotation.Lazy
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
@@ -27,8 +26,7 @@ interface MailClient {
 }
 
 @Service
-@Lazy
-@Profile("!test")
+@Profile("dev | prod")
 class OciMailClient(
     authProvider: BasicAuthenticationDetailsProvider,
     @param:Value("\${snutt.mail.compartment-id}") private val compartmentId: String,

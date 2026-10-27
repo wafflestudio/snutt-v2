@@ -26,7 +26,6 @@ import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterReg
 import com.wafflestudio.snutt.core.domain.user.service.UserService
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
-import org.springframework.context.annotation.Lazy
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -103,7 +102,7 @@ class AdminController(
     private val userService: UserService,
     private val diaryService: DiaryService,
     private val diaryScheduler: DiaryScheduler,
-    @param:Lazy private val uploadUriIssuer: UploadUriIssuer,
+    private val uploadUriIssuer: UploadUriIssuer,
 ) {
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
