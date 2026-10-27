@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
@@ -85,6 +86,9 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
                 ),
             )
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-reminder"))
+        userDeviceRepository.save(
+            UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-reminder-en", language = Language.EN),
+        )
         val lecture =
             lectureRepository.save(
                 Lecture(
@@ -93,6 +97,7 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
                     courseNumber = "2114.408A",
                     lectureNumber = "001",
                     courseTitle = "HCI이론 및 실습",
+                    courseTitleEn = "Theories and Practices of HCI",
                     instructor = "임하진",
                     department = "언론정보학과(연합전공 정보문화학)",
                     academicYear = "4학년",
@@ -136,11 +141,15 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
 
         reminderScheduler.fireDueReminders(now, YearAndSemester(2026, Semester.AUTUMN))
 
-        val sent = sentMessages().single()
-        assertEquals("fcm-reminder", sent.fcmRegistrationId)
-        assertTrue(sent.message.title.contains("리마인더"))
-        assertTrue(sent.message.body.contains("HCI이론 및 실습"))
-        assertTrue(sent.message.body.contains("10분 전"))
+        val sent = sentMessages().associateBy { it.fcmRegistrationId }
+        assertEquals(setOf("fcm-reminder", "fcm-reminder-en"), sent.keys)
+        val korean = sent.getValue("fcm-reminder").message
+        assertTrue(korean.title.contains("리마인더"))
+        assertTrue(korean.body.contains("HCI이론 및 실습"))
+        assertTrue(korean.body.contains("10분 전"))
+        val english = sent.getValue("fcm-reminder-en").message
+        assertEquals("📚 Class reminder", english.title)
+        assertEquals("Theories and Practices of HCI starts in 10 minutes.", english.body)
 
         val after = timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId)!!
         val schedule =

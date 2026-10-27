@@ -1,11 +1,12 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
-import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
+import com.wafflestudio.snutt.core.domain.lecture.model.localizedCourseTitle
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
@@ -57,13 +58,7 @@ class ReminderScheduler(
         timetableLectureReminderService.processDueReminders(now, current).forEach { push ->
             pushService.sendPushAndNotification(
                 userIds = listOf(push.userId),
-                message =
-                    PushMessage(
-                        title = "📚 강의 리마인더",
-                        body = push.body,
-                        isUrgentOnAndroid = true,
-                        shouldSendAsDataMessage = true,
-                    ),
+                message = push.message.copy(isUrgentOnAndroid = true, shouldSendAsDataMessage = true),
                 type = NotificationType.NORMAL,
                 preferenceType = PushPreferenceType.NORMAL,
             )
@@ -119,13 +114,13 @@ class DiaryScheduler(
                 .mapNotNull { (userId, lectureId) ->
                     val lecture = lecturesById[lectureId] ?: return@mapNotNull null
                     userId to
-                        PushMessage(
-                            title = "이번주 강의일기를 작성해보세요.",
-                            body = "최근 수강한 <${lecture.courseTitle}> 강의에 대한 강의일기를 작성해보세요.📔",
-                            urlScheme =
-                                "snutt://diary?lectureId=${lecture.id}" +
-                                    "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8)}",
-                        )
+                        NotificationTemplate.DIARY_WRITE
+                            .render(lecture.localizedCourseTitle)
+                            .copy(
+                                urlScheme =
+                                    "snutt://diary?lectureId=${lecture.id}" +
+                                        "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8)}",
+                            )
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
         pushService.sendTargetedPushes(messages, PushPreferenceType.DIARY)

@@ -1,14 +1,17 @@
 package com.wafflestudio.snutt.batch.vacancy
 
 import com.wafflestudio.snutt.batch.BatchJob
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
-import com.wafflestudio.snutt.core.common.push.PushMessage
+import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
+import com.wafflestudio.snutt.core.domain.lecture.model.localizedCourseTitle
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
@@ -96,7 +99,7 @@ class VacancyNotificationJob(
             pendingPushes.forEach { push ->
                 pushService.sendPushAndNotification(
                     userIds = push.userIds,
-                    message = PushMessage(push.title, push.body, urlScheme = "snutt://vacancy", isUrgentOnAndroid = true),
+                    message = push.message,
                     type = NotificationType.LECTURE_VACANCY,
                     preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
                 )
@@ -112,8 +115,7 @@ class VacancyNotificationJob(
 
     private data class PendingVacancyPush(
         val userIds: List<Long>,
-        val title: String,
-        val body: String,
+        val message: LocalizedPushMessage,
     )
 
     private fun processChunk(
@@ -145,16 +147,16 @@ class VacancyNotificationJob(
         }
         lectureRegistrationStatusRepository.saveAll(updates)
 
-        val targetTimeString = window.nextOpenTimeString(ZonedDateTime.now(clock).withZoneSameInstant(KST))
+        val targetTime = window.nextOpenTime(ZonedDateTime.now(clock).withZoneSameInstant(KST))
         return notiTargets.map { lecture ->
             val userIds = vacancyNotificationRepository.findByLectureId(lecture.id!!).map { it.userId }
             log.info("빈자리 감지: {} ({}-{})", lecture.courseTitle, lecture.courseNumber, lecture.lectureNumber)
             PendingVacancyPush(
                 userIds = userIds,
-                title = "빈자리 알림",
-                body =
-                    "\"${lecture.courseTitle} (${lecture.lectureNumber})\" 강의에 빈자리가 생겼습니다.\n" +
-                        "${targetTimeString}에 수강신청 사이트를 확인해보세요!",
+                message =
+                    NotificationTemplate.LECTURE_VACANCY
+                        .render(lecture.localizedCourseTitle, lecture.lectureNumber, targetTime)
+                        .copy(urlScheme = "snutt://vacancy", isUrgentOnAndroid = true),
             )
         }
     }
@@ -163,13 +165,14 @@ class VacancyNotificationJob(
         val phase: RegistrationPhase,
         val vacantSeatRegistrationTimes: List<RegistrationTimeSlot>,
     ) {
-        fun nextOpenTimeString(now: ZonedDateTime): String {
+        fun nextOpenTime(now: ZonedDateTime): LocalizedMessage {
             val currentMinute = now.hour * 60 + now.minute
-            vacantSeatRegistrationTimes
-                .filter { it.endMinute > currentMinute }
-                .minOfOrNull { it.startMinute }
-                ?.let { return "%02d:%02d".format(it / 60, it % 60) }
-            return "다음 수강신청 일자"
+            val startMinute =
+                vacantSeatRegistrationTimes
+                    .filter { it.endMinute > currentMinute }
+                    .minOfOrNull { it.startMinute }
+                    ?: return LocalizedMessage(ko = "다음 수강신청 일자", en = "the next registration date")
+            return LocalizedMessage.same("%02d:%02d".format(startMinute / 60, startMinute % 60))
         }
     }
 

@@ -1,14 +1,15 @@
 package com.wafflestudio.snutt.core.domain.notification.service
 
-import com.wafflestudio.snutt.core.common.push.GLOBAL_TOPIC
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.common.push.PushClient
-import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
+import com.wafflestudio.snutt.core.common.push.globalTopicOf
 import com.wafflestudio.snutt.core.common.transaction.afterCommit
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.device.service.DeviceService
-import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
+import com.wafflestudio.snutt.core.domain.notification.model.toNotification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferenceRepository
@@ -24,47 +25,35 @@ class PushService(
     private val notificationRepository: NotificationRepository,
 ) {
     fun sendTargetedPushes(
-        messagesByUserId: Map<Long, PushMessage>,
+        messagesByUserId: Map<Long, LocalizedPushMessage>,
         preferenceType: PushPreferenceType,
     ) {
         deliver(resolveMessages(messagesByUserId, preferenceType))
     }
 
     fun sendGlobalPushAndNotification(
-        message: PushMessage,
+        message: LocalizedPushMessage,
         type: NotificationType,
     ) {
-        notificationRepository.save(
-            Notification(userId = null, title = message.title, message = message.body, type = type, deeplink = message.urlScheme),
-        )
-        pushClient.sendTopicMessage(GLOBAL_TOPIC, message)
+        notificationRepository.save(message.toNotification(userId = null, type = type))
+        Language.entries.forEach { language -> pushClient.sendTopicMessage(globalTopicOf(language), message.of(language)) }
     }
 
     @Transactional
     fun sendPushAndNotification(
         userIds: Collection<Long>,
-        message: PushMessage,
+        message: LocalizedPushMessage,
         type: NotificationType,
         preferenceType: PushPreferenceType,
     ) {
         if (userIds.isEmpty()) return
-        notificationRepository.saveAll(
-            userIds.map {
-                Notification(
-                    userId = it,
-                    title = message.title,
-                    message = message.body,
-                    type = type,
-                    deeplink = message.urlScheme,
-                )
-            },
-        )
+        notificationRepository.saveAll(userIds.map { message.toNotification(userId = it, type = type) })
         val messages = resolveMessages(userIds.associateWith { message }, preferenceType)
         afterCommit { deliver(messages) }
     }
 
     private fun resolveMessages(
-        messagesByUserId: Map<Long, PushMessage>,
+        messagesByUserId: Map<Long, LocalizedPushMessage>,
         preferenceType: PushPreferenceType,
     ): List<TargetedPushMessage> {
         if (messagesByUserId.isEmpty()) return emptyList()
@@ -72,7 +61,7 @@ class PushService(
         val targets = messagesByUserId.filterKeys { it !in disabledUserIds }
         if (targets.isEmpty()) return emptyList()
         return userDeviceRepository.findPushTargets(targets.keys).mapNotNull { target ->
-            targets[target.userId]?.let { TargetedPushMessage(target.fcmRegistrationId, it) }
+            targets[target.userId]?.let { TargetedPushMessage(target.fcmRegistrationId, it.of(target.language)) }
         }
     }
 

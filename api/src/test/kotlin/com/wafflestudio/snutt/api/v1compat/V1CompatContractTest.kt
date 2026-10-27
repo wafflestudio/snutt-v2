@@ -280,6 +280,27 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     }
 
     @Test
+    fun `v1 알림 목록도 요청 언어를 따른다`() {
+        notificationRepository.save(
+            Notification(
+                userId = userId.toLong(),
+                title = "빈자리 알림",
+                titleEn = "Vacancy alert",
+                message = "빈자리가 생겼습니다",
+                messageEn = "A seat has opened up",
+            ),
+        )
+
+        val ko = body(v1Get("/v1/notification", legacyToken, Language.KO))[0]
+        val en = body(v1Get("/v1/notification", legacyToken, Language.EN))[0]
+
+        assertEquals("빈자리 알림", ko["title"].asString())
+        assertEquals("빈자리가 생겼습니다", ko["message"].asString())
+        assertEquals("Vacancy alert", en["title"].asString())
+        assertEquals("A seat has opened up", en["message"].asString())
+    }
+
+    @Test
     fun `강의 일기장 질문의 id는 문자열로 응답한다`() {
         val classType = diaryDailyClassTypeRepository.save(DiaryDailyClassType(name = "수업듣기"))
         val question =
