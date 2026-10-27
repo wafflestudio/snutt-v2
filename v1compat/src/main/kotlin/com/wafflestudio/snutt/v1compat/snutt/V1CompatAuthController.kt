@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController
 data class LegacyLocalRegisterRequest(
     val id: String,
     val password: String,
-    val email: String? = null,
+    val email: String,
 )
 
 data class LegacyLocalLoginRequest(

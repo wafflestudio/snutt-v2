@@ -58,12 +58,12 @@ class AuthService(
     fun registerLocal(
         localId: String,
         password: String,
-        email: String?,
+        email: String,
     ): User {
         if (!localId.matches(PasswordPolicy.localIdRegex)) throw SnuttException(ErrorType.INVALID_LOCAL_ID)
         if (!PasswordPolicy.isValidPassword(password)) throw SnuttException(ErrorType.INVALID_PASSWORD)
-        val normalizedEmail =
-            email?.trim()?.also { if (!it.matches(emailRegex)) throw SnuttException(ErrorType.INVALID_EMAIL) }
+        val normalizedEmail = email.trim()
+        if (!normalizedEmail.matches(emailRegex)) throw SnuttException(ErrorType.INVALID_EMAIL)
         if (userRepository.existsByLocalIdAndActiveTrue(localId)) throw SnuttException(ErrorType.DUPLICATE_LOCAL_ID)
 
         val nickname = userNicknameService.generateUniqueRandomNickname()

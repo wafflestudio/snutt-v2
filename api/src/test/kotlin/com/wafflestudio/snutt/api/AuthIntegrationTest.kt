@@ -51,8 +51,14 @@ class AuthIntegrationTest : AbstractApiIntegrationTest() {
     @Test
     fun `중복 localId 회원가입은 거부된다`() {
         registerResponse("testuser1")
-        val response = post("/v2/auth/register", """{"localId":"testuser1","password":"password1"}""")
+        val response = post("/v2/auth/register", """{"localId":"testuser1","password":"password1","email":"dup@snu.ac.kr"}""")
         assertEquals(409, response.statusCode.value())
+    }
+
+    @Test
+    fun `이메일 없이 회원가입은 거부된다`() {
+        val response = post("/v2/auth/register", """{"localId":"testuser1","password":"password1"}""")
+        assertEquals(400, response.statusCode.value())
     }
 
     @Test
