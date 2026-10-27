@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 
 @Service
-@Profile("!test")
+@Profile("dev | prod")
 class FcmPushClient(
     @Value("\${snutt.fcm.service-account}") serviceAccountJson: String,
     @param:Value("\${snutt.fcm.ios-bundle-id}") private val iosBundleId: String,

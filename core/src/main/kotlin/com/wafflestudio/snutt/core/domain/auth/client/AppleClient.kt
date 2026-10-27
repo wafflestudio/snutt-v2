@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 @Component("APPLE")
 class AppleClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
-    @param:Value("\${snutt.auth.oidc.apple-app-id:dummy}") private val appleAppId: String,
+    @param:Value("\${snutt.auth.oidc.apple-app-id}") private val appleAppId: String,
 ) : OAuth2Client {
     companion object {
         private const val APPLE_JWK_URI = "https://appleid.apple.com/auth/keys"

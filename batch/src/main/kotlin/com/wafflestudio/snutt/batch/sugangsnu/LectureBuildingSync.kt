@@ -39,7 +39,7 @@ data class SnuMapSearchItem(
 
 @Service
 class LectureBuildingSync(
-    @Value("\${snutt.snumap.base-url:https://map.snu.ac.kr}") snuMapBaseUrl: String,
+    @Value("\${snutt.snumap.base-url}") snuMapBaseUrl: String,
     restClientBuilder: RestClient.Builder,
     private val jsonMapper: JsonMapper,
     private val lectureBuildingRepository: LectureBuildingRepository,

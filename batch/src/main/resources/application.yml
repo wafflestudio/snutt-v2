@@ -9,3 +9,12 @@ spring:
       read-timeout: 30s
   config:
     import: classpath:application-core.yml
+
+job:
+  name: ""
+
+snutt:
+  snumap:
+    base-url: https://map.snu.ac.kr
+  sugang:
+    base-url: https://sugang.snu.ac.kr

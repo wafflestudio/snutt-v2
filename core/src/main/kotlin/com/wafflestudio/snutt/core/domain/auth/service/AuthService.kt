@@ -45,7 +45,7 @@ class AuthService(
     private val passwordEncoder: PasswordEncoder,
     private val eventPublisher: ApplicationEventPublisher,
     oauth2Clients: Map<String, OAuth2Client>,
-    @param:Value("\${snutt.auth.refresh-token-ttl:P180D}") private val refreshTokenTtl: Duration,
+    @param:Value("\${snutt.auth.refresh-token-ttl}") private val refreshTokenTtl: Duration,
 ) {
     private val oauth2Clients = oauth2Clients.mapKeys { AuthProvider.valueOf(it.key) }
     private val secureRandom = SecureRandom()
