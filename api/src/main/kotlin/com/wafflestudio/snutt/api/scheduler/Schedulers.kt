@@ -74,7 +74,7 @@ class DiaryScheduler(
     private val coursebookService: CoursebookService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
-    @param:Value("\${snutt.diary.push-sample-rate:0.1}") private val sampleRate: Double,
+    @param:Value("\${snutt.diary.push-sample-rate}") private val sampleRate: Double,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 

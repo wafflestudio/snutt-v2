@@ -17,7 +17,7 @@ private data class FacebookOAuth2UserResponse(
 @Component("FACEBOOK")
 class FacebookClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
-    @param:Value("\${snutt.auth.oidc.facebook-app-id:dummy}") private val facebookAppId: String,
+    @param:Value("\${snutt.auth.oidc.facebook-app-id}") private val facebookAppId: String,
     private val restClient: RestClient,
 ) : OAuth2Client {
     companion object {

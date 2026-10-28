@@ -3,9 +3,24 @@ snutt:
     base-url: https://snutt-proxy.wafflestudio.com
   mail:
     compartment-id: ocid1.compartment.oc1..aaaaaaaaxzo4fga6br76o3e34rshtsl6alzripmgdh7f4lg4u4tzezosypaq
+    sender-address: snutt@wafflestudio.com
+    sender-name: SNUTT
+    region: ap-chuncheon-1
+  github:
+    repo-owner: wafflestudio
+    repo-name: snutt-feedbacks
   storage:
-    oci:
-      auth-type: config
+    endpoint: https://objectstorage.ap-chuncheon-1.oraclecloud.com
+    namespace: ""
+    region: ap-chuncheon-1
+  oci:
+    auth-type: config
+    config-profile: DEFAULT
+  auth:
+    jwt:
+      access-token-ttl: PT2H
+      password-reset-token-ttl: PT15M
+    refresh-token-ttl: P180D
 
 spring:
   profiles:
@@ -35,6 +50,23 @@ spring:
 spring:
   config:
     activate:
+      on-profile: local | test
+# Not real credentials
+snutt:
+  auth:
+    jwt:
+      private-key: MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgWr+BPfaAImqowq1RujLg1ivMaNxiBOjP4OrVV6ucRBOhRANCAASrT3K01hZvJ+T6IPJUT6s9IG44e/lywkjE3+1WpGdpuZJwz59AZohCsIOv8WEsY0mw25lTXqFNpmkHVB3A3ykd
+      public-key: MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq09ytNYWbyfk+iDyVE+rPSBuOHv5csJIxN/tVqRnabmScM+fQGaIQrCDr/FhLGNJsNuZU16hTaZpB1QdwN8pHQ==
+    oidc:
+      apple-app-id: test-apple-app-id
+      facebook-app-id: test-facebook-app-id
+  github:
+    token: test-github-token
+
+---
+spring:
+  config:
+    activate:
       on-profile: local
   datasource:
     url: jdbc:mysql://localhost:3306/snutt
@@ -52,6 +84,5 @@ spring:
     activate:
       on-profile: dev | prod
 snutt:
-  storage:
-    oci:
-      auth-type: instance
+  oci:
+    auth-type: instance

@@ -20,7 +20,7 @@ class BatchConfig {
 @Component
 class JobRunner(
     jobs: List<BatchJob>,
-    @param:Value("\${job.name:}") private val jobName: String,
+    @param:Value("\${job.name}") private val jobName: String,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
     private val jobsByName = jobs.associateBy { it.name }

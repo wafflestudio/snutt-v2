@@ -15,9 +15,9 @@ import java.time.format.DateTimeFormatter
 
 @Service
 class FeedbackService(
-    @param:Value("\${snutt.github.token:}") private val token: String,
-    @param:Value("\${snutt.github.repo-owner:wafflestudio}") private val repoOwner: String,
-    @param:Value("\${snutt.github.repo-name:snutt-feedbacks}") private val repoName: String,
+    @param:Value("\${snutt.github.token}") private val token: String,
+    @param:Value("\${snutt.github.repo-owner}") private val repoOwner: String,
+    @param:Value("\${snutt.github.repo-name}") private val repoName: String,
     restClientBuilder: RestClient.Builder,
 ) {
     private val restClient = restClientBuilder.baseUrl("https://api.github.com").build()
@@ -30,7 +30,6 @@ class FeedbackService(
         appVersion: String,
         deviceModel: String,
     ) {
-        check(token.isNotBlank()) { "깃허브 토큰이 설정되지 않았습니다" }
         val platform = osVersion?.let { "${osType.value} ($osVersion)" } ?: osType.value
         val currentSeoulTime =
             ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))

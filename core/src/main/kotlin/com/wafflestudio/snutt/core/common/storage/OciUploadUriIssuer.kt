@@ -2,15 +2,11 @@ package com.wafflestudio.snutt.core.common.storage
 
 import com.oracle.bmc.Region
 import com.oracle.bmc.auth.BasicAuthenticationDetailsProvider
-import com.oracle.bmc.auth.ConfigFileAuthenticationDetailsProvider
-import com.oracle.bmc.auth.InstancePrincipalsAuthenticationDetailsProvider
 import com.oracle.bmc.objectstorage.ObjectStorageClient
 import com.oracle.bmc.objectstorage.model.CreatePreauthenticatedRequestDetails
 import com.oracle.bmc.objectstorage.requests.CreatePreauthenticatedRequestRequest
 import com.oracle.bmc.objectstorage.requests.GetNamespaceRequest
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Service
 import java.time.Duration
@@ -18,33 +14,14 @@ import java.time.Instant
 import java.util.Date
 import java.util.UUID
 
-enum class OciAuthType {
-    INSTANCE,
-    CONFIG,
-}
-
-@Configuration
-@Profile("!test")
-class OciConfig(
-    @param:Value("\${snutt.storage.oci.auth-type}") private val authType: OciAuthType,
-    @param:Value("\${snutt.storage.oci.config-profile:DEFAULT}") private val configProfile: String,
-) {
-    @Bean
-    fun ociAuthProvider(): BasicAuthenticationDetailsProvider =
-        when (authType) {
-            OciAuthType.INSTANCE -> InstancePrincipalsAuthenticationDetailsProvider.builder().build()
-            OciAuthType.CONFIG -> ConfigFileAuthenticationDetailsProvider(configProfile)
-        }
-}
-
 @Service
-@Profile("!test")
+@Profile("dev | prod")
 class OciUploadUriIssuer(
     authProvider: BasicAuthenticationDetailsProvider,
     private val storageUriResolver: StorageUriResolver,
-    @param:Value("\${snutt.storage.endpoint:https://objectstorage.ap-chuncheon-1.oraclecloud.com}")
+    @param:Value("\${snutt.storage.endpoint}")
     private val endpoint: String,
-    @Value("\${snutt.storage.region:ap-chuncheon-1}") region: String,
+    @Value("\${snutt.storage.region}") region: String,
 ) : UploadUriIssuer {
     private val client: ObjectStorageClient =
         ObjectStorageClient.builder().region(Region.fromRegionId(region)).build(authProvider)
