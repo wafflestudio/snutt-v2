@@ -65,6 +65,9 @@ class AuthService(
         val normalizedEmail = email.trim()
         if (!normalizedEmail.matches(emailRegex)) throw SnuttException(ErrorType.INVALID_EMAIL)
         if (userRepository.existsByLocalIdAndActiveTrue(localId)) throw SnuttException(ErrorType.DUPLICATE_LOCAL_ID)
+        if (userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(normalizedEmail) != null) {
+            throw SnuttException(ErrorType.DUPLICATE_EMAIL)
+        }
 
         val nickname = userNicknameService.generateUniqueRandomNickname()
         val user =
