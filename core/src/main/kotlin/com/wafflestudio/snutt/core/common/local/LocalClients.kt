@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.common.local
 
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.mail.MailClient
 import com.wafflestudio.snutt.core.common.mail.MailSendOutcome
 import com.wafflestudio.snutt.core.common.push.PushClient
@@ -41,7 +42,10 @@ class LocalPushClient : PushClient {
         message: PushMessage,
     ) = log.info("push topic={} {}", topic, message)
 
-    override fun subscribeGlobalTopic(registrationId: String) = Unit
+    override fun subscribeGlobalTopic(
+        registrationId: String,
+        language: Language,
+    ) = Unit
 
     override fun unsubscribeGlobalTopic(registrationId: String) = Unit
 }

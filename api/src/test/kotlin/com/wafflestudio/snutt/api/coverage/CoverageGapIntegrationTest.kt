@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.coverage
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -107,8 +108,9 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
         registrationId: String,
         deviceId: String,
         token: String,
+        language: Language? = null,
     ): ResponseEntity<String> =
-        client()
+        client(language)
             .post()
             .uri("/v2/users/me/devices/$registrationId")
             .headers { it.setBearerAuth(token) }
@@ -123,7 +125,11 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     fun `기기 등록과 해제가 FCM 토픽 구독까지 반영한다`() {
         val registered = registerDevice("fcm-token-abc", "device-1", userAToken)
         assertEquals(200, registered.statusCode.value())
-        verify(pushClient).subscribeGlobalTopic("fcm-token-abc")
+        verify(pushClient).subscribeGlobalTopic("fcm-token-abc", Language.KO)
+
+        registerDevice("fcm-token-en", "device-2", userAToken, Language.EN)
+        assertEquals(Language.EN, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse("fcm-token-en")!!.language)
+        verify(pushClient).subscribeGlobalTopic("fcm-token-en", Language.EN)
 
         registerDevice("fcm-token-def", "device-1", userAToken)
         assertEquals(1, activeDeviceCount("device-1"))
@@ -147,7 +153,7 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, response.statusCode.value())
-        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token")
+        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token", Language.KO)
     }
 
     @Test

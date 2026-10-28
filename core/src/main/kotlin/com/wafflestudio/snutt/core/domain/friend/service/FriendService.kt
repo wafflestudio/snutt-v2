@@ -3,9 +3,9 @@ package com.wafflestudio.snutt.core.domain.friend.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
-import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
@@ -71,8 +71,8 @@ class FriendService(
         val fromUser = userRepository.findByIdAndActiveTrue(fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(
             userId = toUserId,
-            title = "친구 요청",
-            body = "'${fromUser.nickname}'님의 친구 요청을 수락하고 서로의 대표 시간표를 확인해보세요!",
+            template = NotificationTemplate.FRIEND_REQUEST,
+            nickname = fromUser.nickname,
         )
         return friend to toUser
     }
@@ -88,8 +88,8 @@ class FriendService(
         val fromUser = userRepository.findByIdAndActiveTrue(friend.fromUserId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(
             userId = friend.fromUserId,
-            title = "친구 요청 수락",
-            body = "'${toUser.nickname}'님과 친구가 되었어요.",
+            template = NotificationTemplate.FRIEND_REQUEST_ACCEPTED,
+            nickname = toUser.nickname,
         )
         return friend to fromUser
     }
@@ -163,20 +163,20 @@ class FriendService(
         val toUser = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         notify(
             userId = fromUserId,
-            title = "친구 요청 수락",
-            body = "'${toUser.nickname}'님과 친구가 되었어요.",
+            template = NotificationTemplate.FRIEND_REQUEST_ACCEPTED,
+            nickname = toUser.nickname,
         )
         return friend to fromUser
     }
 
     private fun notify(
         userId: Long,
-        title: String,
-        body: String,
+        template: NotificationTemplate,
+        nickname: String,
     ) {
         pushService.sendPushAndNotification(
             userIds = listOf(userId),
-            message = PushMessage(title, body, FRIEND_URL_SCHEME),
+            message = template.render(nickname).copy(urlScheme = FRIEND_URL_SCHEME),
             type = NotificationType.FRIEND,
             preferenceType = PushPreferenceType.NORMAL,
         )

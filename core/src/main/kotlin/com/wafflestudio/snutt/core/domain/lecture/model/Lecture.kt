@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.core.domain.lecture.model
 
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
@@ -56,3 +57,6 @@ class Lecture(
         courseTitle = other.courseTitle
     }
 }
+
+val Lecture.localizedCourseTitle: LocalizedMessage
+    get() = LocalizedMessage(ko = courseTitle, en = courseTitleEn ?: courseTitle)

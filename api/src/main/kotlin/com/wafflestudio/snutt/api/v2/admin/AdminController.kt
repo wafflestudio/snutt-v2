@@ -2,11 +2,12 @@ package com.wafflestudio.snutt.api.v2.admin
 
 import com.wafflestudio.snutt.api.auth.AdminOnly
 import com.wafflestudio.snutt.api.scheduler.DiaryScheduler
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.push.PushMessage
+import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.common.storage.FileUploadUri
 import com.wafflestudio.snutt.core.common.storage.StorageSource
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
@@ -14,8 +15,8 @@ import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
-import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
+import com.wafflestudio.snutt.core.domain.notification.model.toNotification
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
@@ -40,7 +41,9 @@ import tools.jackson.databind.JsonNode
 data class InsertNotificationRequest(
     val userId: Long? = null,
     @field:NotBlank val title: String,
+    val titleEn: String? = null,
     @field:NotBlank val message: String,
+    val messageEn: String? = null,
     val type: NotificationType = NotificationType.NORMAL,
     val deeplink: String? = null,
     val sendPush: Boolean = false,
@@ -127,12 +130,14 @@ class AdminController(
         @Valid @RequestBody body: InsertNotificationRequest,
     ) {
         val userId = body.userId
-        val message = PushMessage(title = body.title, body = body.message, urlScheme = body.deeplink)
+        val message =
+            LocalizedPushMessage(
+                title = LocalizedMessage(ko = body.title, en = body.titleEn?.takeIf { it.isNotBlank() } ?: body.title),
+                body = LocalizedMessage(ko = body.message, en = body.messageEn?.takeIf { it.isNotBlank() } ?: body.message),
+                urlScheme = body.deeplink,
+            )
         when {
-            !body.sendPush ->
-                notificationService.sendNotification(
-                    Notification(userId = userId, title = body.title, message = body.message, type = body.type, deeplink = body.deeplink),
-                )
+            !body.sendPush -> notificationService.sendNotification(message.toNotification(userId, body.type))
             userId != null -> pushService.sendPushAndNotification(listOf(userId), message, body.type, PushPreferenceType.NORMAL)
             else -> pushService.sendGlobalPushAndNotification(message, body.type)
         }

@@ -48,8 +48,9 @@ class DeviceService(
         device.deviceModel = clientInfo.deviceModel
         device.appType = clientInfo.appType
         device.appVersion = clientInfo.appVersion
+        device.language = clientInfo.language
         userDeviceRepository.save(device)
-        afterCommit { pushClient.subscribeGlobalTopic(registrationId) }
+        afterCommit { pushClient.subscribeGlobalTopic(registrationId, clientInfo.language) }
     }
 
     @Transactional

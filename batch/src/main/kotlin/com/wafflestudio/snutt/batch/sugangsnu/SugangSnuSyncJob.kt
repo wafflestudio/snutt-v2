@@ -2,13 +2,14 @@ package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.batch.BatchJob
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.enums.localizedFullName
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
-import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseVocabularyService
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureVocabularyService
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
@@ -65,7 +66,7 @@ class SugangSnuSyncJob(
                 coursebookRepository.save(next)
                 vacancyNotificationRepository.deleteAll()
                 pushService.sendGlobalPushAndNotification(
-                    PushMessage(title = "신규 수강편람", body = "${next.year}년도 ${next.semester.fullName} 수강편람이 추가되었습니다."),
+                    NotificationTemplate.COURSEBOOK_NEW.render(next.year, next.semester.localizedFullName),
                     NotificationType.COURSEBOOK,
                 )
             }

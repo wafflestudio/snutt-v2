@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.common.error
 
 import com.wafflestudio.snutt.core.common.client.Language
-import com.wafflestudio.snutt.core.common.client.LocalizedMessage
+import com.wafflestudio.snutt.core.common.client.localizeArgs
 import org.springframework.dao.DataIntegrityViolationException
 
 open class SnuttException(
@@ -13,10 +13,7 @@ open class SnuttException(
 
     override val message: String = displayMessage(Language.KO)
 
-    fun displayMessage(language: Language): String {
-        val localized = args.map { if (it is LocalizedMessage) it.of(language) else it }
-        return error.displayMessage.of(language).format(*localized.toTypedArray())
-    }
+    fun displayMessage(language: Language): String = error.displayMessage.of(language).format(*args.localizeArgs(language))
 }
 
 inline fun <T> conflictAs(
