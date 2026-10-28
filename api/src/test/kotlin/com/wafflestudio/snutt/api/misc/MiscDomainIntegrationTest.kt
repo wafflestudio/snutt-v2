@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.misc
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.storage.FileUploadUri
@@ -152,6 +153,30 @@ class MiscDomainIntegrationTest : AbstractApiIntegrationTest() {
 
         val forbidden = post("/v2/admin/images/POPUP/upload-uris?count=2", "", userAToken)
         assertEquals(403, forbidden.statusCode.value())
+    }
+
+    @Test
+    fun `관리자 알림의 영문 문구가 비어 있으면 한글로 돌아간다`() {
+        val filled =
+            post(
+                "/v2/admin/notifications",
+                """{"title":"전체공지","titleEn":"Announcement","message":"안녕하세요","messageEn":"Hello","type":0}""",
+                adminToken,
+            )
+        assertEquals(200, filled.statusCode.value())
+        val blank =
+            post(
+                "/v2/admin/notifications",
+                """{"title":"점검 안내","titleEn":"","message":"내용","messageEn":"  ","type":0}""",
+                adminToken,
+            )
+        assertEquals(200, blank.statusCode.value())
+
+        val english = body(get("/v2/notifications", userAToken, Language.EN))["content"]
+        assertEquals("점검 안내", english[0]["title"].asString())
+        assertEquals("내용", english[0]["message"].asString())
+        assertEquals("Announcement", english[1]["title"].asString())
+        assertEquals("Hello", english[1]["message"].asString())
     }
 
     @Test

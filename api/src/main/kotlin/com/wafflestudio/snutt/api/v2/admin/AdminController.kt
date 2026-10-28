@@ -132,8 +132,8 @@ class AdminController(
         val userId = body.userId
         val message =
             LocalizedPushMessage(
-                title = LocalizedMessage(ko = body.title, en = body.titleEn ?: body.title),
-                body = LocalizedMessage(ko = body.message, en = body.messageEn ?: body.message),
+                title = LocalizedMessage(ko = body.title, en = body.titleEn?.takeIf { it.isNotBlank() } ?: body.title),
+                body = LocalizedMessage(ko = body.message, en = body.messageEn?.takeIf { it.isNotBlank() } ?: body.message),
                 urlScheme = body.deeplink,
             )
         when {

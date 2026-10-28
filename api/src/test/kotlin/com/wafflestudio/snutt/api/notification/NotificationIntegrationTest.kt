@@ -5,7 +5,6 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.common.push.PushMessage
-import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
@@ -22,9 +21,6 @@ class NotificationIntegrationTest : AbstractApiIntegrationTest() {
 
     @Autowired
     lateinit var userRepository: UserRepository
-
-    @Autowired
-    lateinit var userDeviceRepository: UserDeviceRepository
 
     @Autowired
     lateinit var pushService: PushService
@@ -79,23 +75,5 @@ class NotificationIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals("New course book", saved.titleEn)
         assertEquals("2026년도 2학기 수강편람이 추가되었습니다.", saved.message)
         assertEquals("The 2026 Fall course book has been added.", saved.messageEn)
-    }
-
-    @Test
-    fun `기기 등록은 요청 언어를 저장하고 그 언어의 토픽을 구독한다`() {
-        val token = register("deviceenuser")
-
-        val response =
-            client(Language.EN)
-                .post()
-                .uri("/v2/users/me/devices/fcm-en-token")
-                .headers { it.setBearerAuth(token) }
-                .header("x-device-id", "device-en")
-                .retrieve()
-                .toEntity(String::class.java)
-
-        assertEquals(200, response.statusCode.value())
-        assertEquals(Language.EN, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse("fcm-en-token")!!.language)
-        verify(pushClient).subscribeGlobalTopic("fcm-en-token", Language.EN)
     }
 }

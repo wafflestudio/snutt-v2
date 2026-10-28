@@ -76,17 +76,22 @@ class FcmPushClient(
     ) {
         val topic = globalTopicOf(language)
         runCatching {
-            val messaging = FirebaseMessaging.getInstance()
-            messaging.subscribeToTopic(listOf(registrationId), topic)
-            globalTopics().filterNot { it == topic }.forEach { messaging.unsubscribeFromTopic(listOf(registrationId), it) }
-        }.onFailure { log.error("글로벌 토픽 구독 실패", it) }
+            FirebaseMessaging.getInstance().subscribeToTopic(listOf(registrationId), topic)
+        }.onFailure { log.error("글로벌 토픽 구독 실패: {}", topic, it) }
+        globalTopics().filterNot { it == topic }.forEach { unsubscribeTopic(registrationId, it) }
     }
 
     override fun unsubscribeGlobalTopic(registrationId: String) {
+        globalTopics().forEach { unsubscribeTopic(registrationId, it) }
+    }
+
+    private fun unsubscribeTopic(
+        registrationId: String,
+        topic: String,
+    ) {
         runCatching {
-            val messaging = FirebaseMessaging.getInstance()
-            globalTopics().forEach { messaging.unsubscribeFromTopic(listOf(registrationId), it) }
-        }.onFailure { log.error("글로벌 토픽 구독 해제 실패", it) }
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(listOf(registrationId), topic)
+        }.onFailure { log.error("글로벌 토픽 구독 해제 실패: {}", topic, it) }
     }
 
     @Suppress("DEPRECATION")
