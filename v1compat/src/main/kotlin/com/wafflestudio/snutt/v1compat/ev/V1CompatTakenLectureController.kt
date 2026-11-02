@@ -194,7 +194,7 @@ class V1CompatCourseSearchController(
     }
 
     @GetMapping("/lectures")
-    fun searchLectures(
+    fun searchEvLectures(
         @RequestParam(required = false, defaultValue = "") query: String,
         @RequestParam(required = false, defaultValue = "0") page: Int,
         @RequestParam(required = false) tags: List<Long>?,

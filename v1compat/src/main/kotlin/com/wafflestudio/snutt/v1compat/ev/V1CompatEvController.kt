@@ -15,6 +15,8 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequ
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -112,7 +114,9 @@ class V1CompatEvController(
         @V1CurrentUser user: User,
         @PathVariable lectureId: Long,
         @RequestParam(required = false) cursor: String?,
-        @RequestParam(required = false) sort: String?,
+        @Parameter(schema = Schema(allowableValues = ["latest", "recommended"]))
+        @RequestParam(required = false)
+        sort: String?,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Semester?,
     ): LegacyEvCursorPage<LegacyEvaluationWithSemesterDto> {

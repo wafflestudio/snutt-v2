@@ -30,7 +30,7 @@ class V1CompatConfig(
     }
 
     companion object {
-        val PATH_PATTERNS = arrayOf("/v1/**", "/admin/**", "/ev-service/**", "/ev/**")
+        val PATH_PATTERNS = arrayOf("/v1/**", "/ev-service/**", "/ev/**")
     }
 }
 
