@@ -5,8 +5,11 @@ import com.wafflestudio.snutt.api.auth.Public
 import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
-import com.wafflestudio.snutt.v1compat.config.V1CompatConfig
+import com.wafflestudio.snutt.v1compat.ev.V1_EV_PATH
+import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.Operation
+import io.swagger.v3.oas.models.media.Schema
+import io.swagger.v3.oas.models.media.StringSchema
 import io.swagger.v3.oas.models.parameters.HeaderParameter
 import io.swagger.v3.oas.models.security.SecurityRequirement
 import io.swagger.v3.oas.models.security.SecurityScheme
@@ -32,8 +35,10 @@ class OpenApiConfig {
             .builder()
             .group("v2")
             .pathsToMatch("/v2/**")
-            .addOpenApiCustomizer { it.components.securitySchemes(securitySchemes(OS_TYPE, CLIENT_KEY, BEARER)) }
-            .addOperationCustomizer { operation, handler ->
+            .addOpenApiCustomizer {
+                it.components.securitySchemes(securitySchemes(OS_TYPE, CLIENT_KEY, BEARER))
+                it.dropNullVariants()
+            }.addOperationCustomizer { operation, handler ->
                 val requirement = SecurityRequirement().addList(OS_TYPE).addList(CLIENT_KEY)
                 if (!handler.has(Public::class.java)) requirement.addList(BEARER)
                 operation.addSecurityItem(requirement).withHeaders(handler, CLIENT_HEADERS)
@@ -44,9 +49,12 @@ class OpenApiConfig {
         GroupedOpenApi
             .builder()
             .group("v1compat")
-            .pathsToMatch(*V1CompatConfig.PATH_PATTERNS)
-            .addOpenApiCustomizer { it.components.securitySchemes(securitySchemes(LEGACY_API_KEY, LEGACY_TOKEN)) }
-            .addOperationCustomizer { operation, handler ->
+            .pathsToMatch("/v1/**")
+            .pathsToExclude("$V1_EV_PATH/**")
+            .addOpenApiCustomizer {
+                it.components.securitySchemes(securitySchemes(LEGACY_API_KEY, LEGACY_TOKEN))
+                it.dropNullVariants()
+            }.addOperationCustomizer { operation, handler ->
                 val requirement = SecurityRequirement().addList(LEGACY_API_KEY)
                 if (!handler.has(V1Public::class.java)) requirement.addList(LEGACY_TOKEN)
                 operation.addSecurityItem(requirement).withHeaders(handler, listOf("x-os-type") + CLIENT_HEADERS)
@@ -59,9 +67,21 @@ class OpenApiConfig {
         headers: List<String>,
     ): Operation {
         if (handler.methodParameters.any { it.hasParameterAnnotation(CurrentClient::class.java) }) {
-            headers.forEach { addParametersItem(HeaderParameter().name(it).required(false)) }
+            headers.forEach { addParametersItem(HeaderParameter().name(it).required(false).schema(StringSchema())) }
         }
         return this
+    }
+
+    private fun OpenAPI.dropNullVariants() {
+        components.schemas?.values?.forEach { schema ->
+            schema.properties?.replaceAll { _, property -> property.withoutNullVariant() }
+        }
+    }
+
+    private fun Schema<*>.withoutNullVariant(): Schema<*> {
+        val variants = oneOf ?: return this
+        val nonNull = variants.filterNot { it.type == "null" || it.types == setOf("null") }
+        return if (nonNull.size == 1 && nonNull.size < variants.size) nonNull.single() else this
     }
 
     private fun HandlerMethod.has(annotation: Class<out Annotation>): Boolean =

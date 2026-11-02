@@ -39,7 +39,7 @@ data class LegacySocialAccounts(
 
 @RestController
 @V1AdminOnly
-@RequestMapping("/v1/admin", "/admin")
+@RequestMapping("/v1/admin")
 class V1AdminController(
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val userService: UserService,
