@@ -48,6 +48,9 @@ data class TakenLectureResponse(
     val classification: String?,
     val takenYear: Int,
     val takenSemester: Semester,
+    val avgRating: Double?,
+    val evalCount: Long,
+    val myEvaluationExists: Boolean,
 )
 
 internal fun LectureTakenByUser.toResponse(
@@ -66,6 +69,9 @@ internal fun LectureTakenByUser.toResponse(
     classification = language.select(lecture.classification, lecture.classificationEn),
     takenYear = takenYear,
     takenSemester = takenSemester,
+    avgRating = course.avgRating,
+    evalCount = course.evalCount,
+    myEvaluationExists = myEvaluationExists,
 )
 
 data class EvaluationUpdateRequestBody(
@@ -98,7 +104,7 @@ data class EvaluationResponse(
     val fromSnuev: Boolean,
     val year: Int,
     val semester: Semester,
-    val isModifiable: Boolean,
+    val isMine: Boolean,
 )
 
 data class CourseEvaluationDetailsResponse(
@@ -134,7 +140,7 @@ class EvaluationController(
         @CurrentClient clientInfo: ClientInfo,
     ): CursorPage<EvaluationResponse> =
         evaluationService
-            .getEvaluationsOfCourse(userId, courseId, cursor, sort, year, semester)
+            .getEvaluationsOfCourse(userId, courseId, cursor, sort, year, semester, includeMine = true)
             .let { evaluationResponseMapper.toResponse(it, clientInfo.language) }
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")

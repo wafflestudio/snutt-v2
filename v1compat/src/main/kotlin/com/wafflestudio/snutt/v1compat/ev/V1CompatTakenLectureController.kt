@@ -44,6 +44,12 @@ data class LegacyTakenLectureDto(
     val takenYear: Int,
     @param:JsonProperty("taken_semester")
     val takenSemester: Int,
+    @param:JsonProperty("avg_rating")
+    val avgRating: Double?,
+    @param:JsonProperty("evaluation_count")
+    val evaluationCount: Long,
+    @param:JsonProperty("my_evaluation_exists")
+    val myEvaluationExists: Boolean,
 )
 
 @RestController
@@ -78,6 +84,9 @@ class V1CompatTakenLectureController(
             classification = metadata.classification,
             takenYear = takenYear,
             takenSemester = takenSemester.value,
+            avgRating = course.avgRating,
+            evaluationCount = course.evalCount,
+            myEvaluationExists = myEvaluationExists,
         )
 }
 

@@ -119,6 +119,9 @@ class V1CompatEvController(
         sort: String?,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Semester?,
+        @Parameter(description = "true면 본인 강의평을 첫 페이지 맨 위에 포함한다")
+        @RequestParam("include_mine", defaultValue = "false")
+        includeMine: Boolean,
     ): LegacyEvCursorPage<LegacyEvaluationWithSemesterDto> {
         val page =
             evaluationService.getEvaluationsOfCourse(
@@ -128,6 +131,7 @@ class V1CompatEvController(
                 sort = legacyEvaluationSort(sort),
                 year = year,
                 semester = semester,
+                includeMine = includeMine,
             )
         return page.toLegacyEvPage { it.toLegacyWithSemester() }
     }
