@@ -114,10 +114,10 @@ enum class ErrorType(
         LocalizedMessage(ko = "더 남기고 싶은 말은 최대 1,000자 입력할 수 있습니다", en = "Additional comments can be up to 1,000 characters"),
         LocalizedMessage(ko = "입력 길이 초과", en = "Too long"),
     ),
-    EVALUATION_CONTENT_BLANK(
+    EVALUATION_CONTENT_TOO_SHORT(
         HttpStatus.BAD_REQUEST,
-        LocalizedMessage(ko = "강의평 내용을 입력해 주세요", en = "Please write your course review"),
-        LocalizedMessage(ko = "강의평 내용 없음", en = "No review content"),
+        LocalizedMessage(ko = "강의평은 20자 이상 작성해 주세요", en = "Course reviews must be at least 20 characters long"),
+        LocalizedMessage(ko = "강의평 내용 부족", en = "Review too short"),
     ),
     EVALUATION_RATING_OUT_OF_RANGE(
         HttpStatus.BAD_REQUEST,

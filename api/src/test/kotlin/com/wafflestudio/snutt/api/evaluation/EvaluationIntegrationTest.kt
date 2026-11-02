@@ -116,7 +116,7 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     private fun evalBody(
-        content: String = "좋은 강의입니다",
+        content: String = "설명이 친절하고 과제 난이도도 적당한 좋은 강의입니다",
         rating: Double = 4.5,
     ) = """{"content":"$content","gradeSatisfaction":4.0,"teachingSkill":4.5,"gains":3.5,"lifeBalance":4.0,"rating":$rating}"""
 
@@ -171,7 +171,7 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
         post("/v2/lectures/$lectureId/evaluations", evalBody(rating = 5.0), secondVerifiedToken)
 
         val list = get("/v2/courses/$courseId/evaluations", verifiedToken)
-        val otherEvaluation = body(list)["content"][0]
+        val otherEvaluation = body(list)["content"][1]
         val otherId = otherEvaluation["id"].asInt()
         post("/v2/evaluations/$otherId/like", "{}", verifiedToken)
 
