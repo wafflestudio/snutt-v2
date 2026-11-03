@@ -1,11 +1,15 @@
 package com.wafflestudio.snutt.core.domain.timetable.service
 
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
+import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.model.localizedCourseTitle
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
@@ -45,7 +49,7 @@ data class TimetableLectureReminderDisplay(
 
 data class DueReminderPush(
     val userId: Long,
-    val body: String,
+    val message: LocalizedPushMessage,
 )
 
 @Service
@@ -113,21 +117,23 @@ class TimetableLectureReminderService(
                 }
             if (dueSchedules.isEmpty()) return@mapNotNull null
             val courseTitle =
-                timetableLecture.overrides?.courseTitle ?: lecturesById[timetableLecture.lectureId]?.courseTitle.orEmpty()
+                timetableLecture.overrides?.courseTitle?.let(LocalizedMessage::same)
+                    ?: lecturesById[timetableLecture.lectureId]?.localizedCourseTitle
+                    ?: LocalizedMessage.same("")
             dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
             timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
-            DueReminderPush(userId = timetable.userId, body = reminderBody(courseTitle, reminder.offsetMinutes))
+            DueReminderPush(userId = timetable.userId, message = reminderMessage(courseTitle, reminder.offsetMinutes))
         }
     }
 
-    private fun reminderBody(
-        courseTitle: String,
+    private fun reminderMessage(
+        courseTitle: LocalizedMessage,
         offsetMinutes: Int,
-    ): String =
+    ): LocalizedPushMessage =
         when {
-            offsetMinutes == 0 -> "$courseTitle 강의 시간이에요."
-            offsetMinutes > 0 -> "$courseTitle 강의 시작 ${offsetMinutes}분 후예요."
-            else -> "$courseTitle 강의 시작 ${-offsetMinutes}분 전이에요."
+            offsetMinutes == 0 -> NotificationTemplate.CLASS_REMINDER_NOW.render(courseTitle)
+            offsetMinutes > 0 -> NotificationTemplate.CLASS_REMINDER_AFTER.render(courseTitle, offsetMinutes)
+            else -> NotificationTemplate.CLASS_REMINDER_BEFORE.render(courseTitle, -offsetMinutes)
         }
 
     private fun dueWindows(now: ZonedDateTime): List<DueWindow> {

@@ -11,6 +11,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Notification
+import com.wafflestudio.snutt.core.common.client.Language
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Profile
@@ -69,16 +70,28 @@ class FcmPushClient(
         }.onFailure { log.error("토픽 푸시 전송 실패", it) }
     }
 
-    override fun subscribeGlobalTopic(registrationId: String) {
+    override fun subscribeGlobalTopic(
+        registrationId: String,
+        language: Language,
+    ) {
+        val topic = globalTopicOf(language)
         runCatching {
-            FirebaseMessaging.getInstance().subscribeToTopic(listOf(registrationId), GLOBAL_TOPIC)
-        }.onFailure { log.error("글로벌 토픽 구독 실패", it) }
+            FirebaseMessaging.getInstance().subscribeToTopic(listOf(registrationId), topic)
+        }.onFailure { log.error("글로벌 토픽 구독 실패: {}", topic, it) }
+        globalTopics().filterNot { it == topic }.forEach { unsubscribeTopic(registrationId, it) }
     }
 
     override fun unsubscribeGlobalTopic(registrationId: String) {
+        globalTopics().forEach { unsubscribeTopic(registrationId, it) }
+    }
+
+    private fun unsubscribeTopic(
+        registrationId: String,
+        topic: String,
+    ) {
         runCatching {
-            FirebaseMessaging.getInstance().unsubscribeFromTopic(listOf(registrationId), GLOBAL_TOPIC)
-        }.onFailure { log.error("글로벌 토픽 구독 해제 실패", it) }
+            FirebaseMessaging.getInstance().unsubscribeFromTopic(listOf(registrationId), topic)
+        }.onFailure { log.error("글로벌 토픽 구독 해제 실패: {}", topic, it) }
     }
 
     @Suppress("DEPRECATION")

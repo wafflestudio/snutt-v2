@@ -1,17 +1,23 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
+import com.wafflestudio.snutt.core.common.client.joinLocalized
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.push.PushMessage
+import com.wafflestudio.snutt.core.common.enums.yearAndSemesterLabel
+import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
+import com.wafflestudio.snutt.core.domain.lecture.model.localizedCourseTitle
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
+import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
+import com.wafflestudio.snutt.core.domain.notification.model.toNotification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
@@ -35,15 +41,32 @@ private data class LectureInput(
 private data class LectureUpdate(
     val lecture: Lecture,
     val input: LectureInput,
-    val changedLabels: List<String>,
+    val changedLabels: List<LocalizedMessage>,
     val notifiable: Boolean,
     val classTimesChanged: Boolean,
 )
 
 private data class FieldChange(
-    val label: String,
+    val label: LocalizedMessage,
     val notifiable: Boolean,
 )
+
+private enum class LectureField(
+    val label: LocalizedMessage,
+) {
+    CLASSIFICATION(LocalizedMessage(ko = "교과 구분", en = "Classification")),
+    DEPARTMENT(LocalizedMessage(ko = "학부", en = "Department")),
+    ACADEMIC_YEAR(LocalizedMessage(ko = "학년", en = "Academic year")),
+    COURSE_TITLE(LocalizedMessage(ko = "강의명", en = "Course title")),
+    CREDIT(LocalizedMessage(ko = "학점", en = "Credits")),
+    INSTRUCTOR(LocalizedMessage(ko = "교수", en = "Instructor")),
+    QUOTA(LocalizedMessage(ko = "정원", en = "Quota")),
+    ETC(LocalizedMessage(ko = "기타", en = "Other")),
+    REMARK(LocalizedMessage(ko = "비고", en = "Remarks")),
+    CATEGORY(LocalizedMessage(ko = "교양영역", en = "Liberal education area")),
+    CATEGORY_PRE_2025(LocalizedMessage(ko = "구) 교양영역", en = "Liberal education area (old)")),
+    CLASS_TIME_AND_PLACE(LocalizedMessage(ko = "강의 시간/장소", en = "Class time/place")),
+}
 
 @Service
 class SugangSnuSyncService(
@@ -71,7 +94,7 @@ class SugangSnuSyncService(
 
         pushService.sendTargetedPushes(
             synced.timetableChangeCounts.mapValues { (_, counts) ->
-                PushMessage(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
+                counts.toMessage().copy(urlScheme = "snutt://notifications")
             },
             PushPreferenceType.LECTURE_UPDATE,
         )
@@ -223,7 +246,7 @@ class SugangSnuSyncService(
 
         notifiableUpdates.forEach { update ->
             val lecture = update.lecture
-            val labels = update.changedLabels.joinToString()
+            val labels = update.changedLabels.joinLocalized()
             affected.forEachEntry(lecture.id!!) { timetable, entry ->
                 val counts = timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }
                 val overwritten =
@@ -236,8 +259,9 @@ class SugangSnuSyncService(
                     notifications +=
                         timetableNotification(
                             timetable,
-                            "'${lecture.courseTitle}' 강의가 업데이트되었으나, 시간표의 다른 강의와 겹쳐 삭제되었습니다.",
+                            NotificationTemplate.TIMETABLE_LECTURE_OVERWRITTEN,
                             NotificationType.LECTURE_REMOVE,
+                            lecture.localizedCourseTitle,
                         )
                 } else {
                     if (update.classTimesChanged && entry.overrides?.classPlaceAndTimes == null) {
@@ -247,8 +271,10 @@ class SugangSnuSyncService(
                     notifications +=
                         timetableNotification(
                             timetable,
-                            "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
+                            NotificationTemplate.TIMETABLE_LECTURE_UPDATED,
                             NotificationType.LECTURE_UPDATE,
+                            lecture.localizedCourseTitle,
+                            labels = labels,
                             deeplink = "snutt://timetable-lecture?timetableId=${timetable.id}&lectureId=${entry.id}",
                         )
                 }
@@ -258,8 +284,9 @@ class SugangSnuSyncService(
                     bookmarkNotification(
                         userId,
                         lecture,
-                        "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
+                        NotificationTemplate.BOOKMARK_LECTURE_UPDATED,
                         NotificationType.LECTURE_UPDATE,
+                        labels = labels,
                     )
             }
         }
@@ -271,13 +298,19 @@ class SugangSnuSyncService(
                 notifications +=
                     timetableNotification(
                         timetable,
-                        "'${lecture.courseTitle}' 강의가 폐강되어 삭제되었습니다.",
+                        NotificationTemplate.TIMETABLE_LECTURE_CLOSED,
                         NotificationType.LECTURE_REMOVE,
+                        lecture.localizedCourseTitle,
                     )
             }
             bookmarkUserIds[lecture.id].orEmpty().forEach { userId ->
                 notifications +=
-                    bookmarkNotification(userId, lecture, "'${lecture.courseTitle}' 강의가 폐강되어 삭제되었습니다.", NotificationType.LECTURE_REMOVE)
+                    bookmarkNotification(
+                        userId,
+                        lecture,
+                        NotificationTemplate.BOOKMARK_LECTURE_CLOSED,
+                        NotificationType.LECTURE_REMOVE,
+                    )
             }
         }
 
@@ -347,39 +380,48 @@ class SugangSnuSyncService(
         var updated: Int = 0,
         var deleted: Int = 0,
     ) {
-        fun toMessage(): String =
+        fun toMessage(): LocalizedPushMessage =
             when {
-                updated > 0 && deleted > 0 -> "강의 ${updated}개가 변경, ${deleted}개가 삭제되었습니다. 알림함에서 자세히 확인하세요."
-                updated > 0 -> "강의 ${updated}개가 변경되었습니다. 알림함에서 자세히 확인하세요."
-                else -> "강의 ${deleted}개가 삭제되었습니다. 알림함에서 자세히 확인하세요."
+                updated > 0 && deleted > 0 -> NotificationTemplate.COURSEBOOK_UPDATE_CHANGED_AND_DELETED.render(updated, deleted)
+                updated > 0 -> NotificationTemplate.COURSEBOOK_UPDATE_CHANGED.render(updated)
+                else -> NotificationTemplate.COURSEBOOK_UPDATE_DELETED.render(deleted)
             }
     }
 
     private fun timetableNotification(
         timetable: Timetable,
-        message: String,
+        template: NotificationTemplate,
         type: NotificationType,
+        courseTitle: LocalizedMessage,
+        labels: LocalizedMessage? = null,
         deeplink: String = "snutt://notifications",
-    ) = Notification(
-        userId = timetable.userId,
-        title = "수강편람 업데이트",
-        message = "${timetable.year}-${timetable.semester.fullName} '${timetable.title}' 시간표의 $message",
-        type = type,
-        deeplink = deeplink,
-    )
+    ): Notification {
+        val args =
+            listOfNotNull(
+                yearAndSemesterLabel(timetable.year, timetable.semester),
+                LocalizedMessage.same(timetable.title),
+                courseTitle,
+                labels,
+            )
+        return template
+            .render(*args.toTypedArray())
+            .copy(urlScheme = deeplink)
+            .toNotification(timetable.userId, type)
+    }
 
     private fun bookmarkNotification(
         userId: Long,
         lecture: Lecture,
-        message: String,
+        template: NotificationTemplate,
         type: NotificationType,
-    ) = Notification(
-        userId = userId,
-        title = "수강편람 업데이트",
-        message = "${lecture.year}-${lecture.semester.fullName} 관심강좌 목록의 $message",
-        type = type,
-        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.id}",
-    )
+        labels: LocalizedMessage? = null,
+    ): Notification {
+        val args = listOfNotNull(yearAndSemesterLabel(lecture.year, lecture.semester), lecture.localizedCourseTitle, labels)
+        return template
+            .render(*args.toTypedArray())
+            .copy(urlScheme = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.id}")
+            .toNotification(userId, type)
+    }
 
     private fun changedFields(
         old: Lecture,
@@ -389,32 +431,32 @@ class SugangSnuSyncService(
     ): List<FieldChange> =
         buildList {
             fun diff(
-                label: String,
+                field: LectureField,
                 notifiable: Boolean,
                 a: Any?,
                 b: Any?,
             ) {
-                if (a != b) add(FieldChange(label, notifiable))
+                if (a != b) add(FieldChange(field.label, notifiable))
             }
-            diff("교과 구분", true, old.classification, new.classification)
-            diff("학부", true, old.department, new.department)
-            diff("학년", true, old.academicYear, new.academicYear)
-            diff("강의명", true, old.courseTitle, new.courseTitle)
-            diff("학점", true, old.credit, new.credit)
-            diff("교수", true, old.instructor, new.instructor)
-            diff("정원", true, old.quota, new.quota)
-            diff("기타", true, old.freshmanQuota, new.freshmanQuota)
-            diff("비고", true, old.remark, new.remark)
-            diff("교양영역", true, old.category, new.category)
-            diff("구) 교양영역", true, old.categoryPre2025, new.categoryPre2025)
-            diff("강의 시간/장소", true, oldTimes, newTimes)
-            diff("교과 구분", false, old.classificationEn, new.classificationEn)
-            diff("학부", false, old.departmentEn, new.departmentEn)
-            diff("학년", false, old.academicYearEn, new.academicYearEn)
-            diff("강의명", false, old.courseTitleEn, new.courseTitleEn)
-            diff("교수", false, old.instructorEn, new.instructorEn)
-            diff("비고", false, old.remarkEn, new.remarkEn)
-            diff("교양영역", false, old.categoryEn, new.categoryEn)
+            diff(LectureField.CLASSIFICATION, true, old.classification, new.classification)
+            diff(LectureField.DEPARTMENT, true, old.department, new.department)
+            diff(LectureField.ACADEMIC_YEAR, true, old.academicYear, new.academicYear)
+            diff(LectureField.COURSE_TITLE, true, old.courseTitle, new.courseTitle)
+            diff(LectureField.CREDIT, true, old.credit, new.credit)
+            diff(LectureField.INSTRUCTOR, true, old.instructor, new.instructor)
+            diff(LectureField.QUOTA, true, old.quota, new.quota)
+            diff(LectureField.ETC, true, old.freshmanQuota, new.freshmanQuota)
+            diff(LectureField.REMARK, true, old.remark, new.remark)
+            diff(LectureField.CATEGORY, true, old.category, new.category)
+            diff(LectureField.CATEGORY_PRE_2025, true, old.categoryPre2025, new.categoryPre2025)
+            diff(LectureField.CLASS_TIME_AND_PLACE, true, oldTimes, newTimes)
+            diff(LectureField.CLASSIFICATION, false, old.classificationEn, new.classificationEn)
+            diff(LectureField.DEPARTMENT, false, old.departmentEn, new.departmentEn)
+            diff(LectureField.ACADEMIC_YEAR, false, old.academicYearEn, new.academicYearEn)
+            diff(LectureField.COURSE_TITLE, false, old.courseTitleEn, new.courseTitleEn)
+            diff(LectureField.INSTRUCTOR, false, old.instructorEn, new.instructorEn)
+            diff(LectureField.REMARK, false, old.remarkEn, new.remarkEn)
+            diff(LectureField.CATEGORY, false, old.categoryEn, new.categoryEn)
         }
 
     private fun SugangLectureRow.toLecture(

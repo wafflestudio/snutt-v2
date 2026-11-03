@@ -1,6 +1,10 @@
 package com.wafflestudio.snutt.api.v2.notification
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
@@ -35,9 +39,10 @@ class NotificationController(
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "false") explicit: Boolean,
+        @CurrentClient clientInfo: ClientInfo,
     ): CursorPage<NotificationResponse> {
         val page = notificationService.getNotifications(userId, cursor, limit, explicit)
-        return page.map { it.toResponse() }
+        return page.map { it.toResponse(clientInfo.language) }
     }
 
     @GetMapping("/count")
@@ -46,12 +51,12 @@ class NotificationController(
     ): NotificationCountResponse = NotificationCountResponse(notificationService.getUnreadCount(userId))
 }
 
-private fun Notification.toResponse(): NotificationResponse =
+private fun Notification.toResponse(language: Language): NotificationResponse =
     NotificationResponse(
         id = id!!,
         userId = userId,
-        title = title,
-        message = message,
+        title = language.select(title, titleEn),
+        message = language.select(message, messageEn),
         type = type,
         deeplink = deeplink,
         createdAt = checkNotNull(createdAt).toEpochMilli(),

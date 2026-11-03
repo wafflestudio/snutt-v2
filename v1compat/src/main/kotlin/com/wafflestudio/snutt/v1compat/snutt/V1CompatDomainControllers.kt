@@ -335,6 +335,7 @@ class V1CompatNotificationController(
         @RequestParam(defaultValue = "0") offset: Long,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") explicit: Int,
+        @CurrentClient clientInfo: ClientInfo,
     ): List<LegacyNotificationDto> {
         if (offset < 0 || limit !in 1..MAX_PAGE_SIZE || offset > Int.MAX_VALUE - limit) {
             throw SnuttException(ErrorType.INVALID_PARAMETER)
@@ -355,8 +356,8 @@ class V1CompatNotificationController(
             LegacyNotificationDto(
                 id = it.id!!.toString(),
                 userId = externalIdByUserId[it.userId],
-                title = it.title,
-                message = it.message,
+                title = clientInfo.language.select(it.title, it.titleEn),
+                message = clientInfo.language.select(it.message, it.messageEn),
                 type = it.type.value,
                 deeplink = it.deeplink,
                 createdAt = checkNotNull(it.createdAt),
