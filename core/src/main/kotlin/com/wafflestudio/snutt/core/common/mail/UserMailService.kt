@@ -3,23 +3,24 @@ package com.wafflestudio.snutt.core.common.mail
 import org.springframework.core.io.ResourceLoader
 import org.springframework.stereotype.Service
 
-enum class UserMailType {
-    VERIFICATION,
-    PASSWORD_RESET,
-    FIND_ID,
+enum class UserMailType(
+    val logName: String,
+) {
+    VERIFICATION("email-verification"),
+    PASSWORD_RESET("password-reset"),
+    FIND_ID("find-id"),
 }
+
+data class RenderedMail(
+    val subject: String,
+    val html: String,
+)
 
 @Service
 class UserMailService(
-    private val mailClient: MailClient,
     resourceLoader: ResourceLoader,
 ) {
-    private data class Template(
-        val subject: String,
-        val body: String,
-    )
-
-    private val templates: Map<UserMailType, Template> =
+    private val templates: Map<UserMailType, RenderedMail> =
         resourceLoader
             .getResource("classpath:userMailTemplate.txt")
             .inputStream
@@ -27,31 +28,15 @@ class UserMailService(
             .decodeToString()
             .split("\n\n")
             .chunked(2)
-            .map { (subject, body) -> Template(subject.trim(), body.trim()) }
+            .map { (subject, body) -> RenderedMail(subject.trim(), body.trim()) }
             .let { UserMailType.entries.zip(it).toMap() }
 
-    fun sendVerificationCode(
-        to: String,
-        code: String,
-    ) = send(UserMailType.VERIFICATION, to, mapOf("code" to code))
-
-    fun sendPasswordResetCode(
-        to: String,
-        code: String,
-    ) = send(UserMailType.PASSWORD_RESET, to, mapOf("code" to code))
-
-    fun sendFoundAccounts(
-        to: String,
-        accountInfo: String,
-    ) = send(UserMailType.FIND_ID, to, mapOf("email" to to, "accountInfo" to accountInfo))
-
-    private fun send(
+    fun render(
         type: UserMailType,
-        to: String,
         values: Map<String, String>,
-    ): MailSendOutcome {
+    ): RenderedMail {
         val template = templates.getValue(type)
-        return mailClient.send(to, template.subject.fill(values), template.body.fill(values))
+        return RenderedMail(template.subject.fill(values), template.html.fill(values))
     }
 
     private fun String.fill(values: Map<String, String>): String =

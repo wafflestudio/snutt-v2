@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
@@ -129,5 +130,21 @@ class DiaryScheduler(
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
         pushService.sendTargetedPushes(messages, PushPreferenceType.DIARY)
+    }
+}
+
+@Component
+class MailLogCleanupScheduler(
+    private val mailLogService: MailLogService,
+    private val schedulerLock: SchedulerLock,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    @Scheduled(cron = "0 30 4 * * *", zone = "Asia/Seoul")
+    fun deleteExpiredMailLogs() {
+        schedulerLock.withLock("mail-log-cleanup", Duration.ofMinutes(10)) {
+            val deleted = mailLogService.deleteExpired()
+            log.info("만료된 메일 로그 삭제: {}건", deleted)
+        }
     }
 }
