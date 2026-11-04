@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
+import com.wafflestudio.snutt.core.common.push.DeeplinkFactory
+import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
@@ -16,7 +18,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.net.URLEncoder
 import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -79,6 +80,7 @@ class DiaryScheduler(
     private val coursebookService: CoursebookService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
+    private val deeplinkFactory: DeeplinkFactory,
     @param:Value("\${snutt.diary.push-sample-rate}") private val sampleRate: Double,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -122,9 +124,7 @@ class DiaryScheduler(
                         PushMessage(
                             title = "이번주 강의일기를 작성해보세요.",
                             body = "최근 수강한 <${lecture.courseTitle}> 강의에 대한 강의일기를 작성해보세요.📔",
-                            urlScheme =
-                                "snutt://diary?lectureId=${lecture.id}" +
-                                    "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8)}",
+                            urlScheme = deeplinkFactory.build(DeeplinkType.DIARY, lecture.id!!, lecture.courseTitle),
                         )
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)

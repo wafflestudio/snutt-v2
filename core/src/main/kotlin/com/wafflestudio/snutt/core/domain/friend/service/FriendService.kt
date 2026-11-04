@@ -3,6 +3,8 @@ package com.wafflestudio.snutt.core.domain.friend.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
+import com.wafflestudio.snutt.core.common.push.DeeplinkFactory
+import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
@@ -28,11 +30,11 @@ class FriendService(
     private val userRepository: UserRepository,
     private val friendLinkTokenProvider: FriendLinkTokenProvider,
     private val pushService: PushService,
+    private val deeplinkFactory: DeeplinkFactory,
 ) {
     companion object {
         private val friendDisplayNameRegex = "^[a-zA-Z가-힣0-9 ]+$".toRegex()
         private const val DISPLAY_NAME_MAX_LENGTH = 10
-        private const val FRIEND_URL_SCHEME = "snutt://friends?openDrawer=true"
     }
 
     fun getMyFriends(
@@ -176,7 +178,7 @@ class FriendService(
     ) {
         pushService.sendPushAndNotification(
             userIds = listOf(userId),
-            message = PushMessage(title, body, FRIEND_URL_SCHEME),
+            message = PushMessage(title, body, deeplinkFactory.build(DeeplinkType.FRIENDS)),
             type = NotificationType.FRIEND,
             preferenceType = PushPreferenceType.NORMAL,
         )

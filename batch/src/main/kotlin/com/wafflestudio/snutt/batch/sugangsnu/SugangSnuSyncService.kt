@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.push.DeeplinkFactory
+import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -57,6 +59,7 @@ class SugangSnuSyncService(
     private val pushService: PushService,
     private val lectureBuildingSync: LectureBuildingSync,
     private val timetableLectureReminderService: TimetableLectureReminderService,
+    private val deeplinkFactory: DeeplinkFactory,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -71,7 +74,11 @@ class SugangSnuSyncService(
 
         pushService.sendTargetedPushes(
             synced.timetableChangeCounts.mapValues { (_, counts) ->
-                PushMessage(title = "수강편람 업데이트", body = counts.toMessage(), urlScheme = "snutt://notifications")
+                PushMessage(
+                    title = "수강편람 업데이트",
+                    body = counts.toMessage(),
+                    urlScheme = deeplinkFactory.build(DeeplinkType.NOTIFICATIONS),
+                )
             },
             PushPreferenceType.LECTURE_UPDATE,
         )
@@ -249,7 +256,7 @@ class SugangSnuSyncService(
                             timetable,
                             "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
                             NotificationType.LECTURE_UPDATE,
-                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.id}&lectureId=${entry.id}",
+                            deeplink = deeplinkFactory.build(DeeplinkType.TIMETABLE_LECTURE, timetable.id!!, entry.id!!),
                         )
                 }
             }
@@ -359,7 +366,7 @@ class SugangSnuSyncService(
         timetable: Timetable,
         message: String,
         type: NotificationType,
-        deeplink: String = "snutt://notifications",
+        deeplink: String = deeplinkFactory.build(DeeplinkType.NOTIFICATIONS),
     ) = Notification(
         userId = timetable.userId,
         title = "수강편람 업데이트",
@@ -378,7 +385,7 @@ class SugangSnuSyncService(
         title = "수강편람 업데이트",
         message = "${lecture.year}-${lecture.semester.fullName} 관심강좌 목록의 $message",
         type = type,
-        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.name}&lectureId=${lecture.id}",
+        deeplink = deeplinkFactory.build(DeeplinkType.BOOKMARKS, lecture.year, lecture.semester, lecture.id!!),
     )
 
     private fun changedFields(
