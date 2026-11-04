@@ -124,7 +124,7 @@ class AdminController(
 
     @PostMapping("/diary/notifier/trigger")
     fun triggerDiaryNotifier() {
-        diaryScheduler.sendDiaryNotifications()
+        diaryScheduler.sendDiaryNotificationsNow()
     }
 
     @PostMapping("/notifications")
