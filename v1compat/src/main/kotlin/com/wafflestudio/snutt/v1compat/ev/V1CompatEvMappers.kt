@@ -85,6 +85,13 @@ data class LegacyEvaluationWithLectureDto(
     val isReportable: Boolean,
 )
 
+data class LegacyEvaluationLikeResponse(
+    @param:JsonProperty("like_count")
+    val likeCount: Long,
+    @param:JsonProperty("is_liked")
+    val isLiked: Boolean,
+)
+
 data class LegacyEvaluationCourseDto(
     val id: Long?,
     val title: String,
@@ -187,6 +194,9 @@ internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, LegacyCo
         isReportable = isReportable,
     )
 }
+
+internal fun EvaluationDisplay.toLegacyLike(): LegacyEvaluationLikeResponse =
+    LegacyEvaluationLikeResponse(likeCount = evaluation.likeCount, isLiked = isLiked)
 
 internal fun EvaluationDisplay.toLegacyCreate(): LegacyEvaluationCreateResponse {
     val e = evaluation
