@@ -253,17 +253,13 @@ class V1CompatEvController(
     fun likeEvaluation(
         @V1CurrentUser user: User,
         @PathVariable evaluationId: Long,
-    ) {
-        evaluationService.likeEvaluation(user.id!!, evaluationId)
-    }
+    ): LegacyEvaluationLikeResponse = evaluationService.likeEvaluation(user.id!!, evaluationId).toLegacyLike()
 
     @DeleteMapping("/evaluations/{evaluationId}/likes")
     fun cancelLikeEvaluation(
         @V1CurrentUser user: User,
         @PathVariable evaluationId: Long,
-    ) {
-        evaluationService.cancelLikeEvaluation(user.id!!, evaluationId)
-    }
+    ): LegacyEvaluationLikeResponse = evaluationService.cancelLikeEvaluation(user.id!!, evaluationId).toLegacyLike()
 
     @GetMapping("/tags/main")
     fun getMainTags(): LegacyEvTagGroupDto = legacyMainTagGroup()
