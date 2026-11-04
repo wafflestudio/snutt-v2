@@ -25,6 +25,7 @@ class EmailVerificationService(
 
     companion object {
         private val snuMailRegex = Regex("^[a-zA-Z0-9._%+-]+@snu\\.ac\\.kr$")
+        private const val MAX_EMAIL_LENGTH = 255
     }
 
     fun sendVerificationCode(
@@ -34,7 +35,7 @@ class EmailVerificationService(
         val user = getUser(userId)
         val trimmed = email.trim()
         if (user.isEmailVerified) throw SnuttException(ErrorType.EMAIL_ALREADY_VERIFIED)
-        if (!snuMailRegex.matches(trimmed)) throw SnuttException(ErrorType.INVALID_EMAIL)
+        if (trimmed.length > MAX_EMAIL_LENGTH || !snuMailRegex.matches(trimmed)) throw SnuttException(ErrorType.INVALID_EMAIL)
         if (userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) != null) {
             throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
