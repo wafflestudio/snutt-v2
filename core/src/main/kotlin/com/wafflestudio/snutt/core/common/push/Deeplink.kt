@@ -16,7 +16,7 @@ enum class DeeplinkType(
 }
 
 @Component
-class DeeplinkFactory(
+class DeeplinkResolver(
     private val environment: Environment,
 ) {
     private val scheme = if (environment.matchesProfiles("prod")) "snutt" else "snutt-dev"
