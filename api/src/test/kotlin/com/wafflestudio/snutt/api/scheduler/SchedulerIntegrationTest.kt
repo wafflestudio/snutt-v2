@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
+import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
@@ -9,7 +10,9 @@ import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
@@ -59,6 +62,9 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
 
     @Autowired
     lateinit var lectureRepository: LectureRepository
+
+    @Autowired
+    lateinit var lectureClassTimeRepository: LectureClassTimeRepository
 
     @Autowired
     lateinit var coursebookRepository: CoursebookRepository
@@ -151,7 +157,7 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `일기장 알림이 대표 시간표 사용자에게 간다`() {
+    fun `일기장 알림은 그날 수업이 있는 강의로 마지막 수업이 끝난 뒤에 간다`() {
         coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
         val user =
             userRepository.save(
@@ -164,22 +170,6 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
                 ),
             )
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-diary"))
-        val lecture =
-            lectureRepository.save(
-                Lecture(
-                    year = 2026,
-                    semester = Semester.AUTUMN,
-                    courseNumber = "400.320",
-                    lectureNumber = "002",
-                    courseTitle = "공학연구의 실습 1",
-                    instructor = "이제희",
-                    department = "컴퓨터공학부",
-                    academicYear = "3학년",
-                    classification = "전선",
-                    credit = 1,
-                    quota = 20,
-                ),
-            )
         val timetable =
             timetableRepository.save(
                 Timetable(
@@ -191,47 +181,45 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
                     isPrimary = true,
                 ),
             )
-        val more =
-            listOf(
+        val wednesday =
+            saveLectureWithTimes(
+                lectureRepository,
+                lectureClassTimeRepository,
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "E43.101",
-                    lectureNumber = "001",
-                    courseTitle = "건강과 삶",
-                    instructor = "김부석",
-                    department = "체육교육과",
-                    academicYear = "1학년",
-                    category = "예술과 체육",
-                    categoryPre2025 = "체육",
-                    classification = "교양",
+                    courseNumber = "400.320",
+                    lectureNumber = "002",
+                    courseTitle = "공학연구의 실습 1",
                     credit = 1,
-                    quota = 30,
                 ),
+                listOf(ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "301-118", 900, 975)),
+            )
+        val thursday =
+            saveLectureWithTimes(
+                lectureRepository,
+                lectureClassTimeRepository,
                 Lecture(
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    courseNumber = "F31.113",
+                    courseNumber = "4190.101",
                     lectureNumber = "001",
-                    courseTitle = "경영학을 위한 수학",
-                    instructor = "안명숙",
-                    department = "수리과학부",
-                    academicYear = "1학년",
-                    category = "수학과학컴퓨팅",
-                    classification = "교양",
+                    courseTitle = "컴퓨터 신기술 특강",
                     credit = 3,
-                    quota = 50,
                 ),
-            ).map(lectureRepository::save)
-        (listOf(lecture) + more).forEach {
+                listOf(ClassPlaceAndTime(DayOfWeek.THURSDAY, "302-208", 900, 975)),
+            )
+        listOf(wednesday, thursday).forEach {
             timetableLectureRepository.save(TimetableLecture(timetableId = timetable.id!!, lectureId = it.id, paletteIndex = 0))
         }
+        val wednesdayMorning = ZonedDateTime.of(2026, 11, 4, 6, 0, 0, 0, ZoneId.of("Asia/Seoul"))
 
-        diaryScheduler.sendDiaryNotifications()
+        diaryScheduler.planDiaryNotifications(wednesdayMorning, YearAndSemester(2026, Semester.AUTUMN))
+        diaryScheduler.sendDueDiaryNotifications(wednesdayMorning.withHour(17).withMinute(45))
 
         val sent = sentMessages().single()
-        assertTrue(sent.message.title.contains("강의일기"))
-        assertTrue(sent.message.body.contains("강의일기를 작성해보세요"))
+        assertEquals("fcm-diary", sent.fcmRegistrationId)
+        assertTrue(sent.message.body.contains("공학연구의 실습 1"))
         assertTrue(notificationRepository.findAll().none { it.userId == user.id })
     }
 }

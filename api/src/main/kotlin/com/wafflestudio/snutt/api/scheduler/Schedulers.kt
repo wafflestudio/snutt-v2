@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.api.scheduler
 
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.Deeplink
 import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
@@ -7,6 +8,9 @@ import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
+import com.wafflestudio.snutt.core.domain.diary.service.DiaryPush
+import com.wafflestudio.snutt.core.domain.diary.service.DiaryPushQueue
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
@@ -19,8 +23,10 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import kotlin.random.Random
 
 @Component
 class ReminderScheduler(
@@ -77,29 +83,60 @@ class DiaryScheduler(
     private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val lectureRepository: LectureRepository,
+    private val lectureClassTimeRepository: LectureClassTimeRepository,
     private val coursebookService: CoursebookService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
     private val deeplinkResolver: DeeplinkResolver,
+    private val diaryPushQueue: DiaryPushQueue,
     @param:Value("\${snutt.diary.push-sample-rate}") private val sampleRate: Double,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val kst = ZoneId.of("Asia/Seoul")
 
-    @Scheduled(cron = "0 0 19 * * MON,WED,FRI", zone = "Asia/Seoul")
-    fun sendDiaryNotificationsScheduled() {
-        schedulerLock.withLock("diary", Duration.ofMinutes(10)) {
-            if (SemesterCalendar.current() == null) {
-                log.debug("현재 진행 중인 학기가 없어 일기장 알림을 보내지 않는다")
-                return@withLock
-            }
-            sendDiaryNotifications()
+    @Scheduled(cron = "0 0 6 * * MON-FRI", zone = "Asia/Seoul")
+    fun planDiaryNotificationsScheduled() {
+        val current = SemesterCalendar.current()
+        if (current == null) {
+            log.debug("현재 진행 중인 학기가 없어 일기장 알림을 예약하지 않는다")
+            return
+        }
+        planDiaryNotifications(ZonedDateTime.now(kst), current)
+    }
+
+    @Scheduled(cron = "0 * * * * *")
+    fun sendDueDiaryNotificationsScheduled() {
+        schedulerLock.withLock("diary-dispatch", Duration.ofSeconds(50)) {
+            sendDueDiaryNotifications(ZonedDateTime.now(kst))
         }
     }
 
-    fun sendDiaryNotifications() {
+    fun planDiaryNotifications(
+        now: ZonedDateTime,
+        target: YearAndSemester,
+    ) {
+        val pushes = diaryPushes(now, target)
+        if (diaryPushQueue.schedule(now.toLocalDate(), pushes)) log.info("강의 일기장 알림 예약: {}건", pushes.size)
+    }
+
+    fun sendDueDiaryNotifications(now: ZonedDateTime) {
+        send(diaryPushQueue.popDue(now.toLocalDate(), now.toInstant()))
+    }
+
+    fun sendDiaryNotificationsNow() {
         val target =
             SemesterCalendar.current()
                 ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
+        send(diaryPushes(ZonedDateTime.now(kst), target).map { it.userId to it.lectureId })
+    }
+
+    private fun diaryPushes(
+        now: ZonedDateTime,
+        target: YearAndSemester,
+    ): List<DiaryPush> {
+        val today = DayOfWeek.fromValue(now.dayOfWeek.value - 1)
+        val startOfDay = now.toLocalDate().atStartOfDay(kst)
+        val latestSendAt = now.toLocalDate().atTime(LATEST_SEND_TIME).atZone(kst)
         val primaries =
             timetableRepository
                 .findByYearAndSemesterAndIsPrimaryTrue(target.year, target.semester)
@@ -110,24 +147,51 @@ class DiaryScheduler(
                 .findByTimetableIdIn(primaries.map { it.id!! })
                 .filter { it.lectureId != null }
                 .groupBy { it.timetableId }
-        val picked =
-            primaries.mapNotNull { timetable ->
-                val entries = entriesByTimetableId[timetable.id].orEmpty()
-                if (entries.size <= 2) null else timetable.userId to entries.random().lectureId!!
-            }
-        val lecturesById = lectureRepository.findAllById(picked.map { it.second }).associateBy { it.id!! }
+        val classTimesByLectureId =
+            lectureClassTimeRepository
+                .findAllByLectureIdInOrderById(
+                    entriesByTimetableId.values
+                        .flatten()
+                        .mapNotNull { it.lectureId }
+                        .distinct(),
+                ).groupBy { it.lectureId }
+        return primaries.mapNotNull { timetable ->
+            val endMinuteByLectureId =
+                entriesByTimetableId[timetable.id].orEmpty().mapNotNull { entry ->
+                    val times =
+                        entry.overrides?.classPlaceAndTimes
+                            ?: classTimesByLectureId[entry.lectureId].orEmpty().map { it.toClassPlaceAndTime() }
+                    times.filter { it.day == today }.maxOfOrNull { it.endMinute }?.let { entry.lectureId!! to it }
+                }
+            val lastEndMinute = endMinuteByLectureId.maxOfOrNull { it.second } ?: return@mapNotNull null
+            val delayMinutes = Random.nextInt(MIN_DELAY_MINUTES, MAX_DELAY_MINUTES + 1)
+            val sendAt = startOfDay.plusMinutes((lastEndMinute + delayMinutes).toLong())
+            if (sendAt.isAfter(latestSendAt)) return@mapNotNull null
+            DiaryPush(userId = timetable.userId, lectureId = endMinuteByLectureId.random().first, sendAt = sendAt.toInstant())
+        }
+    }
+
+    private fun send(targets: List<Pair<Long, Long>>) {
+        if (targets.isEmpty()) return
+        val lecturesById = lectureRepository.findAllById(targets.map { it.second }.distinct()).associateBy { it.id!! }
         val messages =
-            picked
+            targets
                 .mapNotNull { (userId, lectureId) ->
                     val lecture = lecturesById[lectureId] ?: return@mapNotNull null
                     userId to
                         PushMessage(
-                            title = "이번주 강의일기를 작성해보세요.",
-                            body = "최근 수강한 <${lecture.courseTitle}> 강의에 대한 강의일기를 작성해보세요.📔",
+                            title = "오늘 강의일기를 작성해보세요.",
+                            body = "오늘 수강한 <${lecture.courseTitle}> 강의에 대한 강의일기를 작성해보세요.📔",
                             urlScheme = deeplinkResolver.build(Deeplink.Diary(lecture.id!!, lecture.courseTitle)),
                         )
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
         pushService.sendTargetedPushes(messages, PushPreferenceType.DIARY)
+    }
+
+    private companion object {
+        const val MIN_DELAY_MINUTES = 10
+        const val MAX_DELAY_MINUTES = 90
+        val LATEST_SEND_TIME: LocalTime = LocalTime.of(22, 0)
     }
 }
