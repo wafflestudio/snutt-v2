@@ -124,7 +124,7 @@ class DiaryScheduler(
                             body = "최근 수강한 <${lecture.courseTitle}> 강의에 대한 강의일기를 작성해보세요.📔",
                             urlScheme =
                                 "snutt://diary?lectureId=${lecture.id}" +
-                                    "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8)}",
+                                    "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8).replace("+", "%20")}",
                         )
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
