@@ -422,7 +422,7 @@ class SugangSnuSyncService(
         val args = listOfNotNull(yearAndSemesterLabel(lecture.year, lecture.semester), lecture.localizedCourseTitle, labels)
         return template
             .render(*args.toTypedArray())
-            .copy(urlScheme = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.id}")
+            .copy(urlScheme = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.name}&lectureId=${lecture.id}")
             .toNotification(userId, type)
     }
 
