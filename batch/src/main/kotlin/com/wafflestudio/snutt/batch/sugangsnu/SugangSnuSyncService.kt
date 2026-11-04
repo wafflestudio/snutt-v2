@@ -378,7 +378,7 @@ class SugangSnuSyncService(
         title = "수강편람 업데이트",
         message = "${lecture.year}-${lecture.semester.fullName} 관심강좌 목록의 $message",
         type = type,
-        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.value}&lectureId=${lecture.id}",
+        deeplink = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.name}&lectureId=${lecture.id}",
     )
 
     private fun changedFields(
