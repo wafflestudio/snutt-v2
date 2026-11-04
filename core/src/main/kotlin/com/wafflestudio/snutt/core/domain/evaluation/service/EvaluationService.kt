@@ -52,8 +52,7 @@ data class EvaluationReportRequest(
 data class EvaluationDisplay(
     val evaluation: Evaluation,
     val isLiked: Boolean,
-    val isModifiable: Boolean,
-    val isReportable: Boolean,
+    val isMine: Boolean,
 )
 
 @Service
@@ -68,6 +67,7 @@ class EvaluationService(
 ) {
     companion object {
         private const val PAGE_SIZE = 20
+        private const val MIN_CONTENT_LENGTH = 20
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -76,7 +76,7 @@ class EvaluationService(
         lectureId: Long,
         request: EvaluationWriteRequest,
     ): EvaluationDisplay {
-        if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
+        val content = normalizeContent(request.content)
         val lecture = getLecture(lectureId)
         val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
@@ -90,7 +90,7 @@ class EvaluationService(
                         userId = userId,
                         year = lecture.year,
                         semester = lecture.semester,
-                        content = request.content,
+                        content = content,
                         gradeSatisfaction = request.gradeSatisfaction,
                         teachingSkill = request.teachingSkill,
                         gains = request.gains,
@@ -110,11 +110,12 @@ class EvaluationService(
         sort: EvaluationSort = EvaluationSort.LATEST,
         year: Int? = null,
         semester: Semester? = null,
+        includeMine: Boolean,
     ): CursorPage<EvaluationDisplay> {
         getCourse(courseId)
         val totalCount = evaluationRepository.countVisible(courseId, year, semester)
         val page =
-            evaluationRepository.findOthers(
+            evaluationRepository.findPageOfCourse(
                 courseId = courseId,
                 userId = userId,
                 year = year,
@@ -122,6 +123,7 @@ class EvaluationService(
                 cursor = decodeEvaluationCursor(cursor, sort),
                 pageSize = PAGE_SIZE + 1,
                 sort = sort,
+                includeMine = includeMine,
             )
         return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { it.toCursor(sort) }) { it.toDisplays(userId) }
     }
@@ -171,10 +173,10 @@ class EvaluationService(
         val evaluation = lockMyEvaluation(userId, evaluationId)
         courseRepository.findForUpdateById(evaluation.courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
-        if (request.content?.isBlank() == true) throw SnuttException(ErrorType.EVALUATION_CONTENT_BLANK)
+        val content = request.content?.let(::normalizeContent)
         if (moveTo != null && moveTo.courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
 
-        val changed = evaluation.apply(request, moveTo)
+        val changed = evaluation.apply(request, content, moveTo)
         if (changed) {
             evaluation.likeCount = 0
             evaluationLikeRepository.deleteByEvaluationId(evaluationId)
@@ -191,10 +193,11 @@ class EvaluationService(
 
     private fun Evaluation.apply(
         request: EvaluationUpdateRequest,
+        newContent: String?,
         moveTo: Lecture?,
     ): Boolean {
         val before = contentSnapshot()
-        request.content?.let { content = it }
+        newContent?.let { content = it }
         request.gradeSatisfaction?.let { gradeSatisfaction = it }
         request.teachingSkill?.let { teachingSkill = it }
         request.gains?.let { gains = it }
@@ -283,6 +286,11 @@ class EvaluationService(
         }
     }
 
+    private fun normalizeContent(content: String): String =
+        content.trim().also {
+            if (it.length < MIN_CONTENT_LENGTH) throw SnuttException(ErrorType.EVALUATION_CONTENT_TOO_SHORT)
+        }
+
     private fun validateRatings(vararg ratings: Double?) {
         if (ratings.filterNotNull().any { it < 1.0 || it > 5.0 }) {
             throw SnuttException(ErrorType.EVALUATION_RATING_OUT_OF_RANGE)
@@ -333,7 +341,6 @@ class EvaluationService(
     ) = EvaluationDisplay(
         evaluation = this,
         isLiked = isLiked,
-        isModifiable = this.userId == userId,
-        isReportable = this.userId != userId,
+        isMine = this.userId == userId,
     )
 }

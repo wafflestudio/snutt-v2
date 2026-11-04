@@ -54,7 +54,7 @@ internal val ErrorType.v1: V1Error
             ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME -> V1Error(HttpStatus.BAD_REQUEST, 40024)
             ErrorType.INVALID_DIARY_QUESTION -> V1Error(HttpStatus.BAD_REQUEST, 40026)
             ErrorType.DIARY_COMMENT_TOO_LONG -> V1Error(HttpStatus.BAD_REQUEST, 40027)
-            ErrorType.EVALUATION_CONTENT_BLANK -> V1Error(HttpStatus.BAD_REQUEST, 40028)
+            ErrorType.EVALUATION_CONTENT_TOO_SHORT -> V1Error(HttpStatus.BAD_REQUEST, 40028)
             ErrorType.EVALUATION_RATING_OUT_OF_RANGE -> V1Error(HttpStatus.BAD_REQUEST, 40029)
             ErrorType.EVALUATION_REPORT_CONTENT_BLANK -> V1Error(HttpStatus.BAD_REQUEST, 40030)
             ErrorType.INVALID_TIMETABLE_TITLE -> V1Error(HttpStatus.BAD_REQUEST, 0x1007)
@@ -182,7 +182,7 @@ class V1CompatExceptionHandler {
         private val EV_ERROR_CODES =
             mapOf(
                 ErrorType.INVALID_CURSOR to 20001L,
-                ErrorType.EVALUATION_CONTENT_BLANK to 20004L,
+                ErrorType.EVALUATION_CONTENT_TOO_SHORT to 20004L,
                 ErrorType.INVALID_EVALUATION_SORT to 20005L,
                 ErrorType.NOT_MY_EVALUATION to 23001L,
                 ErrorType.LECTURE_NOT_FOUND to 24001L,

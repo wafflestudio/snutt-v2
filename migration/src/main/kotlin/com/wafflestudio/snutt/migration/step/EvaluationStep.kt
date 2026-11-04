@@ -40,7 +40,7 @@ class EvaluationStep(
                         userId,
                         rs.getInt("year"),
                         rs.getInt("semester"),
-                        rs.getString("content"),
+                        rs.getString("content").trim(),
                         rs.getObject("grade_satisfaction") as? Double,
                         rs.getObject("teaching_skill") as? Double,
                         rs.getObject("gains") as? Double,
