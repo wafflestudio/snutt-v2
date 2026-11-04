@@ -4,6 +4,8 @@ import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.client.joinLocalized
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.enums.yearAndSemesterLabel
+import com.wafflestudio.snutt.core.common.push.DeeplinkFactory
+import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -81,6 +83,7 @@ class SugangSnuSyncService(
     private val pushService: PushService,
     private val lectureBuildingSync: LectureBuildingSync,
     private val timetableLectureReminderService: TimetableLectureReminderService,
+    private val deeplinkFactory: DeeplinkFactory,
     transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -95,7 +98,7 @@ class SugangSnuSyncService(
 
         pushService.sendTargetedPushes(
             synced.timetableChangeCounts.mapValues { (_, counts) ->
-                counts.toMessage().copy(urlScheme = "snutt://notifications")
+                counts.toMessage().copy(urlScheme = deeplinkFactory.build(DeeplinkType.NOTIFICATIONS))
             },
             PushPreferenceType.LECTURE_UPDATE,
         )
@@ -276,7 +279,7 @@ class SugangSnuSyncService(
                             NotificationType.LECTURE_UPDATE,
                             lecture.localizedCourseTitle,
                             labels = labels,
-                            deeplink = "snutt://timetable-lecture?timetableId=${timetable.id}&lectureId=${entry.id}",
+                            deeplink = deeplinkFactory.build(DeeplinkType.TIMETABLE_LECTURE, timetable.id!!, entry.id!!),
                         )
                 }
             }
@@ -397,7 +400,7 @@ class SugangSnuSyncService(
         type: NotificationType,
         courseTitle: LocalizedMessage,
         labels: LocalizedMessage? = null,
-        deeplink: String = "snutt://notifications",
+        deeplink: String = deeplinkFactory.build(DeeplinkType.NOTIFICATIONS),
     ): Notification {
         val args =
             listOfNotNull(
@@ -422,7 +425,7 @@ class SugangSnuSyncService(
         val args = listOfNotNull(yearAndSemesterLabel(lecture.year, lecture.semester), lecture.localizedCourseTitle, labels)
         return template
             .render(*args.toTypedArray())
-            .copy(urlScheme = "snutt://bookmarks?year=${lecture.year}&semester=${lecture.semester.name}&lectureId=${lecture.id}")
+            .copy(urlScheme = deeplinkFactory.build(DeeplinkType.BOOKMARKS, lecture.year, lecture.semester, lecture.id!!))
             .toNotification(userId, type)
     }
 
