@@ -3,8 +3,8 @@ package com.wafflestudio.snutt.core.domain.friend.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
+import com.wafflestudio.snutt.core.common.push.Deeplink
 import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
-import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
@@ -178,7 +178,7 @@ class FriendService(
     ) {
         pushService.sendPushAndNotification(
             userIds = listOf(userId),
-            message = PushMessage(title, body, deeplinkResolver.build(DeeplinkType.FRIENDS)),
+            message = PushMessage(title, body, deeplinkResolver.build(Deeplink.Friends)),
             type = NotificationType.FRIEND,
             preferenceType = PushPreferenceType.NORMAL,
         )

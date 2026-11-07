@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.push.Deeplink
 import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
-import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.PushMessage
 import com.wafflestudio.snutt.core.domain.bookmark.repository.BookmarkLectureRepository
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -77,7 +77,7 @@ class SugangSnuSyncService(
                 PushMessage(
                     title = "수강편람 업데이트",
                     body = counts.toMessage(),
-                    urlScheme = deeplinkResolver.build(DeeplinkType.NOTIFICATIONS),
+                    urlScheme = deeplinkResolver.build(Deeplink.Notifications),
                 )
             },
             PushPreferenceType.LECTURE_UPDATE,
@@ -256,7 +256,7 @@ class SugangSnuSyncService(
                             timetable,
                             "'${lecture.courseTitle}' 강의가 업데이트 되었습니다.(항목: $labels)",
                             NotificationType.LECTURE_UPDATE,
-                            deeplink = deeplinkResolver.build(DeeplinkType.TIMETABLE_LECTURE, timetable.id!!, entry.id!!),
+                            deeplink = deeplinkResolver.build(Deeplink.TimetableLecture(timetable.id!!, entry.id!!)),
                         )
                 }
             }
@@ -366,7 +366,7 @@ class SugangSnuSyncService(
         timetable: Timetable,
         message: String,
         type: NotificationType,
-        deeplink: String = deeplinkResolver.build(DeeplinkType.NOTIFICATIONS),
+        deeplink: String = deeplinkResolver.build(Deeplink.Notifications),
     ) = Notification(
         userId = timetable.userId,
         title = "수강편람 업데이트",
@@ -385,7 +385,7 @@ class SugangSnuSyncService(
         title = "수강편람 업데이트",
         message = "${lecture.year}-${lecture.semester.fullName} 관심강좌 목록의 $message",
         type = type,
-        deeplink = deeplinkResolver.build(DeeplinkType.BOOKMARKS, lecture.year, lecture.semester, lecture.id!!),
+        deeplink = deeplinkResolver.build(Deeplink.Bookmarks(lecture.year, lecture.semester, lecture.id!!)),
     )
 
     private fun changedFields(
