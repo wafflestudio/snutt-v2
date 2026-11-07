@@ -1,8 +1,8 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
+import com.wafflestudio.snutt.core.common.push.Deeplink
 import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
-import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
@@ -119,7 +119,7 @@ class DiaryScheduler(
                     userId to
                         NotificationTemplate.DIARY_WRITE
                             .render(lecture.localizedCourseTitle)
-                            .copy(urlScheme = deeplinkResolver.build(DeeplinkType.DIARY, lecture.id!!, lecture.courseTitle))
+                            .copy(urlScheme = deeplinkResolver.build(Deeplink.Diary(lecture.id!!, lecture.courseTitle)))
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
         pushService.sendTargetedPushes(messages, PushPreferenceType.DIARY)

@@ -4,8 +4,8 @@ import com.wafflestudio.snutt.batch.BatchJob
 import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
+import com.wafflestudio.snutt.core.common.push.Deeplink
 import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
-import com.wafflestudio.snutt.core.common.push.DeeplinkType
 import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
@@ -159,7 +159,7 @@ class VacancyNotificationJob(
                 message =
                     NotificationTemplate.LECTURE_VACANCY
                         .render(lecture.localizedCourseTitle, lecture.lectureNumber, targetTime)
-                        .copy(urlScheme = deeplinkResolver.build(DeeplinkType.VACANCY), isUrgentOnAndroid = true),
+                        .copy(urlScheme = deeplinkResolver.build(Deeplink.Vacancy), isUrgentOnAndroid = true),
             )
         }
     }
