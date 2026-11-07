@@ -92,12 +92,14 @@ class DiaryScheduler(
 
     @Scheduled(cron = "0 0 6 * * MON-FRI", zone = "Asia/Seoul")
     fun planDiaryNotificationsScheduled() {
-        val current = SemesterCalendar.current()
-        if (current == null) {
-            log.debug("현재 진행 중인 학기가 없어 일기장 알림을 예약하지 않는다")
-            return
+        schedulerLock.withLock("diary-plan", Duration.ofMinutes(10)) {
+            val current = SemesterCalendar.current()
+            if (current == null) {
+                log.debug("현재 진행 중인 학기가 없어 일기장 알림을 예약하지 않는다")
+                return@withLock
+            }
+            planDiaryNotifications(ZonedDateTime.now(kst), current)
         }
-        planDiaryNotifications(ZonedDateTime.now(kst), current)
     }
 
     @Scheduled(cron = "0 * * * * *")
@@ -111,8 +113,11 @@ class DiaryScheduler(
         now: ZonedDateTime,
         target: YearAndSemester,
     ) {
+        val date = now.toLocalDate()
+        if (diaryPushQueue.isPlanned(date)) return
         val pushes = diaryPushes(now, target)
-        if (diaryPushQueue.schedule(now.toLocalDate(), pushes)) log.info("강의 일기장 알림 예약: {}건", pushes.size)
+        diaryPushQueue.schedule(date, pushes)
+        log.info("강의 일기장 알림 예약: {}건", pushes.size)
     }
 
     fun sendDueDiaryNotifications(now: ZonedDateTime) {
