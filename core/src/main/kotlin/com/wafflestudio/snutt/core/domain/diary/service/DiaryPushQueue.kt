@@ -17,18 +17,20 @@ data class DiaryPush(
 class DiaryPushQueue(
     private val redisTemplate: StringRedisTemplate,
 ) {
+    fun isPlanned(date: LocalDate): Boolean = redisTemplate.hasKey(plannedKeyOf(date))
+
     fun schedule(
         date: LocalDate,
         pushes: List<DiaryPush>,
-    ): Boolean {
-        if (redisTemplate.opsForValue().setIfAbsent("$KEY_PREFIX$date:planned", "1", KEY_TTL) != true) return false
-        if (pushes.isEmpty()) return true
-        val key = keyOf(date)
-        redisTemplate
-            .opsForZSet()
-            .add(key, pushes.map { DefaultTypedTuple("${it.userId}:${it.lectureId}", it.sendAt.epochSecond.toDouble()) }.toSet())
-        redisTemplate.expire(key, KEY_TTL)
-        return true
+    ) {
+        if (pushes.isNotEmpty()) {
+            val key = keyOf(date)
+            redisTemplate
+                .opsForZSet()
+                .add(key, pushes.map { DefaultTypedTuple("${it.userId}:${it.lectureId}", it.sendAt.epochSecond.toDouble()) }.toSet())
+            redisTemplate.expire(key, KEY_TTL)
+        }
+        redisTemplate.opsForValue().set(plannedKeyOf(date), "1", KEY_TTL)
     }
 
     fun popDue(
@@ -43,6 +45,8 @@ class DiaryPushQueue(
     }
 
     private fun keyOf(date: LocalDate) = "$KEY_PREFIX$date"
+
+    private fun plannedKeyOf(date: LocalDate) = "$KEY_PREFIX$date:planned"
 
     private companion object {
         const val KEY_PREFIX = "diary-push:"
