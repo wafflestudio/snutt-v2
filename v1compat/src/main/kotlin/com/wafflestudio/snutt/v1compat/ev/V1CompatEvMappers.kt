@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
+import io.swagger.v3.oas.annotations.media.Schema
 
 data class LegacyEvTagGroupDto(
     val id: Int,
@@ -18,6 +19,8 @@ data class LegacyEvTagDto(
     val name: String,
     val description: String?,
     val ordering: Int,
+    @get:Schema(description = "고정 식별자. name은 표시용이라 바뀔 수 있다.")
+    val key: String? = null,
 )
 
 data class LegacyEvaluationWithSemesterDto(
@@ -132,7 +135,7 @@ internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
         name = "main",
         ordering = -1,
         color = null,
-        tags = legacyMainTags.map { it.second },
+        tags = legacyMainTags.map { (tag, dto) -> dto.copy(key = tag.name) },
     )
 
 internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.second.id == tagId }?.first
