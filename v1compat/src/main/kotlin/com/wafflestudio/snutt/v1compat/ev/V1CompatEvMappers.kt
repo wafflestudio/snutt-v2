@@ -19,9 +19,8 @@ data class LegacyEvTagDto(
     val name: String,
     val description: String?,
     val ordering: Int,
-    @param:JsonProperty("key")
     @get:Schema(description = "고정 식별자. name은 표시용이라 바뀔 수 있다.")
-    val key: String?,
+    val key: String? = null,
 )
 
 data class LegacyEvaluationWithSemesterDto(
@@ -120,30 +119,14 @@ data class LegacyEvaluationCreateResponse(
 
 private val legacyMainTags: List<Pair<EvaluationTag, LegacyEvTagDto>> =
     listOf(
-        EvaluationTag.RECENT to
-            LegacyEvTagDto(id = 1, name = "최신", description = "최근 등록된 강의평", ordering = 1, key = EvaluationTag.RECENT.name),
-        EvaluationTag.LIBERAL_EDUCATION to
-            LegacyEvTagDto(id = 317, name = "교양", description = "전체 교양 강의평 모음", ordering = 2, key = EvaluationTag.LIBERAL_EDUCATION.name),
-        EvaluationTag.RECOMMENDED to
-            LegacyEvTagDto(id = 2, name = "추천", description = "학우들의 추천 강의", ordering = 3, key = EvaluationTag.RECOMMENDED.name),
+        EvaluationTag.RECENT to LegacyEvTagDto(id = 1, name = "최신", description = "최근 등록된 강의평", ordering = 1),
+        EvaluationTag.LIBERAL_EDUCATION to LegacyEvTagDto(id = 317, name = "교양", description = "전체 교양 강의평 모음", ordering = 2),
+        EvaluationTag.RECOMMENDED to LegacyEvTagDto(id = 2, name = "추천", description = "학우들의 추천 강의", ordering = 3),
         EvaluationTag.WELL_TAUGHT to
-            LegacyEvTagDto(
-                id = 3,
-                name = "명강",
-                description = "졸업하기 전에 꼭 한 번 들어볼 만한 강의",
-                ordering = 4,
-                key = EvaluationTag.WELL_TAUGHT.name,
-            ),
-        EvaluationTag.SWEET to
-            LegacyEvTagDto(id = 4, name = "꿀강", description = "수업 부담이 크지 않고, 성적도 잘 주는 강의", ordering = 5, key = EvaluationTag.SWEET.name),
+            LegacyEvTagDto(id = 3, name = "명강", description = "졸업하기 전에 꼭 한 번 들어볼 만한 강의", ordering = 4),
+        EvaluationTag.SWEET to LegacyEvTagDto(id = 4, name = "꿀강", description = "수업 부담이 크지 않고, 성적도 잘 주는 강의", ordering = 5),
         EvaluationTag.HARD_BUT_WORTH to
-            LegacyEvTagDto(
-                id = 5,
-                name = "고진감래",
-                description = "공과 시간을 들인 만큼 거두는 것이 많은 강의",
-                ordering = 6,
-                key = EvaluationTag.HARD_BUT_WORTH.name,
-            ),
+            LegacyEvTagDto(id = 5, name = "고진감래", description = "공과 시간을 들인 만큼 거두는 것이 많은 강의", ordering = 6),
     )
 
 internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
@@ -152,7 +135,7 @@ internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
         name = "main",
         ordering = -1,
         color = null,
-        tags = legacyMainTags.map { it.second },
+        tags = legacyMainTags.map { (tag, dto) -> dto.copy(key = tag.name) },
     )
 
 internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.second.id == tagId }?.first
