@@ -49,7 +49,6 @@ class LegacySearchTagService(
                                 name = it.name,
                                 description = null,
                                 ordering = it.ordering,
-                                key = null,
                             )
                         },
                 )

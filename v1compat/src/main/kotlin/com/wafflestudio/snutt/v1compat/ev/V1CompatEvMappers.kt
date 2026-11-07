@@ -21,9 +21,8 @@ data class LegacyEvTagDto(
     val name: String,
     val description: String?,
     val ordering: Int,
-    @param:JsonProperty("key")
     @get:Schema(description = "고정 식별자. name은 표시용이라 바뀔 수 있다.")
-    val key: String?,
+    val key: String? = null,
 )
 
 data class LegacyEvaluationWithSemesterDto(
