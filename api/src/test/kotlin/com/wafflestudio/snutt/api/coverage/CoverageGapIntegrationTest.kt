@@ -125,11 +125,13 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     fun `기기 등록과 해제가 FCM 토픽 구독까지 반영한다`() {
         val registered = registerDevice("fcm-token-abc", "device-1", userAToken)
         assertEquals(200, registered.statusCode.value())
-        verify(pushClient).subscribeGlobalTopic("fcm-token-abc", Language.KO)
+        verify(pushClient).subscribeGlobalTopic("fcm-token-abc", Language.KO, null)
 
-        registerDevice("fcm-token-en", "device-2", userAToken, Language.EN)
-        assertEquals(Language.EN, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse("fcm-token-en")!!.language)
-        verify(pushClient).subscribeGlobalTopic("fcm-token-en", Language.EN)
+        registerDevice("fcm-token-ko2", "device-2", userAToken)
+        verify(pushClient).subscribeGlobalTopic("fcm-token-ko2", Language.KO, null)
+        registerDevice("fcm-token-ko2", "device-2", userAToken, Language.EN)
+        assertEquals(Language.EN, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse("fcm-token-ko2")!!.language)
+        verify(pushClient).subscribeGlobalTopic("fcm-token-ko2", Language.EN, Language.KO)
 
         registerDevice("fcm-token-def", "device-1", userAToken)
         assertEquals(1, activeDeviceCount("device-1"))
@@ -153,7 +155,7 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, response.statusCode.value())
-        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token", Language.KO)
+        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token", Language.KO, null)
     }
 
     @Test

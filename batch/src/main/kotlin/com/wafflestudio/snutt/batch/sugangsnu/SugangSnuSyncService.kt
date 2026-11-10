@@ -17,6 +17,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
+import com.wafflestudio.snutt.core.domain.notification.model.lectureCount
 import com.wafflestudio.snutt.core.domain.notification.model.toNotification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
@@ -382,9 +383,11 @@ class SugangSnuSyncService(
     ) {
         fun toMessage(): LocalizedPushMessage =
             when {
-                updated > 0 && deleted > 0 -> NotificationTemplate.COURSEBOOK_UPDATE_CHANGED_AND_DELETED.render(updated, deleted)
-                updated > 0 -> NotificationTemplate.COURSEBOOK_UPDATE_CHANGED.render(updated)
-                else -> NotificationTemplate.COURSEBOOK_UPDATE_DELETED.render(deleted)
+                updated > 0 && deleted > 0 ->
+                    NotificationTemplate.COURSEBOOK_UPDATE_CHANGED_AND_DELETED
+                        .render(lectureCount(updated), lectureCount(deleted))
+                updated > 0 -> NotificationTemplate.COURSEBOOK_UPDATE_CHANGED.render(lectureCount(updated))
+                else -> NotificationTemplate.COURSEBOOK_UPDATE_DELETED.render(lectureCount(deleted))
             }
     }
 

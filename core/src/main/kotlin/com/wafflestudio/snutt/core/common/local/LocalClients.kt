@@ -45,6 +45,7 @@ class LocalPushClient : PushClient {
     override fun subscribeGlobalTopic(
         registrationId: String,
         language: Language,
+        previousLanguage: Language?,
     ) = Unit
 
     override fun unsubscribeGlobalTopic(registrationId: String) = Unit

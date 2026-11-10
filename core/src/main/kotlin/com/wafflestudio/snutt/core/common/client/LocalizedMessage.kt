@@ -1,5 +1,7 @@
 package com.wafflestudio.snutt.core.common.client
 
+import java.util.Locale
+
 data class LocalizedMessage(
     val ko: String,
     val en: String,
@@ -8,8 +10,8 @@ data class LocalizedMessage(
 
     fun format(vararg args: Any): LocalizedMessage =
         LocalizedMessage(
-            ko = ko.format(*args.localizeArgs(Language.KO)),
-            en = en.format(*args.localizeArgs(Language.EN)),
+            ko = ko.format(Locale.ROOT, *args.localizeArgs(Language.KO)),
+            en = en.format(Locale.ROOT, *args.localizeArgs(Language.EN)),
         )
 
     companion object {

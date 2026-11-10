@@ -14,6 +14,7 @@ interface PushClient {
     fun subscribeGlobalTopic(
         registrationId: String,
         language: Language,
+        previousLanguage: Language?,
     )
 
     fun unsubscribeGlobalTopic(registrationId: String)

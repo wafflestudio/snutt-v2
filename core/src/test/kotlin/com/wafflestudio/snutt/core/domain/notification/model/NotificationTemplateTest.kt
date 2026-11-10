@@ -17,12 +17,12 @@ class NotificationTemplateTest {
     }
 
     @Test
-    fun formatPlaceholderCountsMatchBetweenLanguages() {
+    fun formatPlaceholdersMatchInOrderBetweenLanguages() {
         NotificationTemplate.entries.forEach { template ->
             listOf("title" to template.title, "body" to template.body).forEach { (field, message) ->
-                assertThat(PLACEHOLDER.findAll(message.en).count())
+                assertThat(PLACEHOLDER.findAll(message.en).map { it.value }.toList())
                     .describedAs("${template.name}.$field")
-                    .isEqualTo(PLACEHOLDER.findAll(message.ko).count())
+                    .isEqualTo(PLACEHOLDER.findAll(message.ko).map { it.value }.toList())
             }
         }
     }

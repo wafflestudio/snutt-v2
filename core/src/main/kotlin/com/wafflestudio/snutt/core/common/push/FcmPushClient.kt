@@ -73,12 +73,16 @@ class FcmPushClient(
     override fun subscribeGlobalTopic(
         registrationId: String,
         language: Language,
+        previousLanguage: Language?,
     ) {
         val topic = globalTopicOf(language)
-        runCatching {
-            FirebaseMessaging.getInstance().subscribeToTopic(listOf(registrationId), topic)
-        }.onFailure { log.error("글로벌 토픽 구독 실패: {}", topic, it) }
-        globalTopics().filterNot { it == topic }.forEach { unsubscribeTopic(registrationId, it) }
+        val subscribed =
+            runCatching {
+                FirebaseMessaging.getInstance().subscribeToTopic(listOf(registrationId), topic)
+            }.onFailure { log.error("글로벌 토픽 구독 실패: {}", topic, it) }.isSuccess
+        if (!subscribed) return
+        val previousTopic = previousLanguage?.let(::globalTopicOf) ?: return
+        if (previousTopic != topic) unsubscribeTopic(registrationId, previousTopic)
     }
 
     override fun unsubscribeGlobalTopic(registrationId: String) {

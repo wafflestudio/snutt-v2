@@ -33,22 +33,22 @@ enum class NotificationTemplate(
     COURSEBOOK_UPDATE_CHANGED_AND_DELETED(
         LocalizedMessage(ko = "수강편람 업데이트", en = "Course book update"),
         LocalizedMessage(
-            ko = "강의 %d개가 변경, %d개가 삭제되었습니다. 알림함에서 자세히 확인하세요.",
-            en = "%d lectures were changed and %d were removed. Check your notifications for details.",
+            ko = "강의 %s가 변경, %s가 삭제되었습니다. 알림함에서 자세히 확인하세요.",
+            en = "%s changed and %s removed. Check your notifications for details.",
         ),
     ),
     COURSEBOOK_UPDATE_CHANGED(
         LocalizedMessage(ko = "수강편람 업데이트", en = "Course book update"),
         LocalizedMessage(
-            ko = "강의 %d개가 변경되었습니다. 알림함에서 자세히 확인하세요.",
-            en = "%d lectures were changed. Check your notifications for details.",
+            ko = "강의 %s가 변경되었습니다. 알림함에서 자세히 확인하세요.",
+            en = "%s changed. Check your notifications for details.",
         ),
     ),
     COURSEBOOK_UPDATE_DELETED(
         LocalizedMessage(ko = "수강편람 업데이트", en = "Course book update"),
         LocalizedMessage(
-            ko = "강의 %d개가 삭제되었습니다. 알림함에서 자세히 확인하세요.",
-            en = "%d lectures were removed. Check your notifications for details.",
+            ko = "강의 %s가 삭제되었습니다. 알림함에서 자세히 확인하세요.",
+            en = "%s removed. Check your notifications for details.",
         ),
     ),
     TIMETABLE_LECTURE_UPDATED(
@@ -108,3 +108,5 @@ enum class NotificationTemplate(
 
     fun render(vararg args: Any): LocalizedPushMessage = LocalizedPushMessage(title = title.format(*args), body = body.format(*args))
 }
+
+fun lectureCount(count: Int): LocalizedMessage = LocalizedMessage(ko = "${count}개", en = if (count == 1) "1 lecture" else "$count lectures")
