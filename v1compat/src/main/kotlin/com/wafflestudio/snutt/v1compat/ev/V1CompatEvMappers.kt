@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.v1compat.ev
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationTag
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
@@ -114,28 +116,61 @@ data class LegacyEvaluationCreateResponse(
     val fromSnuev: Boolean,
 )
 
-private val legacyMainTags: List<Pair<EvaluationTag, LegacyEvTagDto>> =
+private class LegacyMainTag(
+    val tag: EvaluationTag,
+    val id: Long,
+    val description: LocalizedMessage,
+    val ordering: Int,
+)
+
+private val legacyMainTags: List<LegacyMainTag> =
     listOf(
-        EvaluationTag.RECENT to LegacyEvTagDto(id = 1, name = "최신", description = "최근 등록된 강의평", ordering = 1),
-        EvaluationTag.LIBERAL_EDUCATION to LegacyEvTagDto(id = 317, name = "교양", description = "전체 교양 강의평 모음", ordering = 2),
-        EvaluationTag.RECOMMENDED to LegacyEvTagDto(id = 2, name = "추천", description = "학우들의 추천 강의", ordering = 3),
-        EvaluationTag.WELL_TAUGHT to
-            LegacyEvTagDto(id = 3, name = "명강", description = "졸업하기 전에 꼭 한 번 들어볼 만한 강의", ordering = 4),
-        EvaluationTag.SWEET to LegacyEvTagDto(id = 4, name = "꿀강", description = "수업 부담이 크지 않고, 성적도 잘 주는 강의", ordering = 5),
-        EvaluationTag.HARD_BUT_WORTH to
-            LegacyEvTagDto(id = 5, name = "고진감래", description = "공과 시간을 들인 만큼 거두는 것이 많은 강의", ordering = 6),
+        LegacyMainTag(EvaluationTag.RECENT, 1, LocalizedMessage(ko = "최근 등록된 강의평", en = "Recently posted reviews"), 1),
+        LegacyMainTag(
+            EvaluationTag.LIBERAL_EDUCATION,
+            317,
+            LocalizedMessage(ko = "전체 교양 강의평 모음", en = "All liberal arts course reviews"),
+            2,
+        ),
+        LegacyMainTag(EvaluationTag.RECOMMENDED, 2, LocalizedMessage(ko = "학우들의 추천 강의", en = "Courses recommended by fellow students"), 3),
+        LegacyMainTag(
+            EvaluationTag.WELL_TAUGHT,
+            3,
+            LocalizedMessage(ko = "졸업하기 전에 꼭 한 번 들어볼 만한 강의", en = "Courses worth taking before you graduate"),
+            4,
+        ),
+        LegacyMainTag(
+            EvaluationTag.SWEET,
+            4,
+            LocalizedMessage(ko = "수업 부담이 크지 않고, 성적도 잘 주는 강의", en = "Light workload and generous grading"),
+            5,
+        ),
+        LegacyMainTag(
+            EvaluationTag.HARD_BUT_WORTH,
+            5,
+            LocalizedMessage(ko = "공과 시간을 들인 만큼 거두는 것이 많은 강의", en = "Courses that reward the time and effort you put in"),
+            6,
+        ),
     )
 
-internal fun legacyMainTagGroup(): LegacyEvTagGroupDto =
+internal fun legacyMainTagGroup(language: Language): LegacyEvTagGroupDto =
     LegacyEvTagGroupDto(
         id = 1,
         name = "main",
         ordering = -1,
         color = null,
-        tags = legacyMainTags.map { it.second },
+        tags =
+            legacyMainTags.map {
+                LegacyEvTagDto(
+                    id = it.id,
+                    name = it.tag.title.of(language),
+                    description = it.description.of(language),
+                    ordering = it.ordering,
+                )
+            },
     )
 
-internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.second.id == tagId }?.first
+internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.id == tagId }?.tag
 
 internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemesterDto {
     val e = evaluation

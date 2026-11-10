@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 data class RegisterLocalRequest(
     @field:NotBlank val localId: String,
     @field:NotBlank val password: String,
-    val email: String? = null,
+    @field:NotBlank val email: String,
 )
 
 data class LoginLocalRequest(

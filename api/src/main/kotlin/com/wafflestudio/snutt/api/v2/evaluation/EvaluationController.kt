@@ -2,6 +2,10 @@ package com.wafflestudio.snutt.api.v2.evaluation
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
 import com.wafflestudio.snutt.api.auth.EmailVerifiedRequired
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.evaluation.dto.EvaluationSort
@@ -46,21 +50,23 @@ data class TakenLectureResponse(
     val takenSemester: Semester,
 )
 
-internal fun LectureTakenByUser.toResponse() =
-    TakenLectureResponse(
-        id = requireNotNull(course.id),
-        lectureId = lectureId,
-        title = course.title,
-        instructor = course.instructor,
-        courseNumber = course.courseNumber,
-        department = lecture.department,
-        credit = lecture.credit,
-        academicYear = lecture.academicYear,
-        category = lecture.category,
-        classification = lecture.classification,
-        takenYear = takenYear,
-        takenSemester = takenSemester,
-    )
+internal fun LectureTakenByUser.toResponse(
+    name: CourseName,
+    language: Language,
+) = TakenLectureResponse(
+    id = requireNotNull(course.id),
+    lectureId = lectureId,
+    title = name.title,
+    instructor = name.instructor,
+    courseNumber = course.courseNumber,
+    department = language.select(lecture.department, lecture.departmentEn),
+    credit = lecture.credit,
+    academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
+    category = language.select(lecture.category, lecture.categoryEn),
+    classification = language.select(lecture.classification, lecture.classificationEn),
+    takenYear = takenYear,
+    takenSemester = takenSemester,
+)
 
 data class EvaluationUpdateRequestBody(
     val lectureId: Long? = null,
@@ -125,16 +131,18 @@ class EvaluationController(
         @RequestParam(defaultValue = "LATEST") sort: EvaluationSort,
         @RequestParam(required = false) year: Int?,
         @RequestParam(required = false) semester: Semester?,
+        @CurrentClient clientInfo: ClientInfo,
     ): CursorPage<EvaluationResponse> =
         evaluationService
             .getEvaluationsOfCourse(userId, courseId, cursor, sort, year, semester)
-            .let(evaluationResponseMapper::toResponse)
+            .let { evaluationResponseMapper.toResponse(it, clientInfo.language) }
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")
     fun createEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable lectureId: Long,
         @Valid @RequestBody body: EvaluationWriteRequestBody,
+        @CurrentClient clientInfo: ClientInfo,
     ): EvaluationResponse =
         evaluationService
             .createEvaluation(
@@ -148,13 +156,17 @@ class EvaluationController(
                     lifeBalance = body.lifeBalance,
                     rating = body.rating,
                 ),
-            ).let(evaluationResponseMapper::toResponse)
+            ).let { evaluationResponseMapper.toResponse(it, clientInfo.language) }
 
     @GetMapping("/v2/courses/{courseId}/evaluations/me")
     fun getMyEvaluationsOfCourse(
         @CurrentUserId userId: Long,
         @PathVariable courseId: Long,
-    ): List<EvaluationResponse> = evaluationService.getMyEvaluationsOfCourse(userId, courseId).let(evaluationResponseMapper::toResponse)
+        @CurrentClient clientInfo: ClientInfo,
+    ): List<EvaluationResponse> =
+        evaluationService.getMyEvaluationsOfCourse(userId, courseId).let {
+            evaluationResponseMapper.toResponse(it, clientInfo.language)
+        }
 
     @GetMapping("/v2/courses/{courseId}/evaluation-summary")
     fun getEvaluationSummaryOfCourse(
@@ -176,30 +188,51 @@ class EvaluationController(
     fun getMyEvaluations(
         @CurrentUserId userId: Long,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getMyEvaluations(userId, cursor).let(evaluationResponseMapper::toResponse)
+        @CurrentClient clientInfo: ClientInfo,
+    ): CursorPage<EvaluationResponse> =
+        evaluationService.getMyEvaluations(userId, cursor).let {
+            evaluationResponseMapper.toResponse(it, clientInfo.language)
+        }
 
     @GetMapping("/v2/evaluations/tags")
-    fun getEvaluationTags(): List<EvaluationTagResponse> =
-        EvaluationTag.entries.map { EvaluationTagResponse(key = it.name, title = it.title, description = it.description) }
+    fun getEvaluationTags(
+        @CurrentClient clientInfo: ClientInfo,
+    ): List<EvaluationTagResponse> =
+        EvaluationTag.entries.map {
+            EvaluationTagResponse(
+                key = it.name,
+                title = it.title.of(clientInfo.language),
+                description = it.description.of(clientInfo.language),
+            )
+        }
 
     @GetMapping("/v2/evaluations/tags/{tag}")
     fun getEvaluationsByTag(
         @CurrentUserId userId: Long,
         @PathVariable tag: EvaluationTag,
         @RequestParam(required = false) cursor: String?,
-    ): CursorPage<EvaluationResponse> = evaluationService.getEvaluationsByTag(userId, tag, cursor).let(evaluationResponseMapper::toResponse)
+        @CurrentClient clientInfo: ClientInfo,
+    ): CursorPage<EvaluationResponse> =
+        evaluationService.getEvaluationsByTag(userId, tag, cursor).let {
+            evaluationResponseMapper.toResponse(it, clientInfo.language)
+        }
 
     @GetMapping("/v2/evaluations/{evaluationId}")
     fun getEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationService.getEvaluation(userId, evaluationId).let(evaluationResponseMapper::toResponse)
+        @CurrentClient clientInfo: ClientInfo,
+    ): EvaluationResponse =
+        evaluationService.getEvaluation(userId, evaluationId).let {
+            evaluationResponseMapper.toResponse(it, clientInfo.language)
+        }
 
     @PatchMapping("/v2/evaluations/{evaluationId}")
     fun updateEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
         @RequestBody body: EvaluationUpdateRequestBody,
+        @CurrentClient clientInfo: ClientInfo,
     ): EvaluationResponse {
         val request =
             EvaluationUpdateRequest(
@@ -211,7 +244,7 @@ class EvaluationController(
                 lifeBalance = body.lifeBalance,
                 rating = body.rating,
             )
-        return evaluationResponseMapper.toResponse(evaluationService.updateEvaluation(userId, evaluationId, request))
+        return evaluationResponseMapper.toResponse(evaluationService.updateEvaluation(userId, evaluationId, request), clientInfo.language)
     }
 
     @DeleteMapping("/v2/evaluations/{evaluationId}")
@@ -235,11 +268,14 @@ class EvaluationController(
     fun likeEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationResponseMapper.toResponse(evaluationService.likeEvaluation(userId, evaluationId))
+        @CurrentClient clientInfo: ClientInfo,
+    ): EvaluationResponse = evaluationResponseMapper.toResponse(evaluationService.likeEvaluation(userId, evaluationId), clientInfo.language)
 
     @DeleteMapping("/v2/evaluations/{evaluationId}/like")
     fun cancelLikeEvaluation(
         @CurrentUserId userId: Long,
         @PathVariable evaluationId: Long,
-    ): EvaluationResponse = evaluationResponseMapper.toResponse(evaluationService.cancelLikeEvaluation(userId, evaluationId))
+        @CurrentClient clientInfo: ClientInfo,
+    ): EvaluationResponse =
+        evaluationResponseMapper.toResponse(evaluationService.cancelLikeEvaluation(userId, evaluationId), clientInfo.language)
 }
