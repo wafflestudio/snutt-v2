@@ -1,5 +1,6 @@
 package com.wafflestudio.snutt.v1compat.ev
 
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import jakarta.persistence.Entity
@@ -56,13 +57,15 @@ class LegacySearchTagService(
     fun toCriteria(
         query: String,
         tagIds: List<Long>,
+        language: Language,
     ): LegacyCourseSearchCriteria {
-        if (tagIds.isEmpty()) return LegacyCourseSearchCriteria(query = query)
+        if (tagIds.isEmpty()) return LegacyCourseSearchCriteria(query = query, language = language)
         val byGroup = repository.findAllByIdIn(tagIds).groupBy { it.groupName }
 
         fun strings(group: String) = byGroup[group].orEmpty().mapNotNull { it.stringValue ?: it.name }
         return LegacyCourseSearchCriteria(
             query = query,
+            language = language,
             academicYear = strings(GROUP_ACADEMIC_YEAR),
             classification = strings(GROUP_CLASSIFICATION),
             department = strings(GROUP_DEPARTMENT),

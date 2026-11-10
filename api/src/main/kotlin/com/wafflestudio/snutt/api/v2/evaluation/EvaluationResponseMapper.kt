@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.api.v2.evaluation
 
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.pagination.CursorPage
-import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationDisplay
 import org.springframework.stereotype.Component
@@ -9,25 +9,38 @@ import org.springframework.stereotype.Component
 @Component
 class EvaluationResponseMapper(
     private val courseRepository: CourseRepository,
+    private val courseNameResolver: CourseNameResolver,
 ) {
-    fun toResponse(page: CursorPage<EvaluationDisplay>): CursorPage<EvaluationResponse> {
-        val courses = coursesOf(page.content)
+    fun toResponse(
+        page: CursorPage<EvaluationDisplay>,
+        language: Language,
+    ): CursorPage<EvaluationResponse> {
+        val courses = courseNamesOf(page.content, language)
         return page.map { toResponse(it, courses) }
     }
 
-    fun toResponse(displays: List<EvaluationDisplay>): List<EvaluationResponse> {
-        val courses = coursesOf(displays)
+    fun toResponse(
+        displays: List<EvaluationDisplay>,
+        language: Language,
+    ): List<EvaluationResponse> {
+        val courses = courseNamesOf(displays, language)
         return displays.map { toResponse(it, courses) }
     }
 
-    fun toResponse(display: EvaluationDisplay): EvaluationResponse = toResponse(display, coursesOf(listOf(display)))
+    fun toResponse(
+        display: EvaluationDisplay,
+        language: Language,
+    ): EvaluationResponse = toResponse(display, courseNamesOf(listOf(display), language))
 
-    private fun coursesOf(displays: List<EvaluationDisplay>): Map<Long, Course> =
-        courseRepository.findAllById(displays.map { it.evaluation.courseId }.distinct()).associateBy { it.id!! }
+    private fun courseNamesOf(
+        displays: List<EvaluationDisplay>,
+        language: Language,
+    ): Map<Long, CourseName> =
+        courseNameResolver.resolve(courseRepository.findAllById(displays.map { it.evaluation.courseId }.distinct()), language)
 
     private fun toResponse(
         display: EvaluationDisplay,
-        courses: Map<Long, Course>,
+        courses: Map<Long, CourseName>,
     ): EvaluationResponse {
         val evaluation = display.evaluation
         val course = courses.getValue(evaluation.courseId)
