@@ -15,6 +15,7 @@ import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigService
 import com.wafflestudio.snutt.core.domain.clientconfig.service.ClientConfigWriteRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
+import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.model.toNotification
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
@@ -106,6 +107,7 @@ class AdminController(
     private val diaryService: DiaryService,
     private val diaryScheduler: DiaryScheduler,
     private val uploadUriIssuer: UploadUriIssuer,
+    private val mailLogService: MailLogService,
 ) {
     @PostMapping("/images/{source}/upload-uris")
     fun getUploadUris(
@@ -244,6 +246,12 @@ class AdminController(
                     ),
             )
         }
+
+    @GetMapping("/mail-logs")
+    fun getMailLogs(
+        @RequestParam email: String?,
+        @RequestParam localId: String?,
+    ): List<AdminMailLogResponse> = mailLogService.find(email, localId).map { it.toResponse() }
 
     @GetMapping("/diary/daily-class-types")
     fun getAllDiaryDailyClassTypes(): List<AdminDiaryDailyClassTypeResponse> = diaryService.getAllDailyClassTypes().map { it.toResponse() }

@@ -2,8 +2,7 @@ package com.wafflestudio.snutt.core.domain.user.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.mail.MailOutcomeLog
-import com.wafflestudio.snutt.core.common.mail.UserMailService
+import com.wafflestudio.snutt.core.common.mail.UserMailType
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.EmailMask
 import com.wafflestudio.snutt.core.common.util.PasswordPolicy
@@ -13,6 +12,8 @@ import com.wafflestudio.snutt.core.domain.auth.authProvidersOf
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.auth.service.PasswordResetTokenPayload
 import com.wafflestudio.snutt.core.domain.auth.service.PasswordResetTokenService
+import com.wafflestudio.snutt.core.domain.maillog.model.MailLogStatus
+import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserSocialAuthRepository
@@ -29,7 +30,7 @@ class PasswordResetService(
     jsonMapper: JsonMapper,
     private val userRepository: UserRepository,
     private val userSocialAuthRepository: UserSocialAuthRepository,
-    private val userMailService: UserMailService,
+    private val mailLogService: MailLogService,
     private val passwordEncoder: PasswordEncoder,
     private val authService: AuthService,
     private val passwordResetTokenService: PasswordResetTokenService,
@@ -45,12 +46,12 @@ class PasswordResetService(
         val trimmed = email.trim()
         val accounts = findIdAccounts(trimmed)
         if (accounts.isEmpty()) {
-            MailOutcomeLog.outcome("find-id", "no_account", trimmed)
+            mailLogService.record(UserMailType.FIND_ID, MailLogStatus.NO_ACCOUNT, trimmed)
             return
         }
-        MailOutcomeLog.logged("find-id", trimmed, accounts.map { it.user.id!! }) {
+        mailLogService.send(UserMailType.FIND_ID, trimmed, accounts.map { it.user.id!! }) {
             store.throttleSend(trimmed)
-            userMailService.sendFoundAccounts(trimmed, renderFindIdMail(accounts))
+            mapOf("email" to trimmed, "accountInfo" to renderFindIdMail(accounts))
         }
     }
 
@@ -85,7 +86,7 @@ class PasswordResetService(
         val trimmed = email.trim()
         val user = userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed)
         if (user == null) {
-            MailOutcomeLog.outcome("password-reset", "no_account", trimmed)
+            mailLogService.record(UserMailType.PASSWORD_RESET, MailLogStatus.NO_ACCOUNT, trimmed)
             return
         }
         sendResetCode(user, trimmed)
@@ -95,14 +96,14 @@ class PasswordResetService(
         val trimmed = localId.trim()
         val user = userRepository.findByLocalIdAndActiveTrue(trimmed)
         if (user == null) {
-            MailOutcomeLog.outcome("password-reset", "no_account", email = null, requestedLocalId = trimmed)
+            mailLogService.record(UserMailType.PASSWORD_RESET, MailLogStatus.NO_ACCOUNT, email = null, requestedLocalId = trimmed)
             throw SnuttException(ErrorType.USER_NOT_FOUND)
         }
         val email = user.email
         if (email.isNullOrBlank()) {
-            MailOutcomeLog.outcome(
-                "password-reset",
-                "no_email",
+            mailLogService.record(
+                UserMailType.PASSWORD_RESET,
+                MailLogStatus.NO_EMAIL,
                 email = null,
                 userIds = listOf(user.id!!),
                 requestedLocalId = trimmed,
@@ -118,10 +119,10 @@ class PasswordResetService(
         email: String,
         requestedLocalId: String? = null,
     ) {
-        MailOutcomeLog.logged("password-reset", email, listOf(user.id!!), requestedLocalId) {
+        mailLogService.send(UserMailType.PASSWORD_RESET, email, listOf(user.id!!), requestedLocalId) {
             val code = VerificationCode.generatePasswordResetCode()
             store.store(user.id!!, code)
-            userMailService.sendPasswordResetCode(email, code)
+            mapOf("code" to code)
         }
     }
 

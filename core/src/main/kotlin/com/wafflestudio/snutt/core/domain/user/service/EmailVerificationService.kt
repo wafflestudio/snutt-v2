@@ -3,10 +3,10 @@ package com.wafflestudio.snutt.core.domain.user.service
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
-import com.wafflestudio.snutt.core.common.mail.MailOutcomeLog
-import com.wafflestudio.snutt.core.common.mail.UserMailService
+import com.wafflestudio.snutt.core.common.mail.UserMailType
 import com.wafflestudio.snutt.core.common.util.CodeChallengeStore
 import com.wafflestudio.snutt.core.common.util.VerificationCode
+import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -19,12 +19,13 @@ class EmailVerificationService(
     redisTemplate: StringRedisTemplate,
     jsonMapper: JsonMapper,
     private val userRepository: UserRepository,
-    private val userMailService: UserMailService,
+    private val mailLogService: MailLogService,
 ) {
     private val store = CodeChallengeStore(redisTemplate, jsonMapper, "verification")
 
     companion object {
         private val snuMailRegex = Regex("^[a-zA-Z0-9._%+-]+@snu\\.ac\\.kr$")
+        private const val MAX_EMAIL_LENGTH = 255
     }
 
     fun sendVerificationCode(
@@ -34,14 +35,14 @@ class EmailVerificationService(
         val user = getUser(userId)
         val trimmed = email.trim()
         if (user.isEmailVerified) throw SnuttException(ErrorType.EMAIL_ALREADY_VERIFIED)
-        if (!snuMailRegex.matches(trimmed)) throw SnuttException(ErrorType.INVALID_EMAIL)
+        if (trimmed.length > MAX_EMAIL_LENGTH || !snuMailRegex.matches(trimmed)) throw SnuttException(ErrorType.INVALID_EMAIL)
         if (userRepository.findByEmailAndIsEmailVerifiedTrueAndActiveTrue(trimmed) != null) {
             throw SnuttException(ErrorType.DUPLICATE_EMAIL)
         }
         val code = VerificationCode.generateEmailVerificationCode()
-        MailOutcomeLog.logged("email-verification", trimmed, listOf(userId)) {
+        mailLogService.send(UserMailType.VERIFICATION, trimmed, listOf(userId)) {
             store.store(userId, code, payload = trimmed)
-            userMailService.sendVerificationCode(trimmed, code)
+            mapOf("code" to code)
         }
     }
 

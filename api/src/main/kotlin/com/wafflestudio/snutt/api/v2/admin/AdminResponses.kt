@@ -2,9 +2,12 @@ package com.wafflestudio.snutt.api.v2.admin
 
 import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.mail.UserMailType
 import com.wafflestudio.snutt.core.domain.clientconfig.model.ClientConfig
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
+import com.wafflestudio.snutt.core.domain.maillog.model.MailLog
+import com.wafflestudio.snutt.core.domain.maillog.model.MailLogStatus
 import com.wafflestudio.snutt.core.domain.popup.model.Popup
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
@@ -17,6 +20,19 @@ data class AdminConfigResponse(
     val value: JsonNode,
     val minVersion: String?,
     val maxVersion: String?,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
+data class AdminMailLogResponse(
+    val id: Long,
+    val type: UserMailType,
+    val status: MailLogStatus,
+    val email: String?,
+    val requestedLocalId: String?,
+    val subject: String?,
+    val body: String?,
+    val errorMessage: String?,
     val createdAt: Long,
     val updatedAt: Long,
 )
@@ -109,6 +125,20 @@ internal fun DiaryQuestion.toResponse() =
         answers = answerList,
         shortAnswers = shortAnswerList,
         active = active,
+        createdAt = checkNotNull(createdAt).toEpochMilli(),
+        updatedAt = checkNotNull(updatedAt).toEpochMilli(),
+    )
+
+internal fun MailLog.toResponse() =
+    AdminMailLogResponse(
+        id = id!!,
+        type = type,
+        status = status,
+        email = email,
+        requestedLocalId = requestedLocalId,
+        subject = subject,
+        body = body,
+        errorMessage = errorMessage,
         createdAt = checkNotNull(createdAt).toEpochMilli(),
         updatedAt = checkNotNull(updatedAt).toEpochMilli(),
     )

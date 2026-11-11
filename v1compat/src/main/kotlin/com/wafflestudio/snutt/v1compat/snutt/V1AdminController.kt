@@ -1,10 +1,13 @@
 package com.wafflestudio.snutt.v1compat.snutt
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.mail.UserMailType
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
 import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
+import com.wafflestudio.snutt.core.domain.maillog.model.MailLogStatus
+import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
@@ -37,6 +40,19 @@ data class LegacySocialAccounts(
     val facebookName: String?,
 )
 
+data class LegacyAdminMailLogResponse(
+    val id: String,
+    val type: UserMailType,
+    val status: MailLogStatus,
+    val email: String?,
+    val requestedLocalId: String?,
+    val subject: String?,
+    val body: String?,
+    val errorMessage: String?,
+    val createdAt: Long,
+    val updatedAt: Long,
+)
+
 @RestController
 @V1AdminOnly
 @RequestMapping("/v1/admin", "/admin")
@@ -44,6 +60,7 @@ class V1AdminController(
     private val semesterRegistrationPeriodService: SemesterRegistrationPeriodService,
     private val userService: UserService,
     private val diaryService: DiaryService,
+    private val mailLogService: MailLogService,
 ) {
     @GetMapping("/registrationPeriods")
     fun getSemesterRegistrationPeriods(): List<SemesterRegistrationPeriod> = semesterRegistrationPeriodService.getAll()
@@ -78,6 +95,26 @@ class V1AdminController(
                         appleEmail = info.socialAuths.firstOrNull { it.provider == AuthProvider.APPLE }?.email,
                         facebookName = info.socialAuths.firstOrNull { it.provider == AuthProvider.FACEBOOK }?.displayName,
                     ),
+            )
+        }
+
+    @GetMapping("/mailLogs")
+    fun getMailLogs(
+        @RequestParam email: String?,
+        @RequestParam localId: String?,
+    ): List<LegacyAdminMailLogResponse> =
+        mailLogService.find(email, localId).map { log ->
+            LegacyAdminMailLogResponse(
+                id = log.id!!.toString(),
+                type = log.type,
+                status = log.status,
+                email = log.email,
+                requestedLocalId = log.requestedLocalId,
+                subject = log.subject,
+                body = log.body,
+                errorMessage = log.errorMessage,
+                createdAt = checkNotNull(log.createdAt).toEpochMilli(),
+                updatedAt = checkNotNull(log.updatedAt).toEpochMilli(),
             )
         }
 
