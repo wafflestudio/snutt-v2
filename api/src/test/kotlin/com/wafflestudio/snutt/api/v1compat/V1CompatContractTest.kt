@@ -24,6 +24,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRep
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.support.TransactionTemplate
 import org.springframework.web.client.RestClient
 import java.time.Instant
 import java.time.LocalDateTime
@@ -64,6 +66,12 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var diarySubmissionRepository: DiarySubmissionRepository
 
+    @Autowired
+    lateinit var userRepository: UserRepository
+
+    @Autowired
+    lateinit var transactionTemplate: TransactionTemplate
+
     private lateinit var legacyToken: String
     private lateinit var userId: String
     private lateinit var lectureId: String
@@ -90,6 +98,8 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
                     credit = 3,
                     quota = 20,
                     courseId = course.id,
+                    courseTitleEn = "Advanced Korean",
+                    instructorEn = "Hwang Hyeondong",
                 ),
                 listOf(
                     ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645),
@@ -221,6 +231,26 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     }
 
     @Test
+    fun `ev 경로도 x-language를 따른다`() {
+        val user = userRepository.findByLocalIdAndActiveTrue("v1user")!!
+        user.isEmailVerified = true
+        userRepository.save(user)
+        val courseId = courseRepository.findAll().single().id!!
+        transactionTemplate.executeWithoutResult { courseRepository.refreshLatestLectures(listOf(courseId)) }
+
+        val summary = body(v1Get("/v1/ev-service/v1/lectures/$courseId/evaluation-summary", legacyToken, Language.EN))
+        assertEquals("Advanced Korean", summary["title"].asString())
+        assertEquals("Hwang Hyeondong", summary["instructor"].asString())
+        assertEquals("고급한국어", body(v1Get("/v1/ev-service/v1/lectures/$courseId/evaluation-summary", legacyToken))["title"].asString())
+
+        val tags = body(v1Get("/v1/ev-service/v1/tags/main", legacyToken, Language.EN))["tags"]
+        assertEquals("Easy A", tags.single { it["id"].asLong() == 4L }["name"].asString())
+
+        val searched = body(v1Get("/v1/ev-service/v1/lectures?query=Advanced", legacyToken, Language.EN))["content"]
+        assertEquals("Advanced Korean", searched.single()["title"].asString())
+    }
+
+    @Test
     fun `iOS 요청 필드명으로 북마크를 추가하고 삭제한다`() {
         val added = v1Send(HttpMethod.POST, "/v1/bookmarks/lecture", """{"lecture_id":"$lectureId"}""", legacyToken)
         assertEquals(200, added.statusCode.value(), "body=${added.body}")
@@ -277,6 +307,27 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
         val notification = body(v1Get("/v1/notification", legacyToken))[0]
 
         assertTrue(notification["_id"].isString)
+    }
+
+    @Test
+    fun `v1 알림 목록도 요청 언어를 따른다`() {
+        notificationRepository.save(
+            Notification(
+                userId = userId.toLong(),
+                title = "빈자리 알림",
+                titleEn = "Vacancy alert",
+                message = "빈자리가 생겼습니다",
+                messageEn = "A seat has opened up",
+            ),
+        )
+
+        val ko = body(v1Get("/v1/notification", legacyToken, Language.KO))[0]
+        val en = body(v1Get("/v1/notification", legacyToken, Language.EN))[0]
+
+        assertEquals("빈자리 알림", ko["title"].asString())
+        assertEquals("빈자리가 생겼습니다", ko["message"].asString())
+        assertEquals("Vacancy alert", en["title"].asString())
+        assertEquals("A seat has opened up", en["message"].asString())
     }
 
     @Test

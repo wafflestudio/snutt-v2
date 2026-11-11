@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.v1compat.ev
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
@@ -53,17 +56,20 @@ class V1CompatTakenLectureController(
     fun getMyLatestLectures(
         @V1CurrentUser user: User,
         @RequestParam(required = false) filter: String?,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyTakenLecturesResponse {
         val taken = takenLectureService.getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
         val metadata = legacyCourseRepository.getByIds(taken.map { it.course.id!! })
-        return LegacyTakenLecturesResponse(taken.map { it.toLegacyTakenLecture(metadata.getValue(it.course.id!!)) })
+        return LegacyTakenLecturesResponse(
+            taken.map { it.toLegacyTakenLecture(metadata.getValue(it.course.id!!).localized(clientInfo.language)) },
+        )
     }
 
     private fun LectureTakenByUser.toLegacyTakenLecture(metadata: LegacyCourseMetadata) =
         LegacyTakenLectureDto(
             id = course.id,
-            title = course.title,
-            instructor = course.instructor,
+            title = metadata.title,
+            instructor = metadata.instructor,
             department = metadata.department,
             courseNumber = course.courseNumber,
             credit = metadata.credit,
@@ -192,12 +198,13 @@ class V1CompatCourseSearchController(
         @RequestParam(required = false, defaultValue = "") query: String,
         @RequestParam(required = false, defaultValue = "0") page: Int,
         @RequestParam(required = false) tags: List<Long>?,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyCourseSearchResponse {
-        val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty())
+        val criteria = legacySearchTagService.toCriteria(query, tags.orEmpty(), clientInfo.language)
         val content = legacyCourseRepository.search(criteria, page, LEGACY_COURSE_PAGE_SIZE)
         val totalCount = legacyCourseRepository.count(criteria)
         return LegacyCourseSearchResponse(
-            content = content.map { it.toLegacyCourse() },
+            content = content.map { it.localized(clientInfo.language).toLegacyCourse() },
             page = page,
             size = LEGACY_COURSE_PAGE_SIZE,
             last = (page.toLong() + 1) * LEGACY_COURSE_PAGE_SIZE >= totalCount,
@@ -209,9 +216,11 @@ class V1CompatCourseSearchController(
     fun getSemesterLectures(
         @V1CurrentUser user: User,
         @PathVariable courseId: Long,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyCourseWithSemestersResponse {
+        val language = clientInfo.language
         val result = courseSearchService.getCourseWithLectures(courseId, user.id!!)
-        val course = legacyCourseRepository.get(courseId)
+        val course = legacyCourseRepository.get(courseId).localized(language)
         val next = SemesterCalendar.next()
         return LegacyCourseWithSemestersResponse(
             id = course.id,
@@ -236,10 +245,10 @@ class V1CompatCourseSearchController(
                             year = lecture.year,
                             semester = lecture.semester.value,
                             credit = lecture.credit,
-                            extraInfo = lecture.remark.orEmpty(),
-                            academicYear = lecture.academicYear.orEmpty(),
-                            category = lecture.category.orEmpty(),
-                            classification = lecture.classification.orEmpty(),
+                            extraInfo = language.select(lecture.remark, lecture.remarkEn).orEmpty(),
+                            academicYear = language.select(lecture.academicYear, lecture.academicYearEn).orEmpty(),
+                            category = language.select(lecture.category, lecture.categoryEn).orEmpty(),
+                            classification = language.select(lecture.classification, lecture.classificationEn).orEmpty(),
                             myEvaluationExists = display.myEvaluationExists,
                         )
                     },

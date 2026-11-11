@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.api.evaluation
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.support.TransactionTemplate
 
 class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
@@ -43,6 +45,9 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
 
     @Autowired
     lateinit var courseAggregateUpdater: CourseAggregateUpdater
+
+    @Autowired
+    lateinit var transactionTemplate: TransactionTemplate
 
     private lateinit var verifiedToken: String
     private lateinit var unverifiedToken: String
@@ -78,6 +83,8 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
                     credit = 3,
                     quota = 10,
                     courseId = courseId,
+                    courseTitleEn = "Theoretical Foundation of AI",
+                    classificationEn = "Major Elective",
                 ),
                 listOf(
                     ClassPlaceAndTime(DayOfWeek.MONDAY, "302-107", 930, 1005),
@@ -99,6 +106,8 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
                 credit = 3,
                 quota = 25,
                 courseId = cursorCourse.id,
+                courseTitleEn = "HCI Theory and Practice",
+                instructorEn = "Lim Hajin",
             ),
         )
 
@@ -399,5 +408,34 @@ class EvaluationIntegrationTest : AbstractApiIntegrationTest() {
         evaluationLikeRepository.save(EvaluationLike(evaluationId = evalId, userId = secondUserId))
         val cancel = delete("/v2/evaluations/$evalId/like", secondVerifiedToken)
         assertEquals(0, body(cancel)["likeCount"].asInt())
+    }
+
+    @Test
+    fun `x-language가 en이면 과목명과 교수명, 태그 문구를 영문으로 돌려준다`() {
+        transactionTemplate.executeWithoutResult { courseRepository.refreshLatestLectures(courseRepository.findAll().map { it.id!! }) }
+        val created = post("/v2/lectures/$lectureId/evaluations", evalBody(), verifiedToken)
+        val evaluationId = body(created)["id"].asLong()
+
+        val evaluation = body(get("/v2/evaluations/$evaluationId", verifiedToken, Language.EN))
+        assertEquals("Theoretical Foundation of AI", evaluation["courseTitle"].asString())
+        val listed = body(get("/v2/courses/$courseId/evaluations", secondVerifiedToken, Language.EN))["content"]
+        assertEquals("Theoretical Foundation of AI", listed[0]["courseTitle"].asString())
+        assertEquals(
+            "계산이론연구 (Theoretical Foundation of AI)",
+            body(get("/v2/evaluations/$evaluationId", verifiedToken))["courseTitle"].asString(),
+        )
+
+        val searched = body(get("/v2/courses?query=HCI", verifiedToken, Language.EN))["content"]
+        assertEquals("HCI Theory and Practice", searched[0]["title"].asString())
+        assertEquals("Lim Hajin", searched[0]["instructor"].asString())
+        assertEquals("임하진", body(get("/v2/courses?query=HCI", verifiedToken))["content"][0]["instructor"].asString())
+
+        val detail = body(get("/v2/courses/$courseId", verifiedToken, Language.EN))
+        assertEquals("Theoretical Foundation of AI", detail["course"]["title"].asString())
+        assertEquals("Major Elective", detail["lectures"][0]["classification"].asString())
+
+        val tags = body(get("/v2/evaluations/tags", verifiedToken, Language.EN))
+        assertEquals("Easy A", tags.single { it["key"].asString() == "SWEET" }["title"].asString())
+        assertEquals("꿀강", body(get("/v2/evaluations/tags", verifiedToken)).single { it["key"].asString() == "SWEET" }["title"].asString())
     }
 }

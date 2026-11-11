@@ -1,6 +1,9 @@
 package com.wafflestudio.snutt.v1compat.ev
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -157,9 +160,10 @@ class V1CompatEvController(
     @GetMapping("/lectures/{lectureId}/evaluation-summary")
     fun getEvaluationSummaryOfLecture(
         @PathVariable lectureId: Long,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyEvLectureSummaryResponse {
         val stats = evaluationService.getCourse(lectureId)
-        val course = legacyCourseRepository.get(lectureId)
+        val course = legacyCourseRepository.get(lectureId).localized(clientInfo.language)
         return LegacyEvLectureSummaryResponse(
             id = course.id,
             title = course.title,
@@ -186,9 +190,10 @@ class V1CompatEvController(
     fun getMyEvaluations(
         @V1CurrentUser user: User,
         @RequestParam(required = false) cursor: String?,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val page = evaluationService.getMyEvaluations(user.id!!, cursor)
-        val courseMap = courseMap(page.content.map { it.evaluation.courseId })
+        val courseMap = courseMap(page.content.map { it.evaluation.courseId }, clientInfo.language)
         return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
 
@@ -266,21 +271,27 @@ class V1CompatEvController(
     }
 
     @GetMapping("/tags/main")
-    fun getMainTags(): LegacyEvTagGroupDto = legacyMainTagGroup()
+    fun getMainTags(
+        @CurrentClient clientInfo: ClientInfo,
+    ): LegacyEvTagGroupDto = legacyMainTagGroup(clientInfo.language)
 
     @GetMapping("/tags/main/{tagId}/evaluations")
     fun getMainTagEvaluations(
         @V1CurrentUser user: User,
         @PathVariable tagId: Long,
         @RequestParam(required = false) cursor: String?,
+        @CurrentClient clientInfo: ClientInfo,
     ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val tag = evaluationTagOfLegacyId(tagId) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
         val page = evaluationService.getEvaluationsByTag(user.id!!, tag, cursor)
-        val courseMap = courseMap(page.content.map { it.evaluation.courseId })
+        val courseMap = courseMap(page.content.map { it.evaluation.courseId }, clientInfo.language)
         return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
 
-    private fun courseMap(courseIds: Collection<Long>): Map<Long, LegacyCourseMetadata> = legacyCourseRepository.getByIds(courseIds)
+    private fun courseMap(
+        courseIds: Collection<Long>,
+        language: Language,
+    ): Map<Long, LegacyCourseMetadata> = legacyCourseRepository.getByIds(courseIds).mapValues { it.value.localized(language) }
 }
 
 private fun legacyEvaluationSort(value: String?): EvaluationSort {

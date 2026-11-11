@@ -5,6 +5,7 @@ import com.linecorp.kotlinjdsl.dsl.jpql.jpql
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
 import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
@@ -16,6 +17,7 @@ import org.springframework.data.repository.Repository
 
 data class LegacyCourseSearchCriteria(
     val query: String = "",
+    val language: Language = Language.KO,
     val classification: List<String> = emptyList(),
     val credit: List<Int> = emptyList(),
     val academicYear: List<String> = emptyList(),
@@ -36,7 +38,23 @@ data class LegacyCourseMetadata(
     val classification: String?,
     val evalCount: Long,
     val avgRating: Double?,
-)
+    val titleEn: String?,
+    val instructorEn: String?,
+    val departmentEn: String?,
+    val academicYearEn: String?,
+    val categoryEn: String?,
+    val classificationEn: String?,
+) {
+    fun localized(language: Language): LegacyCourseMetadata =
+        copy(
+            title = language.select(title, titleEn),
+            instructor = language.select(instructor, instructorEn),
+            department = language.select(department, departmentEn),
+            academicYear = language.select(academicYear, academicYearEn),
+            category = language.select(category, categoryEn),
+            classification = language.select(classification, classificationEn),
+        )
+}
 
 interface LegacyCourseRepository :
     Repository<Course, Long>,
@@ -59,6 +77,12 @@ interface LegacyCourseRepository :
                     path(Lecture::classification),
                     path(Course::evalCount),
                     path(Course::avgRating),
+                    path(Lecture::courseTitleEn),
+                    path(Lecture::instructorEn),
+                    path(Lecture::departmentEn),
+                    path(Lecture::academicYearEn),
+                    path(Lecture::categoryEn),
+                    path(Lecture::classificationEn),
                 ).from(
                     entity(Course::class),
                     leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
@@ -87,6 +111,12 @@ interface LegacyCourseRepository :
                     path(Lecture::classification),
                     path(Course::evalCount),
                     path(Course::avgRating),
+                    path(Lecture::courseTitleEn),
+                    path(Lecture::instructorEn),
+                    path(Lecture::departmentEn),
+                    path(Lecture::academicYearEn),
+                    path(Lecture::categoryEn),
+                    path(Lecture::classificationEn),
                 ).from(
                     entity(Course::class),
                     leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
@@ -138,7 +168,7 @@ interface LegacyCourseRepository :
         }
         criteria.query.split(' ').filter { it.isNotBlank() }.forEach { word ->
             val alternatives = mutableListOf<Predicate>()
-            when (val intent = SearchKeywordClassifier.classify(word, Language.KO)) {
+            when (val intent = SearchKeywordClassifier.classify(word, criteria.language)) {
                 KeywordIntent.Empty -> Unit
                 KeywordIntent.Major -> alternatives += path(Lecture::classification).`in`(listOf("전선", "전필"))
                 KeywordIntent.Graduate -> alternatives += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
@@ -163,6 +193,8 @@ interface LegacyCourseRepository :
         conditions += path(Course::title).like("%$keyword%")
         conditions += path(Course::instructor).like("%$keyword%")
         conditions += path(Course::courseNumber).like(keyword)
+        conditions += path(Lecture::courseTitleEn).like("%$keyword%")
+        conditions += path(Lecture::instructorEn).like("%$keyword%")
     }
 
     private fun Jpql.fuzzy(

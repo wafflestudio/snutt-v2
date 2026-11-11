@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.v2.evaluation
 
 import com.wafflestudio.snutt.api.auth.CurrentUserId
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.domain.evaluation.service.TakenLectureService
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -9,13 +11,16 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class TakenLectureController(
     private val takenLectureService: TakenLectureService,
+    private val courseNameResolver: CourseNameResolver,
 ) {
     @GetMapping("/v2/users/me/lectures/latest")
     fun getMyLatestLectures(
         @CurrentUserId userId: Long,
         @RequestParam(defaultValue = "false") excludeEvaluated: Boolean,
-    ): List<TakenLectureResponse> =
-        takenLectureService
-            .getMyLatestLectures(userId, excludeEvaluated)
-            .map { it.toResponse() }
+        @CurrentClient clientInfo: ClientInfo,
+    ): List<TakenLectureResponse> {
+        val taken = takenLectureService.getMyLatestLectures(userId, excludeEvaluated)
+        val names = courseNameResolver.resolve(taken.map { it.course }, clientInfo.language)
+        return taken.map { it.toResponse(names.getValue(it.course.id!!), clientInfo.language) }
+    }
 }

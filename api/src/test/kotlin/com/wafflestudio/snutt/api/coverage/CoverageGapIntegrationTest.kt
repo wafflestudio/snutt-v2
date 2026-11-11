@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.api.coverage
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
+import org.springframework.transaction.support.TransactionTemplate
 
 class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
@@ -63,6 +65,9 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var legacyTokenService: LegacyTokenService
 
+    @Autowired
+    lateinit var transactionTemplate: TransactionTemplate
+
     private lateinit var userAToken: String
     private lateinit var userBToken: String
     private lateinit var userA: User
@@ -93,6 +98,10 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
                     credit = 1,
                     quota = 150,
                     courseId = course.id,
+                    courseTitleEn = "Freshman Seminar in Human Ecology",
+                    instructorEn = "Park Jisu",
+                    departmentEn = "College of Human Ecology",
+                    classificationEn = "Major Requirement",
                 ),
                 listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "222-701", 1020, 1070)),
             ).id!!
@@ -107,8 +116,9 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
         registrationId: String,
         deviceId: String,
         token: String,
+        language: Language? = null,
     ): ResponseEntity<String> =
-        client()
+        client(language)
             .post()
             .uri("/v2/users/me/devices/$registrationId")
             .headers { it.setBearerAuth(token) }
@@ -123,7 +133,13 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     fun `기기 등록과 해제가 FCM 토픽 구독까지 반영한다`() {
         val registered = registerDevice("fcm-token-abc", "device-1", userAToken)
         assertEquals(200, registered.statusCode.value())
-        verify(pushClient).subscribeGlobalTopic("fcm-token-abc")
+        verify(pushClient).subscribeGlobalTopic("fcm-token-abc", Language.KO, null)
+
+        registerDevice("fcm-token-ko2", "device-2", userAToken)
+        verify(pushClient).subscribeGlobalTopic("fcm-token-ko2", Language.KO, null)
+        registerDevice("fcm-token-ko2", "device-2", userAToken, Language.EN)
+        assertEquals(Language.EN, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse("fcm-token-ko2")!!.language)
+        verify(pushClient).subscribeGlobalTopic("fcm-token-ko2", Language.EN, Language.KO)
 
         registerDevice("fcm-token-def", "device-1", userAToken)
         assertEquals(1, activeDeviceCount("device-1"))
@@ -147,7 +163,7 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
                 .retrieve()
                 .toEntity(String::class.java)
         assertEquals(200, response.statusCode.value())
-        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token")
+        verify(pushClient).subscribeGlobalTopic("legacy-fcm-token", Language.KO, null)
     }
 
     @Test
@@ -233,6 +249,7 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `최근 수강 강의를 강의평 작성 대상으로 돌려준다`() {
+        transactionTemplate.executeWithoutResult { courseRepository.refreshLatestLectures(courseRepository.findAll().map { it.id!! }) }
         val table = post("/v2/timetables", """{"year":2026,"semester":1,"title":"수강내역"}""", userAToken)
         assertEquals(200, table.statusCode.value())
         val tableId = body(table).first { it["title"].asString() == "수강내역" }["id"].asLong()
@@ -245,5 +262,11 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals(1, lectures.size())
         assertEquals("생활과학신입생세미나", lectures[0]["title"].asString())
         assertEquals(2026, lectures[0]["takenYear"].asInt())
+
+        val english = body(get("/v2/users/me/lectures/latest", userAToken, Language.EN))[0]
+        assertEquals("Freshman Seminar in Human Ecology", english["title"].asString())
+        assertEquals("Park Jisu", english["instructor"].asString())
+        assertEquals("College of Human Ecology", english["department"].asString())
+        assertEquals("Major Requirement", english["classification"].asString())
     }
 }

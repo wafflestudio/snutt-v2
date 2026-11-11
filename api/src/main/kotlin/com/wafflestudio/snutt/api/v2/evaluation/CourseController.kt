@@ -52,11 +52,11 @@ data class CourseDetailResponse(
     val lectures: List<CourseLectureResponse>,
 )
 
-private fun Course.toResponse() =
+private fun Course.toResponse(name: CourseName) =
     CourseResponse(
         id = id!!,
-        title = title,
-        instructor = instructor,
+        title = name.title,
+        instructor = name.instructor,
         courseNumber = courseNumber,
         evaluation = CourseEvaluationSummaryResponse(avgRating = avgRating, evalCount = evalCount),
     )
@@ -66,6 +66,7 @@ private fun Course.toResponse() =
 @RequestMapping("/v2/courses")
 class CourseController(
     private val courseSearchService: CourseSearchService,
+    private val courseNameResolver: CourseNameResolver,
 ) {
     @GetMapping("")
     fun searchCourses(
@@ -98,7 +99,8 @@ class CourseController(
                 ),
                 cursor,
             )
-        return page.map { it.toResponse() }
+        val names = courseNameResolver.resolve(page.content, clientInfo.language)
+        return page.map { it.toResponse(names.getValue(it.id!!)) }
     }
 
     @GetMapping("/{courseId}")
@@ -108,12 +110,13 @@ class CourseController(
         @CurrentClient clientInfo: ClientInfo,
     ): CourseDetailResponse {
         val result = courseSearchService.getCourseWithLectures(courseId, userId)
+        val language = clientInfo.language
+        val name = courseNameResolver.resolve(listOf(result.course), language).getValue(courseId)
         return CourseDetailResponse(
-            course = result.course.toResponse(),
+            course = result.course.toResponse(name),
             lectures =
                 result.lectures.map { display ->
                     val lecture = display.lecture
-                    val language = clientInfo.language
                     CourseLectureResponse(
                         id = lecture.id!!,
                         lectureNumber = lecture.lectureNumber,
