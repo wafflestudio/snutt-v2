@@ -41,6 +41,7 @@ class DeviceService(
                 }
                 deviceByDeviceId ?: UserDevice(user = user, fcmRegistrationId = registrationId)
             }
+        val previousLanguage = if (device.id == null) null else device.language
         device.fcmRegistrationId = registrationId
         device.osType = clientInfo.osType.value
         device.osVersion = clientInfo.osVersion
@@ -48,8 +49,9 @@ class DeviceService(
         device.deviceModel = clientInfo.deviceModel
         device.appType = clientInfo.appType
         device.appVersion = clientInfo.appVersion
+        device.language = clientInfo.language
         userDeviceRepository.save(device)
-        afterCommit { pushClient.subscribeGlobalTopic(registrationId) }
+        afterCommit { pushClient.subscribeGlobalTopic(registrationId, clientInfo.language, previousLanguage) }
     }
 
     @Transactional

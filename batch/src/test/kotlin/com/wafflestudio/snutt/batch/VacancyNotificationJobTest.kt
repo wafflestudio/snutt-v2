@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.batch
 import com.wafflestudio.snutt.batch.vacancy.RegistrationStatus
 import com.wafflestudio.snutt.batch.vacancy.SugangSnuRegistrationStatusCrawler
 import com.wafflestudio.snutt.batch.vacancy.VacancyNotificationJob
+import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -26,7 +27,6 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -123,6 +123,9 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                 ),
             )
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-1"))
+        userDeviceRepository.save(
+            UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-1-en", language = Language.EN),
+        )
         val lecture =
             lectureRepository.save(
                 Lecture(
@@ -131,6 +134,7 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
                     courseNumber = "2114.408A",
                     lectureNumber = "001",
                     courseTitle = "HCI이론 및 실습",
+                    courseTitleEn = "Theories and Practices of HCI",
                     instructor = "임하진",
                     department = "언론정보학과(연합전공 정보문화학)",
                     academicYear = "4학년",
@@ -152,11 +156,23 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
         vacancyNotificationJob.run(null)
 
-        val sent = sentMessages().single()
-        assertEquals("fcm-token-1", sent.fcmRegistrationId)
-        assertTrue(sent.message.body.contains("빈자리"))
+        val sent = sentMessages().associateBy { it.fcmRegistrationId }
+        assertEquals(setOf("fcm-token-1", "fcm-token-1-en"), sent.keys)
+        assertEquals("빈자리 알림", sent.getValue("fcm-token-1").message.title)
+        assertEquals(
+            "\"HCI이론 및 실습 (001)\" 강의에 빈자리가 생겼습니다.\n13:00에 수강신청 사이트를 확인해보세요!",
+            sent.getValue("fcm-token-1").message.body,
+        )
+        assertEquals("Vacancy alert", sent.getValue("fcm-token-1-en").message.title)
+        assertEquals(
+            "A seat has opened up in \"Theories and Practices of HCI (001)\".\n" +
+                "Check the course registration site at 13:00!",
+            sent.getValue("fcm-token-1-en").message.body,
+        )
         assertEquals(24, lectureRegistrationStatusRepository.findById(lecture.id!!).get().registrationCount)
-        assertEquals(1, notificationRepository.findAll().size)
+        val notification = notificationRepository.findAll().single()
+        assertEquals("빈자리 알림", notification.title)
+        assertEquals("Vacancy alert", notification.titleEn)
     }
 
     @Test
