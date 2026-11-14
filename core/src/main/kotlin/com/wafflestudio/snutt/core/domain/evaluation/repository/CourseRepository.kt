@@ -275,7 +275,7 @@ interface CourseRepository :
                 }
             }.filterNotNull()
 
-        fun List<String?>.distinctSorted(): List<String> = filterNotNull().distinct().sorted()
+        fun List<String?>.distinctSorted(): List<String> = mapNotNull { it?.ifEmpty { null } }.distinct().sorted()
 
         return CourseVocabulary(
             classification = rows.map { it.classification }.distinctSorted(),
