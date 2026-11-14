@@ -13,7 +13,7 @@ spring:
 
 snutt:
   diary:
-    push-sample-rate: 0.1
+    push-sample-rate: 0.5
 
 server:
   port: 8080
@@ -34,6 +34,10 @@ spring:
   config:
     activate:
       on-profile: prod
+
+snutt:
+  diary:
+    push-sample-rate: 0.1
 
 springdoc:
   swagger-ui:
