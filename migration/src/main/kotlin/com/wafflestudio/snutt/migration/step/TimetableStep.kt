@@ -83,9 +83,6 @@ class TimetableStep(
                     doc.docs("lecture_list").forEach { item ->
                         val lectureId = lectureIds.next()
                         context.timetableLectureIds[externalId to item.id()] = lectureId
-                        item.oid("lecture_id")?.let(context.lectureIds::get)?.let {
-                            context.timetableLectureIdsByLecture.putIfAbsent(id to it, lectureId)
-                        }
                         lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
                     }
                 }

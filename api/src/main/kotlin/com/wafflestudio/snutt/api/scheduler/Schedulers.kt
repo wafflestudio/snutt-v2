@@ -1,6 +1,8 @@
 package com.wafflestudio.snutt.api.scheduler
 
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
+import com.wafflestudio.snutt.core.common.push.Deeplink
+import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
 import com.wafflestudio.snutt.core.common.util.SchedulerLock
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
@@ -18,7 +20,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.net.URLEncoder
 import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -75,6 +76,7 @@ class DiaryScheduler(
     private val coursebookService: CoursebookService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
+    private val deeplinkResolver: DeeplinkResolver,
     @param:Value("\${snutt.diary.push-sample-rate}") private val sampleRate: Double,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -117,11 +119,7 @@ class DiaryScheduler(
                     userId to
                         NotificationTemplate.DIARY_WRITE
                             .render(lecture.localizedCourseTitle)
-                            .copy(
-                                urlScheme =
-                                    "snutt://diary?lectureId=${lecture.id}" +
-                                        "&courseTitle=${URLEncoder.encode(lecture.courseTitle, Charsets.UTF_8)}",
-                            )
+                            .copy(urlScheme = deeplinkResolver.build(Deeplink.Diary(lecture.id!!, lecture.courseTitle)))
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
         pushService.sendTargetedPushes(messages, PushPreferenceType.DIARY)

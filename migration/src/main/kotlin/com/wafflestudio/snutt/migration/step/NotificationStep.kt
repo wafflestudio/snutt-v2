@@ -61,10 +61,8 @@ class NotificationStep(
             deeplink.contains("://timetable-lecture") -> {
                 val timetableId = TIMETABLE_ID.find(deeplink)?.let { context.timetableIds[it.groupValues[1]] }
                 val lectureId = LECTURE_ID.find(deeplink)?.let { context.lectureIds[it.groupValues[1]] }
-                val timetableLectureId =
-                    if (timetableId == null || lectureId == null) null else context.timetableLectureIdsByLecture[timetableId to lectureId]
-                if (timetableLectureId == null) return unresolvedDeeplink()
-                "${scheme}timetable-lecture?timetableId=$timetableId&lectureId=$timetableLectureId"
+                if (timetableId == null || lectureId == null) return unresolvedDeeplink()
+                "${scheme}timetable-lecture?timetableId=$timetableId&lectureId=$lectureId"
             }
             deeplink.contains("://bookmarks") -> {
                 val lectureId =
