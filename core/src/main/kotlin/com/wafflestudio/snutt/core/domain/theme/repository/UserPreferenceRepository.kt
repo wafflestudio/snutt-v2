@@ -10,9 +10,10 @@ interface UserPreferenceRepository : JpaRepository<UserPreference, Long> {
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
-        value =
-            "INSERT INTO user_preference (user_id, default_theme_id) VALUES (:userId, :themeId) " +
-                "ON DUPLICATE KEY UPDATE default_theme_id = :themeId",
+        value = """
+            INSERT INTO user_preference (user_id, default_theme_id) VALUES (:userId, :themeId)
+            ON DUPLICATE KEY UPDATE default_theme_id = :themeId
+        """,
         nativeQuery = true,
     )
     fun upsert(

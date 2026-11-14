@@ -9,12 +9,13 @@ import org.springframework.data.jpa.repository.Query
 
 interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
     @Query(
-        value =
-            "SELECT * FROM (" +
-                "(SELECT * FROM timetable_theme WHERE user_id = :userId) " +
-                "UNION ALL " +
-                "(SELECT * FROM timetable_theme WHERE user_id IS NULL)" +
-                ") t ORDER BY t.id",
+        value = """
+            SELECT * FROM (
+                (SELECT * FROM timetable_theme WHERE user_id = :userId)
+                UNION ALL
+                (SELECT * FROM timetable_theme WHERE user_id IS NULL)
+            ) t ORDER BY t.id
+        """,
         nativeQuery = true,
     )
     fun findAvailableToUser(userId: Long): List<TimetableTheme>

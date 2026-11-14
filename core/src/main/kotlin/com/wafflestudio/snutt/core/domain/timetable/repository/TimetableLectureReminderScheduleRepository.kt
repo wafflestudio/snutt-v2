@@ -27,16 +27,19 @@ interface TimetableLectureReminderScheduleRepository : JpaRepository<TimetableLe
     fun deleteByReminderId(reminderId: Long)
 
     @Query(
-        "SELECT new com.wafflestudio.snutt.core.domain.timetable.repository.DueReminderScheduleRow(" +
-            "s.id, r.id, t.userId, r.offsetMinutes, tl.overrides, l.courseTitle, l.courseTitleEn) " +
-            "FROM TimetableLectureReminderSchedule s " +
-            "JOIN TimetableLectureReminder r ON r.id = s.reminderId " +
-            "JOIN TimetableLecture tl ON tl.id = r.timetableLectureId " +
-            "JOIN Timetable t ON t.id = tl.timetableId " +
-            "LEFT JOIN Lecture l ON l.id = tl.lectureId " +
-            "WHERE s.day = :day AND s.minute BETWEEN :startMinute AND :endMinute " +
-            "AND (s.recentNotifiedAt IS NULL OR s.recentNotifiedAt < :lastNotifiedBefore) " +
-            "AND t.isPrimary = true AND t.year = :year AND t.semester = :semester",
+        """
+        SELECT new com.wafflestudio.snutt.core.domain.timetable.repository.DueReminderScheduleRow(
+            s.id, r.id, t.userId, r.offsetMinutes, tl.overrides, l.courseTitle, l.courseTitleEn
+        )
+        FROM TimetableLectureReminderSchedule s
+        JOIN TimetableLectureReminder r ON r.id = s.reminderId
+        JOIN TimetableLecture tl ON tl.id = r.timetableLectureId
+        JOIN Timetable t ON t.id = tl.timetableId
+        LEFT JOIN Lecture l ON l.id = tl.lectureId
+        WHERE s.day = :day AND s.minute BETWEEN :startMinute AND :endMinute
+          AND (s.recentNotifiedAt IS NULL OR s.recentNotifiedAt < :lastNotifiedBefore)
+          AND t.isPrimary = true AND t.year = :year AND t.semester = :semester
+        """,
     )
     fun findDueSchedules(
         day: DayOfWeek,
