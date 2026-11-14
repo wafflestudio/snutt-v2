@@ -42,7 +42,7 @@ class TimetableThemeService(
 ) {
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
         val defaultId = getDefaultThemeId(userId)
-        val themes = timetableThemeRepository.findByUserIdOrBuiltinCodeIsNotNullOrderById(userId)
+        val themes = timetableThemeRepository.findAvailableToUser(userId)
         return displays(themes, defaultId).values.toList()
     }
 

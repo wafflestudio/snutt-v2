@@ -8,11 +8,16 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
-    fun findByUserIdOrderById(userId: Long): List<TimetableTheme>
-
-    fun findByUserIdOrBuiltinCodeIsNotNullOrderById(userId: Long): List<TimetableTheme>
-
-    fun findByBuiltinCodeIsNotNullOrderById(): List<TimetableTheme>
+    @Query(
+        value =
+            "SELECT * FROM (" +
+                "(SELECT * FROM timetable_theme WHERE user_id = :userId) " +
+                "UNION ALL " +
+                "(SELECT * FROM timetable_theme WHERE user_id IS NULL)" +
+                ") t ORDER BY t.id",
+        nativeQuery = true,
+    )
+    fun findAvailableToUser(userId: Long): List<TimetableTheme>
 
     fun findByIdAndUserId(
         id: Long,

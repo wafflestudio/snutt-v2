@@ -146,11 +146,12 @@ class TimetableLectureService(
         if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         if (request.courseTitle?.isBlank() == true) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         val display = timetableService.displayOf(timetable)
+        val currentDisplay = display.lectures.first { it.id == timetableLecture.id }
         val lecture =
             timetableLecture.lectureId?.let {
                 lectureRepository.findByIdOrNull(it) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
             }
-        val lectureTimes = lecture?.let { lectureService.classTimesByLectureId(listOf(it.id!!))[it.id!!] }.orEmpty()
+        val lectureTimes = originalClassTimes(timetableLecture, currentDisplay)
 
         val timesReset = LectureOverrideField.CLASS_PLACE_AND_TIMES in request.resetFields
         val timesChanged = request.classPlaceAndTimes != null || timesReset
@@ -159,7 +160,7 @@ class TimetableLectureService(
                 ?: if (timesReset) {
                     lectureTimes
                 } else {
-                    display.lectures.first { it.id == timetableLecture.id }.classPlaceAndTimes
+                    currentDisplay.classPlaceAndTimes
                 }
         validateClassTimes(newTimes)
         val remainingIds =
@@ -221,8 +222,9 @@ class TimetableLectureService(
         val lectureId = timetableLecture.lectureId ?: throw SnuttException(ErrorType.CANNOT_RESET_CUSTOM_LECTURE)
 
         val display = timetableService.displayOf(timetable)
+        val currentDisplay = display.lectures.first { it.id == timetableLecture.id }
         val lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
-        val classTimes = lectureService.classTimesByLectureId(listOf(lectureId))[lectureId].orEmpty()
+        val classTimes = originalClassTimes(timetableLecture, currentDisplay)
         val remainingIds = resolveTimeConflict(display, classTimes, isForced, timetableLecture.id).mapTo(hashSetOf()) { it.id }
 
         timetableLecture.clearOverrides()
@@ -237,6 +239,15 @@ class TimetableLectureService(
                 }
             }
         return updatedDisplay(userId, timetable, display.theme, updatedLectures)
+    }
+
+    private fun originalClassTimes(
+        timetableLecture: TimetableLecture,
+        currentDisplay: TimetableLectureDisplay,
+    ): List<ClassPlaceAndTime> {
+        val lectureId = timetableLecture.lectureId ?: return emptyList()
+        if (timetableLecture.overrides?.classPlaceAndTimes == null) return currentDisplay.classPlaceAndTimes
+        return lectureService.classTimesByLectureId(listOf(lectureId))[lectureId].orEmpty()
     }
 
     @Transactional

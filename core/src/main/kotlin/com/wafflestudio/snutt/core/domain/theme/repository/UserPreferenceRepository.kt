@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Query
 interface UserPreferenceRepository : JpaRepository<UserPreference, Long> {
     fun findByUserId(userId: Long): UserPreference?
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
         value =
             "INSERT INTO user_preference (user_id, default_theme_id) VALUES (:userId, :themeId) " +

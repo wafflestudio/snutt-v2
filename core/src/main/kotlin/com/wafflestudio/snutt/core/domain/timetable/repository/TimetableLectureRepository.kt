@@ -37,12 +37,12 @@ interface TimetableLectureRepository : JpaRepository<TimetableLecture, Long> {
         id: Long,
     )
 
-    @Modifying
+    @Modifying(flushAutomatically = true)
     @Query(
         value =
             "INSERT INTO timetable_lecture (timetable_id, lecture_id, custom_color, palette_index, overrides, created_at, updated_at) " +
                 "SELECT :targetTimetableId, lecture_id, custom_color, palette_index, overrides, :now, :now " +
-                "FROM timetable_lecture WHERE timetable_id = :sourceTimetableId",
+                "FROM timetable_lecture WHERE timetable_id = :sourceTimetableId ORDER BY id",
         nativeQuery = true,
     )
     fun copyByTimetableId(
