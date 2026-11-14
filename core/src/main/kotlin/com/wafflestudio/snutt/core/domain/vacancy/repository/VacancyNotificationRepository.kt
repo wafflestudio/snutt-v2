@@ -7,11 +7,13 @@ import org.springframework.data.jpa.repository.Query
 
 interface VacancyNotificationRepository : JpaRepository<VacancyNotification, Long> {
     @Query(
-        "SELECT new com.wafflestudio.snutt.core.domain.vacancy.dto.VacancyLectureDisplay(l, s) " +
-            "FROM VacancyNotification v " +
-            "JOIN Lecture l ON l.id = v.lectureId " +
-            "LEFT JOIN LectureRegistrationStatus s ON s.lectureId = l.id " +
-            "WHERE v.userId = :userId",
+        """
+        SELECT new com.wafflestudio.snutt.core.domain.vacancy.dto.VacancyLectureDisplay(l, s)
+        FROM VacancyNotification v
+        JOIN Lecture l ON l.id = v.lectureId
+        LEFT JOIN LectureRegistrationStatus s ON s.lectureId = l.id
+        WHERE v.userId = :userId
+        """,
     )
     fun findLectureDisplaysByUserId(userId: Long): List<VacancyLectureDisplay>
 
