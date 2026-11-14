@@ -20,6 +20,7 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Service
 class TimetableService(
@@ -100,7 +101,10 @@ class TimetableService(
         title: String,
     ): Timetable {
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        validateTimetableTitle(userId, year, semester, title)
+        if (title.isEmpty() || title.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
+        if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
+        val existing = timetableRepository.findByUserIdAndYearAndSemester(userId, year, semester)
+        if (existing.any { it.title == title }) throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
         return timetableRepository.save(
             Timetable(
                 userId = userId,
@@ -108,7 +112,7 @@ class TimetableService(
                 semester = semester,
                 title = title,
                 themeId = timetableThemeService.getDefaultThemeId(userId),
-                isPrimary = timetableRepository.findByUserIdAndYearAndSemester(userId, year, semester).isEmpty(),
+                isPrimary = existing.isEmpty(),
             ),
         )
     }
@@ -159,9 +163,7 @@ class TimetableService(
                 ),
             )
 
-        timetableLectureRepository.findByTimetableId(timetable.id!!).forEach { source ->
-            timetableLectureRepository.save(source.copyFor(copied.id!!))
-        }
+        timetableLectureRepository.copyByTimetableId(timetable.id!!, copied.id!!, Instant.now())
         return copied
     }
 

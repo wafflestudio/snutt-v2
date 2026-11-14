@@ -13,7 +13,6 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
-import com.wafflestudio.snutt.core.domain.theme.model.UserPreference
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.UserPreferenceRepository
@@ -43,11 +42,7 @@ class TimetableThemeService(
 ) {
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
         val defaultId = getDefaultThemeId(userId)
-        val themes =
-            (
-                timetableThemeRepository.findByUserIdOrderById(userId) +
-                    timetableThemeRepository.findByBuiltinCodeIsNotNullOrderById()
-            ).sortedBy { it.id }
+        val themes = timetableThemeRepository.findByUserIdOrBuiltinCodeIsNotNullOrderById(userId)
         return displays(themes, defaultId).values.toList()
     }
 
@@ -134,9 +129,9 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay {
-        findThemeAvailableToUser(userId, themeId)
-        userPreferenceRepository.save(UserPreference(userId, themeId))
-        return getTheme(userId, themeId)
+        val theme = findThemeAvailableToUser(userId, themeId)
+        userPreferenceRepository.upsert(userId, themeId)
+        return displays(listOf(theme), themeId).getValue(themeId)
     }
 
     @Transactional
@@ -145,9 +140,10 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableThemeDisplay {
         if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
-        val fallbackId = builtinThemeId("snutt")
-        userPreferenceRepository.save(UserPreference(userId, fallbackId))
-        return getTheme(userId, fallbackId)
+        val fallback = builtinTheme("snutt")
+        val fallbackId = fallback.id!!
+        userPreferenceRepository.upsert(userId, fallbackId)
+        return displays(listOf(fallback), fallbackId).getValue(fallbackId)
     }
 
     fun getDefaultThemeId(userId: Long): Long = userPreferenceRepository.findByUserId(userId)?.defaultThemeId ?: builtinThemeId("snutt")

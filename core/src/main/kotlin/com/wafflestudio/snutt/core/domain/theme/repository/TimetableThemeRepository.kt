@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query
 interface TimetableThemeRepository : JpaRepository<TimetableTheme, Long> {
     fun findByUserIdOrderById(userId: Long): List<TimetableTheme>
 
+    fun findByUserIdOrBuiltinCodeIsNotNullOrderById(userId: Long): List<TimetableTheme>
+
     fun findByBuiltinCodeIsNotNullOrderById(): List<TimetableTheme>
 
     fun findByIdAndUserId(
