@@ -24,7 +24,7 @@ class TakenLectureController(
         val names = courseNameResolver.resolve(taken.map { it.course }, clientInfo.language)
         val evaluations =
             evaluationResponseMapper
-                .toResponse(taken.flatMap { it.recentEvaluations }.distinctBy { it.evaluation.id }, clientInfo.language)
+                .toResponse(taken.flatMap { it.recentEvaluations }.distinctBy { it.evaluation.id }, names)
                 .associateBy { it.id }
         return taken.map { lecture ->
             lecture.toResponse(
