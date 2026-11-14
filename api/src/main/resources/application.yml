@@ -25,6 +25,7 @@ management:
         include: health
 
 springdoc:
+  default-produces-media-type: application/json
   swagger-ui:
     enabled: true
 

@@ -42,6 +42,7 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColor
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyColorIndex
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyThemeValue
 import com.wafflestudio.snutt.v1compat.snutt.dto.toLegacyEvSummary
+import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -502,6 +503,7 @@ data class LegacyPopupDto(
     val linkUrl: String?,
     val hiddenDays: Int?,
     @param:JsonProperty("hidden_days")
+    @get:Schema(hidden = true)
     val hiddenDaysSnake: Int?,
 )
 
