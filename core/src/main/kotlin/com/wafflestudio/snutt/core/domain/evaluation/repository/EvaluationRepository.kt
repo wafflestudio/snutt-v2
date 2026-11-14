@@ -35,18 +35,19 @@ interface EvaluationRepository :
 
     @Query(
         """
-        SELECT *
-        FROM (
-            SELECT e.*,
+        SELECT e.*
+        FROM evaluation e
+        JOIN (
+            SELECT id,
                    ROW_NUMBER() OVER (
-                       PARTITION BY e.course_id
-                       ORDER BY e.year DESC, e.semester DESC, e.id DESC
+                       PARTITION BY course_id
+                       ORDER BY year DESC, semester DESC, id DESC
                    ) AS rn
-            FROM evaluation e
-            WHERE e.course_id IN (:courseIds) AND e.is_hidden = FALSE
-        ) ranked
-        WHERE rn <= :limit
-        ORDER BY course_id, rn
+            FROM evaluation
+            WHERE course_id IN (:courseIds) AND is_hidden = FALSE
+        ) ranked ON ranked.id = e.id
+        WHERE ranked.rn <= :limit
+        ORDER BY e.course_id, ranked.rn
         """,
         nativeQuery = true,
     )
