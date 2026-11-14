@@ -100,7 +100,7 @@ class EvaluationService(
                 )
             }
         courseAggregateUpdater.update(course)
-        return evaluation.toDisplay(userId)
+        return evaluation.toDisplay(userId, isLiked = false)
     }
 
     fun getEvaluationsOfCourse(
@@ -198,7 +198,7 @@ class EvaluationService(
             conflictAs(ErrorType.DUPLICATE_EVALUATION) { evaluationRepository.flush() }
         }
         courseAggregateUpdater.update(course)
-        return evaluation.toDisplay(userId)
+        return if (changed) evaluation.toDisplay(userId, isLiked = false) else evaluation.toDisplay(userId)
     }
 
     private fun Evaluation.apply(
