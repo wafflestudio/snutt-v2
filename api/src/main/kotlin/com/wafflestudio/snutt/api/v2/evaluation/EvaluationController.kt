@@ -57,11 +57,14 @@ data class TakenLectureResponse(
                 "강의평이 없거나 다른 학기에만 썼으면 false다.",
     )
     val myEvaluationExists: Boolean,
+    @param:Schema(description = "해당 강의에 달린 강의평 중 최근 학기 순으로 최대 2개다. 수강 학기와 작성자를 구분하지 않는다.")
+    val recentEvaluations: List<EvaluationResponse>,
 )
 
 internal fun LectureTakenByUser.toResponse(
     name: CourseName,
     language: Language,
+    recentEvaluations: List<EvaluationResponse>,
 ) = TakenLectureResponse(
     id = requireNotNull(course.id),
     lectureId = lectureId,
@@ -78,6 +81,7 @@ internal fun LectureTakenByUser.toResponse(
     avgRating = course.avgRating,
     evalCount = course.evalCount,
     myEvaluationExists = myEvaluationExists,
+    recentEvaluations = recentEvaluations,
 )
 
 data class EvaluationUpdateRequestBody(

@@ -128,6 +128,16 @@ class EvaluationService(
         return cursorCodec.pageOf(page, PAGE_SIZE, totalCount, { it.toCursor(sort) }) { it.toDisplays(userId) }
     }
 
+    fun getRecentEvaluationsOfCourses(
+        userId: Long,
+        courseIds: Collection<Long>,
+        limit: Int,
+    ): Map<Long, List<EvaluationDisplay>> =
+        evaluationRepository
+            .findRecentOfCourses(courseIds, limit)
+            .toDisplays(userId)
+            .groupBy { it.evaluation.courseId }
+
     fun getMyEvaluationsOfCourse(
         userId: Long,
         courseId: Long,

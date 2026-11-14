@@ -56,6 +56,9 @@ data class LegacyTakenLectureDto(
                 "강의평이 없거나 다른 학기에만 썼으면 false다.",
     )
     val myEvaluationExists: Boolean,
+    @param:JsonProperty("recent_evaluations")
+    @param:Schema(description = "해당 강의에 달린 강의평 중 최근 학기 순으로 최대 2개다. 수강 학기와 작성자를 구분하지 않는다.")
+    val recentEvaluations: List<LegacyEvaluationWithSemesterDto>,
 )
 
 @RestController
@@ -93,6 +96,7 @@ class V1CompatTakenLectureController(
             avgRating = course.avgRating,
             evaluationCount = course.evalCount,
             myEvaluationExists = myEvaluationExists,
+            recentEvaluations = recentEvaluations.map { it.toLegacyWithSemester() },
         )
 }
 

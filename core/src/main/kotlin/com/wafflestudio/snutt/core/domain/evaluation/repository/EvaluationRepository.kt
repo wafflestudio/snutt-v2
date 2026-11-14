@@ -33,6 +33,28 @@ interface EvaluationRepository :
         userId: Long,
     ): List<Evaluation>
 
+    @Query(
+        """
+        SELECT *
+        FROM (
+            SELECT e.*,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.course_id
+                       ORDER BY e.year DESC, e.semester DESC, e.id DESC
+                   ) AS rn
+            FROM evaluation e
+            WHERE e.course_id IN (:courseIds) AND e.is_hidden = FALSE
+        ) ranked
+        WHERE rn <= :limit
+        ORDER BY course_id, rn
+        """,
+        nativeQuery = true,
+    )
+    fun findRecentOfCourses(
+        courseIds: Collection<Long>,
+        limit: Int,
+    ): List<Evaluation>
+
     fun countByUserIdAndIsHiddenFalse(userId: Long): Long
 
     fun findByIdAndIsHiddenFalse(id: Long): Evaluation?
