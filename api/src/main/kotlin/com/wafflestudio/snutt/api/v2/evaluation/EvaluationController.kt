@@ -53,8 +53,8 @@ data class TakenLectureResponse(
     val evalCount: Long,
     @param:Schema(
         description =
-            "`takenYear`, `takenSemester` 학기에 작성한 본인 강의평의 존재 여부다. " +
-                "`id`는 학기와 무관하게 교과목번호와 교수명으로 정해지므로, 재수강한 강의는 수강 학기마다 값이 다를 수 있다.",
+            "해당 강의에 해당 학기(`takenYear`, `takenSemester`)에 본인이 강의평을 썼으면 true, " +
+                "강의평이 없거나 다른 학기에만 썼으면 false다.",
     )
     val myEvaluationExists: Boolean,
 )
