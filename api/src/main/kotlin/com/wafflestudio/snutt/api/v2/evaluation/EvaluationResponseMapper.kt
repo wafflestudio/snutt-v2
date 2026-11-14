@@ -22,10 +22,12 @@ class EvaluationResponseMapper(
     fun toResponse(
         displays: List<EvaluationDisplay>,
         language: Language,
-    ): List<EvaluationResponse> {
-        val courses = courseNamesOf(displays, language)
-        return displays.map { toResponse(it, courses) }
-    }
+    ): List<EvaluationResponse> = toResponse(displays, courseNamesOf(displays, language))
+
+    fun toResponse(
+        displays: List<EvaluationDisplay>,
+        courseNames: Map<Long, CourseName>,
+    ): List<EvaluationResponse> = displays.map { toResponse(it, courseNames) }
 
     fun toResponse(
         display: EvaluationDisplay,
