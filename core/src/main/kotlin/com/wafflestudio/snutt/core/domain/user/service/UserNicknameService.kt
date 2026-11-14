@@ -40,11 +40,7 @@ class UserNicknameService(
     fun generate(nickname: String): Nickname {
         if (!isValidNickname(nickname)) throw SnuttException(ErrorType.INVALID_NICKNAME)
 
-        val existingTags =
-            userRepository
-                .findAllByNicknameAndActiveTrue(nickname)
-                .map { it.nicknameTag }
-                .toSet()
+        val existingTags = userRepository.findActiveNicknameTags(nickname).toSet()
         val newTag =
             (0 until NICKNAME_TAG_LENGTH_BOUND)
                 .map { it.toString().padStart(4, '0') }
