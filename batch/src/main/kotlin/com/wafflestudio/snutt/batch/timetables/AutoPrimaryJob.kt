@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Component
@@ -17,7 +18,7 @@ class AutoPrimaryJob(
 
     override val name = "primaryTimetableAutoSet"
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     override fun run(target: YearAndSemester?) {
         val (year, semester) = target ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
         val assignedCount = timetableRepository.autoAssignPrimaryByYearAndSemester(year, semester.value)

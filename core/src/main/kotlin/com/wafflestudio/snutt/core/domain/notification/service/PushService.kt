@@ -61,24 +61,27 @@ class PushService(
         type: NotificationType,
         preferenceType: PushPreferenceType,
     ) {
-        if (pushes.isEmpty()) return
+        val deduplicated =
+            pushes.mapNotNull { push ->
+                val uniqueUserIds = push.userIds.distinct()
+                if (uniqueUserIds.isEmpty()) null else TargetedNotificationPush(uniqueUserIds, push.message)
+            }
+        if (deduplicated.isEmpty()) return
         val notifications =
-            pushes.flatMap { push ->
+            deduplicated.flatMap { push ->
                 push.userIds.map { userId -> push.message.toNotification(userId = userId, type = type) }
             }
-        if (notifications.isEmpty()) return
-        notificationRepository.saveAll(notifications)
-        val allUserIds = pushes.flatMapTo(hashSetOf()) { it.userIds }
+        notificationRepository.insertAll(notifications)
+        val allUserIds = deduplicated.flatMapTo(hashSetOf()) { it.userIds }
         val disabledUserIds = pushPreferenceRepository.findDisabledUserIds(allUserIds, preferenceType).toSet()
         val activeUserIds = allUserIds - disabledUserIds
         if (activeUserIds.isEmpty()) return
         val devicesByUserId = userDeviceRepository.findPushTargets(activeUserIds).groupBy { it.userId }
         val messages =
-            pushes.flatMap { push ->
+            deduplicated.flatMap { push ->
                 push.userIds
-                    .asSequence()
                     .filter { it in activeUserIds }
-                    .flatMap { userId -> devicesByUserId[userId].orEmpty().asSequence() }
+                    .flatMap { userId -> devicesByUserId[userId].orEmpty() }
                     .map { target -> TargetedPushMessage(target.fcmRegistrationId, push.message.of(target.language)) }
             }
         afterCommit { deliver(messages) }

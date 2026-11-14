@@ -5,7 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 
-interface NotificationRepository : JpaRepository<Notification, Long> {
+interface NotificationRepository :
+    JpaRepository<Notification, Long>,
+    NotificationBatchRepository {
     @Query(
         value =
             "SELECT * FROM (" +

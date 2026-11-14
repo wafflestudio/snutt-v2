@@ -4,19 +4,13 @@ import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
-import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.vacancy.dto.VacancyLectureDisplay
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-
-data class VacancyLectureDisplay(
-    val lecture: Lecture,
-    val status: LectureRegistrationStatus?,
-)
 
 @Service
 class VacancyNotificationService(

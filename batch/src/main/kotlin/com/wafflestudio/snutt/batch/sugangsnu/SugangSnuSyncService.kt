@@ -171,12 +171,6 @@ class SugangSnuSyncService(
             created.forEach { input -> input.lecture.courseId = resolveCourseId(input.lecture, courses) }
             lectureRepository.saveAll(created.map { it.lecture })
         }
-        val classTimesChangedLectureIds = mutableListOf<Long>()
-        val newClassTimes = mutableListOf<LectureClassTime>()
-        created.forEach { input ->
-            val lectureId = input.lecture.id!!
-            input.classTimes.mapTo(newClassTimes) { toClassTimeEntity(lectureId, it) }
-        }
         updated.forEach { update ->
             val old = update.lecture
             val instructorChanged = old.instructor != update.input.lecture.instructor
@@ -184,18 +178,15 @@ class SugangSnuSyncService(
             if (instructorChanged || old.courseId == null) {
                 old.courseId = resolveCourseId(old, courses)
             }
-            if (update.classTimesChanged) {
-                val lectureId = old.id!!
-                classTimesChangedLectureIds += lectureId
-                update.input.classTimes.mapTo(newClassTimes) { toClassTimeEntity(lectureId, it) }
-            }
         }
-        if (classTimesChangedLectureIds.isNotEmpty()) {
-            lectureClassTimeRepository.deleteByLectureIdIn(classTimesChangedLectureIds)
+        val classTimesUpdated = updated.filter { it.classTimesChanged }
+        if (classTimesUpdated.isNotEmpty()) {
+            lectureClassTimeRepository.deleteByLectureIdIn(classTimesUpdated.map { it.lecture.id!! })
         }
-        if (newClassTimes.isNotEmpty()) {
-            lectureClassTimeRepository.saveAll(newClassTimes)
-        }
+        val newClassTimes =
+            created.flatMap { input -> input.classTimes.map { toClassTimeEntity(input.lecture.id!!, it) } } +
+                classTimesUpdated.flatMap { update -> update.input.classTimes.map { toClassTimeEntity(update.lecture.id!!, it) } }
+        lectureClassTimeRepository.insertAll(newClassTimes)
     }
 
     private fun toClassTimeEntity(
@@ -329,9 +320,7 @@ class SugangSnuSyncService(
         if (removedEntryIds.isNotEmpty()) {
             timetableLectureRepository.deleteAllByIdInBatch(removedEntryIds)
         }
-        if (notifications.isNotEmpty()) {
-            notificationRepository.saveAll(notifications)
-        }
+        notificationRepository.insertAll(notifications)
         return timetableChangeCounts.toMap()
     }
 

@@ -34,16 +34,6 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
         semester: Semester,
     ): List<Timetable>
 
-    fun findByYearAndSemester(
-        year: Int,
-        semester: Semester,
-    ): List<Timetable>
-
-    fun findByYearAndSemesterAndIsPrimaryTrue(
-        year: Int,
-        semester: Semester,
-    ): List<Timetable>
-
     fun findFirstByUserIdOrderByUpdatedAtDesc(userId: Long): Timetable?
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
