@@ -279,7 +279,7 @@ class SugangSnuSyncService(
                             NotificationType.LECTURE_UPDATE,
                             lecture.localizedCourseTitle,
                             labels = labels,
-                            deeplink = deeplinkResolver.build(Deeplink.TimetableLecture(timetable.id!!, entry.id!!)),
+                            deeplink = deeplinkResolver.build(Deeplink.TimetableLecture(timetable.id!!, lecture.id!!)),
                         )
                 }
             }
