@@ -53,32 +53,7 @@ private data class LectureVocabularyRow(
     val instructor: String?,
     val instructorEn: String?,
     val updatedAt: Instant?,
-) {
-    constructor(
-        classification: String?,
-        department: String?,
-        academicYear: String?,
-        category: String?,
-        categoryPre2025: String?,
-        credit: Int,
-        instructor: String?,
-        updatedAt: Instant?,
-    ) : this(
-        classification = classification,
-        classificationEn = null,
-        department = department,
-        departmentEn = null,
-        academicYear = academicYear,
-        academicYearEn = null,
-        category = category,
-        categoryEn = null,
-        categoryPre2025 = categoryPre2025,
-        credit = credit,
-        instructor = instructor,
-        instructorEn = null,
-        updatedAt = updatedAt,
-    )
-}
+)
 
 private data class LectureSearchCursorRating(
     val avgRating: Double?,
@@ -417,37 +392,21 @@ interface LectureRepository :
         val rows =
             findAll(offset = null, limit = null) {
                 jpql {
-                    val select =
-                        if (language == Language.EN) {
-                            selectNew<LectureVocabularyRow>(
-                                path(Lecture::classification),
-                                path(Lecture::classificationEn),
-                                path(Lecture::department),
-                                path(Lecture::departmentEn),
-                                path(Lecture::academicYear),
-                                path(Lecture::academicYearEn),
-                                path(Lecture::category),
-                                path(Lecture::categoryEn),
-                                path(Lecture::categoryPre2025),
-                                path(Lecture::credit),
-                                path(Lecture::instructor),
-                                path(Lecture::instructorEn),
-                                path(Lecture::updatedAt),
-                            )
-                        } else {
-                            selectNew<LectureVocabularyRow>(
-                                path(Lecture::classification),
-                                path(Lecture::department),
-                                path(Lecture::academicYear),
-                                path(Lecture::category),
-                                path(Lecture::categoryPre2025),
-                                path(Lecture::credit),
-                                path(Lecture::instructor),
-                                path(Lecture::updatedAt),
-                            )
-                        }
-                    select
-                        .from(entity(Lecture::class))
+                    selectNew<LectureVocabularyRow>(
+                        path(Lecture::classification),
+                        path(Lecture::classificationEn),
+                        path(Lecture::department),
+                        path(Lecture::departmentEn),
+                        path(Lecture::academicYear),
+                        path(Lecture::academicYearEn),
+                        path(Lecture::category),
+                        path(Lecture::categoryEn),
+                        path(Lecture::categoryPre2025),
+                        path(Lecture::credit),
+                        path(Lecture::instructor),
+                        path(Lecture::instructorEn),
+                        path(Lecture::updatedAt),
+                    ).from(entity(Lecture::class))
                         .where(
                             and(
                                 path(Lecture::year).equal(year),
@@ -460,18 +419,21 @@ interface LectureRepository :
         fun List<String?>.distinctSorted(): List<String> = filterNotNull().distinct().sorted()
 
         fun pick(
-            ko: List<String?>,
-            en: List<String?>,
-        ): List<String> = if (language == Language.EN) en.distinctSorted().ifEmpty { ko.distinctSorted() } else ko.distinctSorted()
+            ko: (LectureVocabularyRow) -> String?,
+            en: (LectureVocabularyRow) -> String?,
+        ): List<String> {
+            val korean = rows.map(ko).distinctSorted()
+            return if (language == Language.EN) rows.map(en).distinctSorted().ifEmpty { korean } else korean
+        }
 
         return LectureVocabulary(
-            classification = pick(rows.map { it.classification }, rows.map { it.classificationEn }),
-            department = pick(rows.map { it.department }, rows.map { it.departmentEn }),
-            academicYear = pick(rows.map { it.academicYear }, rows.map { it.academicYearEn }),
-            category = pick(rows.map { it.category }, rows.map { it.categoryEn }),
+            classification = pick({ it.classification }, { it.classificationEn }),
+            department = pick({ it.department }, { it.departmentEn }),
+            academicYear = pick({ it.academicYear }, { it.academicYearEn }),
+            category = pick({ it.category }, { it.categoryEn }),
             categoryPre2025 = rows.map { it.categoryPre2025 }.distinctSorted(),
             credit = rows.map { it.credit }.distinct().sorted(),
-            instructor = pick(rows.map { it.instructor }, rows.map { it.instructorEn }),
+            instructor = pick({ it.instructor }, { it.instructorEn }),
             updatedAt = rows.mapNotNull { it.updatedAt }.maxOrNull(),
         )
     }
