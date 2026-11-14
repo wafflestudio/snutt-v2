@@ -87,10 +87,10 @@ enum class NotificationTemplate(
         ),
     ),
     DIARY_WRITE(
-        LocalizedMessage(ko = "이번주 강의일기를 작성해보세요.", en = "Write this week's class diary."),
+        LocalizedMessage(ko = "오늘 강의일기를 작성해보세요.", en = "Write today's class diary."),
         LocalizedMessage(
-            ko = "최근 수강한 <%s> 강의에 대한 강의일기를 작성해보세요.📔",
-            en = "Write a class diary for <%s>, one of your recent classes.📔",
+            ko = "오늘 수강한 <%s> 강의에 대한 강의일기를 작성해보세요.📔",
+            en = "Write a class diary for <%s>, which you attended today.📔",
         ),
     ),
     FRIEND_REQUEST(
