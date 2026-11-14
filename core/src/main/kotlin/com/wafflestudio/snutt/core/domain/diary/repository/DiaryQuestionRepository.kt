@@ -8,12 +8,14 @@ interface DiaryQuestionRepository : JpaRepository<DiaryQuestion, Long> {
     fun findAllByActiveTrue(): List<DiaryQuestion>
 
     @Query(
-        "SELECT q FROM DiaryQuestion q " +
-            "WHERE q.active = true AND EXISTS (" +
-            "SELECT 1 FROM DiaryQuestionTarget t " +
-            "JOIN DiaryDailyClassType d ON d.id = t.dailyClassTypeId " +
-            "WHERE t.questionId = q.id AND d.active = true AND d.name IN :dailyClassTypes" +
-            ")",
+        """
+        SELECT q FROM DiaryQuestion q
+        WHERE q.active = true AND EXISTS (
+            SELECT 1 FROM DiaryQuestionTarget t
+            JOIN DiaryDailyClassType d ON d.id = t.dailyClassTypeId
+            WHERE t.questionId = q.id AND d.active = true AND d.name IN :dailyClassTypes
+        )
+        """,
     )
     fun findActiveByDailyClassTypes(dailyClassTypes: Collection<String>): List<DiaryQuestion>
 }

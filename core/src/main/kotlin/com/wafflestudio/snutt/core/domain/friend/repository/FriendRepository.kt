@@ -16,12 +16,13 @@ interface FriendRepository : JpaRepository<Friend, Long> {
     ): Friend?
 
     @Query(
-        value =
-            "SELECT * FROM (" +
-                "(SELECT * FROM friend WHERE from_user_id = :userId AND is_accepted = true) " +
-                "UNION ALL " +
-                "(SELECT * FROM friend WHERE to_user_id = :userId AND is_accepted = true)" +
-                ") f ORDER BY f.created_at DESC",
+        value = """
+            SELECT * FROM (
+                (SELECT * FROM friend WHERE from_user_id = :userId AND is_accepted = true)
+                UNION ALL
+                (SELECT * FROM friend WHERE to_user_id = :userId AND is_accepted = true)
+            ) f ORDER BY f.created_at DESC
+        """,
         nativeQuery = true,
     )
     fun findActiveByUserId(userId: Long): List<Friend>

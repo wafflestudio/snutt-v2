@@ -7,20 +7,19 @@ import java.time.Instant
 
 interface NotificationRepository : JpaRepository<Notification, Long> {
     @Query(
-        value =
-            "SELECT * FROM (" +
-                "(SELECT * FROM notification n WHERE n.user_id = :userId " +
-                "AND n.created_at > :registeredAt " +
-                "AND (:cursorCreatedAt IS NULL OR n.created_at < :cursorCreatedAt " +
-                "OR (n.created_at = :cursorCreatedAt AND n.id < :cursorId)) " +
-                "ORDER BY n.created_at DESC, n.id DESC LIMIT :limit) " +
-                "UNION ALL " +
-                "(SELECT * FROM notification n WHERE n.user_id IS NULL " +
-                "AND n.created_at > :registeredAt " +
-                "AND (:cursorCreatedAt IS NULL OR n.created_at < :cursorCreatedAt " +
-                "OR (n.created_at = :cursorCreatedAt AND n.id < :cursorId)) " +
-                "ORDER BY n.created_at DESC, n.id DESC LIMIT :limit)" +
-                ") n ORDER BY n.created_at DESC, n.id DESC LIMIT :limit",
+        value = """
+            SELECT * FROM (
+                (SELECT * FROM notification n WHERE n.user_id = :userId AND n.created_at > :registeredAt
+                   AND (:cursorCreatedAt IS NULL OR n.created_at < :cursorCreatedAt
+                        OR (n.created_at = :cursorCreatedAt AND n.id < :cursorId))
+                 ORDER BY n.created_at DESC, n.id DESC LIMIT :limit)
+                UNION ALL
+                (SELECT * FROM notification n WHERE n.user_id IS NULL AND n.created_at > :registeredAt
+                   AND (:cursorCreatedAt IS NULL OR n.created_at < :cursorCreatedAt
+                        OR (n.created_at = :cursorCreatedAt AND n.id < :cursorId))
+                 ORDER BY n.created_at DESC, n.id DESC LIMIT :limit)
+            ) n ORDER BY n.created_at DESC, n.id DESC LIMIT :limit
+        """,
         nativeQuery = true,
     )
     fun findNotifications(
@@ -32,10 +31,11 @@ interface NotificationRepository : JpaRepository<Notification, Long> {
     ): List<Notification>
 
     @Query(
-        value =
-            "SELECT " +
-                "(SELECT COUNT(*) FROM notification WHERE user_id = :userId AND created_at > :checkedAt) + " +
-                "(SELECT COUNT(*) FROM notification WHERE user_id IS NULL AND created_at > :checkedAt)",
+        value = """
+            SELECT
+                (SELECT COUNT(*) FROM notification WHERE user_id = :userId AND created_at > :checkedAt) +
+                (SELECT COUNT(*) FROM notification WHERE user_id IS NULL AND created_at > :checkedAt)
+        """,
         nativeQuery = true,
     )
     fun countUnread(
