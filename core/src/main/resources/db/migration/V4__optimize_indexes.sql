@@ -17,7 +17,9 @@ ALTER TABLE evaluation
     ADD INDEX idx_evaluation_visible_id (is_hidden, id DESC);
 
 ALTER TABLE lecture
-    ADD INDEX idx_lecture_course_classification (course_id, classification);
+    ADD INDEX idx_lecture_course_classification (course_id, classification),
+    ADD INDEX idx_lecture_classification_course (classification, course_id),
+    DROP INDEX idx_lecture_classification;
 
 ALTER TABLE timetable_lecture_reminder_schedule
     ADD INDEX idx_reminder_schedule_slot_notified (day, minute, recent_notified_at, reminder_id),
