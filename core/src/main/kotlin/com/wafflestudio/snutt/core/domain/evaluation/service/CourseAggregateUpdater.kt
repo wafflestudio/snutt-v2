@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.evaluation.service
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.repository.EvaluationRepository
 import org.springframework.stereotype.Service
@@ -15,7 +16,12 @@ class CourseAggregateUpdater(
     @Transactional
     fun update(courseId: Long) {
         val course = courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
-        val aggregate = evaluationRepository.findCourseAggregate(courseId)
+        update(course)
+    }
+
+    @Transactional
+    fun update(course: Course) {
+        val aggregate = evaluationRepository.findCourseAggregate(course.id!!)
         course.evalCount = aggregate.evalCount
         course.avgRating = aggregate.avgRating
         course.avgGradeSatisfaction = aggregate.avgGradeSatisfaction

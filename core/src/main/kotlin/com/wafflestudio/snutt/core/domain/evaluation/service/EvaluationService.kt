@@ -79,7 +79,7 @@ class EvaluationService(
         val content = normalizeContent(request.content)
         val lecture = getLecture(lectureId)
         val courseId = lecture.courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
-        courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        val course = courseRepository.findForUpdateById(courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         ensureNotEvaluated(courseId, lecture.year, lecture.semester, userId)
         val evaluation =
@@ -99,7 +99,7 @@ class EvaluationService(
                     ),
                 )
             }
-        courseAggregateUpdater.update(courseId)
+        courseAggregateUpdater.update(course)
         return evaluation.toDisplay(userId)
     }
 
@@ -181,7 +181,7 @@ class EvaluationService(
     ): EvaluationDisplay {
         val moveTo = request.moveToLectureId?.let(::getLecture)
         val evaluation = lockMyEvaluation(userId, evaluationId)
-        courseRepository.findForUpdateById(evaluation.courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
+        val course = courseRepository.findForUpdateById(evaluation.courseId) ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         validateRatings(request.gradeSatisfaction, request.teachingSkill, request.gains, request.lifeBalance, request.rating)
         val content = request.content?.let(::normalizeContent)
         if (moveTo != null && moveTo.courseId != evaluation.courseId) throw SnuttException(ErrorType.EVALUATION_LECTURE_MISMATCH)
@@ -197,7 +197,7 @@ class EvaluationService(
             evaluation.semester = moveTo.semester
             conflictAs(ErrorType.DUPLICATE_EVALUATION) { evaluationRepository.flush() }
         }
-        courseAggregateUpdater.update(evaluation.courseId)
+        courseAggregateUpdater.update(course)
         return evaluation.toDisplay(userId)
     }
 
@@ -236,12 +236,15 @@ class EvaluationService(
         request: EvaluationReportRequest,
     ): EvaluationReport {
         if (request.content.isBlank()) throw SnuttException(ErrorType.EVALUATION_REPORT_CONTENT_BLANK)
-        val evaluation = lockEvaluation(evaluationId)
+        val evaluation =
+            evaluationRepository.findByIdAndIsHiddenFalse(evaluationId)
+                ?: throw SnuttException(ErrorType.EVALUATION_NOT_FOUND)
         if (evaluation.userId == userId) throw SnuttException(ErrorType.MY_EVALUATION_REPORT)
-        if (evaluationReportRepository.existsByEvaluationIdAndUserId(evaluationId, userId)) {
-            throw SnuttException(ErrorType.DUPLICATE_EVALUATION_REPORT)
+        return conflictAs(ErrorType.DUPLICATE_EVALUATION_REPORT) {
+            evaluationReportRepository.saveAndFlush(
+                EvaluationReport(evaluationId = evaluationId, userId = userId, content = request.content),
+            )
         }
-        return evaluationReportRepository.save(EvaluationReport(evaluationId = evaluationId, userId = userId, content = request.content))
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
