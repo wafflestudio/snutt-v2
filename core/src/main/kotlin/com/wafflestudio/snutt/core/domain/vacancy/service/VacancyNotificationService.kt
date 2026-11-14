@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.error.conflictAs
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
@@ -23,14 +22,10 @@ data class VacancyLectureDisplay(
 class VacancyNotificationService(
     private val vacancyNotificationRepository: VacancyNotificationRepository,
     private val lectureRepository: LectureRepository,
-    private val lectureRegistrationStatusRepository: LectureRegistrationStatusRepository,
     private val coursebookService: CoursebookService,
 ) {
-    fun getVacancyNotificationLectures(userId: Long): List<VacancyLectureDisplay> {
-        val lectureIds = vacancyNotificationRepository.findByUserId(userId).map { it.lectureId }
-        val statuses = lectureRegistrationStatusRepository.findAllById(lectureIds).associateBy { it.lectureId }
-        return lectureRepository.findAllById(lectureIds).map { VacancyLectureDisplay(it, statuses[it.id]) }
-    }
+    fun getVacancyNotificationLectures(userId: Long): List<VacancyLectureDisplay> =
+        vacancyNotificationRepository.findLectureDisplaysByUserId(userId)
 
     fun existsVacancyNotification(
         userId: Long,

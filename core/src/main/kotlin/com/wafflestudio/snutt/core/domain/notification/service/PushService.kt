@@ -16,6 +16,11 @@ import com.wafflestudio.snutt.core.domain.pushpreference.repository.PushPreferen
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+data class TargetedNotificationPush(
+    val userIds: Collection<Long>,
+    val message: LocalizedPushMessage,
+)
+
 @Service
 class PushService(
     private val pushClient: PushClient,
@@ -47,8 +52,35 @@ class PushService(
         preferenceType: PushPreferenceType,
     ) {
         if (userIds.isEmpty()) return
-        notificationRepository.saveAll(userIds.map { message.toNotification(userId = it, type = type) })
-        val messages = resolveMessages(userIds.associateWith { message }, preferenceType)
+        sendBatchPushAndNotification(listOf(TargetedNotificationPush(userIds, message)), type, preferenceType)
+    }
+
+    @Transactional
+    fun sendBatchPushAndNotification(
+        pushes: List<TargetedNotificationPush>,
+        type: NotificationType,
+        preferenceType: PushPreferenceType,
+    ) {
+        if (pushes.isEmpty()) return
+        val notifications =
+            pushes.flatMap { push ->
+                push.userIds.map { userId -> push.message.toNotification(userId = userId, type = type) }
+            }
+        if (notifications.isEmpty()) return
+        notificationRepository.saveAll(notifications)
+        val allUserIds = pushes.flatMapTo(hashSetOf()) { it.userIds }
+        val disabledUserIds = pushPreferenceRepository.findDisabledUserIds(allUserIds, preferenceType).toSet()
+        val activeUserIds = allUserIds - disabledUserIds
+        if (activeUserIds.isEmpty()) return
+        val devicesByUserId = userDeviceRepository.findPushTargets(activeUserIds).groupBy { it.userId }
+        val messages =
+            pushes.flatMap { push ->
+                push.userIds
+                    .asSequence()
+                    .filter { it in activeUserIds }
+                    .flatMap { userId -> devicesByUserId[userId].orEmpty().asSequence() }
+                    .map { target -> TargetedPushMessage(target.fcmRegistrationId, push.message.of(target.language)) }
+            }
         afterCommit { deliver(messages) }
     }
 

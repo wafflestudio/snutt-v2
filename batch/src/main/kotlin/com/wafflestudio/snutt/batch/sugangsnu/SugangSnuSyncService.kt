@@ -145,16 +145,20 @@ class SugangSnuSyncService(
 
         val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
         upsertLectures(created, updated)
-        val affectedEntries = timetableLectureRepository.findByLectureIdIn(updated.map { it.lecture.id!! } + deleted.map { it.id!! })
+        val affectedLectureIds = updated.map { it.lecture.id!! } + deleted.map { it.id!! }
+        val affectedEntries =
+            if (affectedLectureIds.isEmpty()) emptyList() else timetableLectureRepository.findByLectureIdIn(affectedLectureIds)
         val timetableChangeCounts = syncUserLectures(updated, deleted, affectedEntries)
-        deleted.forEach(lectureRepository::delete)
+        if (deleted.isNotEmpty()) {
+            lectureRepository.deleteAllByIdInBatch(deleted.mapNotNull { it.id })
+        }
         lectureRepository.flush()
         val changedTimetableIds = affectedEntries.map { it.timetableId }.distinct()
         if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
         val affectedCourses =
             (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                 .distinct()
-        courseRepository.refreshLatestLectures(affectedCourses)
+        if (affectedCourses.isNotEmpty()) courseRepository.refreshLatestLectures(affectedCourses)
         return SyncedLectures(created, updated, deleted, timetableChangeCounts)
     }
 
@@ -163,11 +167,15 @@ class SugangSnuSyncService(
         updated: List<LectureUpdate>,
     ) {
         val courses = loadCourses(created.map { it.lecture } + updated.map { it.input.lecture })
+        if (created.isNotEmpty()) {
+            created.forEach { input -> input.lecture.courseId = resolveCourseId(input.lecture, courses) }
+            lectureRepository.saveAll(created.map { it.lecture })
+        }
+        val classTimesChangedLectureIds = mutableListOf<Long>()
+        val newClassTimes = mutableListOf<LectureClassTime>()
         created.forEach { input ->
-            val lecture = input.lecture
-            lecture.courseId = resolveCourseId(lecture, courses)
-            lectureRepository.save(lecture)
-            saveClassTimes(lecture, input.classTimes)
+            val lectureId = input.lecture.id!!
+            input.classTimes.mapTo(newClassTimes) { toClassTimeEntity(lectureId, it) }
         }
         updated.forEach { update ->
             val old = update.lecture
@@ -177,11 +185,29 @@ class SugangSnuSyncService(
                 old.courseId = resolveCourseId(old, courses)
             }
             if (update.classTimesChanged) {
-                lectureClassTimeRepository.deleteByLectureId(old.id!!)
-                saveClassTimes(old, update.input.classTimes)
+                val lectureId = old.id!!
+                classTimesChangedLectureIds += lectureId
+                update.input.classTimes.mapTo(newClassTimes) { toClassTimeEntity(lectureId, it) }
             }
         }
+        if (classTimesChangedLectureIds.isNotEmpty()) {
+            lectureClassTimeRepository.deleteByLectureIdIn(classTimesChangedLectureIds)
+        }
+        if (newClassTimes.isNotEmpty()) {
+            lectureClassTimeRepository.saveAll(newClassTimes)
+        }
     }
+
+    private fun toClassTimeEntity(
+        lectureId: Long,
+        classTime: ClassPlaceAndTime,
+    ) = LectureClassTime(
+        lectureId = lectureId,
+        day = classTime.day,
+        place = classTime.place,
+        startMinute = classTime.startMinute,
+        endMinute = classTime.endMinute,
+    )
 
     private fun loadCourses(lectures: List<Lecture>): MutableMap<Pair<String, String>, Course> =
         lectures
@@ -209,23 +235,6 @@ class SugangSnuSyncService(
                     )
             }
         return course.id
-    }
-
-    private fun saveClassTimes(
-        lecture: Lecture,
-        classTimes: List<ClassPlaceAndTime>,
-    ) {
-        lectureClassTimeRepository.saveAll(
-            classTimes.map {
-                LectureClassTime(
-                    lectureId = lecture.id!!,
-                    day = it.day,
-                    place = it.place,
-                    startMinute = it.startMinute,
-                    endMinute = it.endMinute,
-                )
-            },
-        )
     }
 
     private fun syncUserLectures(
@@ -257,7 +266,6 @@ class SugangSnuSyncService(
                     update.classTimesChanged &&
                         affected.overlapsOtherLecture(timetable.id!!, lecture.id!!, update.input.classTimes, removedEntryIds)
                 if (overwritten) {
-                    timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
                     removedEntryIds += entry.id!!
                     counts.deleted += 1
                     notifications +=
@@ -297,7 +305,7 @@ class SugangSnuSyncService(
 
         deleted.forEach { lecture ->
             affected.forEachEntry(lecture.id!!) { timetable, entry ->
-                timetableLectureRepository.deleteByTimetableIdAndId(timetable.id!!, entry.id!!)
+                removedEntryIds += entry.id!!
                 timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
                 notifications +=
                     timetableNotification(
@@ -318,7 +326,12 @@ class SugangSnuSyncService(
             }
         }
 
-        notificationRepository.saveAll(notifications)
+        if (removedEntryIds.isNotEmpty()) {
+            timetableLectureRepository.deleteAllByIdInBatch(removedEntryIds)
+        }
+        if (notifications.isNotEmpty()) {
+            notificationRepository.saveAll(notifications)
+        }
         return timetableChangeCounts.toMap()
     }
 
