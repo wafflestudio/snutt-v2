@@ -17,6 +17,8 @@ data class LectureTakenByUser(
     val lecture: Lecture,
     val takenYear: Int,
     val takenSemester: Semester,
+    val myEvaluationExists: Boolean,
+    val recentEvaluations: List<EvaluationDisplay>,
 ) {
     val lectureId: Long get() = checkNotNull(lecture.id)
 }
@@ -29,7 +31,12 @@ class TakenLectureService(
     private val lectureRepository: LectureRepository,
     private val courseRepository: CourseRepository,
     private val evaluationRepository: EvaluationRepository,
+    private val evaluationService: EvaluationService,
 ) {
+    companion object {
+        private const val RECENT_EVALUATION_COUNT = 2
+    }
+
     @Transactional(readOnly = true)
     fun getMyLatestLectures(
         userId: Long,
@@ -60,22 +67,32 @@ class TakenLectureService(
             courseRepository
                 .findAllById(lecturesById.values.mapNotNull { it.courseId }.distinct())
                 .associateBy { it.id }
+        if (coursesById.isEmpty()) return emptyList()
 
+        val evaluated =
+            evaluationRepository
+                .findEvaluatedCourseSemesters(userId, coursesById.keys.filterNotNull())
+                .map { Triple(it.courseId, it.year, it.semester) }
+                .toSet()
+        val recentEvaluations =
+            evaluationService.getRecentEvaluationsOfCourses(userId, coursesById.keys.filterNotNull(), RECENT_EVALUATION_COUNT)
         val taken =
             timetableLectures
                 .mapNotNull { timetableLecture ->
                     val coursebook = timetableSemester[timetableLecture.timetableId] ?: return@mapNotNull null
                     val lecture = timetableLecture.lectureId?.let { lecturesById[it] } ?: return@mapNotNull null
                     val course = lecture.courseId?.let { coursesById[it] } ?: return@mapNotNull null
-                    LectureTakenByUser(course, lecture, coursebook.year, coursebook.semester)
+                    val myEvaluationExists = Triple(course.id, coursebook.year, coursebook.semester) in evaluated
+                    LectureTakenByUser(
+                        course,
+                        lecture,
+                        coursebook.year,
+                        coursebook.semester,
+                        myEvaluationExists,
+                        recentEvaluations[course.id].orEmpty(),
+                    )
                 }.distinctBy { Triple(it.course.id, it.takenYear, it.takenSemester) }
 
-        if (!excludeEvaluated || taken.isEmpty()) return taken
-        val evaluated =
-            evaluationRepository
-                .findEvaluatedCourseSemesters(userId, taken.map { it.course.id!! }.distinct())
-                .map { Triple(it.courseId, it.year, it.semester) }
-                .toSet()
-        return taken.filterNot { Triple(it.course.id, it.takenYear, it.takenSemester) in evaluated }
+        return if (excludeEvaluated) taken.filterNot { it.myEvaluationExists } else taken
     }
 }

@@ -33,6 +33,29 @@ interface EvaluationRepository :
         userId: Long,
     ): List<Evaluation>
 
+    @Query(
+        """
+        SELECT e.*
+        FROM evaluation e
+        JOIN (
+            SELECT id,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY course_id
+                       ORDER BY year DESC, semester DESC, id DESC
+                   ) AS rn
+            FROM evaluation
+            WHERE course_id IN (:courseIds) AND is_hidden = FALSE
+        ) ranked ON ranked.id = e.id
+        WHERE ranked.rn <= :limit
+        ORDER BY e.course_id, ranked.rn
+        """,
+        nativeQuery = true,
+    )
+    fun findRecentOfCourses(
+        courseIds: Collection<Long>,
+        limit: Int,
+    ): List<Evaluation>
+
     fun countByUserIdAndIsHiddenFalse(userId: Long): Long
 
     fun findByIdAndIsHiddenFalse(id: Long): Evaluation?
@@ -76,7 +99,7 @@ interface EvaluationRepository :
         semester: Semester?,
     ): Long
 
-    fun findOthers(
+    fun findPageOfCourse(
         courseId: Long,
         userId: Long,
         year: Int?,
@@ -84,13 +107,22 @@ interface EvaluationRepository :
         cursor: EvaluationCursor?,
         pageSize: Int,
         sort: EvaluationSort,
+        includeMine: Boolean,
     ): List<Evaluation> =
         findAll(offset = null, limit = pageSize) {
             jpql {
+                val scope =
+                    if (includeMine && cursor == null) visibleOf(courseId, year, semester) else othersOf(courseId, userId, year, semester)
+                val order =
+                    if (includeMine) {
+                        listOf(caseWhen(path(Evaluation::userId).equal(userId)).then(0).`else`(1).asc()) + sortOrder(sort)
+                    } else {
+                        sortOrder(sort)
+                    }
                 select(entity(Evaluation::class))
                     .from(entity(Evaluation::class))
-                    .where(and(othersOf(courseId, userId, year, semester), cursor?.let { beforeCursor(it, sort) }))
-                    .orderBy(*sortOrder(sort).toTypedArray())
+                    .where(and(scope, cursor?.let { beforeCursor(it, sort) }))
+                    .orderBy(*order.toTypedArray())
             }
         }.filterNotNull()
 

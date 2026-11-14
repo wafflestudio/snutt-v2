@@ -15,6 +15,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
+import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -44,6 +45,20 @@ data class LegacyTakenLectureDto(
     val takenYear: Int,
     @param:JsonProperty("taken_semester")
     val takenSemester: Int,
+    @param:JsonProperty("avg_rating")
+    val avgRating: Double?,
+    @param:JsonProperty("evaluation_count")
+    val evaluationCount: Long,
+    @param:JsonProperty("my_evaluation_exists")
+    @param:Schema(
+        description =
+            "해당 강의에 해당 학기(`taken_year`, `taken_semester`)에 본인이 강의평을 썼으면 true, " +
+                "강의평이 없거나 다른 학기에만 썼으면 false다.",
+    )
+    val myEvaluationExists: Boolean,
+    @param:JsonProperty("recent_evaluations")
+    @param:Schema(description = "해당 강의에 달린 강의평 중 최근 학기 순으로 최대 2개다. 수강 학기와 작성자를 구분하지 않는다.")
+    val recentEvaluations: List<LegacyEvaluationWithSemesterDto>,
 )
 
 @RestController
@@ -78,6 +93,10 @@ class V1CompatTakenLectureController(
             classification = metadata.classification,
             takenYear = takenYear,
             takenSemester = takenSemester.value,
+            avgRating = course.avgRating,
+            evaluationCount = course.evalCount,
+            myEvaluationExists = myEvaluationExists,
+            recentEvaluations = recentEvaluations.map { it.toLegacyWithSemester() },
         )
 }
 

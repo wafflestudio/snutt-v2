@@ -223,7 +223,7 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
         val notVerified =
             v1Post(
                 "/v1/ev-service/v1/semester-lectures/$lectureId/evaluations",
-                """{"content":"평가","grade_satisfaction":4.0,"teaching_skill":4.0,"gains":4.0,"life_balance":4.0,"rating":4.0}""",
+                """{"content":"설명이 친절하고 과제 난이도도 적당한 좋은 강의입니다","grade_satisfaction":4.0,"teaching_skill":4.0,"gains":4.0,"life_balance":4.0,"rating":4.0}""",
                 legacyToken,
             )
         assertEquals(403, notVerified.statusCode.value())

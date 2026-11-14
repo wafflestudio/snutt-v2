@@ -56,6 +56,8 @@ data class LegacyEvaluationWithSemesterDto(
     val isModifiable: Boolean,
     @param:JsonProperty("is_reportable")
     val isReportable: Boolean,
+    @param:JsonProperty("is_mine")
+    val isMine: Boolean,
 )
 
 data class LegacyEvaluationWithLectureDto(
@@ -88,6 +90,8 @@ data class LegacyEvaluationWithLectureDto(
     val isModifiable: Boolean,
     @param:JsonProperty("is_reportable")
     val isReportable: Boolean,
+    @param:JsonProperty("is_mine")
+    val isMine: Boolean,
 )
 
 data class LegacyEvaluationLikeResponse(
@@ -202,8 +206,9 @@ internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemes
         year = e.year,
         semester = e.semester.value,
         lectureId = e.courseId,
-        isModifiable = isModifiable,
-        isReportable = isReportable,
+        isModifiable = isMine,
+        isReportable = !isMine,
+        isMine = isMine,
     )
 }
 
@@ -229,8 +234,9 @@ internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, LegacyCo
             courseMap[e.courseId]?.let {
                 LegacyEvaluationCourseDto(id = it.id, title = it.title, instructor = it.instructor)
             },
-        isModifiable = isModifiable,
-        isReportable = isReportable,
+        isModifiable = isMine,
+        isReportable = !isMine,
+        isMine = isMine,
     )
 }
 

@@ -15,6 +15,7 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationUpdateRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.evaluation.service.LectureTakenByUser
+import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -48,11 +49,22 @@ data class TakenLectureResponse(
     val classification: String?,
     val takenYear: Int,
     val takenSemester: Semester,
+    val avgRating: Double?,
+    val evalCount: Long,
+    @param:Schema(
+        description =
+            "해당 강의에 해당 학기(`takenYear`, `takenSemester`)에 본인이 강의평을 썼으면 true, " +
+                "강의평이 없거나 다른 학기에만 썼으면 false다.",
+    )
+    val myEvaluationExists: Boolean,
+    @param:Schema(description = "해당 강의에 달린 강의평 중 최근 학기 순으로 최대 2개다. 수강 학기와 작성자를 구분하지 않는다.")
+    val recentEvaluations: List<EvaluationResponse>,
 )
 
 internal fun LectureTakenByUser.toResponse(
     name: CourseName,
     language: Language,
+    recentEvaluations: List<EvaluationResponse>,
 ) = TakenLectureResponse(
     id = requireNotNull(course.id),
     lectureId = lectureId,
@@ -66,6 +78,10 @@ internal fun LectureTakenByUser.toResponse(
     classification = language.select(lecture.classification, lecture.classificationEn),
     takenYear = takenYear,
     takenSemester = takenSemester,
+    avgRating = course.avgRating,
+    evalCount = course.evalCount,
+    myEvaluationExists = myEvaluationExists,
+    recentEvaluations = recentEvaluations,
 )
 
 data class EvaluationUpdateRequestBody(
@@ -98,7 +114,7 @@ data class EvaluationResponse(
     val fromSnuev: Boolean,
     val year: Int,
     val semester: Semester,
-    val isModifiable: Boolean,
+    val isMine: Boolean,
 )
 
 data class CourseEvaluationDetailsResponse(
@@ -134,7 +150,7 @@ class EvaluationController(
         @CurrentClient clientInfo: ClientInfo,
     ): CursorPage<EvaluationResponse> =
         evaluationService
-            .getEvaluationsOfCourse(userId, courseId, cursor, sort, year, semester)
+            .getEvaluationsOfCourse(userId, courseId, cursor, sort, year, semester, includeMine = true)
             .let { evaluationResponseMapper.toResponse(it, clientInfo.language) }
 
     @PostMapping("/v2/lectures/{lectureId}/evaluations")

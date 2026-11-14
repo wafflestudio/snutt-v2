@@ -60,7 +60,7 @@ class EvaluationResponseMapper(
             fromSnuev = evaluation.fromSnuev,
             year = evaluation.year,
             semester = evaluation.semester,
-            isModifiable = display.isModifiable,
+            isMine = display.isMine,
         )
     }
 }
