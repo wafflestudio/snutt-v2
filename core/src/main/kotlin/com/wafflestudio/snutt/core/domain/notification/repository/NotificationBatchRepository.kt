@@ -16,30 +16,21 @@ class NotificationBatchRepositoryImpl(
     override fun insertAll(notifications: List<Notification>) {
         if (notifications.isEmpty()) return
         val now = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
-        notifications.chunked(INSERT_CHUNK_SIZE).forEach { chunk ->
-            val placeholders = chunk.joinToString(",") { "(?, ?, ?, ?, ?, ?, ?, ?, ?)" }
-            jdbcTemplate.update(
-                "INSERT INTO notification " +
-                    "(user_id, title, title_en, message, message_en, type, deeplink, created_at, updated_at) " +
-                    "VALUES $placeholders",
-            ) { ps ->
-                var idx = 1
-                for (n in chunk) {
-                    ps.setObject(idx++, n.userId)
-                    ps.setString(idx++, n.title)
-                    ps.setString(idx++, n.titleEn)
-                    ps.setString(idx++, n.message)
-                    ps.setString(idx++, n.messageEn)
-                    ps.setString(idx++, n.type.name)
-                    ps.setString(idx++, n.deeplink)
-                    ps.setObject(idx++, now)
-                    ps.setObject(idx++, now)
-                }
-            }
+        jdbcTemplate.batchUpdate(
+            "INSERT INTO notification (user_id, title, title_en, message, message_en, type, deeplink, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            notifications,
+            notifications.size,
+        ) { ps, notification ->
+            ps.setObject(1, notification.userId)
+            ps.setString(2, notification.title)
+            ps.setString(3, notification.titleEn)
+            ps.setString(4, notification.message)
+            ps.setString(5, notification.messageEn)
+            ps.setString(6, notification.type.name)
+            ps.setString(7, notification.deeplink)
+            ps.setObject(8, now)
+            ps.setObject(9, now)
         }
-    }
-
-    private companion object {
-        const val INSERT_CHUNK_SIZE = 500
     }
 }
