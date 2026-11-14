@@ -8,16 +8,15 @@ import java.time.Instant
 
 interface LegacyNotificationRepository : Repository<Notification, Long> {
     @Query(
-        value =
-            "SELECT * FROM (" +
-                "(SELECT * FROM notification n WHERE n.user_id = :userId " +
-                "AND n.created_at > :registeredAt " +
-                "ORDER BY n.created_at DESC, n.id DESC LIMIT :fetchLimit) " +
-                "UNION ALL " +
-                "(SELECT * FROM notification n WHERE n.user_id IS NULL " +
-                "AND n.created_at > :registeredAt " +
-                "ORDER BY n.created_at DESC, n.id DESC LIMIT :fetchLimit)" +
-                ") n ORDER BY n.created_at DESC, n.id DESC LIMIT :limit OFFSET :offset",
+        value = """
+            SELECT * FROM (
+                (SELECT * FROM notification n WHERE n.user_id = :userId AND n.created_at > :registeredAt
+                 ORDER BY n.created_at DESC, n.id DESC LIMIT :fetchLimit)
+                UNION ALL
+                (SELECT * FROM notification n WHERE n.user_id IS NULL AND n.created_at > :registeredAt
+                 ORDER BY n.created_at DESC, n.id DESC LIMIT :fetchLimit)
+            ) n ORDER BY n.created_at DESC, n.id DESC LIMIT :limit OFFSET :offset
+        """,
         nativeQuery = true,
     )
     fun findNotificationsWithOffset(

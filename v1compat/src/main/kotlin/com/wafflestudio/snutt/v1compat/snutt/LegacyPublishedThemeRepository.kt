@@ -16,11 +16,14 @@ interface LegacyPublishedThemeRepository : Repository<PublishedTheme, Long> {
     fun findByListedTrueOrderByDownloadCountDescIdDesc(pageable: Pageable): List<PublishedTheme>
 
     @Query(
-        "SELECT p FROM PublishedTheme p WHERE p.listed = true " +
-            "AND (p.authorId IN :userIds OR p.id IN (" +
-            "SELECT t.publicationId FROM TimetableTheme t WHERE t.userId IN :userIds AND t.publicationId IS NOT NULL" +
-            ")) " +
-            "ORDER BY p.downloadCount DESC, p.id DESC",
+        """
+        SELECT p FROM PublishedTheme p WHERE p.listed = true
+          AND (
+              p.authorId IN :userIds
+              OR p.id IN (SELECT t.publicationId FROM TimetableTheme t WHERE t.userId IN :userIds AND t.publicationId IS NOT NULL)
+          )
+        ORDER BY p.downloadCount DESC, p.id DESC
+        """,
     )
     fun findFriendsListed(
         userIds: Collection<Long>,
@@ -28,9 +31,11 @@ interface LegacyPublishedThemeRepository : Repository<PublishedTheme, Long> {
     ): List<PublishedTheme>
 
     @Query(
-        "SELECT p FROM PublishedTheme p WHERE p.listed = true " +
-            "AND LOWER(p.name) LIKE CONCAT('%', LOWER(:query), '%') " +
-            "ORDER BY p.downloadCount DESC, p.id DESC",
+        """
+        SELECT p FROM PublishedTheme p WHERE p.listed = true
+          AND LOWER(p.name) LIKE CONCAT('%', LOWER(:query), '%')
+        ORDER BY p.downloadCount DESC, p.id DESC
+        """,
     )
     fun searchListed(query: String): List<PublishedTheme>
 }
