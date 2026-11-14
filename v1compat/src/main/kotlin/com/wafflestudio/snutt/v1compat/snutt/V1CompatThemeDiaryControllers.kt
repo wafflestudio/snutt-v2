@@ -8,14 +8,13 @@ import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.pagination.CursorPage
 import com.wafflestudio.snutt.core.domain.diary.model.QuestionAnswer
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
+import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import com.wafflestudio.snutt.core.domain.theme.dto.ThemePublicationDisplay
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
@@ -25,6 +24,7 @@ import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
@@ -33,6 +33,7 @@ import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyPageResponse
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyBuiltinCode
 import com.wafflestudio.snutt.v1compat.snutt.dto.legacyThemeValue
+import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -101,7 +102,7 @@ private fun TimetableThemeDisplay.toLegacy(
     publishInfo = publishInfo,
 )
 
-private fun ThemePublicationDisplay.toLegacy() =
+private fun PublishedTheme.toLegacy(authors: Map<Long, User>) =
     LegacyThemeDto(
         id = id.toString(),
         userId = authorId?.toString().orEmpty(),
@@ -112,7 +113,12 @@ private fun ThemePublicationDisplay.toLegacy() =
         isCustom = true,
         origin = null,
         status = LegacyThemeStatus.PUBLISHED,
-        publishInfo = LegacyThemePublishInfoDto(name, if (authorAnonymous) "익명" else authorNickname, downloadCount),
+        publishInfo =
+            LegacyThemePublishInfoDto(
+                publishName = name,
+                authorName = if (authorAnonymous) "익명" else authors[authorId]?.nickname,
+                downloads = downloadCount,
+            ),
     )
 
 data class LegacyThemePublishRequest(
@@ -140,12 +146,20 @@ class V1CompatThemeController(
     private val timetableThemeService: TimetableThemeService,
     private val publishedThemeRepository: PublishedThemeRepository,
     private val legacyPublishedThemeRepository: LegacyPublishedThemeRepository,
+    private val friendRepository: FriendRepository,
+    private val userRepository: UserRepository,
 ) {
     private fun library(
         user: User,
         themes: List<TimetableThemeDisplay>,
     ): List<LegacyThemeDto> {
-        val sources = publishedThemeRepository.findAllById(themes.mapNotNull { it.publicationId }).associateBy { it.id!! }
+        val publicationIds = themes.mapNotNull { it.publicationId }
+        val sources =
+            if (publicationIds.isEmpty()) {
+                emptyMap()
+            } else {
+                publishedThemeRepository.findAllById(publicationIds).associateBy { it.id!! }
+            }
         val ownPublications =
             legacyPublishedThemeRepository
                 .findByAuthorIdAndListedTrueAndSourceThemeIdIsNotNullOrderById(user.id!!)
@@ -172,29 +186,36 @@ class V1CompatThemeController(
     fun getBestThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> = wrap(legacyPage(page) { cursor -> timetableThemeService.getPublications(cursor) })
+    ): LegacyPageResponse<LegacyThemeDto> {
+        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        return wrap(
+            legacyPublishedThemeRepository.findByListedTrueOrderByDownloadCountDescIdDesc(
+                PageRequest.of(page - 1, LEGACY_THEME_PAGE_SIZE),
+            ),
+        )
+    }
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> =
-        wrap(legacyPage(page) { cursor -> timetableThemeService.getFriendsPublications(user.id!!, cursor) })
+    ): LegacyPageResponse<LegacyThemeDto> {
+        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val friendUserIds = friendRepository.findActiveByUserId(user.id!!).map { it.getPartnerUserId(user.id!!) }
+        if (friendUserIds.isEmpty()) return LegacyPageResponse(content = emptyList(), totalCount = 0)
+        return wrap(
+            legacyPublishedThemeRepository.findFriendsListed(
+                friendUserIds,
+                PageRequest.of(page - 1, LEGACY_THEME_PAGE_SIZE),
+            ),
+        )
+    }
 
     @PostMapping("/search")
     fun searchThemes(
         @V1CurrentUser user: User,
         @RequestParam query: String,
-    ): LegacyPageResponse<LegacyThemeDto> {
-        val publications = mutableListOf<ThemePublicationDisplay>()
-        var cursor: String? = null
-        do {
-            val page = timetableThemeService.getPublications(cursor, query)
-            publications += page.content
-            cursor = page.cursor
-        } while (cursor != null)
-        return wrap(publications)
-    }
+    ): LegacyPageResponse<LegacyThemeDto> = wrap(legacyPublishedThemeRepository.searchListed(query))
 
     @GetMapping("/{themeId}")
     fun getTheme(
@@ -305,22 +326,6 @@ class V1CompatThemeController(
         return current.toLegacy(user.id!!.toString(), null)
     }
 
-    private fun <T> legacyPage(
-        page: Int,
-        load: (String?) -> CursorPage<T>,
-    ): List<T> {
-        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val end = page * LEGACY_THEME_PAGE_SIZE
-        val all = mutableListOf<T>()
-        var cursor: String? = null
-        while (all.size < end) {
-            val result = load(cursor)
-            all += result.content
-            cursor = result.cursor ?: break
-        }
-        return all.drop((page - 1) * LEGACY_THEME_PAGE_SIZE).take(LEGACY_THEME_PAGE_SIZE)
-    }
-
     private fun listedPublicationsOf(
         user: User,
         themeId: Long,
@@ -329,8 +334,11 @@ class V1CompatThemeController(
     private fun defaultTheme(user: User): TimetableThemeDisplay =
         timetableThemeService.getTheme(user.id!!, timetableThemeService.getDefaultThemeId(user.id!!))
 
-    private fun wrap(publications: List<ThemePublicationDisplay>): LegacyPageResponse<LegacyThemeDto> {
-        val content = publications.map { it.toLegacy() }
+    private fun wrap(publications: List<PublishedTheme>): LegacyPageResponse<LegacyThemeDto> {
+        if (publications.isEmpty()) return LegacyPageResponse(content = emptyList(), totalCount = 0)
+        val authorIds = publications.filterNot { it.authorAnonymous }.mapNotNull { it.authorId }.distinct()
+        val authors = if (authorIds.isEmpty()) emptyMap() else userRepository.findAllById(authorIds).associateBy { it.id!! }
+        val content = publications.map { it.toLegacy(authors) }
         return LegacyPageResponse(content = content, totalCount = content.size)
     }
 
