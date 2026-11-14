@@ -15,6 +15,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
+import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -49,6 +50,11 @@ data class LegacyTakenLectureDto(
     @param:JsonProperty("evaluation_count")
     val evaluationCount: Long,
     @param:JsonProperty("my_evaluation_exists")
+    @param:Schema(
+        description =
+            "`taken_year`, `taken_semester` 학기에 작성한 본인 강의평의 존재 여부다. " +
+                "`id`는 학기와 무관하게 교과목번호와 교수명으로 정해지므로, 재수강한 강의는 수강 학기마다 값이 다를 수 있다.",
+    )
     val myEvaluationExists: Boolean,
 )
 
