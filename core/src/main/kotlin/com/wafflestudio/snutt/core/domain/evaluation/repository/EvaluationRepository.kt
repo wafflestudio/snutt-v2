@@ -108,23 +108,39 @@ interface EvaluationRepository :
         pageSize: Int,
         sort: EvaluationSort,
         includeMine: Boolean,
-    ): List<Evaluation> =
-        findAll(offset = null, limit = pageSize) {
-            jpql {
-                val scope =
-                    if (includeMine && cursor == null) visibleOf(courseId, year, semester) else othersOf(courseId, userId, year, semester)
-                val order =
-                    if (includeMine) {
-                        listOf(caseWhen(path(Evaluation::userId).equal(userId)).then(0).`else`(1).asc()) + sortOrder(sort)
-                    } else {
-                        sortOrder(sort)
-                    }
-                select(entity(Evaluation::class))
-                    .from(entity(Evaluation::class))
-                    .where(and(scope, cursor?.let { beforeCursor(it, sort) }))
-                    .orderBy(*order.toTypedArray())
-            }
-        }.filterNotNull()
+    ): List<Evaluation> {
+        if (!includeMine || cursor != null) {
+            return findAll(offset = null, limit = pageSize) {
+                jpql {
+                    select(entity(Evaluation::class))
+                        .from(entity(Evaluation::class))
+                        .where(and(othersOf(courseId, userId, year, semester), cursor?.let { beforeCursor(it, sort) }))
+                        .orderBy(*sortOrder(sort).toTypedArray())
+                }
+            }.filterNotNull()
+        }
+        val mine =
+            findAll(offset = null, limit = pageSize) {
+                jpql {
+                    select(entity(Evaluation::class))
+                        .from(entity(Evaluation::class))
+                        .where(and(visibleOf(courseId, year, semester), path(Evaluation::userId).equal(userId)))
+                        .orderBy(*sortOrder(sort).toTypedArray())
+                }
+            }.filterNotNull()
+        val remaining = pageSize - mine.size
+        if (remaining <= 0) return mine
+        val others =
+            findAll(offset = null, limit = remaining) {
+                jpql {
+                    select(entity(Evaluation::class))
+                        .from(entity(Evaluation::class))
+                        .where(othersOf(courseId, userId, year, semester))
+                        .orderBy(*sortOrder(sort).toTypedArray())
+                }
+            }.filterNotNull()
+        return mine + others
+    }
 
     private fun Jpql.othersOf(
         courseId: Long,
@@ -160,11 +176,18 @@ interface EvaluationRepository :
                 predicates += path(Evaluation::isHidden).equal(false)
                 cursorId?.let { predicates += path(Evaluation::id).lessThan(it) }
                 tagPredicate(tag)?.let { predicates += it }
-                select(entity(Evaluation::class))
-                    .from(
-                        entity(Evaluation::class),
-                        join(Course::class).on(path(Course::id).equal(path(Evaluation::courseId))),
-                    ).where(and(*predicates.toTypedArray()))
+                val query = select(entity(Evaluation::class))
+                val from =
+                    if (tag != EvaluationTag.RECENT && tag != EvaluationTag.LIBERAL_EDUCATION) {
+                        query.from(
+                            entity(Evaluation::class),
+                            join(Course::class).on(path(Course::id).equal(path(Evaluation::courseId))),
+                        )
+                    } else {
+                        query.from(entity(Evaluation::class))
+                    }
+                from
+                    .where(and(*predicates.toTypedArray()))
                     .orderBy(path(Evaluation::id).desc())
             }
         }.filterNotNull()
