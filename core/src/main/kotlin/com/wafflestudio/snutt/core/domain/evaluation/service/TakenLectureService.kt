@@ -51,27 +51,34 @@ class TakenLectureService(
                 .distinctBy { Triple(it.course.id, it.year, it.semester) }
         if (rows.isEmpty()) return emptyList()
 
-        val courseIds = rows.map { it.course.id!! }.distinct()
         val evaluated =
             evaluationRepository
-                .findEvaluatedCourseSemesters(userId, courseIds)
+                .findEvaluatedCourseSemesters(userId, rows.map { it.course.id!! }.distinct())
                 .map { Triple(it.courseId, it.year, it.semester) }
                 .toSet()
-        val recentEvaluations =
-            evaluationService.getRecentEvaluationsOfCourses(userId, courseIds, RECENT_EVALUATION_COUNT)
-        val taken =
-            rows.map { row ->
-                val myEvaluationExists = Triple(row.course.id, row.year, row.semester) in evaluated
-                LectureTakenByUser(
-                    course = row.course,
-                    lecture = row.lecture,
-                    takenYear = row.year,
-                    takenSemester = row.semester,
-                    myEvaluationExists = myEvaluationExists,
-                    recentEvaluations = recentEvaluations[row.course.id].orEmpty(),
-                )
+        val targetRows =
+            if (excludeEvaluated) {
+                rows.filterNot { Triple(it.course.id, it.year, it.semester) in evaluated }
+            } else {
+                rows
             }
+        if (targetRows.isEmpty()) return emptyList()
 
-        return if (excludeEvaluated) taken.filterNot { it.myEvaluationExists } else taken
+        val recentEvaluations =
+            evaluationService.getRecentEvaluationsOfCourses(
+                userId,
+                targetRows.map { it.course.id!! }.distinct(),
+                RECENT_EVALUATION_COUNT,
+            )
+        return targetRows.map { row ->
+            LectureTakenByUser(
+                course = row.course,
+                lecture = row.lecture,
+                takenYear = row.year,
+                takenSemester = row.semester,
+                myEvaluationExists = Triple(row.course.id, row.year, row.semester) in evaluated,
+                recentEvaluations = recentEvaluations[row.course.id].orEmpty(),
+            )
+        }
     }
 }

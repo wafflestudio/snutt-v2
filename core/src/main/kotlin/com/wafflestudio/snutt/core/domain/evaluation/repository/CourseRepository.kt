@@ -275,38 +275,21 @@ interface CourseRepository :
                 }
             }.filterNotNull()
 
-        val classification = sortedSetOf<String>()
-        val department = sortedSetOf<String>()
-        val academicYear = sortedSetOf<String>()
-        val credit = sortedSetOf<Int>()
-        val category = sortedSetOf<String>()
-        val categoryPre2025 = sortedSetOf<String>()
-        val semesters = hashSetOf<YearAndSemester>()
-        var updatedAt: Instant? = null
-
-        for (row in rows) {
-            row.classification?.takeIf { it.isNotEmpty() }?.let(classification::add)
-            row.department?.takeIf { it.isNotEmpty() }?.let(department::add)
-            row.academicYear?.takeIf { it.isNotEmpty() }?.let(academicYear::add)
-            credit.add(row.credit)
-            row.category?.takeIf { it.isNotEmpty() }?.let(category::add)
-            row.categoryPre2025?.takeIf { it.isNotEmpty() }?.let(categoryPre2025::add)
-            semesters.add(YearAndSemester(row.year, row.semester))
-            val rowUpdatedAt = row.updatedAt
-            if (rowUpdatedAt != null && (updatedAt == null || rowUpdatedAt.isAfter(updatedAt))) {
-                updatedAt = rowUpdatedAt
-            }
-        }
+        fun List<String?>.distinctSorted(): List<String> = filterNotNull().distinct().sorted()
 
         return CourseVocabulary(
-            classification = classification.toList(),
-            department = department.toList(),
-            academicYear = academicYear.toList(),
-            credit = credit.toList(),
-            category = category.toList(),
-            categoryPre2025 = categoryPre2025.toList(),
-            semesters = semesters.sortedWith(compareByDescending<YearAndSemester> { it.year }.thenByDescending { it.semester.value }),
-            updatedAt = updatedAt,
+            classification = rows.map { it.classification }.distinctSorted(),
+            department = rows.map { it.department }.distinctSorted(),
+            academicYear = rows.map { it.academicYear }.distinctSorted(),
+            credit = rows.map { it.credit }.distinct().sorted(),
+            category = rows.map { it.category }.distinctSorted(),
+            categoryPre2025 = rows.map { it.categoryPre2025 }.distinctSorted(),
+            semesters =
+                rows
+                    .map { YearAndSemester(it.year, it.semester) }
+                    .distinct()
+                    .sortedWith(compareByDescending<YearAndSemester> { it.year }.thenByDescending { it.semester.value }),
+            updatedAt = rows.mapNotNull { it.updatedAt }.maxOrNull(),
         )
     }
 }

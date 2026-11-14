@@ -53,7 +53,32 @@ private data class LectureVocabularyRow(
     val instructor: String?,
     val instructorEn: String?,
     val updatedAt: Instant?,
-)
+) {
+    constructor(
+        classification: String?,
+        department: String?,
+        academicYear: String?,
+        category: String?,
+        categoryPre2025: String?,
+        credit: Int,
+        instructor: String?,
+        updatedAt: Instant?,
+    ) : this(
+        classification = classification,
+        classificationEn = null,
+        department = department,
+        departmentEn = null,
+        academicYear = academicYear,
+        academicYearEn = null,
+        category = category,
+        categoryEn = null,
+        categoryPre2025 = categoryPre2025,
+        credit = credit,
+        instructor = instructor,
+        instructorEn = null,
+        updatedAt = updatedAt,
+    )
+}
 
 private data class LectureSearchCursorRating(
     val avgRating: Double?,
@@ -392,21 +417,37 @@ interface LectureRepository :
         val rows =
             findAll(offset = null, limit = null) {
                 jpql {
-                    selectNew<LectureVocabularyRow>(
-                        path(Lecture::classification),
-                        path(Lecture::classificationEn),
-                        path(Lecture::department),
-                        path(Lecture::departmentEn),
-                        path(Lecture::academicYear),
-                        path(Lecture::academicYearEn),
-                        path(Lecture::category),
-                        path(Lecture::categoryEn),
-                        path(Lecture::categoryPre2025),
-                        path(Lecture::credit),
-                        path(Lecture::instructor),
-                        path(Lecture::instructorEn),
-                        path(Lecture::updatedAt),
-                    ).from(entity(Lecture::class))
+                    val select =
+                        if (language == Language.EN) {
+                            selectNew<LectureVocabularyRow>(
+                                path(Lecture::classification),
+                                path(Lecture::classificationEn),
+                                path(Lecture::department),
+                                path(Lecture::departmentEn),
+                                path(Lecture::academicYear),
+                                path(Lecture::academicYearEn),
+                                path(Lecture::category),
+                                path(Lecture::categoryEn),
+                                path(Lecture::categoryPre2025),
+                                path(Lecture::credit),
+                                path(Lecture::instructor),
+                                path(Lecture::instructorEn),
+                                path(Lecture::updatedAt),
+                            )
+                        } else {
+                            selectNew<LectureVocabularyRow>(
+                                path(Lecture::classification),
+                                path(Lecture::department),
+                                path(Lecture::academicYear),
+                                path(Lecture::category),
+                                path(Lecture::categoryPre2025),
+                                path(Lecture::credit),
+                                path(Lecture::instructor),
+                                path(Lecture::updatedAt),
+                            )
+                        }
+                    select
+                        .from(entity(Lecture::class))
                         .where(
                             and(
                                 path(Lecture::year).equal(year),
@@ -416,55 +457,22 @@ interface LectureRepository :
                 }
             }.filterNotNull()
 
-        val classificationKo = sortedSetOf<String>()
-        val classificationEn = sortedSetOf<String>()
-        val departmentKo = sortedSetOf<String>()
-        val departmentEn = sortedSetOf<String>()
-        val academicYearKo = sortedSetOf<String>()
-        val academicYearEn = sortedSetOf<String>()
-        val categoryKo = sortedSetOf<String>()
-        val categoryEn = sortedSetOf<String>()
-        val categoryPre2025 = sortedSetOf<String>()
-        val credit = sortedSetOf<Int>()
-        val instructorKo = sortedSetOf<String>()
-        val instructorEn = sortedSetOf<String>()
-        var updatedAt: Instant? = null
-
-        for (row in rows) {
-            row.classification?.let(classificationKo::add)
-            row.department?.let(departmentKo::add)
-            row.academicYear?.let(academicYearKo::add)
-            row.category?.let(categoryKo::add)
-            row.categoryPre2025?.let(categoryPre2025::add)
-            credit.add(row.credit)
-            row.instructor?.let(instructorKo::add)
-            if (language == Language.EN) {
-                row.classificationEn?.let(classificationEn::add)
-                row.departmentEn?.let(departmentEn::add)
-                row.academicYearEn?.let(academicYearEn::add)
-                row.categoryEn?.let(categoryEn::add)
-                row.instructorEn?.let(instructorEn::add)
-            }
-            val rowUpdatedAt = row.updatedAt
-            if (rowUpdatedAt != null && (updatedAt == null || rowUpdatedAt.isAfter(updatedAt))) {
-                updatedAt = rowUpdatedAt
-            }
-        }
+        fun List<String?>.distinctSorted(): List<String> = filterNotNull().distinct().sorted()
 
         fun pick(
-            ko: Set<String>,
-            en: Set<String>,
-        ): List<String> = (if (language == Language.EN && en.isNotEmpty()) en else ko).toList()
+            ko: List<String?>,
+            en: List<String?>,
+        ): List<String> = if (language == Language.EN) en.distinctSorted().ifEmpty { ko.distinctSorted() } else ko.distinctSorted()
 
         return LectureVocabulary(
-            classification = pick(classificationKo, classificationEn),
-            department = pick(departmentKo, departmentEn),
-            academicYear = pick(academicYearKo, academicYearEn),
-            category = pick(categoryKo, categoryEn),
-            categoryPre2025 = categoryPre2025.toList(),
-            credit = credit.toList(),
-            instructor = pick(instructorKo, instructorEn),
-            updatedAt = updatedAt,
+            classification = pick(rows.map { it.classification }, rows.map { it.classificationEn }),
+            department = pick(rows.map { it.department }, rows.map { it.departmentEn }),
+            academicYear = pick(rows.map { it.academicYear }, rows.map { it.academicYearEn }),
+            category = pick(rows.map { it.category }, rows.map { it.categoryEn }),
+            categoryPre2025 = rows.map { it.categoryPre2025 }.distinctSorted(),
+            credit = rows.map { it.credit }.distinct().sorted(),
+            instructor = pick(rows.map { it.instructor }, rows.map { it.instructorEn }),
+            updatedAt = rows.mapNotNull { it.updatedAt }.maxOrNull(),
         )
     }
 }
