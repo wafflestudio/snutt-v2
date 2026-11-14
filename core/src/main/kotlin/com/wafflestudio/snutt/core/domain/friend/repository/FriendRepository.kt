@@ -7,8 +7,8 @@ import org.springframework.data.jpa.repository.Query
 
 interface FriendRepository : JpaRepository<Friend, Long> {
     @Query(
-        "SELECT f FROM Friend f WHERE (f.fromUserId = :a AND f.toUserId = :b) OR " +
-            "(f.fromUserId = :b AND f.toUserId = :a)",
+        value = "SELECT * FROM friend WHERE user_low = LEAST(:a, :b) AND user_high = GREATEST(:a, :b)",
+        nativeQuery = true,
     )
     fun findByUserPair(
         a: Long,
@@ -16,8 +16,13 @@ interface FriendRepository : JpaRepository<Friend, Long> {
     ): Friend?
 
     @Query(
-        "SELECT f FROM Friend f WHERE f.isAccepted = true AND (f.fromUserId = :userId OR f.toUserId = :userId) " +
-            "ORDER BY f.createdAt DESC",
+        value =
+            "SELECT * FROM (" +
+                "(SELECT * FROM friend WHERE from_user_id = :userId AND is_accepted = true) " +
+                "UNION ALL " +
+                "(SELECT * FROM friend WHERE to_user_id = :userId AND is_accepted = true)" +
+                ") f ORDER BY f.created_at DESC",
+        nativeQuery = true,
     )
     fun findActiveByUserId(userId: Long): List<Friend>
 

@@ -32,7 +32,11 @@ interface NotificationRepository : JpaRepository<Notification, Long> {
     ): List<Notification>
 
     @Query(
-        "SELECT COUNT(n) FROM Notification n WHERE (n.userId = :userId OR n.userId IS NULL) AND n.createdAt > :checkedAt",
+        value =
+            "SELECT " +
+                "(SELECT COUNT(*) FROM notification WHERE user_id = :userId AND created_at > :checkedAt) + " +
+                "(SELECT COUNT(*) FROM notification WHERE user_id IS NULL AND created_at > :checkedAt)",
+        nativeQuery = true,
     )
     fun countUnread(
         userId: Long,
