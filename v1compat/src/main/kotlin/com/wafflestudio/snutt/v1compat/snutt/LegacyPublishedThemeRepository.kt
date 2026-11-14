@@ -17,7 +17,9 @@ interface LegacyPublishedThemeRepository : Repository<PublishedTheme, Long> {
 
     @Query(
         "SELECT p FROM PublishedTheme p WHERE p.listed = true " +
-            "AND (p.authorId IN :userIds OR p.id IN (SELECT t.publicationId FROM TimetableTheme t WHERE t.userId IN :userIds)) " +
+            "AND (p.authorId IN :userIds OR p.id IN (" +
+            "SELECT t.publicationId FROM TimetableTheme t WHERE t.userId IN :userIds AND t.publicationId IS NOT NULL" +
+            ")) " +
             "ORDER BY p.downloadCount DESC, p.id DESC",
     )
     fun findFriendsListed(

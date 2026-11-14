@@ -186,29 +186,18 @@ class V1CompatThemeController(
     fun getBestThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
-    ): LegacyPageResponse<LegacyThemeDto> {
-        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        return wrap(
-            legacyPublishedThemeRepository.findByListedTrueOrderByDownloadCountDescIdDesc(
-                PageRequest.of(page - 1, LEGACY_THEME_PAGE_SIZE),
-            ),
-        )
-    }
+    ): LegacyPageResponse<LegacyThemeDto> =
+        wrap(legacyPublishedThemeRepository.findByListedTrueOrderByDownloadCountDescIdDesc(themePageable(page)))
 
     @GetMapping("/friends")
     fun getFriendsThemes(
         @V1CurrentUser user: User,
         @RequestParam page: Int,
     ): LegacyPageResponse<LegacyThemeDto> {
-        if (page <= 0) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        val pageable = themePageable(page)
         val friendUserIds = friendRepository.findActiveByUserId(user.id!!).map { it.getPartnerUserId(user.id!!) }
         if (friendUserIds.isEmpty()) return LegacyPageResponse(content = emptyList(), totalCount = 0)
-        return wrap(
-            legacyPublishedThemeRepository.findFriendsListed(
-                friendUserIds,
-                PageRequest.of(page - 1, LEGACY_THEME_PAGE_SIZE),
-            ),
-        )
+        return wrap(legacyPublishedThemeRepository.findFriendsListed(friendUserIds, pageable))
     }
 
     @PostMapping("/search")
@@ -324,6 +313,13 @@ class V1CompatThemeController(
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         }
         return current.toLegacy(user.id!!.toString(), null)
+    }
+
+    private fun themePageable(page: Int): PageRequest {
+        if (page <= 0 || page - 1 > Int.MAX_VALUE / LEGACY_THEME_PAGE_SIZE) {
+            throw SnuttException(ErrorType.INVALID_PARAMETER)
+        }
+        return PageRequest.of(page - 1, LEGACY_THEME_PAGE_SIZE)
     }
 
     private fun listedPublicationsOf(
