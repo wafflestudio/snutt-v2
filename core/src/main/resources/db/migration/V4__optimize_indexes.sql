@@ -17,7 +17,6 @@ ALTER TABLE evaluation
     ADD INDEX idx_evaluation_visible_id (is_hidden, id DESC);
 
 ALTER TABLE lecture
-    ADD INDEX idx_lecture_course_classification (course_id, classification),
     ADD INDEX idx_lecture_classification_course (classification, course_id),
     DROP INDEX idx_lecture_classification;
 
