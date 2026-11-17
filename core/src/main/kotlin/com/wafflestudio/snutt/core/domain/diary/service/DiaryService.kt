@@ -69,21 +69,18 @@ class DiaryService(
         userId: Long,
         request: DiaryQuestionnaireRequest,
     ): DiaryQuestionnaireDisplay {
-        val dailyClassTypeIds = diaryDailyClassTypeRepository.findAllByNameInAndActiveTrue(request.dailyClassTypes).map { it.id!! }
-        val targetedQuestionIds =
-            diaryQuestionTargetRepository
-                .findByDailyClassTypeIdIn(dailyClassTypeIds)
-                .map { it.questionId }
-                .toSet()
-        val questions =
-            diaryQuestionRepository
-                .findAllByActiveTrue()
-                .filter { it.id in targetedQuestionIds }
-                .shuffled()
-                .take(QUESTION_COUNT)
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        val questions =
+            if (request.dailyClassTypes.isEmpty()) {
+                emptyList()
+            } else {
+                diaryQuestionRepository
+                    .findActiveByDailyClassTypes(request.dailyClassTypes)
+                    .shuffled()
+                    .take(QUESTION_COUNT)
+            }
         val nextLecture = getDiaryTargetLecture(userId, lecture.year, lecture.semester, listOf(lecture.id!!))
         return DiaryQuestionnaireDisplay(
             courseTitle = lecture.courseTitle,

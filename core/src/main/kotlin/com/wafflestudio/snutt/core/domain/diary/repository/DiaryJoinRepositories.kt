@@ -5,9 +5,7 @@ import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmissionAnswer
 import com.wafflestudio.snutt.core.domain.diary.model.DiarySubmissionDailyClassType
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface DiaryQuestionTargetRepository : JpaRepository<DiaryQuestionTarget, Long> {
-    fun findByDailyClassTypeIdIn(dailyClassTypeIds: Collection<Long>): List<DiaryQuestionTarget>
-}
+interface DiaryQuestionTargetRepository : JpaRepository<DiaryQuestionTarget, Long>
 
 interface DiarySubmissionDailyClassTypeRepository : JpaRepository<DiarySubmissionDailyClassType, Long>
 
