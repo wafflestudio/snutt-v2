@@ -81,10 +81,16 @@ class TimetableLectureService(
         val remaining = resolveTimeConflict(display, classTimes, request.isForced, null)
 
         val paletteIndex = newPaletteIndex(display.theme, remaining)
-        timetableLectureRepository.save(
-            TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, paletteIndex = paletteIndex),
+        val saved =
+            timetableLectureRepository.save(
+                TimetableLecture(timetableId = timetable.id!!, lectureId = lecture.id, paletteIndex = paletteIndex),
+            )
+        return updatedDisplay(
+            userId = userId,
+            timetable = timetable,
+            theme = display.theme,
+            lectures = remaining + TimetableLectureDisplay(saved, lecture, classTimes, display.theme),
         )
-        return displayAfterLectureChange(userId, timetable)
     }
 
     @Transactional
@@ -103,23 +109,29 @@ class TimetableLectureService(
 
         val paletteIndex =
             request.paletteIndex?.also { validatePaletteIndex(display.theme, it) } ?: newPaletteIndex(display.theme, remaining)
-        timetableLectureRepository.save(
-            TimetableLecture(
-                timetableId = timetable.id!!,
-                lectureId = null,
-                customColor = request.customColor,
-                paletteIndex = paletteIndex,
-                overrides =
-                    LectureOverrides(
-                        courseTitle = request.courseTitle,
-                        instructor = request.instructor,
-                        credit = request.credit,
-                        remark = request.remark,
-                        classPlaceAndTimes = request.classPlaceAndTimes,
-                    ),
-            ),
+        val saved =
+            timetableLectureRepository.save(
+                TimetableLecture(
+                    timetableId = timetable.id!!,
+                    lectureId = null,
+                    customColor = request.customColor,
+                    paletteIndex = paletteIndex,
+                    overrides =
+                        LectureOverrides(
+                            courseTitle = request.courseTitle,
+                            instructor = request.instructor,
+                            credit = request.credit,
+                            remark = request.remark,
+                            classPlaceAndTimes = request.classPlaceAndTimes,
+                        ),
+                ),
+            )
+        return updatedDisplay(
+            userId = userId,
+            timetable = timetable,
+            theme = display.theme,
+            lectures = remaining + TimetableLectureDisplay(saved, null, emptyList(), display.theme),
         )
-        return displayAfterLectureChange(userId, timetable)
     }
 
     @Transactional
@@ -134,11 +146,12 @@ class TimetableLectureService(
         if (request.customColor != null && request.paletteIndex != null) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         if (request.courseTitle?.isBlank() == true) throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         val display = timetableService.displayOf(timetable)
+        val currentDisplay = display.lectures.first { it.id == timetableLecture.id }
         val lecture =
             timetableLecture.lectureId?.let {
                 lectureRepository.findByIdOrNull(it) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
             }
-        val lectureTimes = lecture?.let { lectureService.classTimesByLectureId(listOf(it.id!!))[it.id!!] }.orEmpty()
+        val lectureTimes = originalClassTimes(timetableLecture, currentDisplay)
 
         val timesReset = LectureOverrideField.CLASS_PLACE_AND_TIMES in request.resetFields
         val timesChanged = request.classPlaceAndTimes != null || timesReset
@@ -147,10 +160,15 @@ class TimetableLectureService(
                 ?: if (timesReset) {
                     lectureTimes
                 } else {
-                    display.lectures.first { it.id == timetableLecture.id }.classPlaceAndTimes
+                    currentDisplay.classPlaceAndTimes
                 }
         validateClassTimes(newTimes)
-        if (timesChanged) resolveTimeConflict(display, newTimes, request.isForced, timetableLecture.id)
+        val remainingIds =
+            if (timesChanged) {
+                resolveTimeConflict(display, newTimes, request.isForced, timetableLecture.id).mapTo(hashSetOf()) { it.id }
+            } else {
+                null
+            }
 
         request.paletteIndex?.let {
             validatePaletteIndex(display.theme, it)
@@ -180,7 +198,16 @@ class TimetableLectureService(
             throw SnuttException(ErrorType.INVALID_REQUEST_BODY)
         }
         if (timesChanged) timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
-        return displayAfterLectureChange(userId, timetable)
+        val modifiedItem = TimetableLectureDisplay(timetableLecture, lecture, lectureTimes, display.theme)
+        val updatedLectures =
+            display.lectures.mapNotNull { item ->
+                when {
+                    item.id == timetableLecture.id -> modifiedItem
+                    remainingIds == null || item.id in remainingIds -> item
+                    else -> null
+                }
+            }
+        return updatedDisplay(userId, timetable, display.theme, updatedLectures)
     }
 
     @Transactional
@@ -194,12 +221,33 @@ class TimetableLectureService(
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         val lectureId = timetableLecture.lectureId ?: throw SnuttException(ErrorType.CANNOT_RESET_CUSTOM_LECTURE)
 
-        val classTimes = lectureService.classTimesByLectureId(listOf(lectureId))[lectureId].orEmpty()
-        resolveTimeConflict(timetableService.displayOf(timetable), classTimes, isForced, timetableLecture.id)
+        val display = timetableService.displayOf(timetable)
+        val currentDisplay = display.lectures.first { it.id == timetableLecture.id }
+        val lecture = lectureRepository.findByIdOrNull(lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+        val classTimes = originalClassTimes(timetableLecture, currentDisplay)
+        val remainingIds = resolveTimeConflict(display, classTimes, isForced, timetableLecture.id).mapTo(hashSetOf()) { it.id }
 
         timetableLecture.clearOverrides()
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, classTimes)
-        return displayAfterLectureChange(userId, timetable)
+        val resetItem = TimetableLectureDisplay(timetableLecture, lecture, classTimes, display.theme)
+        val updatedLectures =
+            display.lectures.mapNotNull { item ->
+                when {
+                    item.id == timetableLecture.id -> resetItem
+                    item.id in remainingIds -> item
+                    else -> null
+                }
+            }
+        return updatedDisplay(userId, timetable, display.theme, updatedLectures)
+    }
+
+    private fun originalClassTimes(
+        timetableLecture: TimetableLecture,
+        currentDisplay: TimetableLectureDisplay,
+    ): List<ClassPlaceAndTime> {
+        val lectureId = timetableLecture.lectureId ?: return emptyList()
+        if (timetableLecture.overrides?.classPlaceAndTimes == null) return currentDisplay.classPlaceAndTimes
+        return lectureService.classTimesByLectureId(listOf(lectureId))[lectureId].orEmpty()
     }
 
     @Transactional
@@ -211,15 +259,19 @@ class TimetableLectureService(
         val timetable = lockTimetable(userId, timetableId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         timetableLectureRepository.delete(timetableLecture)
-        return displayAfterLectureChange(userId, timetable)
-    }
-
-    private fun displayAfterLectureChange(
-        userId: Long,
-        timetable: Timetable,
-    ): TimetableDisplay {
         timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
         return timetableService.getTimetableDisplay(userId, timetable.id!!)
+    }
+
+    private fun updatedDisplay(
+        userId: Long,
+        timetable: Timetable,
+        theme: TimetableThemeDisplay,
+        lectures: List<TimetableLectureDisplay>,
+    ): TimetableDisplay {
+        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
+        val updatedTimetable = timetableService.getTimetable(userId, timetable.id!!)
+        return TimetableDisplay(timetable = updatedTimetable, theme = theme, lectures = lectures)
     }
 
     private fun lockTimetable(

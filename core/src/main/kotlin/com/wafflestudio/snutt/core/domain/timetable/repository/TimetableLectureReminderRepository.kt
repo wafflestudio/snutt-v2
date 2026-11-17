@@ -23,6 +23,4 @@ interface TimetableLectureReminderRepository : JpaRepository<TimetableLectureRem
         year: Int,
         semesterValue: Int,
     ): Int
-
-    fun findByTimetableLectureIdIn(timetableLectureIds: Collection<Long>): List<TimetableLectureReminder>
 }
