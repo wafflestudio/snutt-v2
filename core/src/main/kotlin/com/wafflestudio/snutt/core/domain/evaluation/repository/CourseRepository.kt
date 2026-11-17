@@ -5,6 +5,7 @@ import com.linecorp.kotlinjdsl.dsl.jpql.jpql
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
 import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
@@ -12,13 +13,14 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import java.time.Instant
-import kotlin.reflect.KProperty1
 
 data class CourseVocabulary(
     val classification: List<String>,
@@ -28,6 +30,25 @@ data class CourseVocabulary(
     val category: List<String>,
     val categoryPre2025: List<String>,
     val semesters: List<YearAndSemester>,
+    val updatedAt: Instant?,
+)
+
+data class TakenLectureRow(
+    val year: Int,
+    val semester: Semester,
+    val lecture: Lecture,
+    val course: Course,
+)
+
+private data class CourseVocabularyRow(
+    val classification: String?,
+    val department: String?,
+    val academicYear: String?,
+    val credit: Int,
+    val category: String?,
+    val categoryPre2025: String?,
+    val year: Int,
+    val semester: Semester,
     val updatedAt: Instant?,
 )
 
@@ -195,49 +216,80 @@ interface CourseRepository :
         }
     }
 
-    fun getVocabulary(language: Language): CourseVocabulary {
-        val english = language == Language.EN
-        return CourseVocabulary(
-            classification = distinctStrings(if (english) Lecture::classificationEn else Lecture::classification),
-            department = distinctStrings(if (english) Lecture::departmentEn else Lecture::department),
-            academicYear = distinctStrings(if (english) Lecture::academicYearEn else Lecture::academicYear),
-            credit =
-                findAll {
-                    jpql {
-                        selectDistinct(path(Lecture::credit))
-                            .from(entity(Lecture::class))
-                            .where(path(Lecture::courseId).isNotNull())
-                            .orderBy(path(Lecture::credit).asc())
-                    }
-                }.filterNotNull(),
-            category = distinctStrings(if (english) Lecture::categoryEn else Lecture::category),
-            categoryPre2025 = distinctStrings(Lecture::categoryPre2025),
-            semesters =
-                findAll {
-                    jpql {
-                        selectNew<YearAndSemester>(path(Lecture::year), path(Lecture::semester))
-                            .from(entity(Lecture::class))
-                            .where(path(Lecture::courseId).isNotNull())
-                            .groupBy(path(Lecture::year), path(Lecture::semester))
-                            .orderBy(path(Lecture::year).desc(), path(Lecture::semester).desc())
-                    }
-                }.filterNotNull(),
-            updatedAt =
-                findAll {
-                    jpql {
-                        select(max(path(Lecture::updatedAt))).from(entity(Lecture::class)).where(path(Lecture::courseId).isNotNull())
-                    }
-                }.firstOrNull(),
-        )
-    }
-
-    private fun distinctStrings(property: KProperty1<Lecture, String?>): List<String> =
-        findAll {
+    fun findTakenLectures(
+        userId: Long,
+        semesters: Collection<YearAndSemester>,
+    ): List<TakenLectureRow> {
+        if (semesters.isEmpty()) return emptyList()
+        return findAll {
             jpql {
-                selectDistinct(path(property))
-                    .from(entity(Lecture::class))
-                    .where(and(path(Lecture::courseId).isNotNull(), path(property).isNotNull(), path(property).notEqual("")))
-                    .orderBy(path(property).asc())
+                selectNew<TakenLectureRow>(
+                    path(Timetable::year),
+                    path(Timetable::semester),
+                    entity(Lecture::class),
+                    entity(Course::class),
+                ).from(
+                    entity(Timetable::class),
+                    join(TimetableLecture::class).on(path(TimetableLecture::timetableId).equal(path(Timetable::id))),
+                    join(Lecture::class).on(path(Lecture::id).equal(path(TimetableLecture::lectureId))),
+                    join(Course::class).on(path(Course::id).equal(path(Lecture::courseId))),
+                ).where(
+                    and(
+                        path(Timetable::userId).equal(userId),
+                        or(
+                            *semesters
+                                .map {
+                                    and(
+                                        path(Timetable::year).equal(it.year),
+                                        path(Timetable::semester).equal(it.semester),
+                                    )
+                                }.toTypedArray(),
+                        ),
+                    ),
+                ).orderBy(
+                    path(Timetable::year).desc(),
+                    path(Timetable::semester).desc(),
+                    path(TimetableLecture::id).asc(),
+                )
             }
         }.filterNotNull()
+    }
+
+    fun getVocabulary(language: Language): CourseVocabulary {
+        val english = language == Language.EN
+        val rows =
+            findAll {
+                jpql {
+                    selectNew<CourseVocabularyRow>(
+                        path(if (english) Lecture::classificationEn else Lecture::classification),
+                        path(if (english) Lecture::departmentEn else Lecture::department),
+                        path(if (english) Lecture::academicYearEn else Lecture::academicYear),
+                        path(Lecture::credit),
+                        path(if (english) Lecture::categoryEn else Lecture::category),
+                        path(Lecture::categoryPre2025),
+                        path(Lecture::year),
+                        path(Lecture::semester),
+                        path(Lecture::updatedAt),
+                    ).from(entity(Lecture::class))
+                        .where(path(Lecture::courseId).isNotNull())
+                }
+            }.filterNotNull()
+
+        fun List<String?>.distinctSorted(): List<String> = mapNotNull { it?.ifEmpty { null } }.distinct().sorted()
+
+        return CourseVocabulary(
+            classification = rows.map { it.classification }.distinctSorted(),
+            department = rows.map { it.department }.distinctSorted(),
+            academicYear = rows.map { it.academicYear }.distinctSorted(),
+            credit = rows.map { it.credit }.distinct().sorted(),
+            category = rows.map { it.category }.distinctSorted(),
+            categoryPre2025 = rows.map { it.categoryPre2025 }.distinctSorted(),
+            semesters =
+                rows
+                    .map { YearAndSemester(it.year, it.semester) }
+                    .distinct()
+                    .sortedWith(compareByDescending<YearAndSemester> { it.year }.thenByDescending { it.semester.value }),
+            updatedAt = rows.mapNotNull { it.updatedAt }.maxOrNull(),
+        )
+    }
 }

@@ -21,7 +21,6 @@ import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
 import org.springframework.data.jpa.repository.JpaRepository
 import java.time.Instant
-import kotlin.reflect.KProperty1
 
 data class LectureSearchRow(
     val lecture: Lecture,
@@ -37,6 +36,22 @@ data class LectureVocabulary(
     val categoryPre2025: List<String>,
     val credit: List<Int>,
     val instructor: List<String>,
+    val updatedAt: Instant?,
+)
+
+private data class LectureVocabularyRow(
+    val classification: String?,
+    val classificationEn: String?,
+    val department: String?,
+    val departmentEn: String?,
+    val academicYear: String?,
+    val academicYearEn: String?,
+    val category: String?,
+    val categoryEn: String?,
+    val categoryPre2025: String?,
+    val credit: Int,
+    val instructor: String?,
+    val instructorEn: String?,
     val updatedAt: Instant?,
 )
 
@@ -373,82 +388,53 @@ interface LectureRepository :
         year: Int,
         semester: Semester,
         language: Language,
-    ): LectureVocabulary =
-        LectureVocabulary(
-            classification = distinct(year, semester, language, Lecture::classification, Lecture::classificationEn),
-            department = distinct(year, semester, language, Lecture::department, Lecture::departmentEn),
-            academicYear = distinct(year, semester, language, Lecture::academicYear, Lecture::academicYearEn),
-            category = distinct(year, semester, language, Lecture::category, Lecture::categoryEn),
-            categoryPre2025 = distinctStrings(year, semester, Lecture::categoryPre2025),
-            credit = distinctCredits(year, semester),
-            instructor = distinct(year, semester, language, Lecture::instructor, Lecture::instructorEn),
-            updatedAt = maxUpdatedAt(year, semester),
-        )
+    ): LectureVocabulary {
+        val rows =
+            findAll(offset = null, limit = null) {
+                jpql {
+                    selectNew<LectureVocabularyRow>(
+                        path(Lecture::classification),
+                        path(Lecture::classificationEn),
+                        path(Lecture::department),
+                        path(Lecture::departmentEn),
+                        path(Lecture::academicYear),
+                        path(Lecture::academicYearEn),
+                        path(Lecture::category),
+                        path(Lecture::categoryEn),
+                        path(Lecture::categoryPre2025),
+                        path(Lecture::credit),
+                        path(Lecture::instructor),
+                        path(Lecture::instructorEn),
+                        path(Lecture::updatedAt),
+                    ).from(entity(Lecture::class))
+                        .where(
+                            and(
+                                path(Lecture::year).equal(year),
+                                path(Lecture::semester).equal(semester),
+                            ),
+                        )
+                }
+            }.filterNotNull()
 
-    private fun maxUpdatedAt(
-        year: Int,
-        semester: Semester,
-    ): Instant? =
-        findAll(offset = null, limit = 1) {
-            jpql {
-                select(max(path(Lecture::updatedAt)))
-                    .from(entity(Lecture::class))
-                    .where(
-                        and(
-                            path(Lecture::year).equal(year),
-                            path(Lecture::semester).equal(semester),
-                        ),
-                    )
-            }
-        }.firstOrNull()
+        fun List<String?>.distinctSorted(): List<String> = filterNotNull().distinct().sorted()
 
-    private fun distinct(
-        year: Int,
-        semester: Semester,
-        language: Language,
-        ko: KProperty1<Lecture, String?>,
-        en: KProperty1<Lecture, String?>,
-    ): List<String> {
-        if (language == Language.EN) {
-            val english = distinctStrings(year, semester, en)
-            if (english.isNotEmpty()) return english
+        fun pick(
+            ko: (LectureVocabularyRow) -> String?,
+            en: (LectureVocabularyRow) -> String?,
+        ): List<String> {
+            val korean = rows.map(ko).distinctSorted()
+            return if (language == Language.EN) rows.map(en).distinctSorted().ifEmpty { korean } else korean
         }
-        return distinctStrings(year, semester, ko)
+
+        return LectureVocabulary(
+            classification = pick({ it.classification }, { it.classificationEn }),
+            department = pick({ it.department }, { it.departmentEn }),
+            academicYear = pick({ it.academicYear }, { it.academicYearEn }),
+            category = pick({ it.category }, { it.categoryEn }),
+            categoryPre2025 = rows.map { it.categoryPre2025 }.distinctSorted(),
+            credit = rows.map { it.credit }.distinct().sorted(),
+            instructor = pick({ it.instructor }, { it.instructorEn }),
+            updatedAt = rows.mapNotNull { it.updatedAt }.maxOrNull(),
+        )
     }
-
-    private fun distinctStrings(
-        year: Int,
-        semester: Semester,
-        prop: KProperty1<Lecture, String?>,
-    ): List<String> =
-        findAll(offset = null, limit = null) {
-            jpql {
-                selectDistinct(path(prop))
-                    .from(entity(Lecture::class))
-                    .where(
-                        and(
-                            path(Lecture::year).equal(year),
-                            path(Lecture::semester).equal(semester),
-                            path(prop).isNotNull(),
-                        ),
-                    ).orderBy(path(prop).asc())
-            }
-        }.filterNotNull()
-
-    private fun distinctCredits(
-        year: Int,
-        semester: Semester,
-    ): List<Int> =
-        findAll(offset = null, limit = null) {
-            jpql {
-                selectDistinct(path(Lecture::credit))
-                    .from(entity(Lecture::class))
-                    .where(
-                        and(
-                            path(Lecture::year).equal(year),
-                            path(Lecture::semester).equal(semester),
-                        ),
-                    ).orderBy(path(Lecture::credit).asc())
-            }
-        }.filterNotNull()
 }
