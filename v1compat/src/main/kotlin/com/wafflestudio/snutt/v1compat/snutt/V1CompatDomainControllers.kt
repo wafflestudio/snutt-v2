@@ -20,7 +20,6 @@ import com.wafflestudio.snutt.core.domain.friend.model.Friend
 import com.wafflestudio.snutt.core.domain.friend.service.FriendService
 import com.wafflestudio.snutt.core.domain.friend.service.FriendState
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
-import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
@@ -29,7 +28,6 @@ import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.Nickname
 import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
@@ -326,8 +324,7 @@ data class LegacyNotificationCountResponse(
 @RequestMapping("/v1/notification")
 class V1CompatNotificationController(
     private val notificationService: NotificationService,
-    private val notificationRepository: NotificationRepository,
-    private val userRepository: UserRepository,
+    private val legacyNotificationRepository: LegacyNotificationRepository,
 ) {
     @Transactional
     @GetMapping("")
@@ -341,17 +338,15 @@ class V1CompatNotificationController(
         if (offset < 0 || limit !in 1..MAX_PAGE_SIZE || offset > Int.MAX_VALUE - limit) {
             throw SnuttException(ErrorType.INVALID_PARAMETER)
         }
-        val me = userRepository.findByIdAndActiveTrue(user.id!!) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val notifications =
-            notificationRepository
-                .findNotifications(
-                    userId = me.id!!,
-                    registeredAt = checkNotNull(me.createdAt),
-                    cursorCreatedAt = null,
-                    cursorId = null,
-                    limit = (offset + limit).toInt(),
-                ).drop(offset.toInt())
-        if (explicit > 0) me.notificationCheckedAt = Instant.now()
+            legacyNotificationRepository.findNotificationsWithOffset(
+                userId = user.id!!,
+                registeredAt = checkNotNull(user.createdAt),
+                fetchLimit = (offset + limit).toInt(),
+                limit = limit,
+                offset = offset.toInt(),
+            )
+        if (explicit > 0) legacyNotificationRepository.markChecked(user.id!!, Instant.now())
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(
