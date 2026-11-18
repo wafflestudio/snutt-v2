@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.core.domain.lecture.repository
 
 import com.linecorp.kotlinjdsl.dsl.jpql.Jpql
 import com.linecorp.kotlinjdsl.dsl.jpql.jpql
+import com.linecorp.kotlinjdsl.querymodel.jpql.expression.Expression
 import com.linecorp.kotlinjdsl.querymodel.jpql.expression.Expressions
 import com.linecorp.kotlinjdsl.querymodel.jpql.path.Path
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
@@ -11,6 +12,8 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.search.EnglishSearchQuery
+import com.wafflestudio.snutt.core.common.search.EnglishSearchQuery.fold
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -109,8 +112,9 @@ interface LectureRepository :
                     ?.takeIf { criteria.sort == LectureSort.DEFAULT }
                     ?.let { predicates += path(Lecture::id).greaterThan(it) }
 
+                val englishKeywords = mutableListOf<String>()
                 criteria.query?.split(' ')?.forEach { keyword ->
-                    when (val intent = SearchKeywordClassifier.classify(keyword, criteria.language)) {
+                    when (val intent = SearchKeywordClassifier.classify(keyword, Language.KO)) {
                         KeywordIntent.Empty -> {}
                         KeywordIntent.Major -> predicates += path(Lecture::classification).`in`(listOf("전선", "전필"))
                         KeywordIntent.Graduate -> predicates += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
@@ -162,17 +166,7 @@ interface LectureRepository :
                         }
                         is KeywordIntent.Plain ->
                             if (criteria.language == Language.EN) {
-                                predicates +=
-                                    or(
-                                        *listOfNotNull(
-                                            regexp(path(Lecture::courseTitle), regexEscape(intent.keyword)),
-                                            regexp(path(Lecture::courseTitleEn), regexEscape(intent.keyword)),
-                                            regexp(path(Lecture::instructor), regexEscape(intent.keyword)),
-                                            regexp(path(Lecture::instructorEn), instructorEnPattern(intent.keyword)),
-                                            bineq(path(Lecture::courseNumber), intent.keyword),
-                                            bineq(path(Lecture::lectureNumber), intent.keyword),
-                                        ).toTypedArray(),
-                                    )
+                                englishKeywords += intent.keyword
                             } else {
                                 predicates +=
                                     or(
@@ -186,6 +180,7 @@ interface LectureRepository :
                             }
                     }
                 }
+                predicates += englishQueryPredicates(englishKeywords)
 
                 criteria.classification?.takeIf { it.isNotEmpty() }?.let {
                     predicates +=
@@ -329,6 +324,49 @@ interface LectureRepository :
         }.filterNotNull()
     }
 
+    private fun Jpql.englishQueryPredicates(keywords: List<String>): List<Predicate> {
+        val predicates = mutableListOf<Predicate>()
+        val rawTokens = mutableListOf<String>()
+        val tokens = mutableListOf<String>()
+        keywords.forEach { keyword ->
+            if (EnglishSearchQuery.isNumberToken(keyword)) {
+                predicates += or(bineq(path(Lecture::courseNumber), keyword), bineq(path(Lecture::lectureNumber), keyword))
+            } else {
+                EnglishSearchQuery.normalize(keyword).takeIf { it.isNotEmpty() }?.let {
+                    rawTokens += keyword
+                    tokens += it
+                }
+            }
+        }
+        when {
+            tokens.isEmpty() -> Unit
+            EnglishSearchQuery.isTooLong(tokens) -> rawTokens.forEach { predicates += englishPlainPredicate(it) }
+            else -> {
+                val title = coalesce(path(Lecture::courseTitleEn), path(Lecture::courseTitle))
+                val instructor = coalesce(path(Lecture::instructorEn), path(Lecture::instructor))
+                predicates +=
+                    EnglishSearchQuery.condition(tokens).fold(
+                        tokens = tokens,
+                        title = { regexp(title, it) },
+                        instructor = { regexp(instructor, it) },
+                        and = { left, right -> and(left, right) },
+                        or = { or(*it.toTypedArray()) },
+                    )
+            }
+        }
+        return predicates
+    }
+
+    private fun Jpql.englishPlainPredicate(keyword: String): Predicate =
+        or(
+            regexp(path(Lecture::courseTitle), regexEscape(keyword)),
+            regexp(path(Lecture::courseTitleEn), regexEscape(keyword)),
+            regexp(path(Lecture::instructor), regexEscape(keyword)),
+            regexp(path(Lecture::instructorEn), instructorEnPattern(keyword)),
+            bineq(path(Lecture::courseNumber), keyword),
+            bineq(path(Lecture::lectureNumber), keyword),
+        )
+
     private fun instructorEnPattern(keyword: String): String {
         val separator = "[^A-Za-z0-9가-힣]"
         val letters = keyword.filter { it.isLetterOrDigit() }
@@ -360,9 +398,9 @@ interface LectureRepository :
         )
 
     private fun regexp(
-        path: Path<String>,
+        expression: Expression<String>,
         pattern: String,
-    ): Predicate = Predicates.customPredicate("regexp({0}, {1})", listOf(path, Expressions.value(pattern)))
+    ): Predicate = Predicates.customPredicate("regexp({0}, {1})", listOf(expression, Expressions.value(pattern)))
 
     private fun bineq(
         path: Path<String>,
