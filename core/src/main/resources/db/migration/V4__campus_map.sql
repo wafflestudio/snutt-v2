@@ -40,7 +40,8 @@ CREATE TABLE campus_walk_edge
     CONSTRAINT fk_campus_walk_edge_node_a FOREIGN KEY (node_a_id) REFERENCES campus_walk_node (id),
     CONSTRAINT fk_campus_walk_edge_node_b FOREIGN KEY (node_b_id) REFERENCES campus_walk_node (id),
     CONSTRAINT fk_campus_walk_edge_structure FOREIGN KEY (structure_id) REFERENCES campus_structure (id),
-    CONSTRAINT ck_campus_walk_edge_distinct_nodes CHECK (node_a_id <> node_b_id),
+    CONSTRAINT uk_campus_walk_edge UNIQUE (node_a_id, node_b_id, kind),
+    CONSTRAINT ck_campus_walk_edge_node_order CHECK (node_a_id < node_b_id),
     CONSTRAINT ck_campus_walk_edge_indoor_structure CHECK ((kind = 'INDOOR') = (structure_id IS NOT NULL))
 );
 
@@ -48,6 +49,7 @@ CREATE TABLE campus_building
 (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     building_number VARCHAR(16)  NOT NULL,
+    campus          VARCHAR(16)  NOT NULL,
     name_kor        VARCHAR(64)  NOT NULL,
     name_eng        VARCHAR(128) NOT NULL DEFAULT '',
     latitude        DOUBLE       NOT NULL,
@@ -56,7 +58,7 @@ CREATE TABLE campus_building
     source          VARCHAR(16)  NOT NULL,
     created_at      DATETIME(6)  NOT NULL,
     updated_at      DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_campus_building_number UNIQUE (building_number),
+    CONSTRAINT uk_campus_building UNIQUE (building_number, campus),
     CONSTRAINT fk_campus_building_structure FOREIGN KEY (structure_id) REFERENCES campus_structure (id)
 );
 
@@ -147,40 +149,3 @@ CREATE TABLE campus_map_state
 
 INSERT INTO campus_map_state (id, version, created_at, updated_at)
 VALUES (1, 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
-
-CREATE TABLE campus_map_change
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    version     BIGINT       NOT NULL,
-    user_id     BIGINT       NOT NULL,
-    description VARCHAR(255) NOT NULL DEFAULT '',
-    created_at  DATETIME(6)  NOT NULL,
-    updated_at  DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_campus_map_change_version UNIQUE (version),
-    INDEX idx_campus_map_change_user (user_id, id)
-);
-
-CREATE TABLE campus_map_change_item
-(
-    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
-    change_id    BIGINT      NOT NULL,
-    target_type  VARCHAR(32) NOT NULL,
-    target_id    BIGINT      NOT NULL,
-    action       VARCHAR(16) NOT NULL,
-    before_value JSON        NULL,
-    after_value  JSON        NULL,
-    created_at   DATETIME(6) NOT NULL,
-    updated_at   DATETIME(6) NOT NULL,
-    CONSTRAINT fk_campus_map_change_item_change FOREIGN KEY (change_id) REFERENCES campus_map_change (id),
-    INDEX idx_campus_map_change_item_target (target_type, target_id, id)
-);
-
-CREATE TABLE campus_map_release
-(
-    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-    version    BIGINT      NOT NULL,
-    user_id    BIGINT      NULL,
-    created_at DATETIME(6) NOT NULL,
-    updated_at DATETIME(6) NOT NULL,
-    CONSTRAINT uk_campus_map_release_version UNIQUE (version)
-);
