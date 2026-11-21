@@ -1,4 +1,4 @@
-CREATE TABLE campus_walk_node
+CREATE TABLE map_walk_node
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
     latitude         DOUBLE      NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE campus_walk_node
     updated_at       DATETIME(6) NOT NULL
 );
 
-CREATE TABLE campus_structure
+CREATE TABLE map_structure
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(64) NOT NULL DEFAULT '',
@@ -21,7 +21,7 @@ CREATE TABLE campus_structure
     updated_at DATETIME(6) NOT NULL
 );
 
-CREATE TABLE campus_walk_edge
+CREATE TABLE map_walk_edge
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     node_a_id           BIGINT       NOT NULL,
@@ -37,15 +37,15 @@ CREATE TABLE campus_walk_edge
     source              VARCHAR(16)  NOT NULL,
     created_at          DATETIME(6)  NOT NULL,
     updated_at          DATETIME(6)  NOT NULL,
-    CONSTRAINT fk_campus_walk_edge_node_a FOREIGN KEY (node_a_id) REFERENCES campus_walk_node (id),
-    CONSTRAINT fk_campus_walk_edge_node_b FOREIGN KEY (node_b_id) REFERENCES campus_walk_node (id),
-    CONSTRAINT fk_campus_walk_edge_structure FOREIGN KEY (structure_id) REFERENCES campus_structure (id),
-    CONSTRAINT uk_campus_walk_edge UNIQUE (node_a_id, node_b_id, kind),
-    CONSTRAINT ck_campus_walk_edge_node_order CHECK (node_a_id < node_b_id),
-    CONSTRAINT ck_campus_walk_edge_indoor_structure CHECK ((kind = 'INDOOR') = (structure_id IS NOT NULL))
+    CONSTRAINT fk_map_walk_edge_node_a FOREIGN KEY (node_a_id) REFERENCES map_walk_node (id),
+    CONSTRAINT fk_map_walk_edge_node_b FOREIGN KEY (node_b_id) REFERENCES map_walk_node (id),
+    CONSTRAINT fk_map_walk_edge_structure FOREIGN KEY (structure_id) REFERENCES map_structure (id),
+    CONSTRAINT uk_map_walk_edge UNIQUE (node_a_id, node_b_id, kind),
+    CONSTRAINT ck_map_walk_edge_node_order CHECK (node_a_id < node_b_id),
+    CONSTRAINT ck_map_walk_edge_indoor_structure CHECK ((kind = 'INDOOR') = (structure_id IS NOT NULL))
 );
 
-CREATE TABLE campus_building
+CREATE TABLE map_building
 (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     building_number VARCHAR(16)  NOT NULL,
@@ -58,11 +58,11 @@ CREATE TABLE campus_building
     source          VARCHAR(16)  NOT NULL,
     created_at      DATETIME(6)  NOT NULL,
     updated_at      DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_campus_building UNIQUE (building_number, campus),
-    CONSTRAINT fk_campus_building_structure FOREIGN KEY (structure_id) REFERENCES campus_structure (id)
+    CONSTRAINT uk_map_building UNIQUE (building_number, campus),
+    CONSTRAINT fk_map_building_structure FOREIGN KEY (structure_id) REFERENCES map_structure (id)
 );
 
-CREATE TABLE campus_entrance
+CREATE TABLE map_entrance
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
     structure_id             BIGINT       NOT NULL,
@@ -73,24 +73,24 @@ CREATE TABLE campus_entrance
     source                   VARCHAR(16)  NOT NULL,
     created_at               DATETIME(6)  NOT NULL,
     updated_at               DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_campus_entrance UNIQUE (structure_id, node_id),
-    CONSTRAINT fk_campus_entrance_structure FOREIGN KEY (structure_id) REFERENCES campus_structure (id),
-    CONSTRAINT fk_campus_entrance_node FOREIGN KEY (node_id) REFERENCES campus_walk_node (id)
+    CONSTRAINT uk_map_entrance UNIQUE (structure_id, node_id),
+    CONSTRAINT fk_map_entrance_structure FOREIGN KEY (structure_id) REFERENCES map_structure (id),
+    CONSTRAINT fk_map_entrance_node FOREIGN KEY (node_id) REFERENCES map_walk_node (id)
 );
 
-CREATE TABLE campus_access_point
+CREATE TABLE map_access_point
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     building_id BIGINT      NOT NULL,
     node_id     BIGINT      NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_campus_access_point UNIQUE (building_id, node_id),
-    CONSTRAINT fk_campus_access_point_building FOREIGN KEY (building_id) REFERENCES campus_building (id),
-    CONSTRAINT fk_campus_access_point_node FOREIGN KEY (node_id) REFERENCES campus_walk_node (id)
+    CONSTRAINT uk_map_access_point UNIQUE (building_id, node_id),
+    CONSTRAINT fk_map_access_point_building FOREIGN KEY (building_id) REFERENCES map_building (id),
+    CONSTRAINT fk_map_access_point_node FOREIGN KEY (node_id) REFERENCES map_walk_node (id)
 );
 
-CREATE TABLE campus_transit_stop
+CREATE TABLE map_transit_stop
 (
     id         BIGINT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(64) NOT NULL,
@@ -101,11 +101,11 @@ CREATE TABLE campus_transit_stop
     source     VARCHAR(16) NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    CONSTRAINT uk_campus_transit_stop_ars_id UNIQUE (ars_id),
-    CONSTRAINT fk_campus_transit_stop_node FOREIGN KEY (node_id) REFERENCES campus_walk_node (id)
+    CONSTRAINT uk_map_transit_stop_ars_id UNIQUE (ars_id),
+    CONSTRAINT fk_map_transit_stop_node FOREIGN KEY (node_id) REFERENCES map_walk_node (id)
 );
 
-CREATE TABLE campus_transit_line
+CREATE TABLE map_transit_line
 (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
     name                 VARCHAR(32) NOT NULL,
@@ -116,10 +116,10 @@ CREATE TABLE campus_transit_line
     source               VARCHAR(16) NOT NULL,
     created_at           DATETIME(6) NOT NULL,
     updated_at           DATETIME(6) NOT NULL,
-    CONSTRAINT uk_campus_transit_line_name UNIQUE (name)
+    CONSTRAINT uk_map_transit_line_name UNIQUE (name)
 );
 
-CREATE TABLE campus_transit_line_stop
+CREATE TABLE map_transit_line_stop
 (
     id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
     line_id               BIGINT      NOT NULL,
@@ -133,19 +133,19 @@ CREATE TABLE campus_transit_line_stop
     path_to_next          JSON        NULL,
     created_at            DATETIME(6) NOT NULL,
     updated_at            DATETIME(6) NOT NULL,
-    CONSTRAINT uk_campus_transit_line_stop UNIQUE (line_id, run_no, seq),
-    CONSTRAINT fk_campus_transit_line_stop_line FOREIGN KEY (line_id) REFERENCES campus_transit_line (id),
-    CONSTRAINT fk_campus_transit_line_stop_stop FOREIGN KEY (stop_id) REFERENCES campus_transit_stop (id)
+    CONSTRAINT uk_map_transit_line_stop UNIQUE (line_id, run_no, seq),
+    CONSTRAINT fk_map_transit_line_stop_line FOREIGN KEY (line_id) REFERENCES map_transit_line (id),
+    CONSTRAINT fk_map_transit_line_stop_stop FOREIGN KEY (stop_id) REFERENCES map_transit_stop (id)
 );
 
-CREATE TABLE campus_map_state
+CREATE TABLE map_state
 (
     id         BIGINT      NOT NULL PRIMARY KEY,
     version    BIGINT      NOT NULL,
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
-    CONSTRAINT ck_campus_map_state_single_row CHECK (id = 1)
+    CONSTRAINT ck_map_state_single_row CHECK (id = 1)
 );
 
-INSERT INTO campus_map_state (id, version, created_at, updated_at)
+INSERT INTO map_state (id, version, created_at, updated_at)
 VALUES (1, 0, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6));
