@@ -20,6 +20,10 @@ class EnglishLectureSearchTest : AbstractApiIntegrationTest() {
         private const val DS_002 = "4190.206A/002"
         private const val PSYCH = "046.016/001"
         private const val CPP_NO_EN = "4190.999/001"
+        private const val WRITING = "E43.101/001"
+        private const val STUDIO = "444.302/001"
+        private const val TRANSLATION = "100.124/001"
+        private const val PSALMS = "108.124/001"
     }
 
     @Autowired
@@ -38,6 +42,10 @@ class EnglishLectureSearchTest : AbstractApiIntegrationTest() {
                 lecture("212.101", "001", "경제원론 1", "Principles of Economics 1", "김예린", "Kim, Yerin", "경제학부", "교양"),
                 lecture("034.020", "001", "물리학 1", "Physics 1", "최윤서", "Choi, Yunseo", "물리천문학부", "교양"),
                 lecture("4190.999", "001", "C++ 프로그래밍", null, "John Smith", null, "컴퓨터공학부", "교양"),
+                lecture("E43.101", "001", "글쓰기의 기초", "Foundations of Writing", "박서연", "Park, Seoyeon", "기초교육원", "교양"),
+                lecture("444.302", "001", "건축설계스튜디오 3-2", "Architectural Design Studio 3-2", "최준우", "Choi, Junwoo", "건축학과", "교양"),
+                lecture("100.124", "001", "번역의 이론과 실제", "Translation: Theory & Practice", "이하람", "Lee, Haram", "언어학과", "교양"),
+                lecture("108.124", "001", "시편 강독", "Readings in Psalms (Psalms 124)", "송지원", "Song, Jiwon", "언어학과", "교양"),
             ),
         )
     }
@@ -108,8 +116,12 @@ class EnglishLectureSearchTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `번호 키워드, 영문이 없는 강의, 긴 검색어`() {
+    fun `번호·기호·강의실 모양 키워드, 영문이 없는 강의, 긴 검색어`() {
         assertSearch("4190.206A 002", DS_002)
+        assertSearch("e43.101", WRITING)
+        assertSearch("psalms 124", PSALMS)
+        assertSearch("studio 3-2", STUDIO)
+        assertSearch("&", TRANSLATION)
         assertSearch("smith", CPP_NO_EN)
         assertSearch("introduction computer science introduction computer science", CS_001, CS_002)
     }

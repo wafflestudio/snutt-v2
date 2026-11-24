@@ -12,8 +12,6 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.search.EnglishSearchQuery
-import com.wafflestudio.snutt.core.common.search.EnglishSearchQuery.fold
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
@@ -65,6 +63,22 @@ private fun fuzzyPattern(keyword: String): String =
     keyword.codePoints().toArray().joinToString(".*") {
         regexEscape(Character.toString(it))
     }
+
+private const val NON_WORD = "[^A-Za-z0-9]"
+private const val MAX_EDGE_WORDS = 3
+private const val MIN_INSTRUCTOR_LETTERS = 2
+private const val MAX_SEQUENCE_CHARS = 40
+private val COURSE_NUMBER = Regex("""[A-Za-z]?\d+[A-Za-z]?\.[A-Za-z]?\d+[A-Za-z]?""")
+private val LECTURE_NUMBER = Regex("""\d{3}""")
+
+private fun englishToken(keyword: String): String = keyword.lowercase().filter { it in 'a'..'z' || it in '0'..'9' }
+
+private fun titlePattern(tokens: List<String>): String =
+    tokens.joinToString(".*$NON_WORD", prefix = "(?:^|$NON_WORD)") { it.toList().joinToString("(?:.*$NON_WORD)?") }
+
+private fun instructorPattern(token: String): String = token.toList().joinToString("$NON_WORD*", prefix = "(?:^|$NON_WORD)")
+
+private fun wordPattern(keyword: String): String = "(?:^|$NON_WORD)${regexEscape(keyword)}(?:$|$NON_WORD)"
 
 interface LectureRepository :
     JpaRepository<Lecture, Long>,
@@ -127,7 +141,7 @@ interface LectureRepository :
                         KeywordIntent.Recommended -> predicates += regexp(path(Lecture::remark), RECOMMENDED_PATTERN)
                         is KeywordIntent.Place -> {
                             val escaped = regexEscape(intent.keyword)
-                            predicates +=
+                            val place =
                                 exists(
                                     jpql {
                                         select(value(1))
@@ -143,6 +157,7 @@ interface LectureRepository :
                                             )
                                     }.asSubquery(),
                                 )
+                            predicates += if (criteria.language == Language.EN) or(place, englishTitleWord(keyword)) else place
                         }
                         is KeywordIntent.Fuzzy -> {
                             val fuzzyKeyword = fuzzyPattern(intent.keyword)
@@ -329,50 +344,69 @@ interface LectureRepository :
         val rawTokens = mutableListOf<String>()
         val tokens = mutableListOf<String>()
         keywords.forEach { keyword ->
-            if (EnglishSearchQuery.isNumberToken(keyword)) {
-                predicates += or(bineq(path(Lecture::courseNumber), keyword), bineq(path(Lecture::lectureNumber), keyword))
-            } else {
-                EnglishSearchQuery.normalize(keyword).takeIf { it.isNotEmpty() }?.let {
+            val token = englishToken(keyword)
+            when {
+                COURSE_NUMBER.matches(keyword) -> predicates += bineq(path(Lecture::courseNumber), keyword.uppercase())
+                LECTURE_NUMBER.matches(keyword) -> predicates += or(bineq(path(Lecture::lectureNumber), keyword), englishTitleWord(keyword))
+                token.isEmpty() -> predicates += englishPlainPredicate(keyword)
+                else -> {
                     rawTokens += keyword
-                    tokens += it
+                    tokens += token
                 }
             }
         }
         when {
             tokens.isEmpty() -> Unit
-            EnglishSearchQuery.isTooLong(tokens) -> rawTokens.forEach { predicates += englishPlainPredicate(it) }
-            else -> {
-                val title = coalesce(path(Lecture::courseTitleEn), path(Lecture::courseTitle))
-                val instructor = coalesce(path(Lecture::instructorEn), path(Lecture::instructor))
-                predicates +=
-                    EnglishSearchQuery.condition(tokens).fold(
-                        tokens = tokens,
-                        title = { regexp(title, it) },
-                        instructor = { regexp(instructor, it) },
-                        and = { left, right -> and(left, right) },
-                        or = { or(*it.toTypedArray()) },
-                    )
-            }
+            tokens.sumOf { it.length } > MAX_SEQUENCE_CHARS -> rawTokens.forEach { predicates += englishPlainPredicate(it) }
+            else -> predicates += englishSequencePredicate(tokens)
         }
         return predicates
     }
 
-    private fun Jpql.englishPlainPredicate(keyword: String): Predicate =
-        or(
-            regexp(path(Lecture::courseTitle), regexEscape(keyword)),
-            regexp(path(Lecture::courseTitleEn), regexEscape(keyword)),
-            regexp(path(Lecture::instructor), regexEscape(keyword)),
-            regexp(path(Lecture::instructorEn), instructorEnPattern(keyword)),
-            bineq(path(Lecture::courseNumber), keyword),
-            bineq(path(Lecture::lectureNumber), keyword),
-        )
+    private fun Jpql.englishSequencePredicate(tokens: List<String>): Predicate {
+        val title = englishTitle()
+        val instructor = coalesce(path(Lecture::instructorEn), path(Lecture::instructor))
+        val m = tokens.size
 
-    private fun instructorEnPattern(keyword: String): String {
-        val separator = "[^A-Za-z0-9가-힣]"
-        val letters = keyword.filter { it.isLetterOrDigit() }
-        if (letters.isEmpty()) return regexEscape(keyword)
-        return letters.toCharArray().joinToString("$separator*", prefix = "(?:^|$separator)") { regexEscape(it.toString()) }
+        fun titleOf(
+            from: Int,
+            to: Int,
+        ): Predicate = regexp(title, titlePattern(tokens.subList(from, to)))
+
+        fun instructorOf(index: Int): Predicate? =
+            tokens[index].takeIf { it.length >= MIN_INSTRUCTOR_LETTERS }?.let { regexp(instructor, instructorPattern(it)) }
+
+        fun prefix(k: Int): Predicate? {
+            if (k > minOf(MAX_EDGE_WORDS, m)) return null
+            val matched = instructorOf(k - 1) ?: return null
+            if (k == m) return matched
+            return and(matched, or(*listOfNotNull(titleOf(k, m), prefix(k + 1)).toTypedArray()))
+        }
+
+        fun suffix(k: Int): Predicate? {
+            if (k > minOf(MAX_EDGE_WORDS, m - 1)) return null
+            val matched = instructorOf(m - k) ?: return null
+            return and(matched, or(*listOfNotNull(titleOf(0, m - k), suffix(k + 1)).toTypedArray()))
+        }
+
+        return or(*listOfNotNull(titleOf(0, m), prefix(1), suffix(1)).toTypedArray())
     }
+
+    private fun Jpql.englishPlainPredicate(keyword: String): Predicate {
+        val token = englishToken(keyword)
+        return or(
+            *listOfNotNull(
+                regexp(path(Lecture::courseTitle), regexEscape(keyword)),
+                regexp(path(Lecture::courseTitleEn), regexEscape(keyword)),
+                regexp(path(Lecture::instructor), regexEscape(keyword)),
+                token.takeIf { it.isNotEmpty() }?.let { regexp(path(Lecture::instructorEn), instructorPattern(it)) },
+            ).toTypedArray(),
+        )
+    }
+
+    private fun Jpql.englishTitle(): Expression<String> = coalesce(path(Lecture::courseTitleEn), path(Lecture::courseTitle))
+
+    private fun Jpql.englishTitleWord(keyword: String): Predicate = regexp(englishTitle(), wordPattern(keyword))
 
     private fun Jpql.hasClassTime(): Predicate =
         exists(
