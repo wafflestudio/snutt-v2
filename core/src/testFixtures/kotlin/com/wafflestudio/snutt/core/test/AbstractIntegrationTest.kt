@@ -20,6 +20,7 @@ import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
 import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.jdbc.core.ConnectionCallback
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 
@@ -76,23 +77,34 @@ abstract class AbstractIntegrationTest {
         assertEquals(emptyList<String>(), ExternalApiMock.server.findAllUnmatchedRequests().map { "${it.method} ${it.url}" })
     }
 
+    /**
+     * FOREIGN_KEY_CHECKS는 세션 변수라 SET과 DELETE가 같은 커넥션에서 돌아야 한다. JdbcTemplate.execute(String)은 호출마다
+     * 풀에서 커넥션을 새로 받을 수 있으므로 ConnectionCallback 하나 안에서 모두 실행한다.
+     */
     private fun clearAllTables() {
-        val tables =
-            jdbcTemplate.queryForList(
-                "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'",
-                String::class.java,
-            )
-        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0")
-        try {
-            tables.forEach { table ->
-                when (table) {
-                    "flyway_schema_history" -> Unit
-                    "timetable_theme" -> jdbcTemplate.execute("DELETE FROM `$table` WHERE builtin_code IS NULL")
-                    else -> jdbcTemplate.execute("DELETE FROM `$table`")
+        jdbcTemplate.execute(
+            ConnectionCallback { connection ->
+                connection.createStatement().use { statement ->
+                    val tables =
+                        statement
+                            .executeQuery(
+                                "SELECT TABLE_NAME FROM information_schema.TABLES " +
+                                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'",
+                            ).use { rs -> generateSequence { if (rs.next()) rs.getString(1) else null }.toList() }
+                    statement.execute("SET FOREIGN_KEY_CHECKS = 0")
+                    try {
+                        tables.forEach { table ->
+                            when (table) {
+                                "flyway_schema_history" -> Unit
+                                "timetable_theme" -> statement.execute("DELETE FROM `$table` WHERE builtin_code IS NULL")
+                                else -> statement.execute("DELETE FROM `$table`")
+                            }
+                        }
+                    } finally {
+                        statement.execute("SET FOREIGN_KEY_CHECKS = 1")
+                    }
                 }
-            }
-        } finally {
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1")
-        }
+            },
+        )
     }
 }
