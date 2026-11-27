@@ -651,6 +651,38 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
     }
 
     @Test
+    fun `영어 엑셀이 비어 있어도 한국어 필드가 바뀌면 시간표·관심강좌 사용자에게 알리고 푸시한다`() {
+        val english = algo.copy(courseTitleEn = "Algorithms", instructorEn = "Kim")
+        sync(listOf(algo), englishRows = listOf(english))
+        val alice = member("alice", algo)
+        setReminder(alice.user, alice.timetable, alice.entryId(algo), TimetableLectureReminderOption.ZERO_MINUTE)
+        val bob = userWithDevice("bob", Language.EN)
+        bookmarkService.addLecture(bob.id!!, lecture(algo).id!!)
+        val oldCourseId = lecture(algo).courseId
+        clearPushes()
+
+        sync(listOf(algo.copy(instructor = "이교수", classTime = "수(13:00~14:15)")), englishRows = emptyList())
+
+        val lecture = lecture(algo)
+        assertEquals("이교수" to "Kim", lecture.instructor to lecture.instructorEn)
+        assertEquals("Algorithms", lecture.courseTitleEn)
+        assertNotEquals(oldCourseId, lecture.courseId)
+        assertEquals(listOf(ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "301-101", 780, 855)), classTimes(lecture))
+        assertEquals(listOf(Schedule(DayOfWeek.WEDNESDAY, 780)), reminderSchedules(alice.entryId(algo)))
+        // 보존한 영어 필드는 바뀐 항목으로 치지 않는다. 한국어 항목만 적는다.
+        assertEquals(
+            listOf(updated("알고리즘", "교수, 강의 시간/장소") to alice.timetableDeeplink(algo)),
+            notificationsOf(alice.user).map { it.message to it.deeplink },
+        )
+        assertEquals(
+            listOf("2026 Fall · Bookmarks: \"Algorithms\" was updated. (changed: Instructor, Class time/place)"),
+            notificationsOf(bob).map { it.messageEn },
+        )
+        assertEquals(mapOf("fcm-alice" to "강의 1개가 변경되었습니다. 알림함에서 자세히 확인하세요."), pushBodies())
+        assertEquals(listOf(lecture.id), alice.lectureIds())
+    }
+
+    @Test
     fun `영어 엑셀이 비어 있어도 신규 학기를 만든다`() {
         stubSite(listOf(algo), englishRows = emptyList(), semester = Semester.WINTER)
 
