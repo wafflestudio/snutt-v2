@@ -8,11 +8,18 @@ import com.wafflestudio.snutt.v1compat.error.V1CompatExceptionHandler
 import com.wafflestudio.snutt.v1compat.ev.V1CompatEvController
 import com.wafflestudio.snutt.v1compat.snutt.V1CompatEvSummaryController
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.web.method.HandlerMethod
+import org.springframework.web.server.ResponseStatusException
 
 /**
  * 구앱이 에러 바디로 분기하는 경로(v1 errcode, EV errcode)를 고정한다.
@@ -164,6 +171,24 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
         val unexpected = exceptionHandler.handleUnexpectedException(a, snuttHandler, MockHttpServletRequest())
         assertEquals(500, unexpected.statusCode.value())
         assertEquals(0L, unexpected.body!!.errcode)
+    }
+
+    // Spring이 상태를 정한 예외라도 5xx(예: 503)는 서버 문제라 로그로 남겨야 한다. 4xx는 남기지 않는다.
+    @Test
+    @ExtendWith(OutputCaptureExtension::class)
+    fun `상태가 정해진 예외는 5xx일 때만 서버 오류 로그를 남긴다`(output: CapturedOutput) {
+        val handler = handlerOf(evSummaryController, "getLectureEvaluationSummary")
+
+        val notFound = exceptionHandler.handleUnexpectedException(ResponseStatusException(HttpStatus.NOT_FOUND, "nf-marker"), handler, MockHttpServletRequest())
+        assertEquals(404, notFound.statusCode.value())
+        assertFalse(output.out.contains("nf-marker"))
+
+        val unavailable =
+            exceptionHandler.handleUnexpectedException(ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "su-marker"), handler, MockHttpServletRequest())
+        assertEquals(503, unavailable.statusCode.value())
+        assertEquals(0L, unavailable.body!!.errcode)
+        assertTrue(output.out.contains("unhandled exception"))
+        assertTrue(output.out.contains("su-marker"))
     }
 
     private fun handlerOf(

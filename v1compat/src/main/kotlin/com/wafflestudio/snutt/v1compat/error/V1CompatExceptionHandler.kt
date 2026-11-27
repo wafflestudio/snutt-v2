@@ -176,6 +176,9 @@ internal fun unexpectedV1ErrorResponse(
         )
 }
 
+/** Spring이 상태를 정한 4xx(경로 없음, 405 등)는 클라이언트 오류라 로그를 남기지 않는다. 그 밖(5xx 포함)은 서버 오류다. */
+internal fun Exception.isServerError(): Boolean = (this as? ErrorResponse)?.statusCode?.is5xxServerError ?: true
+
 /** 다른 예외로 감싸여 온 SnuttException. 감싼 예외 쪽 핸들러가 먼저 잡혀 원래 errcode가 가려지지 않게 꺼낸다. */
 internal fun Throwable.wrappedSnuttException(): SnuttException? =
     generateSequence(cause) { it.cause?.takeIf { next -> next !== it } }
@@ -227,7 +230,7 @@ class V1CompatExceptionHandler {
         request: HttpServletRequest,
     ): ResponseEntity<V1ErrorResponse> {
         e.wrappedSnuttException()?.let { return handleSnuttException(it, handler, request) }
-        if (e !is ErrorResponse) log.error("unhandled exception", e)
+        if (e.isServerError()) log.error("unhandled exception", e)
         return unexpectedV1ErrorResponse(e, request.language)
     }
 
