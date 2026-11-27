@@ -166,10 +166,10 @@ parity가 찾은 실제 차이는 고치지 않고 [`KnownFailureParityTest`](..
 
 | 번호 | 차이 | 재현 시나리오 | 비고 |
 |---|---|---|---|
-| B1 | EV 과목 없음·분반 없음 errcode가 뒤바뀜(v1 24001/24002 → v2 24002/24001) | 버그: EV 24001/24002 뒤바뀜 | audit 요약 2 |
-| B2 | 푸시 설정을 저장한 적 없는 사용자의 `GET /v1/push/preferences`: v1 기본값 3개, v2 빈 목록 | 버그: 푸시 설정 기본값 | audit 요약 3. 두 앱 모두 없는 종류를 켜짐으로 읽어(Android `UserMappers`, iOS `PushNotificationAPIRepository`) 화면 영향은 낮다 |
-| B3 | `isEmailVerified`가 없던 계정이 강의평에서 403 0x3011 | 버그: 이메일 인증 null 계정 | audit 요약 4. 앱의 강의 상세 요약(`/v1/ev/lectures/{id}/summary`)은 막히지 않는다 |
-| B4 | v1 경로의 없는 경로(404)·지원하지 않는 메서드(405)가 ProblemDetail(`errcode` 없음) | 버그: 레거시 에러 바디가 아닌 응답 | audit 요약 6 |
+| B1 | EV 과목 없음·분반 없음 errcode가 뒤바뀜(v1 24001/24002 → v2 24002/24001) | 강의평 웹: 없는 과목·분반 | 고침(작업 D). audit 요약 2 |
+| B2 | 푸시 설정을 저장한 적 없는 사용자의 `GET /v1/push/preferences`: v1 기본값 3개, v2 빈 목록 | 푸시 설정: 저장한 적 없음(bob) | 고침(작업 D). audit 요약 3. 두 앱 모두 없는 종류를 켜짐으로 읽어(Android `UserMappers`, iOS `PushNotificationAPIRepository`) 화면 영향은 낮다 |
+| B3 | `isEmailVerified`가 없던 계정이 강의평에서 403 0x3011 | 강의평: isEmailVerified 없는 계정(carol) | 고침(작업 D). audit 요약 4. 앱의 강의 상세 요약(`/v1/ev/lectures/{id}/summary`)은 막히지 않는다 |
+| B4 | v1 경로의 없는 경로(404)·지원하지 않는 메서드(405)가 ProblemDetail(`errcode` 없음) | 레거시 에러 바디: 404·405 | 고침(작업 D). audit 요약 6 |
 | B5 | EV 응답의 `user_id → user {id, email, local_id}` 치환이 없음 | 버그: EV user_id → user | audit 요약 5. known-failures.yml에도 있음. 강의평 웹이 `user`를 읽는지 확인 필요 |
 | B5b | EV `cursor=`(빈 값): v1 첫 페이지, v2 400 20001 | 확인: EV 빈 cursor | audit "커서". 웹이 빈 cursor를 보내는지 확인 필요 |
 | B6 | 세부 점수가 NULL인 강의평에서 v1 EV는 `0.0`, v2는 필드 생략 | 버그: EV NULL 점수 | parity가 새로 찾음. known-failures.yml에도 있음 |

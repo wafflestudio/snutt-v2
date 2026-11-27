@@ -70,4 +70,11 @@ class UserDataParityTest : AbstractParityTest() {
             post("/v1/user/password", """{"id":"carol","password":"password9"}""", `as` = "carol", label = "소셜 사용자 로컬 추가")
             get("/v1/users/me/social_providers", `as` = "carol")
         }
+
+    // B2: 저장한 적 없는 사용자에게 빈 목록을 주던 버그(작업 D가 고침). v1은 세 종류 모두 켜짐을 준다.
+    @Test
+    fun `푸시 설정을 저장한 적 없는 사용자`() =
+        parity("푸시 설정: 저장한 적 없음(bob)") {
+            get("/v1/push/preferences", `as` = "bob")
+        }
 }

@@ -62,4 +62,12 @@ class AuthParityTest : AbstractParityTest() {
             get("/v1/users/me", `as` = "grace")
             get("/v1/tables", `as` = "grace")
         }
+
+    // B4: v1 경로의 없는 경로·지원하지 않는 메서드가 ProblemDetail로 나가던 버그(작업 D가 고침).
+    @Test
+    fun `v1 경로의 없는 경로와 지원하지 않는 메서드`() =
+        parity("레거시 에러 바디: 404·405") {
+            get("/v1/no-such-endpoint", `as` = "alice", label = "없는 경로")
+            patch("/v1/tables", "{}", `as` = "alice", label = "지원하지 않는 메서드")
+        }
 }

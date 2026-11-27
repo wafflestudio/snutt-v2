@@ -14,38 +14,6 @@ class KnownFailureParityTest : AbstractParityTest() {
     override val tolerateKnownFailures = false
 
     @Test
-    fun `EV 과목·분반 없음 에러코드`() =
-        parity("버그: EV 24001/24002 뒤바뀜") {
-            get("/ev-service/v1/lectures/999999/evaluation-summary", `as` = "alice", label = "없는 과목")
-            post(
-                "/ev-service/v1/semester-lectures/999999/evaluations",
-                """{"content":"없는 분반에 쓰는 강의평입니다. 에러 코드를 확인합니다.","grade_satisfaction":4.0,"teaching_skill":4.0,"gains":4.0,"life_balance":4.0,"rating":4.0}""",
-                `as` = "alice",
-                label = "없는 분반",
-            )
-        }
-
-    @Test
-    fun `저장한 적 없는 푸시 설정`() =
-        parity("버그: 푸시 설정 기본값") {
-            get("/v1/push/preferences", `as` = "bob")
-        }
-
-    @Test
-    fun `isEmailVerified가 없던 계정의 강의평 접근`() =
-        parity("버그: 이메일 인증 null 계정") {
-            get("/ev-service/v1/tags/main", `as` = "carol")
-            get("/v1/ev/lectures/@{lecture:os}/summary", `as` = "carol")
-        }
-
-    @Test
-    fun `v1 경로의 처리되지 않은 예외와 없는 경로`() =
-        parity("버그: 레거시 에러 바디가 아닌 응답") {
-            get("/v1/no-such-endpoint", `as` = "alice", label = "없는 경로")
-            patch("/v1/tables", "{}", `as` = "alice", label = "지원하지 않는 메서드")
-        }
-
-    @Test
     fun `강의평 응답의 user_id 치환`() =
         parity("버그: EV user_id → user") {
             get("/ev-service/v1/evaluations/@{evaluation:bob-os}", `as` = "alice")

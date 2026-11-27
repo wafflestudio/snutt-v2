@@ -73,4 +73,25 @@ class EvParityTest : AbstractParityTest() {
             delete("/ev-service/v1/evaluations/@{evaluation:bob-ds}", `as` = "bob")
             get("/ev-service/v1/lectures/@{course:ds}/evaluations", `as` = "bob")
         }
+
+    // B1: v1compat이 없는 과목·분반의 errcode를 서로 바꿔 내던 버그(작업 D가 고침).
+    @Test
+    fun `없는 과목과 분반의 에러코드`() =
+        parity("강의평 웹: 없는 과목·분반") {
+            get("/ev-service/v1/lectures/999999/evaluation-summary", `as` = "alice", label = "없는 과목")
+            post(
+                "/ev-service/v1/semester-lectures/999999/evaluations",
+                """{"content":"없는 분반에 쓰는 강의평입니다. 에러 코드를 확인합니다.","grade_satisfaction":4.0,"teaching_skill":4.0,"gains":4.0,"life_balance":4.0,"rating":4.0}""",
+                `as` = "alice",
+                label = "없는 분반",
+            )
+        }
+
+    // B3: isEmailVerified 필드가 없던 레거시 계정을 미인증으로 막던 버그(작업 D가 고침).
+    @Test
+    fun `이메일 인증 기록이 없는 계정이 강의평을 본다`() =
+        parity("강의평: isEmailVerified 없는 계정(carol)") {
+            get("/ev-service/v1/tags/main", `as` = "carol")
+            get("/v1/ev/lectures/@{lecture:os}/summary", `as` = "carol")
+        }
 }
