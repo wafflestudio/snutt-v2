@@ -145,7 +145,9 @@ class TimetableService(
         title: String? = null,
     ): Timetable {
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        val timetable = getTimetable(userId, timetableId)
+        // 원본 시간표를 잠근 뒤 담긴 강의를 읽는다. 수강편람 동기화가 원본에서 빼는 중인 강의(폐강·겹침)를 복사본에 되살리지 않는다.
+        val timetable =
+            timetableRepository.findForUpdateByIdAndUserId(timetableId, userId) ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
         val copiedTitle = CopyTitle.next(title ?: timetable.title, siblingTitles)
         if (copiedTitle.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)

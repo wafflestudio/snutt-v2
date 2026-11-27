@@ -184,6 +184,7 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
                         TimetableLectureModifyRequest(courseTitle = "내 제목 ${random.nextInt(100)}"),
                     )
                 "getTimetable" -> timetableService.getTimetableDisplay(userId, timetableId)
+                "renameTimetable" -> timetableService.modifyTimetableTitle(userId, timetableId, "시간표 ${random.nextInt(1000)}")
                 "modifyLectureTime" -> {
                     val start = 540 + random.nextInt(17) * 30
                     val time = ClassPlaceAndTime(DayOfWeek.entries[random.nextInt(5)], "변경", start, start + 50)
@@ -251,8 +252,11 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
     private fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 
     companion object {
-        /** 동기화와 겹쳐도 통과해야 하는 요청: 동기화가 바꾸지 않는 강의의 제목 변경, 시간표 조회. */
-        val SAFE_OPERATIONS = listOf("modifyStableLectureTitle", "getTimetable")
+        /**
+         * 동기화와 겹쳐도 통과해야 하는 요청: 동기화가 바꾸지 않는 강의의 제목 변경, 시간표 조회, 시간표 이름 변경(user 행 → timetable 순으로 잠근다.
+         * 동기화가 시간표를 잠근 채 알림을 넣으며 user 행 FK S락을 기다리면 데드락이 난다).
+         */
+        val SAFE_OPERATIONS = listOf("modifyStableLectureTitle", "getTimetable", "renameTimetable")
         const val ADD_OPERATION = "addLecture"
 
         /** 동기화가 바꾸거나 지우는 강의일 수도 있는, 이미 담은 강의를 고치거나 지운다. */
