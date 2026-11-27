@@ -57,7 +57,9 @@ class SugangSnuXlsxParser {
 
     private fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> =
         WorkbookFactory.create(englishXlsx.inputStream).use { workbook ->
-            val sheet = workbook.getSheetAt(0)
+            // 영어 엑셀이 공개되기 전에는 시트나 헤더 행 없이 오기도 한다. 강의 행이 없는 것과 같게 본다.
+            val sheet = workbook.takeIf { it.numberOfSheets > 0 }?.getSheetAt(0) ?: return emptyMap()
+            if (sheet.getRow(HEADER_ROW) == null) return emptyMap()
             val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
             (3..sheet.lastRowNum)
                 .mapNotNull { rowNum ->
@@ -115,8 +117,7 @@ class SugangSnuXlsxParser {
         requiredHeaders: Set<String>,
     ): Map<String, Int> {
         val headerIndex =
-            sheet
-                .getRow(2)
+            requireNotNull(sheet.getRow(HEADER_ROW)) { "xlsx에 헤더 행이 없다" }
                 .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
         val missing = requiredHeaders - headerIndex.keys
         if (missing.isNotEmpty()) throw IllegalArgumentException("xlsx 필수 컬럼이 없다: ${missing.sorted()}")
@@ -191,6 +192,7 @@ class SugangSnuXlsxParser {
     }
 
     companion object {
+        private const val HEADER_ROW = 2
         private val REQUIRED_ENGLISH_HEADERS =
             setOf(
                 "Course Number",
