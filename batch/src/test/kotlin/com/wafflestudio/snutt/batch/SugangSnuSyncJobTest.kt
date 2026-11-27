@@ -342,17 +342,21 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Test
-    fun `영어 엑셀에 강의 행이 없으면 실패하고 영어 필드를 지우지 않는다`() {
+    fun `영어 엑셀에 강의 행이 없으면 중단하지 않고 한국어로 동기화하되 영어 필드는 지우지 않는다`() {
+        // 학기 초에는 한국어 엑셀만 먼저 공개된다. 신규 학기 생성과 영어 엑셀이 생긴 뒤의 채움은 SugangSyncDiffTest에서 본다.
         val old = lectureRepository.save(existingLecture().apply { courseTitleEn = "Advanced Korean" })
         sugang.coursebookCondition(2026, Semester.AUTUMN)
         sugang.lectureXlsx("ko", SugangXlsxFixture.xlsx(listOf(changedRow())).byteArray)
         sugang.lectureXlsx("en", SugangXlsxFixture.englishXlsx(emptyList()).byteArray)
 
-        val e = assertThrows<IllegalArgumentException> { runJob() }
+        runJob()
 
-        assertEquals("영어 xlsx에 강의 행이 없다", e.message)
-        assertUnchanged(old)
         assertEquals("Advanced Korean", lectureRepository.findById(old.id!!).get().courseTitleEn)
+        assertEquals(
+            listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645)),
+            lectureClassTimeRepository.findAllByLectureIdInOrderById(listOf(old.id!!)).map { it.toClassPlaceAndTime() },
+        )
+        assertEquals(TOUCHED_AT, autumnUpdatedAt())
     }
 
     @Test
