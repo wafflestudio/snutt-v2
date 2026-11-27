@@ -205,7 +205,7 @@ class SugangSnuSyncService(
         val updated =
             newMap.mapNotNull { (key, row) ->
                 val old = oldMap[key] ?: return@mapNotNull null
-                val new = row.toLecture(year, semester).also { if (preserveEnglish) it.copyEnglishFrom(old) }
+                val new = row.toLecture(year, semester).also { if (preserveEnglish) it.fillMissingEnglishFrom(old) }
                 val oldTimes = oldClassTimesMap[old.id].orEmpty()
                 val changes = changedFields(old, new, oldTimes, row.classPlaceAndTimes)
                 if (changes.isEmpty()) return@mapNotNull null
@@ -818,14 +818,18 @@ class SugangSnuSyncService(
         remarkEn = remarkEn.nullIfBlank(),
     )
 
-    private fun Lecture.copyEnglishFrom(other: Lecture) {
-        courseTitleEn = other.courseTitleEn
-        instructorEn = other.instructorEn
-        departmentEn = other.departmentEn
-        academicYearEn = other.academicYearEn
-        categoryEn = other.categoryEn
-        classificationEn = other.classificationEn
-        remarkEn = other.remarkEn
+    /**
+     * 영어 엑셀이 비었을 때 쓴다. 상세 API가 준 영어 값은 그대로 두고(영어 엑셀이 있을 때도 상세 API가 우선이다), 없는 필드만
+     * 기존 강의 값으로 채운다. 비워 두면 영어 엑셀이 공개될 때까지 기존 영어 값이 사라진다.
+     */
+    private fun Lecture.fillMissingEnglishFrom(other: Lecture) {
+        courseTitleEn = courseTitleEn ?: other.courseTitleEn
+        instructorEn = instructorEn ?: other.instructorEn
+        departmentEn = departmentEn ?: other.departmentEn
+        academicYearEn = academicYearEn ?: other.academicYearEn
+        categoryEn = categoryEn ?: other.categoryEn
+        classificationEn = classificationEn ?: other.classificationEn
+        remarkEn = remarkEn ?: other.remarkEn
     }
 
     private fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
