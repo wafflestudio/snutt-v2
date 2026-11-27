@@ -98,7 +98,7 @@ v1 설정은 jar를 고치지 않고 바깥에서 바꾼다. 바꾼 것과 이�
 - 리포트: `parity/build/reports/parity/<태스크>/summary.md`(집계, 비교한 엔드포인트, 쓰이지 않은 허용 항목)와 `scenarios/<시나리오>.md`(요청, 양쪽 응답 바디, 차이 경로와 판정). v1 컨테이너 로그는 같은 디렉터리의 `v1-snutt.log`, `v1-ev.log`.
 - 실패 메시지는 등록되지 않은 차이를 요청별로 15개까지 보여 주고 리포트 경로를 알려 준다.
 
-CI: `.github/workflows/parity.yml`(수동 실행)이 같은 명령을 arm64 러너에서 돈다. PR 게이트에는 넣지 않았다(v1 빌드 토큰 권한이 필요하고 시간이 길다).
+CI: `.github/workflows/parity.yml`이 같은 명령을 arm64 러너에서 v1compat 응답 경로가 바뀐 PR, nightly(03:00 KST), 수동 실행으로 돈다. 배포 게이트(`ci.yml`)에는 넣지 않았다(v1 빌드 토큰 권한이 필요하고 시간이 길다). 경로와 캐시는 [testing.md](testing.md) "CI에서 도는 테스트".
 
 ## 시나리오 추가
 

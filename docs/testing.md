@@ -22,12 +22,34 @@
 | `perf` | `@PerfTest` | `./gradlew perfTest` | 운영 분포 데이터에서 실행계획(EXPLAIN) 검증 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
 | `rehearsal` | `@RehearsalTest` | `./gradlew rehearsalTest` | 마이그레이션 리허설 도구를 합성 덤프로 끝까지 돌림 ([migration-rehearsal.md](migration-rehearsal.md)) |
-| `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접, CI 아님) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
+| `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접. CI는 수동 실행 `live.yml`만) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
 - `./gradlew test`는 위 태그를 모두 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
 - 태그를 추가하려면 루트 `build.gradle.kts`의 `separatedTags`와 `TestTags`를 함께 고친다.
 - 테스트 JVM 타임존은 운영과 같은 UTC로 고정되어 있다(`user.timezone=UTC`). 로컬 타임존에 기대지 않는다.
+
+## CI에서 도는 테스트
+
+워크플로는 `.github/workflows/`에 있고 러너는 모두 `ubuntu-24.04-arm`이다. nightly는 매일 03:00 KST(`cron: 0 18 * * *`, UTC)에 기본 브랜치(develop)에서 돈다.
+
+| 무엇 | 명령 | 워크플로 | PR | nightly | 주간 | 수동 | 실패 시 artifact |
+|---|---|---|---|---|---|---|---|
+| lint | `./gradlew ktlintCheck` | `ci.yml` | 모든 PR, develop·prod push | | | O | - |
+| 기본 테스트 | `./gradlew test` | `ci.yml` | 모든 PR, develop·prod push (배포 게이트) | | | O | - |
+| parity | `./gradlew parityTest` | `parity.yml` | v1compat 응답 경로가 바뀐 PR | O | | O | `parity-report` (diff 리포트, v1 로그) |
+| perf | `./gradlew perfTest` | `perf.yml` | 리포지토리·엔티티·Flyway·perf 하네스가 바뀐 PR | O | | O | `perf-report` (테스트 리포트) |
+| stress | `./gradlew stressTest -PstressThreads=100 -PstressIterations=30 -PstressOpsPerThread=40` | `stress.yml` | | O | | O (규모 입력) | `stress-report` (`build/reports/stress`) |
+| rehearsal | `./gradlew rehearsalTest` | `rehearsal.yml` | `migration/**`, Flyway, testFixtures가 바뀐 PR | O | | O | `rehearsal-report` |
+| mutation | `./gradlew pitest` | `mutation.yml` | | | 일요일 04:00 KST | O | `pitest-report` (항상 올림) |
+| live smoke | `./gradlew liveTest` | `live.yml` | | | | O만 (IP 밴 위험, 스케줄 금지) | `live-report` |
+| known-failure | `parityKnownFailureTest`, `stressKnownFailureTest` | 없음 | | | | 로컬에서만 | - |
+| 운영 덤프 | `paritySnapshotTest`, `:migration:maskDump`, `:migration:rehearse` | 없음 | | | | 로컬에서만 (덤프 필요) | - |
+
+- PR 경로 필터는 각 워크플로의 `paths`가 기준이다. 워크플로 파일 자체가 바뀐 PR에서도 돈다.
+- parity PR 경로: `v1compat/**`, `migration/src/main/**`, `parity/**`, `core/src/main/**`, `core/src/testFixtures/**`, `api/src/main/**`(v2 컨트롤러 `api/v2/**` 제외), 빌드 스크립트. v1compat 컨트롤러는 core 도메인 서비스·엔티티를 직접 부르고, api 앱의 보안·필터·Jackson·예외 처리 설정을 함께 쓰므로 core와 api 설정 변경이 v1 응답을 바꿀 수 있다. 시드는 실제 `migration` 단계로 옮기므로 이관 코드도 포함한다. 빌드 스크립트는 의존성 버전(Jackson 직렬화 등)을 바꿀 수 있어 넣었다.
+- parity는 v1 jar를 `~/.gradle/caches/snutt-parity`에 `actions/cache`로 둔다(키: `parity/v1/versions.properties`·`build-v1-jar.sh` 해시). nightly가 기본 브랜치 캐시를 만들고 PR이 그것을 읽는다. v1 빌드에는 `GITHUB_TOKEN`(`packages: read`)을 쓰고, org 관리자가 `wafflestudio/spring-waffle` 패키지의 "Manage Actions access"에 이 레포를 추가해야 한다. fork PR에서는 건너뛴다.
+- 이 워크플로들은 `ci.yml`과 별개라 배포 게이트가 아니다. 실패하면 Actions 탭과 artifact로 확인한다. 막고 싶으면 브랜치 보호 규칙에 job을 required로 넣는다.
 
 ## 베이스 클래스 고르기
 
@@ -254,6 +276,30 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 - `batch/.../sugang/SugangSyncScenarioTest`를 상속한다. `sync(rows, englishRows)`가 수강편람 사이트를 stub하고 잡을 학기 지정 없이 돌린다. 시간표 담기·리마인더·관심강좌는 실제 서비스(`addLecture`, `setReminder`, `bookmarkService`)로 한다.
 - 어디에 쓸지: 한 학기를 따라가는 골든패스는 `SugangSemesterLifecycleTest`, 동기화 diff 분기(추가·폐강·필드별 변경·겹침·멱등·영어 엑셀 공백·학기 경계·트랜잭션)는 `SugangSyncDiffTest`, 사이트 HTTP 오류·응답 형식 이상은 `SugangSnuSyncJobTest`, 빈자리 판정은 `VacancyNotificationJobTest`.
 - `SugangXlsxFixture.RowData`의 영어 값 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로다.
+
+## mutation testing (pitest)
+
+통합테스트가 핵심 로직의 분기를 실제로 검증하는지 본다. 코드를 조금씩 바꾼 mutant(조건 반전, 호출 제거, 반환값 교체)를 만들고, 그 줄을 지나는 테스트를 다시 돌려 하나라도 실패하면 killed다. 살아남은(survived) mutant는 "그 줄이 틀려도 아무 테스트도 모른다"는 뜻이다.
+
+```bash
+./gradlew pitest                 # api + batch (로컬 약 30분)
+./gradlew :batch:pitest          # 수강편람 동기화만 (약 16분)
+./gradlew :api:pitest -PpitestThreads=4
+```
+
+| 모듈 | 대상 클래스 | 대상 테스트 |
+|---|---|---|
+| batch | `batch.sugangsnu.*` | `batch.*` |
+| api | `core.domain.timetable.service.*`, `core.domain.evaluation.service.*` (core 클래스) | `api.*` |
+
+- 설정은 `api/build.gradle.kts`, `batch/build.gradle.kts`의 `pitest { }`에 있다. 플러그인 `info.solidsoft.pitest` 1.19.0, pitest 1.30.2, pitest-junit5-plugin 1.2.3(JUnit Platform 6에서 동작 확인).
+- 시간표·강의평 서비스는 core에 있지만 이를 검증하는 통합테스트가 api에 있으므로 api 모듈에서 core main을 `mainSourceSets`에 넣어 mutate한다.
+- `targetTests`를 꼭 지정한다. 기본값이 `targetClasses`라 테스트가 다른 패키지에 있으면 "Found 0 tests"로 끝나고 모든 mutant가 NO_COVERAGE가 된다.
+- 태그가 붙은 테스트(perf, stress, live 등)는 `excludedGroups`로 뺀다. minion JVM은 `Test` 태스크 설정을 물려받지 않으므로 `spring.profiles.active=test`, `user.timezone=UTC`를 `jvmArgs`로 다시 준다.
+- minion마다 Testcontainers MySQL·Valkey를 따로 띄운다. `-PpitestThreads`(기본 2)를 늘리면 컨테이너와 메모리도 그만큼 는다.
+- 리포트: `<모듈>/build/reports/pitest/index.html`(HTML), `mutations.xml`. CI는 `mutation.yml`이 주 1회 돌려 `pitest-report` artifact로 올린다. 점수 임계값으로 빌드를 깨지 않는다.
+- Kotlin 컴파일러가 만든 코드(null 검사, data class 메서드)는 pitest의 `fkotlin` 필터와 `avoidCallsTo`·`excludedMethods`로 뺀다. 그래도 data class getter의 "빈 값 반환" mutant는 남는데, 대부분 응답 필드를 단언하지 않는 곳이라 우선순위가 낮다.
+- 새 핵심 패키지를 대상에 넣으려면 `targetClasses`에 추가하고, 소요 시간이 크게 늘지 않는지 본다.
 
 ## 새 테스트 체크리스트
 
