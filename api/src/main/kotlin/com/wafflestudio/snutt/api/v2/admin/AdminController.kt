@@ -232,7 +232,7 @@ class AdminController(
                 nicknameTag = user.nicknameTag,
                 localId = user.localId,
                 isAdmin = user.isAdmin,
-                isEmailVerified = user.isEmailVerified,
+                isEmailVerified = user.isEmailVerified == true,
                 active = user.active,
                 createdAt = checkNotNull(user.createdAt).toEpochMilli(),
                 lastLoginAt = user.lastLoginAt.toEpochMilli(),

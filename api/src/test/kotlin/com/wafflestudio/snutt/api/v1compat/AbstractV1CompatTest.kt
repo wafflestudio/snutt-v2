@@ -4,10 +4,15 @@ import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
 import com.wafflestudio.snutt.core.common.client.Language
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
+import java.security.MessageDigest
+import java.sql.Timestamp
+import java.util.HexFormat
 
 /**
  * 구버전 앱(v1compat 엔드포인트)과 신버전 앱(v2 엔드포인트)을 한 테스트에서 함께 부르는 시나리오 베이스.
@@ -15,6 +20,54 @@ import tools.jackson.databind.JsonNode
  * 클래스 단위 어노테이션을 더하지 않으므로 api 컨텍스트를 그대로 공유한다.
  */
 abstract class AbstractV1CompatTest : AbstractApiIntegrationTest() {
+    @Autowired
+    lateinit var jdbcTemplate: JdbcTemplate
+
+    /** 이관된 사용자. [token]은 v1이 앱에 저장해 둔 `credentialHash`(HMAC-SHA256 hex 64자) 형식이다. */
+    protected data class MigratedUser(
+        val id: Long,
+        val token: String,
+    )
+
+    /**
+     * migration UserStep·LegacyTokenStep이 만드는 행을 그대로 넣는다.
+     * user는 Mongo 필드를 평면 컬럼으로, legacy_access_token은 `credentialHash`의 SHA-256 hex를 저장한다.
+     */
+    protected fun migratedUser(
+        localId: String,
+        isEmailVerified: Boolean? = true,
+        active: Boolean = true,
+        nicknameTag: String = "0001",
+    ): MigratedUser {
+        val now = Timestamp.from(clock.instant())
+        jdbcTemplate.update(
+            "INSERT INTO `user` (email, is_email_verified, nickname, nickname_tag, local_id, local_pw, active, is_admin, " +
+                "last_login_at, notification_checked_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NULL, ?, FALSE, ?, ?, ?, ?)",
+            "$localId@snu.ac.kr",
+            isEmailVerified,
+            localId,
+            nicknameTag,
+            localId,
+            active,
+            now,
+            now,
+            now,
+            now,
+        )
+        val userId = jdbcTemplate.queryForObject("SELECT id FROM `user` WHERE local_id = ?", Long::class.java, localId)!!
+        val credentialHash = sha256Hex("v1-credential:$localId")
+        jdbcTemplate.update(
+            "INSERT INTO legacy_access_token (user_id, token_hash, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            userId,
+            sha256Hex(credentialHash),
+            now,
+            now,
+        )
+        return MigratedUser(userId, credentialHash)
+    }
+
+    protected fun sha256Hex(value: String): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))
+
     protected fun v1Send(
         method: HttpMethod,
         uri: String,
