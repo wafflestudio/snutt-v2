@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Tag
 
 /**
  * `./gradlew test`에서 제외되고 전용 태스크(`parityTest`, `perfTest`, `stressTest`, `liveTest`, `parityKnownFailureTest`,
- * `paritySnapshotTest`)로만 도는 JUnit 태그.
+ * `paritySnapshotTest`, `rehearsalTest`)로만 도는 JUnit 태그.
  * 루트 build.gradle.kts의 태그 목록과 값이 같아야 한다.
  */
 object TestTags {
@@ -14,6 +14,7 @@ object TestTags {
     const val LIVE = "live"
     const val PARITY_KNOWN_FAILURE = "parity-known-failure"
     const val PARITY_SNAPSHOT = "parity-snapshot"
+    const val REHEARSAL = "rehearsal"
 }
 
 /** v1 서버와 v2(v1compat) 응답을 비교하는 테스트. `./gradlew parityTest`로 돈다. */
@@ -60,3 +61,12 @@ annotation class ParityKnownFailure
 @Retention(AnnotationRetention.RUNTIME)
 @Tag(TestTags.PARITY_SNAPSHOT)
 annotation class ParitySnapshot
+
+/**
+ * 마이그레이션 리허설 도구(마스킹·복원·이관·검증)를 합성 덤프로 끝까지 돌리는 테스트. `./gradlew rehearsalTest`로만 돈다.
+ * 런북은 docs/migration-rehearsal.md.
+ */
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@Tag(TestTags.REHEARSAL)
+annotation class RehearsalTest
