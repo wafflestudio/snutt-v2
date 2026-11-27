@@ -64,7 +64,8 @@ fun TimetableLectureDisplay(
         credit = overrides?.credit ?: lecture?.credit,
         remark = overrides?.remark ?: lecture?.remark,
         classPlaceAndTimes = overrides?.classPlaceAndTimes ?: classTimes,
-        color = timetableLecture.customColor ?: theme.colors[timetableLecture.paletteIndex],
+        // 조회는 timetable(테마)과 timetable_lecture(index)를 따로 읽으므로 그사이 테마 변경이 커밋되면 index가 팔레트 밖일 수 있다(일시적).
+        color = timetableLecture.customColor ?: theme.colors[timetableLecture.paletteIndex.mod(theme.colors.size)],
         customColor = timetableLecture.customColor,
         paletteIndex = timetableLecture.paletteIndex,
         courseTitleEn = lecture?.courseTitleEn.takeIf { overrides?.courseTitle == null },

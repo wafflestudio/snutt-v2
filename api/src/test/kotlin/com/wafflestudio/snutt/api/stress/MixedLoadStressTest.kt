@@ -311,9 +311,8 @@ abstract class AbstractMixedLoadStressTest(
 }
 
 /**
- * 테마 변경 중 시간표 테마 변경(`PUT /v2/timetables/{id}/theme`)과 팔레트 변경(`PATCH /v2/themes/{id}`)을 뺀 혼합 부하. 통과해야 한다.
- * 테마 변경은 기본 테마 지정(user 행 → user_preference, theme FK S락)만 섞는다. 뺀 두 경로는 재현된 버그라 아래 known-failure로 둔다.
+ * 테마 팔레트 변경(`PATCH /v2/themes/{id}`)을 뺀 혼합 부하. 통과해야 한다. 뺀 경로는 재현된 버그라 known-failure로 둔다.
+ * 시간표 테마 변경은 예전에 조회와 겹치면 IndexOutOfBounds 500이 났다(조회가 옛 테마에 새 index를 붙임). 지금은 팔레트 밖 index를 팔레트 안으로 접는다.
  */
 @StressTest
-class MixedLoadStressTest :
-    AbstractMixedLoadStressTest("mixed-load", excludedOperations = setOf("modifyThemeColors", "modifyTimetableTheme"))
+class MixedLoadStressTest : AbstractMixedLoadStressTest("mixed-load", excludedOperations = setOf("modifyThemeColors"))
