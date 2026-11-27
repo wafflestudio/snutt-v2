@@ -65,7 +65,8 @@ subprojects {
     }
 
     // 태그가 붙은 테스트는 PR CI(`test`)에서 빠지고 태그별 전용 태스크로만 돈다. 값은 testFixtures의 TestTags와 같다.
-    val separatedTags = listOf("parity", "perf", "stress")
+    // live는 실제 외부 사이트(sugang.snu.ac.kr)를 호출하므로 사람이 직접 `./gradlew liveTest`로만 돌린다.
+    val separatedTags = listOf("parity", "perf", "stress", "live")
 
     tasks.named<Test>("test") {
         useJUnitPlatform { excludeTags(*separatedTags.toTypedArray()) }
@@ -82,6 +83,13 @@ subprojects {
             // 아직 해당 태그 테스트가 없는 모듈에서도 태스크가 성공해야 한다.
             failOnNoDiscoveredTests = false
             shouldRunAfter(tasks.named("test"))
+            if (tag == "live") {
+                // 외부 상태를 확인하는 테스트라 매번 실제로 돌아야 한다.
+                outputs.upToDateWhen { false }
+                // -PrefreshFixtures를 주면 받은 응답으로 src/test/resources/fixtures를 갱신한다.
+                systemProperty("snutt.live.refreshFixtures", project.hasProperty("refreshFixtures").toString())
+                systemProperty("snutt.live.fixturesDir", project.file("src/test/resources/fixtures").absolutePath)
+            }
         }
     }
 }
