@@ -89,6 +89,33 @@ fun <T> assertQueryCount(
     return result
 }
 
+/**
+ * 데이터가 늘어도 요청당 쿼리 수가 그대로인지(N+1이 없는지) 검증한다.
+ * [request]를 한 번 실행하고, [grow]로 응답에 들어갈 데이터를 늘린 뒤 다시 실행한다. 두 번 모두 종류별 쿼리 수가 기대값과 같아야 한다.
+ * 쓰기 쿼리는 기본 0이다. 두 결과를 돌려주므로 호출하는 쪽에서 [grow]가 실제로 응답에 반영됐는지 확인한다(안 하면 검증이 빈다).
+ */
+fun <T> assertQueryCountStable(
+    select: Int,
+    insert: Int = 0,
+    update: Int = 0,
+    delete: Int = 0,
+    grow: () -> Unit,
+    request: () -> T,
+): Pair<T, T> {
+    val (before, small) = recordQueries(request)
+    grow()
+    val (after, large) = recordQueries(request)
+    val expected = QueryCounts(select = select, insert = insert, update = update, delete = delete)
+    if (small.counts != expected || large.counts != expected) {
+        fail<Unit>(
+            "쿼리 수 불일치: 기대 $expected, 늘리기 전 ${small.counts}, 늘린 뒤 ${large.counts}\n" +
+                "늘리기 전:\n" + small.statements.withIndex().joinToString("\n") { (i, sql) -> "  [${i + 1}] $sql" } +
+                "\n늘린 뒤:\n" + large.statements.withIndex().joinToString("\n") { (i, sql) -> "  [${i + 1}] $sql" },
+        )
+    }
+    return before to after
+}
+
 private fun mismatch(
     name: String,
     expected: Int?,
