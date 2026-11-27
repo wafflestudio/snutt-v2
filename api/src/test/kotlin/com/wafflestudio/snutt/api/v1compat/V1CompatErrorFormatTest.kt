@@ -165,6 +165,7 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
     fun `다른 예외로 감싸인 SnuttException은 catch-all이 아니라 원래 errcode로 응답한다`() {
         val snuttHandler = handlerOf(evSummaryController, "getLectureEvaluationSummary")
         val evHandler = handlerOf(evController, "getEvaluation")
+
         fun wrap(error: ErrorType) = IllegalStateException("outer", RuntimeException("middle", SnuttException(error)))
 
         val snutt = exceptionHandler.handleUnexpectedException(wrap(ErrorType.TIMETABLE_NOT_FOUND), snuttHandler, MockHttpServletRequest())
@@ -190,12 +191,21 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
     fun `상태가 정해진 예외는 5xx일 때만 서버 오류 로그를 남긴다`(output: CapturedOutput) {
         val handler = handlerOf(evSummaryController, "getLectureEvaluationSummary")
 
-        val notFound = exceptionHandler.handleUnexpectedException(ResponseStatusException(HttpStatus.NOT_FOUND, "nf-marker"), handler, MockHttpServletRequest())
+        val notFound =
+            exceptionHandler.handleUnexpectedException(
+                ResponseStatusException(HttpStatus.NOT_FOUND, "nf-marker"),
+                handler,
+                MockHttpServletRequest(),
+            )
         assertEquals(404, notFound.statusCode.value())
         assertFalse(output.out.contains("nf-marker"))
 
         val unavailable =
-            exceptionHandler.handleUnexpectedException(ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "su-marker"), handler, MockHttpServletRequest())
+            exceptionHandler.handleUnexpectedException(
+                ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "su-marker"),
+                handler,
+                MockHttpServletRequest(),
+            )
         assertEquals(503, unavailable.statusCode.value())
         assertEquals(0L, unavailable.body!!.errcode)
         assertTrue(output.out.contains("unhandled exception"))
