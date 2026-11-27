@@ -92,7 +92,8 @@ class Invariants(
                 "SELECT COUNT(*) FROM timetable_lecture tl JOIN timetable t ON t.id = tl.timetable_id " +
                     "JOIN timetable_theme th ON th.id = t.theme_id WHERE tl.palette_index >= JSON_LENGTH(th.colors)",
             ),
-            // 이관은 colorIndex 0 + 직접 지정한 색이 팔레트에 있으면 그 번호로 옮긴다(같은 색이 여럿이면 마지막 번호, v1·v1compat과 같다).
+            // 이관은 colorIndex 0 + 직접 지정한 색이 팔레트에 있으면 그 번호로 옮긴다. 이 항목은 옮겼는지만 본다. 같은 색이 여럿일 때
+            // 마지막 번호를 고르는지(v1·v1compat과 같게)는 MigrationIntegrationTest가 고정한다.
             Invariant(
                 "팔레트에 있는 색은 직접 지정한 색으로 남지 않는다",
                 "SELECT COUNT(*) FROM timetable_lecture tl JOIN timetable t ON t.id = tl.timetable_id " +

@@ -144,13 +144,18 @@ class SugangSnuSyncService(
                     try {
                         Result.success(action())
                     } finally {
-                        // 풀지 못하는 건 커넥션이 끊겼을 때다. 그러면 MySQL이 이미 락을 풀었으므로, 동기화 결과(성공이나 원래 예외)를 덮지 않는다.
+                        // 풀지 못해도 동기화 결과(성공이나 원래 예외)를 덮지 않는다. 커넥션이 끊겼다면(wait_timeout 등) MySQL이 락을
+                        // 이미 풀었고, 그 사이 다른 동기화가 겹쳤을 수 있으므로 ERROR로 남긴다. 커넥션이 살아 있는데 실패했으면 락을 쥔 채
+                        // 풀로 돌아가지 않게 커넥션을 버린다(세션이 끝나면 MySQL이 락을 푼다).
                         runCatching {
                             connection.prepareStatement("SELECT RELEASE_LOCK(?)").use { ps ->
                                 ps.setString(1, SYNC_LOCK_NAME)
                                 ps.executeQuery().close()
                             }
-                        }.onFailure { log.warn("수강편람 동기화 락($SYNC_LOCK_NAME)을 풀지 못했다", it) }
+                        }.onFailure { error ->
+                            log.error("수강편람 동기화 락($SYNC_LOCK_NAME)을 풀지 못해 커넥션을 버린다", error)
+                            runCatching { connection.abort(Runnable::run) }.onFailure(error::addSuppressed)
+                        }
                     }
                 },
             ),

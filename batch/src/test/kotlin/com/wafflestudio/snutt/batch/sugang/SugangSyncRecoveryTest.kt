@@ -13,12 +13,14 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.test.IntegrationContainers
 import com.wafflestudio.snutt.core.test.concurrency.LockContention
+import com.wafflestudio.snutt.core.test.concurrency.pollUntil
 import com.wafflestudio.snutt.core.test.fault.DbFault
 import com.wafflestudio.snutt.core.test.fault.DbFaults
 import com.wafflestudio.snutt.core.test.stress.MySqlProbe
 import jakarta.persistence.EntityManagerFactory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -361,17 +363,23 @@ class SugangSyncRecoveryTest : SugangSyncScenarioTest() {
         val (alice, bob) = aliceAndBob()
         // 락을 쥔 커넥션이 동기화 도중 끊긴다(네트워크 단절, wait_timeout). MySQL은 끊긴 커넥션의 락을 풀고, RELEASE_LOCK은 실패한다.
         // 푸시는 락 안의 마지막 단계라 그 시점에 끊는다.
+        var killed = false
         whenever(pushClient.sendMessages(any())).thenAnswer {
-            val holder = MySqlProbe.jdbc.queryForObject("SELECT IS_USED_LOCK('snutt.sugang_sync')", Long::class.java)
-            MySqlProbe.jdbc.execute("KILL $holder")
+            if (!killed) {
+                val holder = MySqlProbe.jdbc.queryForObject("SELECT IS_USED_LOCK('snutt.sugang_sync')", Long::class.java)
+                MySqlProbe.jdbc.execute("KILL $holder")
+                killed = true
+            }
             PushSendResult()
         }
 
         sync(moved)
 
+        assertTrue(killed)
         assertRecovered(alice, bob, clock.instant())
         assertEquals(setOf("fcm-alice", "fcm-bob"), pushBodies().keys)
-        assertNull(MySqlProbe.jdbc.queryForObject("SELECT IS_USED_LOCK('snutt.sugang_sync')", Long::class.java))
+        // KILL은 세션 정리를 기다리지 않고 돌아오므로 락이 풀릴 때까지 기다린다(다음 테스트의 GET_LOCK이 실패하지 않게).
+        pollUntil { MySqlProbe.jdbc.queryForObject("SELECT IS_USED_LOCK('snutt.sugang_sync')", Long::class.java) == null }
     }
 
     @Test

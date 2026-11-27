@@ -146,6 +146,9 @@ class MigrationIntegrationTest {
             try {
                 val error = assertThrows<IllegalStateException> { MigrationSupport.requireEmpty(jdbc, stateTargets) }
                 assertTrue(error.message.orEmpty().startsWith("$table "), error.message)
+                // --truncate도 같은 대상 목록으로 비운다.
+                MigrationSupport.truncate(jdbc, stateTargets)
+                MigrationSupport.requireEmpty(jdbc, stateTargets)
             } finally {
                 jdbc.update("DELETE FROM `$table`")
             }
