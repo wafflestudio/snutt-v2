@@ -171,14 +171,18 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     fun `학기 상태는 KST 날짜 기준으로 현재와 다음 학기를 알려준다`() {
         // 2026-08-31 23:59 KST(= 14:59Z): 여름학기 종료 후 공백기
         clock.setKst(LocalDateTime.of(2026, 8, 31, 23, 59))
-        val before = body(get("/v2/semesters/status"))
+        val beforeResponse = get("/v2/semesters/status")
+        assertEquals(200, beforeResponse.statusCode.value())
+        val before = body(beforeResponse)
         assertFalse(before.hasNonNull("current"))
         assertEquals(2026, before["next"]["year"].asInt())
         assertEquals(Semester.AUTUMN.value, before["next"]["semester"].asInt())
 
         // 2026-09-01 00:00 KST(= 08-31T15:00Z): UTC로는 아직 8월이지만 가을학기다
         clock.setKst(LocalDateTime.of(2026, 9, 1, 0, 0))
-        val after = body(get("/v2/semesters/status"))
+        val afterResponse = get("/v2/semesters/status")
+        assertEquals(200, afterResponse.statusCode.value())
+        val after = body(afterResponse)
         assertEquals(2026, after["current"]["year"].asInt())
         assertEquals(Semester.AUTUMN.value, after["current"]["semester"].asInt())
         assertEquals(Semester.WINTER.value, after["next"]["semester"].asInt())

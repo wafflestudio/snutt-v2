@@ -177,9 +177,15 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
         assertFalse(customLecture.hasNonNull("lectureId"))
 
         post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""", token)
-        // 강의 수와 무관하게 조회 쿼리 수가 고정되어야 한다(N+1 회귀 방지). 쓰기는 없어야 한다.
+        // 참조 강의가 1개일 때와 2개일 때 조회 쿼리 수가 같아야 한다(N+1 회귀 방지). 쓰기는 없어야 한다.
         val detail = assertQueryCount(select = 6, insert = 0, update = 0, delete = 0) { get("/v2/timetables/$timetableId", token) }
+        assertEquals(1, body(detail)["lectures"].count { it.hasNonNull("lectureId") })
         val referenceLectureId = body(detail)["lectures"].first { it.hasNonNull("lectureId") }["id"].asString()
+
+        assertEquals(200, post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[2]}}""", token).statusCode.value())
+        val detailWithTwo =
+            assertQueryCount(select = 6, insert = 0, update = 0, delete = 0) { get("/v2/timetables/$timetableId", token) }
+        assertEquals(2, body(detailWithTwo)["lectures"].count { it.hasNonNull("lectureId") })
 
         val modified =
             patch("/v2/timetables/$timetableId/lectures/$referenceLectureId", """{"courseTitle":"바뀐제목","isForced":false}""", token)

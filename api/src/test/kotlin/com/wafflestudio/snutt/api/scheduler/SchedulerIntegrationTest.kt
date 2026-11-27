@@ -87,6 +87,7 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals("📚 Class reminder", english.title)
         assertEquals("Theories and Practices of HCI starts in 10 minutes.", english.body)
 
+        assertNotNull(timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId))
         val schedule = timetableLectureReminderScheduleRepository.findByReminderId(reminder.id!!).single()
         assertNotNull(schedule.recentNotifiedAt)
     }

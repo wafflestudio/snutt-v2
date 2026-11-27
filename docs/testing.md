@@ -69,7 +69,13 @@ clock.nowKst()                                        // ZonedDateTime(KST)
 
 - 기본은 시스템 시각을 따른다. 시간에 따라 결과가 달라지는 테스트는 반드시 고정한다. 매 테스트 전에 자동으로 `reset()`된다.
 - KST 자정이나 학기 시작일 같은 경계는 `setKst`로 경계 직전과 직후를 둘 다 잡는다. 예: `LocalDateTime.of(2026, 8, 31, 23, 59)`, `LocalDateTime.of(2026, 9, 1, 0, 0)`.
-- Clock을 따르지 않는 시각: Hibernate `@CreationTimestamp`/`@UpdateTimestamp`(`created_at`, `updated_at`), DB의 `NOW()`, Redis TTL, `User` 생성자의 기본값. 이 값들과 Clock 시각을 비교하는 로직을 테스트할 때는 해당 컬럼을 JDBC로 직접 세팅한다(예: `MailLogIntegrationTest`).
+- Clock을 따르지 않는 시각(실제 시스템 시각을 쓴다):
+  - Hibernate `@CreationTimestamp`/`@UpdateTimestamp`(`BaseEntity`의 `created_at`, `updated_at`, `LectureRegistrationStatus`)
+  - `User` 생성자 기본값 `lastLoginAt`, `notificationCheckedAt`(`core/domain/user/model/User.kt`, 엔티티라 빈 주입 불가)
+  - `OciUploadUriIssuer`의 업로드 URL 만료 시각(dev/prod 프로파일 전용, 테스트에서는 `uploadUriIssuer` mock)
+  - `migration` 모듈의 `Instant.now()` 전부(일회성 이관 도구, Spring 컨텍스트 테스트 아님)
+  - DB의 `NOW()`, Redis TTL
+- 이 값들과 Clock 시각을 비교하는 로직을 테스트할 때는 해당 컬럼을 JDBC로 직접 세팅한다(예: `MailLogIntegrationTest`). `User`를 만든 뒤 시각이 중요하면 필드를 명시적으로 넣는다.
 
 ## 쿼리 수: `assertQueryCount`
 
