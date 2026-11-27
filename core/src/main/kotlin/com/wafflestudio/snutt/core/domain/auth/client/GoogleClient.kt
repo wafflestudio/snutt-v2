@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.core.domain.auth.client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import com.wafflestudio.snutt.core.domain.auth.fetchSocialProfile
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
@@ -15,17 +16,14 @@ private data class GoogleOAuth2UserResponse(
 @Component("GOOGLE")
 class GoogleClient(
     private val restClient: RestClient,
+    @param:Value("\${snutt.auth.social.google-base-url}") private val baseUrl: String,
 ) : OAuth2Client {
-    companion object {
-        private const val USER_INFO_URI = "https://www.googleapis.com/oauth2/v1/userinfo"
-    }
-
     override fun getMe(token: String): OAuth2UserResponse {
         val response =
             fetchSocialProfile("google") {
                 restClient
                     .get()
-                    .uri(USER_INFO_URI)
+                    .uri("$baseUrl/oauth2/v1/userinfo")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer $token")
                     .retrieve()
                     .body(GoogleOAuth2UserResponse::class.java)

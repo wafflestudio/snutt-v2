@@ -19,10 +19,11 @@ class FeedbackService(
     @param:Value("\${snutt.github.token}") private val token: String,
     @param:Value("\${snutt.github.repo-owner}") private val repoOwner: String,
     @param:Value("\${snutt.github.repo-name}") private val repoName: String,
+    @param:Value("\${snutt.github.base-url}") baseUrl: String,
     restClientBuilder: RestClient.Builder,
     private val clock: Clock,
 ) {
-    private val restClient = restClientBuilder.baseUrl("https://api.github.com").build()
+    private val restClient = restClientBuilder.baseUrl(baseUrl).build()
 
     fun postFeedback(
         email: String,

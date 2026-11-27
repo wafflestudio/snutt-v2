@@ -42,4 +42,6 @@ dependencies {
     testFixturesApi("org.testcontainers:testcontainers-mysql")
     testFixturesApi("org.mockito.kotlin:mockito-kotlin:6.4.0")
     testFixturesImplementation("net.ttddyy:datasource-proxy:1.11.0")
+    // 외부 HTTP API를 네트워크 경계에서 mock한다. standalone은 Jetty·Jackson 2를 shading해 Spring Boot 4 의존성과 충돌하지 않는다.
+    testFixturesApi("org.wiremock:wiremock-standalone:3.13.2")
 }
