@@ -49,6 +49,7 @@ object SugangXlsxFixture {
             "Remark",
         )
 
+    /** 영어 값의 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로 남는다. */
     data class RowData(
         val classification: String = "전선",
         val department: String = "컴퓨터공학부",
@@ -63,6 +64,11 @@ object SugangXlsxFixture {
         val instructor: String = "이제희",
         val quota: Int = 20,
         val remark: String = "",
+        /** 정원 칸 원문. "40 (30)"처럼 재학생 정원을 괄호로 적으면 차이가 신입생 정원이 된다. 없으면 [quota]. */
+        val quotaText: String? = null,
+        val courseTitleEn: String = courseTitle,
+        val instructorEn: String = instructor,
+        val classificationEn: String = "Elective",
     )
 
     fun englishXlsx(rows: List<RowData>): ByteArrayResource {
@@ -86,14 +92,14 @@ object SugangXlsxFixture {
             listOf(
                 data.courseNumber,
                 data.lectureNumber,
-                data.courseTitle,
+                data.courseTitleEn,
                 data.subtitle,
                 "Engineering College",
                 data.department,
                 "Master",
                 data.academicYear,
-                "Elective",
-                data.instructor,
+                data.classificationEn,
+                data.instructorEn,
                 data.remark,
             )
         values.forEachIndexed { index, value -> row.createCell(index).setCellValue(value) }
@@ -137,7 +143,7 @@ object SugangXlsxFixture {
                 "0",
                 "0",
                 "0",
-                data.quota.toString(),
+                data.quotaText ?: data.quota.toString(),
                 "10",
                 data.remark,
                 "한국어",

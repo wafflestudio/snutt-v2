@@ -150,6 +150,12 @@ fixtures.addLecture(timetable, lecture)
 - 강의와 수업시간만 저장하려면 `saveLectureWithTimes(...)`(`core.test.fixture`)를 쓴다.
 - 필요한 엔티티가 없을 때만 메서드를 추가한다. 쓰는 곳이 하나뿐이면 그 테스트 안에 둔다.
 
+### 수강편람 동기화 시나리오 (batch)
+
+- `batch/.../sugang/SugangSyncScenarioTest`를 상속한다. `sync(rows, englishRows)`가 수강편람 사이트를 stub하고 잡을 학기 지정 없이 돌린다. 시간표 담기·리마인더·관심강좌는 실제 서비스(`addLecture`, `setReminder`, `bookmarkService`)로 한다.
+- 어디에 쓸지: 한 학기를 따라가는 골든패스는 `SugangSemesterLifecycleTest`, 동기화 diff 분기(추가·폐강·필드별 변경·겹침·멱등·영어 엑셀 공백·학기 경계·트랜잭션)는 `SugangSyncDiffTest`, 사이트 HTTP 오류·응답 형식 이상은 `SugangSnuSyncJobTest`, 빈자리 판정은 `VacancyNotificationJobTest`.
+- `SugangXlsxFixture.RowData`의 영어 값 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로다.
+
 ## 새 테스트 체크리스트
 
 1. 골든패스 시나리오인가? 쓰려는 사이드케이스가 외부 입력이나 레거시 데이터에서 생기는가?
