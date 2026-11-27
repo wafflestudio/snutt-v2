@@ -226,12 +226,7 @@ class TimetableLectureReminderService(
             timetableLectureReminderRepository.delete(reminder)
             return
         }
-        val notifiedAtBySchedule =
-            timetableLectureReminderScheduleRepository
-                .findByReminderId(reminder.id!!)
-                .mapNotNull { schedule -> schedule.recentNotifiedAt?.let { schedule.toSchedule() to it } }
-                .toMap()
-        replaceSchedules(reminder.id!!, schedulesOf(times, reminder.offsetMinutes), notifiedAtBySchedule)
+        replaceSchedules(reminder.id!!, schedulesOf(times, reminder.offsetMinutes))
     }
 
     private fun schedulesOf(
@@ -239,15 +234,22 @@ class TimetableLectureReminderService(
         offsetMinutes: Int,
     ): List<Schedule> = times.map { Schedule(it.day, it.startMinute).plusMinutes(offsetMinutes) }.distinct()
 
+    /**
+     * 발송 시각을 [schedules]로 맞춘다. 그대로인 발송 시각은 건드리지 않고(최근 발송 시각도 남는다) 빠진 것만 id로 지우고 새것만 넣는다.
+     * 예전처럼 reminder_id 범위로 DELETE한 뒤 INSERT하면 idx_reminder_schedule_fire에 gap 락이 잡혀, 인덱스에서 이웃한 다른 리마인더의
+     * INSERT와 insert intention 데드락이 났다. 같은 리마인더를 고치는 요청은 시간표 잠금으로 줄을 선다.
+     */
     private fun replaceSchedules(
         reminderId: Long,
         schedules: List<Schedule>,
-        notifiedAtBySchedule: Map<Schedule, Instant> = emptyMap(),
     ) {
-        timetableLectureReminderScheduleRepository.deleteByReminderId(reminderId)
+        val existing = timetableLectureReminderScheduleRepository.findByReminderId(reminderId)
+        val stale = existing.filter { it.toSchedule() !in schedules }
+        if (stale.isNotEmpty()) timetableLectureReminderScheduleRepository.deleteAllByIdInBatch(stale.map { it.id!! })
+        val kept = existing.map { it.toSchedule() }.toSet()
         timetableLectureReminderScheduleRepository.saveAll(
-            schedules.map { schedule ->
-                TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, notifiedAtBySchedule[schedule])
+            schedules.filter { it !in kept }.map { schedule ->
+                TimetableLectureReminderSchedule(reminderId, schedule.day, schedule.minute, null)
             },
         )
     }

@@ -271,3 +271,11 @@ class SchedulerUnderLoadStressTest :
 @StressTest
 class ReminderCleanupUnderLoadStressTest :
     AbstractSchedulerUnderLoadStressTest("scheduler-under-load-with-cleanup", reminderEdits = false, concurrentCleanup = true)
+
+/**
+ * 리마인더 설정·수업 시간 변경(리마인더 재계산)을 스케줄러와 함께 섞는다. 예전 발송 시각 교체(reminder_id 범위 DELETE 후 INSERT)는
+ * idx_reminder_schedule_fire에 gap 락을 잡아 이웃한 다른 리마인더의 INSERT와 데드락이 났다. 지금은 바뀐 발송 시각만 id로 지우고 넣는다.
+ */
+@StressTest
+class ReminderEditsUnderSchedulerStressTest :
+    AbstractSchedulerUnderLoadStressTest("scheduler-under-load-with-reminder-edits", reminderEdits = true, concurrentCleanup = false)

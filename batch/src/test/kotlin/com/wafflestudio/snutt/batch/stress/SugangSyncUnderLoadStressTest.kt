@@ -289,3 +289,11 @@ class SugangSyncWithLectureEditsStressTest :
 @StressTest
 class SugangSyncWithLectureAddsStressTest :
     AbstractSugangSyncUnderLoadStressTest("sugang-sync-with-lecture-adds", SAFE_OPERATIONS + ADD_OPERATION)
+
+/**
+ * 동기화 중에 사용자가 리마인더를 바꾸거나 수업 시간을 고친다. 예전에는 리마인더 발송 시각이 동기화 전 수업 시간으로 남았고, 발송 시각 교체끼리
+ * gap 락 데드락, 시간표를 잠그지 않는 리마인더 설정의 unique·외래 키 위반이 났다.
+ */
+@StressTest
+class SugangSyncWithReminderEditsStressTest :
+    AbstractSugangSyncUnderLoadStressTest("sugang-sync-with-reminder-edits", SAFE_OPERATIONS + REMINDER_OPERATIONS)
