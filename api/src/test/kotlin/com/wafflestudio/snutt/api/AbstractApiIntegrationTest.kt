@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
 import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
 import com.wafflestudio.snutt.core.test.AbstractIntegrationTest
+import com.wafflestudio.snutt.core.test.external.OidcTestSupport
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
@@ -38,7 +39,7 @@ abstract class AbstractApiIntegrationTest : AbstractIntegrationTest() {
     /** JWKS 캐시가 앞 테스트의 응답을 들고 있으면 JWKS 장애·키 교체 테스트가 순서에 따라 달라진다. */
     @BeforeEach
     fun clearOidcCache() {
-        oidcJwtVerifier.clearCache()
+        OidcTestSupport.clearJwksCache(oidcJwtVerifier)
     }
 
     protected val jsonMapper: JsonMapper = JsonMapper.builder().build()

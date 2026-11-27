@@ -39,8 +39,11 @@ class OidcJwtVerifier(
             null
         }
 
-    /** 받아 둔 JWKS를 모두 버린다. 테스트가 매번 같은 상태에서 시작하도록 베이스가 부른다. */
-    fun clearCache() {
+    /**
+     * 테스트 전용. 받아 둔 JWKS를 모두 버린다. 프로덕션 코드는 부르지 않는다. core testFixtures의
+     * `OidcTestSupport.clearJwksCache`(같은 모듈이라 internal에 접근한다)를 거쳐 api 테스트 베이스가 매 테스트 전에 부른다.
+     */
+    internal fun clearCache() {
         jwkSets.clear()
     }
 
