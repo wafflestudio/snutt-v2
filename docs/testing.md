@@ -65,13 +65,15 @@ Spring 컨텍스트는 모듈마다 한 번만 떠야 한다. 지금 api 1개, b
   - batch: `SugangSnuStubs`(`sugang`). 수강편람 조건, 엑셀, 강좌 상세, 메인·검색 페이지, SNU 지도.
   - api: `SocialProviderStubs`(Google·Kakao·Facebook·Apple JWKS·GitHub Issues), `OidcTestIssuer`(테스트 RSA 키쌍으로 JWKS와 id_token 생성).
 - stub하지 않은 요청은 WireMock이 404를 준다. 호출되면 안 되는 API는 `wireMock.verify(0, ...)`나 요청 수로 확인한다.
+- 매 테스트 뒤 `AbstractIntegrationTest`가 stub과 맞지 않은 요청이 없었는지 검사한다(404를 삼키는 클라이언트가 있어서다). 404 응답을 검증하려면 404를 stub한다.
+- OIDC JWKS 캐시(`OidcJwtVerifier`)는 api 베이스가 매 테스트 전에 비운다.
 - 새 외부 연동을 추가하면: base URL을 yml 설정값으로 빼고(운영 기본값 유지), `ExternalService`와 `ExternalApiMockConfig`에 항목을 추가한다.
 
 ### 외부 연동 테스트에서 볼 것
 
 골든패스와 함께 타임아웃, 5xx, 4xx(토큰 만료 등), 응답 형식 이상(필드 누락·빈 엑셀·잘린 바디)을 넣고, 시스템이 어떻게 끝나야 하는지(배치 중단, 부분 반영 없음, 에러 코드)를 assert한다.
 
-- 타임아웃: `withFixedDelay(3_000)`(read-timeout 1초보다 길게). 대기는 WireMock 쪽이라 `Thread.sleep`이 아니다.
+- 타임아웃: `withFixedDelay(1_500)`(read-timeout 1초보다 조금 길게). 대기는 WireMock 쪽이라 `Thread.sleep`이 아니다.
 - **RestClient는 Apache HttpClient 5 위에서 돈다**(firebase-admin이 끌어와 Spring Boot가 자동 선택). 기본 재시도가 켜져 있어 **429·503은 1초 뒤 한 번 더 보낸다(POST 포함)**. 500·502·타임아웃은 재시도하지 않는다. 그래서:
   - "5xx면 실패" 테스트는 500을 쓴다. 503을 쓰면 1초 늦어지고, 시나리오 stub이면 재시도가 다음 응답을 먹어 의도와 다른 경로를 탄다.
   - 재시도 자체는 `FeedbackIntegrationTest`, `SugangSnuSyncJobTest`의 503 테스트가 고정한다.

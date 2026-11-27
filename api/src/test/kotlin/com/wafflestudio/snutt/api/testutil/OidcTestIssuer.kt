@@ -11,7 +11,7 @@ import java.util.Date
 
 /**
  * Apple·Facebook OIDC를 흉내 내는 발급자. 테스트용 RSA 키쌍으로 JWKS와 서명된 id_token을 만든다.
- * 키는 JVM당 한 번 만든다. `OidcJwtVerifier`가 JWKS를 URI별로 캐시하므로 테스트마다 키를 바꾸면 캐시와 어긋난다.
+ * 키는 JVM당 한 번 만든다. `OidcJwtVerifier`의 JWKS 캐시는 api 베이스가 매 테스트 전에 비운다.
  * 새 키가 필요한 테스트(키 교체, JWKS 장애)는 [rotatedKey]처럼 kid가 다른 키를 쓴다.
  */
 class OidcTestIssuer(

@@ -36,7 +36,6 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.apache.poi.ss.usermodel.WorkbookFactory
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -93,12 +92,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
         sugang.snuMapForAll(json("""{"search_list":[]}"""), priority = 20)
         // 테스트에서 시각(updatedAt)을 갱신했는지 구분할 수 있도록 운영과 동떨어진 시각으로 둔다.
         clock.setInstant(TOUCHED_AT)
-    }
-
-    @AfterEach
-    fun noUnmatchedRequests() {
-        // stub 경로가 틀려 404가 나도 삼키는 클라이언트(SNU 지도)가 있으므로, 맞지 않은 요청이 없었는지 따로 본다.
-        assertEquals(emptyList<Any>(), wireMock.findAllUnmatchedRequests().map { it.url })
     }
 
     private fun runJob() = sugangSnuSyncJob.run(null)
