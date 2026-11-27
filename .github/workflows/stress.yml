@@ -22,7 +22,8 @@ on:
 
 concurrency:
   group: stress-${{ github.ref }}
-  cancel-in-progress: true
+  # 스케줄과 수동 실행이 서로 취소하지 않는다.
+  cancel-in-progress: false
 
 jobs:
   stress:

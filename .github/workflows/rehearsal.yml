@@ -16,7 +16,8 @@ on:
 
 concurrency:
   group: rehearsal-${{ github.ref }}
-  cancel-in-progress: true
+  # PR은 새 커밋이 오면 이전 실행을 취소한다. 스케줄·수동 실행은 서로 취소하지 않는다.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   rehearsal:

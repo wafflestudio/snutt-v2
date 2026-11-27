@@ -38,7 +38,7 @@
 | lint | `./gradlew ktlintCheck` | `ci.yml` | 모든 PR, develop·prod push | | | O | - |
 | 기본 테스트 | `./gradlew test` | `ci.yml` | 모든 PR, develop·prod push (배포 게이트) | | | O | - |
 | parity | `./gradlew parityTest` | `parity.yml` | v1compat 응답 경로가 바뀐 PR | O | | O | `parity-report` (diff 리포트, v1 로그) |
-| perf | `./gradlew perfTest` | `perf.yml` | 리포지토리·엔티티·Flyway·perf 하네스가 바뀐 PR | O | | O | `perf-report` (테스트 리포트) |
+| perf | `./gradlew perfTest` | `perf.yml` | 리포지토리·엔티티·Flyway·perf 하네스·빌드 스크립트가 바뀐 PR | O | | O | `perf-report` (테스트 리포트) |
 | stress | `./gradlew stressTest -PstressThreads=100 -PstressIterations=30 -PstressOpsPerThread=40` | `stress.yml` | | O | | O (규모 입력) | `stress-report` (`build/reports/stress`) |
 | rehearsal | `./gradlew rehearsalTest` | `rehearsal.yml` | `migration/**`, Flyway, testFixtures가 바뀐 PR | O | | O | `rehearsal-report` |
 | mutation | `./gradlew pitest` | `mutation.yml` | | | 일요일 04:00 KST | O | `pitest-report` (항상 올림) |
@@ -48,7 +48,7 @@
 
 - PR 경로 필터는 각 워크플로의 `paths`가 기준이다. 워크플로 파일 자체가 바뀐 PR에서도 돈다.
 - parity PR 경로: `v1compat/**`, `migration/src/main/**`, `parity/**`, `core/src/main/**`, `core/src/testFixtures/**`, `api/src/main/**`(v2 컨트롤러 `api/v2/**` 제외), 빌드 스크립트. v1compat 컨트롤러는 core 도메인 서비스·엔티티를 직접 부르고, api 앱의 보안·필터·Jackson·예외 처리 설정을 함께 쓰므로 core와 api 설정 변경이 v1 응답을 바꿀 수 있다. 시드는 실제 `migration` 단계로 옮기므로 이관 코드도 포함한다. 빌드 스크립트는 의존성 버전(Jackson 직렬화 등)을 바꿀 수 있어 넣었다.
-- parity는 v1 jar를 `~/.gradle/caches/snutt-parity`에 `actions/cache`로 둔다(키: `parity/v1/versions.properties`·`build-v1-jar.sh` 해시). nightly가 기본 브랜치 캐시를 만들고 PR이 그것을 읽는다. v1 빌드에는 `GITHUB_TOKEN`(`packages: read`)을 쓰고, org 관리자가 `wafflestudio/spring-waffle` 패키지의 "Manage Actions access"에 이 레포를 추가해야 한다. fork PR에서는 건너뛴다.
+- parity는 v1 jar를 `~/.gradle/caches/snutt-parity`에 `actions/cache/restore`·`save`로 둔다(parity가 실패해도 jar는 저장된다)(키: `parity/v1/versions.properties`·`build-v1-jar.sh` 해시). nightly가 기본 브랜치 캐시를 만들고 PR이 그것을 읽는다. v1 빌드에는 `GITHUB_TOKEN`(`packages: read`)을 쓰고, org 관리자가 `wafflestudio/spring-waffle` 패키지의 "Manage Actions access"에 이 레포를 추가해야 한다. fork PR에서는 건너뛴다.
 - 이 워크플로들은 `ci.yml`과 별개라 배포 게이트가 아니다. 실패하면 Actions 탭과 artifact로 확인한다. 막고 싶으면 브랜치 보호 규칙에 job을 required로 넣는다.
 
 ## 베이스 클래스 고르기
