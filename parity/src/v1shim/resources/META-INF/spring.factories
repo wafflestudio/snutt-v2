@@ -1,0 +1,2 @@
+# Spring Boot 4에는 context.initializer.classes가 없다. loader.path로 얹힌 이 jar의 spring.factories로 등록한다.
+org.springframework.context.ApplicationContextInitializer=com.wafflestudio.snutt.parity.shim.V1ShimInitializer
