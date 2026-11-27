@@ -16,6 +16,7 @@ import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
+import java.sql.SQLException
 
 @Service
 class DeviceService(
@@ -49,7 +50,8 @@ class DeviceService(
             } catch (e: DataIntegrityViolationException) {
                 if (attempt >= REGISTER_ATTEMPTS) throw e
             } catch (e: PessimisticLockingFailureException) {
-                if (attempt >= REGISTER_ATTEMPTS) throw e
+                // 데드락만 다시 시도한다. lock wait timeout(50초)까지 되풀이하면 요청이 몇 분씩 걸린다.
+                if (attempt >= REGISTER_ATTEMPTS || !e.isDeadlock()) throw e
             }
             attempt++
         }
@@ -116,7 +118,11 @@ class DeviceService(
         userDeviceRepository.markDeletedByFcmRegistrationIds(registrationIds)
     }
 
+    private fun Throwable.isDeadlock(): Boolean =
+        generateSequence(this) { it.cause }.any { it is SQLException && it.errorCode == MYSQL_DEADLOCK_ERROR_CODE }
+
     companion object {
+        private const val MYSQL_DEADLOCK_ERROR_CODE = 1213
         const val MAX_REGISTRATION_ID_LENGTH = 512
         private const val REGISTER_ATTEMPTS = 5
     }
