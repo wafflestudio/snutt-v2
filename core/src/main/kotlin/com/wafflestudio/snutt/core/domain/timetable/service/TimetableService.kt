@@ -100,7 +100,9 @@ class TimetableService(
         title: String,
     ): Timetable {
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        validateTimetableTitle(userId, year, semester, title)
+        validateTitleAndSemester(year, semester, title)
+        val existing = timetableRepository.findByUserIdAndYearAndSemester(userId, year, semester)
+        if (existing.any { it.title == title }) throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
         return timetableRepository.save(
             Timetable(
                 userId = userId,
@@ -108,7 +110,7 @@ class TimetableService(
                 semester = semester,
                 title = title,
                 themeId = timetableThemeService.getDefaultThemeId(userId),
-                isPrimary = timetableRepository.findByUserIdAndYearAndSemester(userId, year, semester).isEmpty(),
+                isPrimary = existing.isEmpty(),
             ),
         )
     }
@@ -240,6 +242,15 @@ class TimetableService(
         )
     }
 
+    private fun validateTitleAndSemester(
+        year: Int,
+        semester: Semester,
+        title: String,
+    ) {
+        if (title.isEmpty() || title.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
+        if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
+    }
+
     private fun validateTimetableTitle(
         userId: Long,
         year: Int,
@@ -247,8 +258,7 @@ class TimetableService(
         title: String,
         excludeTimetableId: Long? = null,
     ) {
-        if (title.isEmpty() || title.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
-        if (!coursebookService.existsCoursebook(year, semester)) throw SnuttException(ErrorType.INVALID_TIMETABLE_SEMESTER)
+        validateTitleAndSemester(year, semester, title)
         val duplicate = timetableRepository.findByUserIdAndYearAndSemesterAndTitle(userId, year, semester, title)
         if (duplicate != null && duplicate.id != excludeTimetableId) {
             throw SnuttException(ErrorType.DUPLICATE_TIMETABLE_TITLE)
