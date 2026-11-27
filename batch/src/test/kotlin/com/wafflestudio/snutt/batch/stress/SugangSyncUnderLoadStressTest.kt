@@ -96,17 +96,13 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
         val unchanged = (before.toSet() intersect after.toSet()).map { it.courseNumber }.toSet()
         val stableLectureIds = lectures.filter { it.courseNumber in unchanged }.map { it.id!! }.toSet()
         stubSite(after)
-        val faults =
-            if (injectFaults) {
-                listOf(
-                    // 짝수 id 시간표가 든 반영 묶음이 처리 표시에서 실패한다(묶음 전체가 롤백된다).
-                    DbFaults.failing("sugang_sync_pending_timetable", "UPDATE", "NEW.timetable_id % 2 = 0"),
-                    // 알림 배출이 짝수 id outbox 행을 지우다 실패한다(옮긴 notification도 함께 롤백된다).
-                    DbFaults.failing("sugang_sync_outbox", "DELETE", "OLD.id % 2 = 0"),
-                )
-            } else {
-                emptyList()
-            }
+        val faults = mutableListOf<AutoCloseable>()
+        if (injectFaults) {
+            // 첫 사용자 시간표가 든 반영 묶음만 처리 표시에서 실패한다(그 묶음은 롤백되고 나머지 묶음은 커밋된다).
+            faults += DbFaults.failing("sugang_sync_pending_timetable", "UPDATE", "NEW.timetable_id = ${owners.first().timetable.id}")
+            // 알림 배출이 두 번째 사용자의 알림이 든 묶음에서 실패한다(앞 묶음은 옮겨지고 그 묶음부터 남는다).
+            faults += DbFaults.failing("sugang_sync_outbox", "DELETE", "OLD.user_id = ${owners[1].user.id}")
+        }
         val executor = Executors.newSingleThreadExecutor()
         val job = executor.submit<Throwable?> { runCatching { sugangSnuSyncJob.run(null) }.exceptionOrNull() }
         try {
@@ -124,9 +120,13 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
             run.fail(FailureKind.CLIENT_TIMEOUT, "load", e.message.orEmpty())
             return
         } finally {
-            val error = job.get(LOAD_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
-            executor.shutdownNow()
-            faults.forEach { it.close() }
+            val error =
+                try {
+                    job.get(LOAD_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
+                } finally {
+                    executor.shutdownNow()
+                    faults.forEach { it.close() }
+                }
             if (injectFaults) {
                 // 주입한 장애로 잡이 실패하는 것은 정상이다. 그 밖의 서버 오류만 실패로 센다.
                 run.record("sugangSnuSyncJob(faults)", error?.let { "failed" } ?: "ok", allowed = error == null || error.isInjected())

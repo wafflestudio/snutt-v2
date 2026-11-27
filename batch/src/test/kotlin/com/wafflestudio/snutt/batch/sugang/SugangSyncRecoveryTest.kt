@@ -3,6 +3,7 @@ package com.wafflestudio.snutt.batch.sugang
 import com.wafflestudio.snutt.batch.SugangXlsxFixture.RowData
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.push.PushSendResult
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
@@ -10,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.test.IntegrationContainers
 import com.wafflestudio.snutt.core.test.concurrency.LockContention
 import com.wafflestudio.snutt.core.test.fault.DbFault
 import com.wafflestudio.snutt.core.test.fault.DbFaults
@@ -20,8 +22,11 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.PlatformTransactionManager
+import java.sql.DriverManager
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
@@ -99,7 +104,7 @@ class SugangSyncRecoveryTest : SugangSyncScenarioTest() {
     private fun pushBodies(): Map<String, String> = sentPushes().associate { it.fcmRegistrationId to it.message.body }
 
     private fun leftovers(): Map<String, Int> =
-        listOf("sugang_sync_pending_lecture", "sugang_sync_pending_timetable", "sugang_sync_outbox")
+        listOf("sugang_sync_pending_lecture", "sugang_sync_pending_timetable", "sugang_sync_outbox", "sugang_sync_push_outbox")
             .associateWith { MySqlProbe.jdbc.queryForObject("SELECT COUNT(*) FROM $it", Int::class.java)!! }
             .filterValues { it > 0 }
 
@@ -305,5 +310,62 @@ class SugangSyncRecoveryTest : SugangSyncScenarioTest() {
             ),
             source.messages(),
         )
+    }
+
+    @Test
+    fun `1단계 직후 죽어 시간표 펼치기가 늦어져도 그사이 강의를 담은 사용자에게는 변경 알림을 보내지 않는다`() {
+        val (alice, bob) = aliceAndBob()
+
+        // 강의 변경이 닿는 시간표를 기록하지 못한다(1단계 커밋 뒤 프로세스가 죽은 것과 같은 상태).
+        DbFaults.failing("sugang_sync_pending_timetable", "INSERT").use {
+            assertThrows<IllegalStateException> { sync(moved) }
+        }
+        // 그사이 carol은 바뀐 수업 시간(화 10시)을 보고 algo를 담는다.
+        val carol = member("carol", algo)
+
+        sync(moved)
+
+        assertRecovered(alice, bob, clock.instant())
+        assertEquals(emptyList<String>(), carol.messages())
+        assertEquals(listOf(lecture(algo).id), carol.lectureIds())
+    }
+
+    @Test
+    fun `알림을 넣은 뒤 푸시를 보내지 못하면 다음 실행이 그 푸시를 보낸다`() {
+        val (alice, bob) = aliceAndBob()
+        whenever(pushClient.sendMessages(any())).thenThrow(IllegalStateException("FCM 연결 끊김"))
+
+        assertThrows<IllegalStateException> { sync(moved) }
+        assertEquals(1, alice.messages().size)
+        assertEquals(1, bob.messages().size)
+
+        whenever(pushClient.sendMessages(any())).thenReturn(PushSendResult())
+        clearPushes()
+        sync(moved)
+
+        assertEquals(
+            mapOf(
+                "fcm-alice" to "강의 1개가 삭제되었습니다. 알림함에서 자세히 확인하세요.",
+                "fcm-bob" to "강의 1개가 변경되었습니다. 알림함에서 자세히 확인하세요.",
+            ),
+            pushBodies(),
+        )
+        assertEquals(emptyMap<String, Int>(), leftovers())
+        assertNoReplay(alice, bob)
+    }
+
+    @Test
+    fun `다른 동기화가 돌고 있으면 아무것도 바꾸지 않고 끝낸다`() {
+        val (alice, _) = aliceAndBob()
+        val mysql = IntegrationContainers.mysql
+        DriverManager.getConnection(mysql.jdbcUrl, "root", mysql.password).use { other ->
+            other.createStatement().use { it.executeQuery("SELECT GET_LOCK('snutt.sugang_sync', 0)").close() }
+
+            val e = assertThrows<IllegalStateException> { sync(moved) }
+
+            assertEquals("다른 수강편람 동기화가 돌고 있다(snutt.sugang_sync)", e.message)
+        }
+        assertEquals(listOf(DayOfWeek.MONDAY), classTimes(lecture(algo)).map { it.day })
+        assertEquals(listOf(lecture(algo).id, lecture(compiler).id), alice.lectureIds())
     }
 }

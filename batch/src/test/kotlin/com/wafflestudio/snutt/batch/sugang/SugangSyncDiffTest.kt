@@ -212,6 +212,27 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
         assertEquals(0, lectureRegistrationStatusRepository.count())
     }
 
+    @Test
+    fun `한 사용자에게 가는 알림은 시간표 변경, 관심강좌 변경, 시간표 폐강, 관심강좌 폐강 순이다`() {
+        sync(listOf(algo, compiler))
+        val alice = member("alice", algo, compiler)
+        bookmarkService.addLecture(alice.user.id!!, lecture(algo).id!!)
+        bookmarkService.addLecture(alice.user.id!!, lecture(compiler).id!!)
+
+        // algo는 정원이 바뀌고 compiler는 폐강된다. 강의 변경은 모든 시간표를 반영한 뒤 관심강좌 알림을 남기고, 폐강은 그다음 단계다.
+        sync(listOf(algo.copy(quota = 50)))
+
+        assertEquals(
+            listOf(
+                "2026-2학기 '나의 시간표' 시간표의 '알고리즘' 강의가 업데이트 되었습니다.(항목: 정원)",
+                "2026-2학기 관심강좌 목록의 '알고리즘' 강의가 업데이트 되었습니다.(항목: 정원)",
+                "2026-2학기 '나의 시간표' 시간표의 '컴파일러' 강의가 폐강되어 삭제되었습니다.",
+                "2026-2학기 관심강좌 목록의 '컴파일러' 강의가 폐강되어 삭제되었습니다.",
+            ),
+            alice.messages(),
+        )
+    }
+
     // ---------------------------------------------------------------- 시간 · 강의실
 
     @Test
@@ -353,10 +374,11 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
     }
 
     @Test
-    fun `영어 필드만 바뀌면 강의는 고치되 알리지 않는다`() {
+    fun `영어 필드만 바뀌면 강의는 고치되 알리지 않고 담은 시간표의 updated_at만 고친다`() {
         sync(listOf(algo))
         val alice = member("alice", algo)
         clearPushes()
+        clock.advance(Duration.ofHours(1))
 
         sync(
             listOf(algo),
@@ -371,6 +393,8 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
         assertEquals(0, notificationRepository.count())
         assertEquals(emptyMap<String, String>(), pushBodies())
         assertEquals(listOf(lecture.id), alice.lectureIds())
+        // 클라이언트는 updated_at으로 시간표를 다시 받는다. 영어 강의명도 새로 받아야 한다.
+        assertEquals(clock.instant(), timetableRepository.findById(alice.timetable.id!!).get().updatedAt)
     }
 
     // ---------------------------------------------------------------- 분반 · 강좌번호 재사용

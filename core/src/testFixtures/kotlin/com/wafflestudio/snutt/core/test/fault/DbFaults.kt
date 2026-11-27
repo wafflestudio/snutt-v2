@@ -25,10 +25,21 @@ enum class DbFault(
  * DbFaults.failing("timetable", "UPDATE", "NEW.id = ${timetable.id}").use { sync(rows) }
  * ```
  *
- * 트리거는 테이블 초기화(TRUNCATE)로 지워지지 않으므로 반드시 `use`로 닫는다.
+ * 트리거는 테이블 초기화로 지워지지 않으므로 `use`로 닫는다. 테스트가 중간에 끝나 닫지 못한 트리거는 다음 테스트 전에
+ * `AbstractIntegrationTest`가 [dropAll]로 지운다(남은 트리거가 다른 테스트의 쓰기를 실패시키지 않게).
  */
 object DbFaults {
     private val sequence = AtomicInteger()
+    private const val PREFIX = "test_fault_"
+
+    /** 이 도구가 만든 트리거를 모두 지운다. */
+    fun dropAll() {
+        MySqlProbe.jdbc
+            .queryForList(
+                "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME LIKE '$PREFIX%'",
+                String::class.java,
+            ).forEach { MySqlProbe.jdbc.execute("DROP TRIGGER IF EXISTS `$it`") }
+    }
 
     fun failing(
         table: String,
@@ -37,7 +48,7 @@ object DbFaults {
         fault: DbFault = DbFault.ERROR,
     ): AutoCloseable {
         require(event in setOf("INSERT", "UPDATE", "DELETE")) { event }
-        val name = "test_fault_${table}_${event.lowercase()}_${sequence.incrementAndGet()}"
+        val name = "$PREFIX${table}_${event.lowercase()}_${sequence.incrementAndGet()}"
         MySqlProbe.jdbc.execute(
             """
             CREATE TRIGGER $name BEFORE $event ON `$table` FOR EACH ROW

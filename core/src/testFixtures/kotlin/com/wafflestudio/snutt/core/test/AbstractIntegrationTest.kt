@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.push.PushClient
 import com.wafflestudio.snutt.core.common.push.PushSendResult
 import com.wafflestudio.snutt.core.test.external.ExternalApiMock
 import com.wafflestudio.snutt.core.test.external.ExternalApiMockConfig
+import com.wafflestudio.snutt.core.test.fault.DbFaults
 import com.wafflestudio.snutt.core.test.fixture.ScenarioFixtures
 import com.wafflestudio.snutt.core.test.fixture.ScenarioFixturesConfig
 import com.wafflestudio.snutt.core.test.query.QueryCountConfig
@@ -69,6 +70,7 @@ abstract class AbstractIntegrationTest {
 
     /** 모든 테이블을 비우고(빌트인 테마 제외) Redis를 비운다. stress 테스트는 반복마다 부른다. */
     protected fun resetStores() {
+        DbFaults.dropAll()
         clearAllTables()
         redisTemplate.execute { it.serverCommands().flushAll() }
     }

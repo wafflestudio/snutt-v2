@@ -10,6 +10,7 @@ import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
+import java.time.Instant
 
 data class TimetableLectureReminderRow(
     val timetableLectureId: Long,
@@ -22,6 +23,7 @@ data class TimetableLectureReminderRow(
 data class LectureTimetableId(
     val lectureId: Long?,
     val timetableId: Long,
+    val createdAt: Instant?,
 )
 
 interface TimetableLectureRepository :
@@ -44,12 +46,19 @@ interface TimetableLectureRepository :
     @Query("SELECT DISTINCT tl.timetableId FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds")
     fun findTimetableIdsByLectureIdIn(lectureIds: Collection<Long>): List<Long>
 
-    /** 강의마다 그 강의를 담은 시간표. 한 시간표에 같은 강의가 두 번 담기지 않으므로 DISTINCT 없이 읽는다(임시 테이블을 피한다). */
+    /**
+     * 강의마다 그 강의를 담은 시간표와 담은 시각. [since]를 주면 그 뒤에 담은 것만 읽는다. 한 시간표에 같은 강의가 두 번 담기지 않으므로
+     * DISTINCT 없이 읽는다(임시 테이블을 피한다).
+     */
     @Query(
-        "SELECT new com.wafflestudio.snutt.core.domain.timetable.repository.LectureTimetableId(tl.lectureId, tl.timetableId) " +
-            "FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds",
+        "SELECT new com.wafflestudio.snutt.core.domain.timetable.repository.LectureTimetableId(" +
+            "tl.lectureId, tl.timetableId, tl.createdAt) " +
+            "FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds AND (:since IS NULL OR tl.createdAt >= :since)",
     )
-    fun findLectureTimetableIdsByLectureIdIn(lectureIds: Collection<Long>): List<LectureTimetableId>
+    fun findLectureTimetableIdsByLectureIdIn(
+        lectureIds: Collection<Long>,
+        since: Instant? = null,
+    ): List<LectureTimetableId>
 
     /** 이 강의들을 담은 행을 공유 락으로 읽는다(잠금 읽기라 트랜잭션 읽기 뷰와 상관없이 커밋된 최신 행을 본다). */
     @Query(
