@@ -73,7 +73,7 @@ fun registerV1Jar(
 val (buildSnuttJar, snuttJar) = registerV1Jar("snutt", "PARITY_SNUTT_REPO")
 val (buildEvJar, evJar) = registerV1Jar("ev", "PARITY_EV_REPO")
 
-listOf("parityTest", "parityKnownFailureTest").forEach { name ->
+listOf("parityTest", "parityKnownFailureTest", "paritySnapshotTest").forEach { name ->
     tasks.named<Test>(name) {
         dependsOn(buildSnuttJar, buildEvJar, v1ShimJar)
         systemProperty("parity.v1.snutt-jar", snuttJar.absolutePath)
@@ -93,10 +93,10 @@ listOf("parityTest", "parityKnownFailureTest").forEach { name ->
                 .get()
                 .asFile.absolutePath,
         )
-        // 운영 스냅샷으로 돌릴 때(작업 M) 넘기는 값. docs/parity.md "외부 데이터로 돌리기".
-        listOf("parity.source", "parity.source.mongo-uri", "parity.source.mongo-database", "parity.source.ev-dump").forEach { key ->
-            System.getProperty(key)?.let { systemProperty(key, it) }
+        // 운영 스냅샷으로 돌릴 때(작업 M) 넘기는 값과 시드 덤프 출력 위치. docs/parity.md "외부 데이터로 돌리기".
+        listOf("parity.source.mongo-archive", "parity.source.ev-dump", "parity.source.roles", "parity.dump-seed-to").forEach { key ->
+            providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
         }
-        maxHeapSize = "1g"
+        maxHeapSize = providers.systemProperty("parity.heap").orElse("1g").get()
     }
 }

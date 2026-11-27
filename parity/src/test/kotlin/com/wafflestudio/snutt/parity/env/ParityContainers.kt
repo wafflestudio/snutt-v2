@@ -112,6 +112,48 @@ object ParityContainers {
         started = true
     }
 
+    /** 외부 Mongo 덤프를 넣는다. `--drop`이라 덤프의 컬렉션·인덱스(운영 유일 제약 포함)로 바뀐다. */
+    fun restoreMongo(
+        archive: Path,
+        sourceDatabase: String,
+    ) {
+        mongo.copyFileToContainer(MountableFile.forHostPath(archive), "/tmp/snapshot.archive")
+        exec(
+            mongo,
+            "mongorestore",
+            "--archive=/tmp/snapshot.archive",
+            "--gzip",
+            "--drop",
+            "--nsFrom=$sourceDatabase.*",
+            "--nsTo=$MONGO_DATABASE.*",
+        )
+    }
+
+    /** 외부 EV MySQL 덤프를 `snutt_ev`에 넣는다. mysqldump 기본값(DROP TABLE IF EXISTS)이라 Flyway가 만든 표를 덮어쓴다. */
+    fun restoreEv(dump: Path) {
+        val gzip = dump.toString().endsWith(".gz")
+        mysql.copyFileToContainer(MountableFile.forHostPath(dump), "/tmp/ev.sql${if (gzip) ".gz" else ""}")
+        val reader = if (gzip) "gunzip -c /tmp/ev.sql.gz" else "cat /tmp/ev.sql"
+        exec(mysql, "sh", "-c", "$reader | mysql -u$MYSQL_ROOT_USER -p$mysqlRootPassword $EV_DATABASE")
+    }
+
+    /** 지금 v1 저장소 내용을 [SnapshotDataSource]가 읽는 형식으로 내보낸다(시드 덤프 확인용, docs/parity.md). */
+    fun dumpTo(dir: Path) {
+        Files.createDirectories(dir)
+        exec(mongo, "mongodump", "--db=$MONGO_DATABASE", "--archive=/tmp/seed.archive", "--gzip")
+        mongo.copyFileFromContainer("/tmp/seed.archive", dir.resolve("mongo.archive.gz").toString())
+        exec(mysql, "sh", "-c", "mysqldump --no-tablespaces -u$MYSQL_ROOT_USER -p$mysqlRootPassword $EV_DATABASE > /tmp/ev.sql")
+        mysql.copyFileFromContainer("/tmp/ev.sql", dir.resolve("ev.sql").toString())
+    }
+
+    private fun exec(
+        container: GenericContainer<*>,
+        vararg command: String,
+    ) {
+        val result = container.execInContainer(*command)
+        check(result.exitCode == 0) { "${command.first()} 실패(${result.exitCode}): ${result.stderr.takeLast(2_000)}" }
+    }
+
     private fun v1Container(
         name: String,
         jar: File,

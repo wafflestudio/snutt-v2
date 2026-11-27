@@ -91,6 +91,7 @@ object ParityEnvironment {
         ParityContainers.start()
         resetV1()
         val loaded = source.load(LegacyStores(mongoClient.getDatabase(ParityContainers.MONGO_DATABASE), evSource.jdbc))
+        exportSeedOnce(source, loaded)
         val context = migrate(v2)
         val result = MigrationResult(context, v2)
 
@@ -114,6 +115,37 @@ object ParityEnvironment {
             vars = mapOf(Side.V1 to v1Values, Side.V2 to v2Values),
             users = loaded.users,
         )
+    }
+
+    private var exported = false
+
+    /**
+     * `-Dparity.dump-seed-to=<dir>`이면 처음 넣은 시드를 [SnapshotDataSource] 입력 형식(mongo.archive.gz, ev.sql, roles.yml)으로
+     * 내보낸다. 스냅샷 경로를 시드로 검증하거나 덤프 형식을 확인할 때 쓴다.
+     */
+    private fun exportSeedOnce(
+        source: ParityDataSource,
+        loaded: LoadedLegacyData,
+    ) {
+        val target = System.getProperty("parity.dump-seed-to") ?: return
+        if (exported || source.name != "seed") return
+        exported = true
+        val dir =
+            java.nio.file.Paths
+                .get(target)
+        ParityContainers.dumpTo(dir)
+        val roles =
+            buildString {
+                appendLine("# parity 시드에서 내보낸 역할 파일. 운영 스냅샷용은 같은 형식으로 v1 users._id를 적는다.")
+                appendLine("users:")
+                loaded.users.values.filter { it.token != "parity-token-shared" }.forEach {
+                    appendLine(
+                        "  ${it.alias}: \"${it.id.toHexString()}\"",
+                    )
+                }
+            }
+        java.nio.file.Files
+            .writeString(dir.resolve("roles.yml"), roles)
     }
 
     /** 등록 순서를 지킨다(이관이 합친 강의처럼 같은 값을 여러 별칭이 가지면 먼저 등록된 별칭이 앞). 토큰은 id가 아니므로 뺀다. */
