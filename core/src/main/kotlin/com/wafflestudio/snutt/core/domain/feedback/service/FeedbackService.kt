@@ -4,6 +4,8 @@ import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.UpstreamException
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.http.client.ClientHttpRequestFactoryBuilder
+import org.springframework.boot.http.client.HttpClientSettings
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
@@ -21,9 +23,20 @@ class FeedbackService(
     @param:Value("\${snutt.github.repo-name}") private val repoName: String,
     @param:Value("\${snutt.github.base-url}") baseUrl: String,
     restClientBuilder: RestClient.Builder,
+    httpClientSettings: HttpClientSettings,
     private val clock: Clock,
 ) {
-    private val restClient = restClientBuilder.baseUrl(baseUrl).build()
+    // 이슈 생성은 멱등이 아니다. Apache HttpClient 5 기본 재시도(429·503에 1회, POST 포함)를 끄지 않으면 이슈가 중복 생성될 수 있다.
+    // 타임아웃 등 나머지 설정(spring.http.clients.*)은 그대로 쓴다.
+    private val restClient =
+        restClientBuilder
+            .baseUrl(baseUrl)
+            .requestFactory(
+                ClientHttpRequestFactoryBuilder
+                    .httpComponents()
+                    .withHttpClientCustomizer { it.disableAutomaticRetries() }
+                    .build(httpClientSettings),
+            ).build()
 
     fun postFeedback(
         email: String,

@@ -76,7 +76,8 @@ Spring 컨텍스트는 모듈마다 한 번만 떠야 한다. 지금 api 1개, b
 - 타임아웃: `withFixedDelay(1_500)`(read-timeout 1초보다 조금 길게). 대기는 WireMock 쪽이라 `Thread.sleep`이 아니다.
 - **RestClient는 Apache HttpClient 5 위에서 돈다**(firebase-admin이 끌어와 Spring Boot가 자동 선택). 기본 재시도가 켜져 있어 **429·503은 1초 뒤 한 번 더 보낸다(POST 포함)**. 500·502·타임아웃은 재시도하지 않는다. 그래서:
   - "5xx면 실패" 테스트는 500을 쓴다. 503을 쓰면 1초 늦어지고, 시나리오 stub이면 재시도가 다음 응답을 먹어 의도와 다른 경로를 탄다.
-  - 재시도 자체는 `FeedbackIntegrationTest`, `SugangSnuSyncJobTest`의 503 테스트가 고정한다.
+  - 멱등이 아닌 POST(GitHub 이슈 생성, `FeedbackService`)는 재시도를 끈 request factory를 쓴다. 새로 멱등이 아닌 외부 호출을 추가하면 같이 끈다.
+  - 재시도 여부는 `FeedbackIntegrationTest`(재시도 안 함), `SugangSnuSyncJobTest`(엑셀 다운로드 POST는 재시도함)의 503 테스트가 고정한다.
 - 상태가 바뀌는 응답(실패 후 성공)은 WireMock 시나리오로 만든다. 예: `SugangSnuStubs.searchPageSequence`.
 
 ### fixture

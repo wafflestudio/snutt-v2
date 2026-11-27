@@ -79,13 +79,29 @@ class FeedbackIntegrationTest : AbstractApiIntegrationTest() {
         assertUpstreamUnavailable(postFeedback())
     }
 
+    // Apache HttpClient 5 기본 재시도는 429·503에 POST도 1회 다시 보낸다. 이슈 생성은 멱등이 아니라서 FeedbackService가 끈다.
+    // 재시도했다면 두 번째 요청이 201을 받아 200이 나간다.
     @Test
-    fun `GitHub가 503이면 HTTP 클라이언트가 한 번 재시도하고 그 결과를 따른다`() {
-        // RestClient 밑의 Apache HttpClient 5 기본 재시도: 429·503에 1초 뒤 1회. POST도 다시 보낸다.
+    fun `GitHub가 503이면 이슈가 중복 생성되지 않도록 재시도하지 않고 502로 알린다`() {
+        stubFailureThenCreated(503)
+
+        assertUpstreamUnavailable(postFeedback())
+    }
+
+    @Test
+    fun `GitHub가 429면 재시도하지 않고 502로 알린다`() {
+        stubFailureThenCreated(429)
+
+        assertUpstreamUnavailable(postFeedback())
+    }
+
+    private fun stubFailureThenCreated(code: Int) {
         wireMock.stubFor(
-            post(
-                urlPathEqualTo(GITHUB_ISSUES),
-            ).inScenario("github").whenScenarioStateIs(STARTED).willSetStateTo("retried").willReturn(status(503)),
+            post(urlPathEqualTo(GITHUB_ISSUES))
+                .inScenario("github")
+                .whenScenarioStateIs(STARTED)
+                .willSetStateTo("retried")
+                .willReturn(status(code)),
         )
         wireMock.stubFor(
             post(urlPathEqualTo(GITHUB_ISSUES))
@@ -93,11 +109,6 @@ class FeedbackIntegrationTest : AbstractApiIntegrationTest() {
                 .whenScenarioStateIs("retried")
                 .willReturn(json(fixture("github/issue-created.json"), status = 201)),
         )
-
-        val response = postFeedback()
-
-        assertEquals(200, response.statusCode.value(), "body=${response.body}")
-        assertEquals(2, stubs.requestsTo(GITHUB_ISSUES))
     }
 
     @Test
