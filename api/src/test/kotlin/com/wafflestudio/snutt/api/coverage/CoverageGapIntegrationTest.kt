@@ -29,6 +29,10 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -227,6 +231,37 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
 
         assertEquals(200, response.statusCode.value())
         assertTruncatedDevice("legacy-long-headers")
+    }
+
+    // fcm_registration_id는 VARCHAR(512)이고 활성 행끼리 unique다. 잘라 저장하면 다른 토큰과 충돌할 수 있어 거부한다.
+    @Test
+    fun `FCM registration id가 512자를 넘으면 v2와 v1 모두 400으로 거부하고 기기를 만들지 않는다`() {
+        val maxLength = "r".repeat(512)
+        val tooLong = "r".repeat(513)
+
+        assertEquals(200, registerDevice(maxLength, "device-max", userAToken).statusCode.value())
+        assertEquals(maxLength, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(maxLength)!!.fcmRegistrationId)
+
+        val v2 = registerDevice(tooLong, "device-too-long", userAToken)
+        assertEquals(400, v2.statusCode.value(), "body=${v2.body}")
+        assertEquals("application/problem+json", v2.headers.contentType.toString())
+        assertEquals("/problems/invalid-parameter", body(v2)["type"].asString())
+
+        val v1 =
+            client()
+                .post()
+                .uri("/v1/user/device/$tooLong")
+                .headers { headers ->
+                    headers.set("x-access-apikey", legacyApiKey())
+                    headers.set("x-access-token", legacyTokenService.issue(userA))
+                    headers.set("x-os-type", "android")
+                }.retrieve()
+                .toEntity(String::class.java)
+        assertEquals(400, v1.statusCode.value(), "body=${v1.body}")
+        assertEquals(40001, body(v1)["errcode"].asInt())
+
+        assertEquals(1, userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(listOf(userA.id!!)).size)
+        verify(pushClient, never()).subscribeGlobalTopic(eq(tooLong), any(), anyOrNull())
     }
 
     @Test
