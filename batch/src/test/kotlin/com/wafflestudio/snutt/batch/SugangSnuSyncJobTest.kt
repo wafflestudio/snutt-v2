@@ -27,6 +27,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRep
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
+import org.apache.poi.EmptyFileException
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -300,6 +301,48 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
         assertEquals("Advanced Korean", lectureRepository.findById(old.id!!).get().courseTitleEn)
         assertEquals(TOUCHED_AT.plusSeconds(60), autumnUpdatedAt())
+    }
+
+    @Test
+    fun `영어 엑셀의 헤더 행에 셀이 없거나 파일이 0바이트면 비어 있는 것으로 보고 한국어로 동기화한다`() {
+        val old = lectureRepository.save(existingLecture().apply { courseTitleEn = "Advanced Korean" })
+        sugang.coursebookCondition(2026, Semester.AUTUMN)
+        sugang.lectureXlsx("ko", SugangXlsxFixture.xlsx(listOf(changedRow())).byteArray)
+
+        // 헤더 행(row 2)은 있지만 셀이 하나도 없다.
+        sugang.lectureXlsx("en", workbookBytes { createSheet("Lectures").createRow(2) })
+        runJob()
+
+        assertEquals("Advanced Korean", lectureRepository.findById(old.id!!).get().courseTitleEn)
+        assertEquals(
+            listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645)),
+            lectureClassTimeRepository.findAllByLectureIdInOrderById(listOf(old.id!!)).map { it.toClassPlaceAndTime() },
+        )
+        assertEquals(TOUCHED_AT, autumnUpdatedAt())
+
+        // 0바이트 응답. 다시 돌려도 중단하지 않고 영어 필드를 보존한다.
+        clock.setInstant(TOUCHED_AT.plusSeconds(60))
+        sugang.lectureXlsx("en", ByteArray(0))
+        runJob()
+
+        assertEquals("Advanced Korean", lectureRepository.findById(old.id!!).get().courseTitleEn)
+        assertEquals(TOUCHED_AT.plusSeconds(60), autumnUpdatedAt())
+    }
+
+    @Test
+    fun `한국어 엑셀이 0바이트이거나 헤더 행에 셀이 없으면 실패하고 기존 강의는 그대로다`() {
+        val old = lectureRepository.save(existingLecture())
+        sugang.coursebookCondition(2026, Semester.AUTUMN)
+        sugang.lectureXlsx("en", SugangXlsxFixture.englishXlsx(listOf(changedRow())).byteArray)
+
+        sugang.lectureXlsx("ko", ByteArray(0))
+        assertThrows<EmptyFileException> { runJob() }
+        assertUnchanged(old)
+
+        sugang.lectureXlsx("ko", workbookBytes { createSheet("강좌").createRow(2) })
+        val e = assertThrows<IllegalArgumentException> { runJob() }
+        assertTrue(e.message!!.startsWith("xlsx 필수 컬럼이 없다"), e.message)
+        assertUnchanged(old)
     }
 
     @Test
