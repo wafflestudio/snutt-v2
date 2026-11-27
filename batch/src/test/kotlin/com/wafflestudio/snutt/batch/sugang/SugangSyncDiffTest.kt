@@ -762,9 +762,11 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
     }
 
     // ---------------------------------------------------------------- 트랜잭션 경계
+    // 강의 반영(1단계)은 한 트랜잭션이라 실패하면 아무것도 남기지 않는다. 1단계가 커밋된 뒤 시간표 반영·폐강·알림 단계가 실패하면 강의는
+    // 새 값으로 남고 다음 실행이 남은 일을 마친다. 그 계약은 SugangSyncRecoveryTest가 고정한다.
 
     @Test
-    fun `한 강의라도 저장에 실패하면 강의·강의평 과목·시간표·알림 반영을 모두 되돌린다`() {
+    fun `강의 반영 단계에서 한 강의라도 저장에 실패하면 강의·강의평 과목·시간표·알림 반영을 모두 되돌린다`() {
         sync(listOf(algo))
         val alice = member("alice", algo)
         val syncedAt = coursebookRepository.findAll().single().updatedAt

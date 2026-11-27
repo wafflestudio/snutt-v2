@@ -79,6 +79,14 @@ class TimetableQueryPlanTest : AbstractPerfTest() {
     }
 
     @Test
+    fun `수강편람 동기화가 바뀐 강의를 담은 시간표를 펼칠 때 idx_timetable_lecture_lecture로 찾고 임시 테이블을 만들지 않는다`() {
+        explainOne { timetableLectureRepository.findLectureTimetableIdsByLectureIdIn(listOf(perf.popularLectureId)) }
+            .assertKey("timetable_lecture", "idx_timetable_lecture_lecture")
+            .assertNoFullScan()
+            .assertNoTemporary()
+    }
+
+    @Test
     fun `리마인더 행 조회는 시간표 강의에서 강의와 리마인더를 PK·유니크 키로 붙인다`() {
         explainOne { timetableLectureRepository.findReminderRowsByTimetableId(perf.typicalTimetableId) }
             .assertNoFullScan()
