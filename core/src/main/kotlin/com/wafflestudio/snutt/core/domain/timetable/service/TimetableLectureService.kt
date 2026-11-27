@@ -199,15 +199,7 @@ class TimetableLectureService(
         }
         if (timesChanged) timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, newTimes)
         val modifiedItem = TimetableLectureDisplay(timetableLecture, lecture, lectureTimes, display.theme)
-        val updatedLectures =
-            display.lectures.mapNotNull { item ->
-                when {
-                    item.id == timetableLecture.id -> modifiedItem
-                    remainingIds == null || item.id in remainingIds -> item
-                    else -> null
-                }
-            }
-        return updatedDisplay(userId, timetable, display.theme, updatedLectures)
+        return updatedDisplay(userId, timetable, display.theme, replaceLecture(display.lectures, modifiedItem, remainingIds))
     }
 
     @Transactional
@@ -230,16 +222,21 @@ class TimetableLectureService(
         timetableLecture.clearOverrides()
         timetableLectureReminderService.recomputeForTimetableLecture(timetableLecture.id!!, classTimes)
         val resetItem = TimetableLectureDisplay(timetableLecture, lecture, classTimes, display.theme)
-        val updatedLectures =
-            display.lectures.mapNotNull { item ->
-                when {
-                    item.id == timetableLecture.id -> resetItem
-                    item.id in remainingIds -> item
-                    else -> null
-                }
-            }
-        return updatedDisplay(userId, timetable, display.theme, updatedLectures)
+        return updatedDisplay(userId, timetable, display.theme, replaceLecture(display.lectures, resetItem, remainingIds))
     }
+
+    private fun replaceLecture(
+        lectures: List<TimetableLectureDisplay>,
+        updated: TimetableLectureDisplay,
+        remainingIds: Set<Long>?,
+    ): List<TimetableLectureDisplay> =
+        lectures.mapNotNull { item ->
+            when {
+                item.id == updated.id -> updated
+                remainingIds == null || item.id in remainingIds -> item
+                else -> null
+            }
+        }
 
     private fun originalClassTimes(
         timetableLecture: TimetableLecture,

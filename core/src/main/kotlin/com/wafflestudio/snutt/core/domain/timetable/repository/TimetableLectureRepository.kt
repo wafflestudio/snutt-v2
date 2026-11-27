@@ -9,9 +9,6 @@ import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureRemind
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
-import org.springframework.data.jpa.repository.Modifying
-import org.springframework.data.jpa.repository.Query
-import java.time.Instant
 
 data class TimetableLectureReminderRow(
     val timetableLectureId: Long,
@@ -41,21 +38,6 @@ interface TimetableLectureRepository :
     fun deleteByTimetableIdAndId(
         timetableId: Long,
         id: Long,
-    )
-
-    @Modifying(flushAutomatically = true)
-    @Query(
-        value = """
-            INSERT INTO timetable_lecture (timetable_id, lecture_id, custom_color, palette_index, overrides, created_at, updated_at)
-            SELECT :targetTimetableId, lecture_id, custom_color, palette_index, overrides, :now, :now
-            FROM timetable_lecture WHERE timetable_id = :sourceTimetableId ORDER BY id
-        """,
-        nativeQuery = true,
-    )
-    fun copyByTimetableId(
-        sourceTimetableId: Long,
-        targetTimetableId: Long,
-        now: Instant,
     )
 
     fun findReminderRowsByTimetableId(timetableId: Long): List<TimetableLectureReminderRow> = findReminderRows(timetableId, null)

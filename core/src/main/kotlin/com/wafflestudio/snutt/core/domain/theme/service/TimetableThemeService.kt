@@ -13,6 +13,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
 import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 import com.wafflestudio.snutt.core.domain.theme.model.TimetableTheme
+import com.wafflestudio.snutt.core.domain.theme.model.UserPreference
 import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.theme.repository.UserPreferenceRepository
@@ -42,7 +43,11 @@ class TimetableThemeService(
 ) {
     fun getThemes(userId: Long): List<TimetableThemeDisplay> {
         val defaultId = getDefaultThemeId(userId)
-        val themes = timetableThemeRepository.findAvailableToUser(userId)
+        val themes =
+            (
+                timetableThemeRepository.findByUserIdOrderById(userId) +
+                    timetableThemeRepository.findByBuiltinCodeIsNotNullOrderById()
+            ).sortedBy { it.id }
         return displays(themes, defaultId).values.toList()
     }
 
@@ -130,7 +135,7 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableThemeDisplay {
         val theme = findThemeAvailableToUser(userId, themeId)
-        userPreferenceRepository.upsert(userId, themeId)
+        userPreferenceRepository.save(UserPreference(userId, themeId))
         return displays(listOf(theme), themeId).getValue(themeId)
     }
 
@@ -142,7 +147,7 @@ class TimetableThemeService(
         if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         val fallback = builtinTheme("snutt")
         val fallbackId = fallback.id!!
-        userPreferenceRepository.upsert(userId, fallbackId)
+        userPreferenceRepository.save(UserPreference(userId, fallbackId))
         return displays(listOf(fallback), fallbackId).getValue(fallbackId)
     }
 
