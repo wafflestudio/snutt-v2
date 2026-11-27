@@ -159,9 +159,11 @@
   v2: 0
   scenario: ["시간표 조회: 이관 데이터", "시간표 CRUD", "직접 만든 강의", "시간표: 대표 변경과 수정 시각"]
   reason: >-
-    사용자 테마를 쓰는 시간표에서 v1은 팔레트 번호만, v1compat은 colorIndex 0과 그 팔레트 색(color)을 함께 준다
-    (LegacyTimetableDtos.legacyColorIndex/legacyColor). Android(LectureMappers.colorToLectureColor)는 colorIndex 0이면 color를 그대로 그리므로
-    화면의 색은 같다. 대상 시나리오만 사용자 테마 시간표(alice-plan-b, 테마를 바꾼 새 시간표)를 다룬다.
+    사용자 테마 시간표(alice-plan-b)의 시드 강의는 팔레트 번호(colorIndex 1~)로 저장되어 v1은 그 번호를 준다. v1compat은 사용자 테마의
+    팔레트 강의를 colorIndex 0 + 그 팔레트 색(color)으로 준다(LegacyTimetableDtos.legacyColorIndex/legacyColor). v1도 사용자 테마에 강의를
+    넣거나 테마를 바꿀 때 colorIndex 0 + 팔레트 색으로 저장했으므로(TimetableThemeService.getNewColorIndexAndColor, TimetableService.modifyTimetableTheme)
+    앱이 이미 아는 표현이다. Android(LectureMappers.colorToLectureColor)와 iOS(TimetablePainter+Theme)는 colorIndex 0이면 color를 그리므로 화면의 색은 같다.
+    앱이 강의를 고치며 이 값을 되돌려 보내면 v1compat이 팔레트 번호로 되돌린다(V1CompatTimetableController.colorSelection, UserThemeLectureColorCompatTest).
 - endpoint: "*"
   path: $.**.color
   kind: only-v2
