@@ -67,6 +67,7 @@ subprojects {
     // 태그가 붙은 테스트는 PR CI(`test`)에서 빠지고 태그별 전용 태스크로만 돈다. 값은 testFixtures의 TestTags와 같다.
     // parity-known-failure는 parity가 찾은 실제 버그를 재현하는 시나리오다. 고쳐지기 전까지 빨간 상태라 parityTest와 분리한다.
     // parity-snapshot은 시드 대신 운영 덤프를 넣어 도는 parity(작업 M 리허설용)다. 덤프 경로를 줘야 돈다.
+    // rehearsal은 마이그레이션 리허설 도구를 합성 덤프로 끝까지 돌린다(컨테이너 여러 번 복원, 수십 초). docs/migration-rehearsal.md.
     // live는 실제 외부 사이트(sugang.snu.ac.kr)를 호출하므로 사람이 직접 `./gradlew liveTest`로만 돌린다.
     val separatedTags =
         mapOf(
@@ -76,6 +77,7 @@ subprojects {
             "live" to "liveTest",
             "parity-known-failure" to "parityKnownFailureTest",
             "parity-snapshot" to "paritySnapshotTest",
+            "rehearsal" to "rehearsalTest",
         )
 
     tasks.named<Test>("test") {

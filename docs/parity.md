@@ -24,7 +24,7 @@
 |---|---|---|---|
 | `parity` | `@ParityTest` | `./gradlew parityTest` | 시드로 도는 비교. 등록되지 않은 차이가 있으면 실패 |
 | `parity-known-failure` | `@ParityKnownFailure` | `./gradlew parityKnownFailureTest` | parity가 찾은 버그 재현. 고쳐지기 전까지 실패 |
-| `parity-snapshot` | `@ParitySnapshot` | `./gradlew paritySnapshotTest -Dparity.source.…` | 외부 덤프로 도는 비교(작업 M) |
+| `parity-snapshot` | `@ParitySnapshot` | `./gradlew paritySnapshotTest -Dparity.source.…` | 외부 덤프로 도는 비교([migration-rehearsal.md](migration-rehearsal.md)) |
 
 `./gradlew test`(PR CI)에는 parity 모듈의 `AllowedDiffsFileTest`만 들어간다. 허용 목록 YAML이 깨지지 않았는지 컨테이너 없이 확인한다.
 
@@ -201,6 +201,8 @@ aliases:                    # 선택. 종류: user, lecture, tt, theme, course, 
   tt:heavy-main: "5f0d…"
 ```
 
+- 사용자를 일일이 적지 않고 덤프에서 뽑을 수 있다: `-Dparity.source.sample-users=N`(선택 `-Dparity.source.sample-seed=S`)이면 구 토큰이 이관되는 활성 사용자 N명을 seed로 뽑아 `rand-001`…로 더한다(`roles`는 생략 가능). 마이그레이션 리허설(`./gradlew :migration:rehearse`)도 같은 형식의 `roles-sample.yml`을 만든다. 전체 절차는 [migration-rehearsal.md](migration-rehearsal.md).
+- 시간표가 있는 사용자는 "구 앱이 캐시한 v1 시간표 id" 요청도 비교한다. v2에는 실제 v1 ObjectId를, v1에는 없는 ObjectId를 보내(`ParityScenario.define`) v2가 v1의 "없는 시간표"와 같은 에러를 주는지 본다.
 - 확장 지점은 `ParityDataSource` 인터페이스다. 시드는 `SeedDataSource`, 덤프는 [`SnapshotDataSource`](../parity/src/test/kotlin/com/wafflestudio/snutt/parity/env/SnapshotDataSource.kt)가 구현한다. Mongo는 `mongorestore --drop`으로 넣으므로 덤프의 인덱스가 그대로 들어간다.
 - 시나리오는 [`SnapshotParityTest`](../parity/src/test/kotlin/com/wafflestudio/snutt/parity/scenarios/SnapshotParityTest.kt)다. 시드 별칭 없이 역할 사용자와 응답에서 잡은 id로 읽기 흐름만 비교한다. 역할 사용자마다 시나리오 하나가 생기고, 차이가 있는 사용자를 모두 모아 한 번에 실패한다.
 - 시드에서 시나리오 한정으로 허용한 이관 정리(같은 아이디 계정, 중복 대표 시간표, 잘못된 색 등)는 스냅샷에서 "허용 목록에 없는 차이"로 나온다. 리허설에서는 이 차이가 이관 규칙대로인지 보는 것이 목적이다.

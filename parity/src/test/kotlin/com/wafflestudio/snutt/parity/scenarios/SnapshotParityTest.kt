@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.parity.AbstractParityTest
 import com.wafflestudio.snutt.parity.env.ParityDataSource
 import com.wafflestudio.snutt.parity.env.SnapshotDataSource
 import com.wafflestudio.snutt.parity.scenario.ParityScenario
+import com.wafflestudio.snutt.parity.scenario.Side
 import org.junit.jupiter.api.Test
 
 /**
@@ -34,6 +35,10 @@ class SnapshotParityTest : AbstractParityTest() {
         if ((tables.bodies.values.first() as? List<*>)?.isNotEmpty() == true) {
             tables.capture("tt:first", "/0/_id")
             get("/v1/tables/@{tt:first}", `as` = user)
+            // 전환 뒤 구 앱이 캐시해 둔 v1 시간표 id(ObjectId)로 부르는 경우. v1↔v2 id 표가 남지 않으므로 v2는 찾을 수 없다.
+            // v1이 없는 시간표에 주는 응답과 같은 결정적인 에러여야 한다(docs/migration-rehearsal.md "전환 영향").
+            define("tt:stale", mapOf(Side.V1 to MISSING_OBJECT_ID, Side.V2 to value(Side.V1, "tt:first")!!))
+            get("/v1/tables/@{tt:stale}", `as` = user, label = "구 앱이 캐시한 v1 시간표 id")
         }
         get("/v1/notification?offset=0&limit=20", `as` = user)
         get("/v1/notification/count", `as` = user)
@@ -45,5 +50,10 @@ class SnapshotParityTest : AbstractParityTest() {
         get("/v1/vacancy-notifications/lectures", `as` = user)
         get("/ev-service/v1/evaluations/users/me", `as` = user)
         get("/ev-service/v1/users/me/lectures/latest", `as` = user)
+    }
+
+    companion object {
+        /** v1 덤프에 없는 ObjectId. */
+        private const val MISSING_OBJECT_ID = "000000000000000000000000"
     }
 }

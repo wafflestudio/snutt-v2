@@ -99,6 +99,8 @@ listOf("parityTest", "parityKnownFailureTest", "paritySnapshotTest").forEach { n
             "parity.source.mongo-database",
             "parity.source.ev-dump",
             "parity.source.roles",
+            "parity.source.sample-users",
+            "parity.source.sample-seed",
             "parity.dump-seed-to",
         ).forEach { key ->
             providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
