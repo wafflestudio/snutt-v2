@@ -5,6 +5,7 @@ import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoDatabase
 import com.wafflestudio.snutt.migration.EvSource
 import com.wafflestudio.snutt.migration.MigrationContext
+import com.wafflestudio.snutt.migration.MigrationRunner
 import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
@@ -210,7 +211,7 @@ object ParityEnvironment {
                 LegacySearchTagStep(target, context, ev),
                 ValidateStep(target, context, mongo, ev),
             )
-        MigrationSupport.requireEmpty(target, steps.flatMap { it.tables }.distinct())
+        MigrationSupport.requireEmpty(target, MigrationRunner.targetTables(steps))
         steps.forEach { it.run() }
         return context
     }
