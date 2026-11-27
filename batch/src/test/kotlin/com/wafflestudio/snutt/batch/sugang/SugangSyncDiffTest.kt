@@ -32,6 +32,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.any
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.dao.DataAccessException
 import java.time.Duration
@@ -655,6 +658,19 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
         assertEquals(0, sugang.requestsTo(MAIN))
         assertEquals(2, sugang.requestsTo(EXCEL))
         assertEquals(clock.instant(), coursebookRepository.findAll().single { it.semester == Semester.SPRING }.updatedAt)
+    }
+
+    @Test
+    fun `수강편람이 하나도 없으면 사이트의 현재 학기로 첫 수강편람을 만들고 전체 공지는 보내지 않는다`() {
+        coursebookRepository.deleteAll()
+        stubSite(listOf(algo), semester = Semester.SUMMER)
+
+        sugangSnuSyncJob.run(null)
+
+        assertEquals(listOf(2026 to Semester.SUMMER), coursebookRepository.findAll().map { it.year to it.semester })
+        assertEquals("알고리즘", lecture("400.100", semester = Semester.SUMMER).courseTitle)
+        assertEquals(0, notificationRepository.count())
+        verify(pushClient, never()).sendTopicMessage(any(), any())
     }
 
     @Test
