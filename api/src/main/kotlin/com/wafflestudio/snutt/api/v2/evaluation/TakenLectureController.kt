@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class TakenLectureController(
     private val takenLectureService: TakenLectureService,
-    private val courseNameResolver: CourseNameResolver,
     private val evaluationResponseMapper: EvaluationResponseMapper,
 ) {
     @GetMapping("/v2/users/me/lectures/latest")
@@ -21,7 +20,7 @@ class TakenLectureController(
         @CurrentClient clientInfo: ClientInfo,
     ): List<TakenLectureResponse> {
         val taken = takenLectureService.getMyLatestLectures(userId, excludeEvaluated)
-        val names = courseNameResolver.resolve(taken.map { it.course }, clientInfo.language)
+        val names = taken.associate { it.course.id!! to it.course.nameIn(clientInfo.language) }
         val evaluations =
             evaluationResponseMapper
                 .toResponse(taken.flatMap { it.recentEvaluations }.distinctBy { it.evaluation.id }, names)

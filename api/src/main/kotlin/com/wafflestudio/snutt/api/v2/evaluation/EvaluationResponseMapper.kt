@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component
 @Component
 class EvaluationResponseMapper(
     private val courseRepository: CourseRepository,
-    private val courseNameResolver: CourseNameResolver,
 ) {
     fun toResponse(
         page: CursorPage<EvaluationDisplay>,
@@ -38,7 +37,7 @@ class EvaluationResponseMapper(
         displays: List<EvaluationDisplay>,
         language: Language,
     ): Map<Long, CourseName> =
-        courseNameResolver.resolve(courseRepository.findAllById(displays.map { it.evaluation.courseId }.distinct()), language)
+        courseRepository.findAllById(displays.map { it.evaluation.courseId }.distinct()).associate { it.id!! to it.nameIn(language) }
 
     private fun toResponse(
         display: EvaluationDisplay,
