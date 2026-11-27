@@ -19,10 +19,11 @@
 | `parity` | `@ParityTest` | `./gradlew parityTest` | v1 서버와 v1compat 응답 비교 |
 | `perf` | `@PerfTest` | `./gradlew perfTest` | 쿼리 수·실행계획 같은 결정적 성능 지표 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
+| `stress-known-failure` | `@StressKnownFailure` | `./gradlew stressKnownFailureTest` | stress가 재현한 버그. 고칠 때까지 실패하는 것이 정상이다 |
 | `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접, CI 아님) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
-- `./gradlew test`는 위 네 태그를 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
+- `./gradlew test`는 위 태그를 모두 제외한다. `stressTest`도 `stress-known-failure`를 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
 - 태그를 추가하려면 루트 `build.gradle.kts`의 `separatedTags`와 `TestTags`를 함께 고친다.
 - 테스트 JVM 타임존은 운영과 같은 UTC로 고정되어 있다(`user.timezone=UTC`). 로컬 타임존에 기대지 않는다.
 
@@ -184,9 +185,32 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 - Redis 락(`SchedulerLock`, 인증코드 발송 제한)은 DB 대기가 없으므로 `runConcurrently`와 `pollUntil`로 검증한다. 락 안에서 다른 스레드가 모두 시도할 때까지 `pollUntil`로 기다리면 겹침을 보장할 수 있다.
 - 기다릴 때는 `pollUntil { 조건 }`을 쓴다. `Thread.sleep`으로 타이밍을 맞추지 않는다.
 
-시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 요청 수를 늘려 `runAllAtOnce()`로 돌리거나 `request`를 HTTP 호출로 바꿔 쓴다.
+시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 `ConcurrencyScenarios(beans, fixtures, HttpScenarioActions(...))`로 요청을 HTTP로 바꿔 요청 수를 늘려 돌린다. 시나리오의 요청은 `ScenarioActions`(서비스 호출 = `ServiceScenarioActions`)로만 보낸다.
 
 새 락을 추가하거나 고치면 다음을 확인한다. 동시성 테스트를 쓰고, 락을 잠시 지운 채 돌려서 그 테스트가 실패하는지 본다. `@RepeatedTest(20)`으로 한 번 돌려 flaky하지 않은지도 본다. 반복 설정은 커밋하지 않는다.
+
+### stress (`@StressTest`)
+
+실제 서버(RANDOM_PORT)에 HTTP로 대량 요청을 보내 운영 설정(Hikari 풀 10, Tomcat 가상 스레드, innodb_lock_wait_timeout 50초)에서 버티는지 본다.
+도구는 `core.test.stress`, 테스트는 `api/.../api/stress/`와 `batch/.../batch/stress/`에 있다.
+
+```bash
+./gradlew stressTest                                              # 기본값: 스레드 50, 반복 10, 스레드당 요청 20 (로컬 약 5분)
+./gradlew :api:stressTest -PstressThreads=200 -PstressIterations=300 -PstressOpsPerThread=50 -PstressSeed=7
+./gradlew stressKnownFailureTest                                  # 재현된 버그. 지금은 실패한다
+```
+
+- api 테스트는 `AbstractStressTest`를 상속한다. `http`(연결 수 제한 없는 JDK HttpClient), `token(userId)`(fixtures 사용자 토큰),
+  `httpScenarios`(E의 `ConcurrencyScenarios`를 HTTP로 보내는 버전), `stress(name) { ... }`(기록·리포트·실패 판정)를 준다.
+- `stress` 블록 안에서 반복마다 `iteration(i) { resetForIteration(); ... }`로 처음 상태부터 다시 돈다. 반복 안의 AssertionError는 불변식 위반으로 기록하고
+  다음 반복으로 넘어간다. 요청 결과는 `record(연산, 결과, allowed)`로 남긴다.
+- 실패로 세는 것: 5xx, 허용하지 않은 4xx, 불변식 위반, 데드락·lock wait timeout(`information_schema.INNODB_METRICS` 차이),
+  서버가 ERROR로 남긴 예외(`ServerErrorLog`가 데드락·풀 타임아웃·unique/FK 위반으로 나눈다). 하나라도 있으면 실패한다.
+- 리포트는 `build/reports/stress/<시나리오>.md`(연산별 결과 수, 처리량, 실패 표본, `SHOW ENGINE INNODB STATUS`의 마지막 데드락)와 `summary.md`에 남는다.
+- 대상 선택·불변식 조회는 `MySqlProbe.jdbc`(root 계정의 별도 작은 풀)로 한다. 애플리케이션 풀을 테스트가 빼앗지 않게 하기 위해서다.
+- 공통 불변식은 `DomainInvariants`(시간 겹침, 팔레트 범위, 대표 시간표, 테마 소유, course 집계·like_count, 리마인더 발송 시각, 고아 행)다.
+- race 시나리오를 stress에서 돌릴 때는 `verifyUnordered`를 쓴다. 요청 0이 먼저 락을 잡는다고 가정하는 시나리오는 어느 순서로 직렬화돼도 성립하는 검증을 따로 준다.
+- 재현된 데드락·정합성 버그는 고치지 않고 `@StressKnownFailure` 클래스로 분리한다(통과하는 조합은 `@StressTest`에 남긴다). 고치면 어노테이션을 바꾼다.
 
 ### 수강편람 동기화 시나리오 (batch)
 
@@ -202,4 +226,5 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 4. 시간 의존 로직이면 `clock`을 고정했는가? KST 경계를 다루는가?
 5. 난수 seed를 고정했는가? `Thread.sleep` 없이 polling으로 기다리는가?
 6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가?
+   재현된 버그를 고정한 stress 테스트는 `@StressKnownFailure`인가?
 7. `./gradlew ktlintCheck test`(태그를 붙였으면 해당 태스크도)를 돌려 통과했는가?

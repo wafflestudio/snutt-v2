@@ -64,6 +64,11 @@ abstract class AbstractIntegrationTest {
         ExternalApiMock.server.resetAll()
         whenever(pushClient.sendMessages(any())).thenReturn(PushSendResult())
         whenever(mailClient.send(any(), any(), any())).thenReturn(MailSendOutcome.SENT)
+        resetStores()
+    }
+
+    /** 모든 테이블을 비우고(빌트인 테마 제외) Redis를 비운다. stress 테스트는 반복마다 부른다. */
+    protected fun resetStores() {
         clearAllTables()
         redisTemplate.execute { it.serverCommands().flushAll() }
     }

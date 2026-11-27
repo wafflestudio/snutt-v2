@@ -11,6 +11,9 @@ object TestTags {
     const val PERF = "perf"
     const val STRESS = "stress"
     const val LIVE = "live"
+
+    /** stress에서 재현된 버그(데드락, 정합성 깨짐). 고칠 때까지 `test`와 `stressTest` 모두에서 빠지고 `stressKnownFailureTest`로만 돈다. */
+    const val STRESS_KNOWN_FAILURE = "stress-known-failure"
 }
 
 /** v1 서버와 v2(v1compat) 응답을 비교하는 테스트. `./gradlew parityTest`로 돈다. */
@@ -39,3 +42,12 @@ annotation class StressTest
 @Retention(AnnotationRetention.RUNTIME)
 @Tag(TestTags.LIVE)
 annotation class LiveTest
+
+/**
+ * stress가 재현한 버그를 고정한 테스트. 지금은 실패하는 것이 정상이며 `./gradlew stressKnownFailureTest`로만 돈다.
+ * 버그를 고치면 이 어노테이션을 [StressTest]로 바꾼다.
+ */
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@Tag(TestTags.STRESS_KNOWN_FAILURE)
+annotation class StressKnownFailure

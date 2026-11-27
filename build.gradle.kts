@@ -67,9 +67,11 @@ subprojects {
     // 태그가 붙은 테스트는 PR CI(`test`)에서 빠지고 태그별 전용 태스크로만 돈다. 값은 testFixtures의 TestTags와 같다.
     // live는 실제 외부 사이트(sugang.snu.ac.kr)를 호출하므로 사람이 직접 `./gradlew liveTest`로만 돌린다.
     val separatedTags = listOf("parity", "perf", "stress", "live")
+    // stress가 재현한 버그를 고정한 테스트. 고칠 때까지 test와 stressTest에서 빠지고 stressKnownFailureTest로만 돈다.
+    val knownFailureTag = "stress-known-failure"
 
     tasks.named<Test>("test") {
-        useJUnitPlatform { excludeTags(*separatedTags.toTypedArray()) }
+        useJUnitPlatform { excludeTags(*(separatedTags + knownFailureTag).toTypedArray()) }
     }
 
     val testSourceSet = the<SourceSetContainer>()["test"]
@@ -79,10 +81,14 @@ subprojects {
             group = LifecycleBasePlugin.VERIFICATION_GROUP
             testClassesDirs = testSourceSet.output.classesDirs
             classpath = testSourceSet.runtimeClasspath
-            useJUnitPlatform { includeTags(tag) }
+            useJUnitPlatform {
+                includeTags(tag)
+                excludeTags(knownFailureTag)
+            }
             // 아직 해당 태그 테스트가 없는 모듈에서도 태스크가 성공해야 한다.
             failOnNoDiscoveredTests = false
             shouldRunAfter(tasks.named("test"))
+            if (tag == "stress") configureStress(this, "stress")
             if (tag == "live") {
                 // 외부 상태를 확인하는 테스트라 매번 실제로 돌아야 한다.
                 outputs.upToDateWhen { false }
@@ -92,6 +98,44 @@ subprojects {
             }
         }
     }
+
+    tasks.register<Test>("stressKnownFailureTest") {
+        description = "stress가 재현한 버그(태그 '$knownFailureTag')를 고정한 테스트만 실행한다. 고치기 전에는 실패한다."
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+        testClassesDirs = testSourceSet.output.classesDirs
+        classpath = testSourceSet.runtimeClasspath
+        useJUnitPlatform { includeTags(knownFailureTag) }
+        failOnNoDiscoveredTests = false
+        configureStress(this, "stress-known-failure")
+    }
+}
+
+/**
+ * stress 규모는 Gradle 프로퍼티로 바꾼다: -PstressThreads, -PstressIterations, -PstressOpsPerThread, -PstressSeed.
+ * 값을 주지 않으면 테스트 코드의 기본값(StressSettings)을 쓴다. 리포트는 build/reports/stress(known-failure는 stress-known-failure)에 남는다.
+ */
+fun Project.configureStress(
+    task: Test,
+    reportName: String,
+) {
+    val reportDir =
+        layout.buildDirectory
+            .dir("reports/$reportName")
+            .get()
+            .asFile
+    mapOf(
+        "stressThreads" to "snutt.stress.threads",
+        "stressIterations" to "snutt.stress.iterations",
+        "stressOpsPerThread" to "snutt.stress.opsPerThread",
+        "stressSeed" to "snutt.stress.seed",
+    ).forEach { (property, systemProperty) ->
+        findProperty(property)?.let { task.systemProperty(systemProperty, it.toString()) }
+    }
+    task.systemProperty("snutt.stress.reportDir", reportDir.absolutePath)
+    // 결과는 매번의 인터리빙에 달려 있으므로 캐시된 결과를 쓰지 않는다.
+    task.outputs.upToDateWhen { false }
+    task.doFirst { reportDir.deleteRecursively() }
+    task.testLogging { showStandardStreams = false }
 }
 
 project(":api") {
