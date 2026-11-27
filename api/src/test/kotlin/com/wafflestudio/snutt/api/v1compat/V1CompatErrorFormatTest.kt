@@ -37,6 +37,31 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
         assertV1Error(v1Post("/v1/ev-service/v1/semester-lectures/987654/evaluations", evaluationBody, token), 404, 24002)
     }
 
+    // snutt-ev LectureService.getLectureIdFromCourseNumber / getLectureIdFromSnuttId: 둘 다 LectureNotFoundException(24001).
+    // snuttId 변형은 snutt_lecture_id_map이 없을 때(= 분반이 없거나 EV lecture와 이어지지 않았을 때)도 24001이다.
+    @Test
+    fun `EV lectures id 조회는 두 변형 모두 과목을 찾지 못하면 24001로 응답한다`() {
+        val token = verifiedLegacyUser("evlectureid")
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val unlinked = fixtures.lecture(autumn, courseTitle = "과목 없는 강의")
+
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?course_number=NOPE.001&instructor=nobody", token), 404, 24001)
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?semesterLectureSnuttId=987654", token), 404, 24001)
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?semesterLectureSnuttId=5f1e2d3c4b5a697887766554", token), 404, 24001)
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?semesterLectureSnuttId=${unlinked.id}", token), 404, 24001)
+    }
+
+    // snutt EvService.getEvSummary: EV에 요약이 없으면 EvDataNotFoundException(40407). 강의가 없어도 같다.
+    @Test
+    fun `앱 강의평 요약은 강의가 없거나 과목이 연결되지 않으면 40407로 응답한다`() {
+        val (token, _) = v1Register("evsummary404")
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val unlinked = fixtures.lecture(autumn, courseTitle = "과목 없는 강의")
+
+        assertV1Error(v1Get("/v1/ev/lectures/987654/summary", token), 404, 40407)
+        assertV1Error(v1Get("/v1/ev/lectures/${unlinked.id}/summary", token), 404, 40407)
+    }
+
     // v1 ErrorWebFilter(snutt/api/.../filter/ErrorWebFilter.kt): SnuttException이 아니면 500 + DEFAULT_ERROR(errcode 0),
     // ResponseStatusException(매핑 없는 경로 404, 메서드 405, 미디어 타입 415)이면 그 상태 + errcode 0.
     // Android는 errcode 없는 바디를 파싱하지 못해 Unknown 에러가 된다.
