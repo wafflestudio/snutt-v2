@@ -1,11 +1,18 @@
 package com.wafflestudio.snutt.api.v1compat
 
 import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.v1compat.error.V1CompatExceptionHandler
+import com.wafflestudio.snutt.v1compat.ev.V1CompatEvController
+import com.wafflestudio.snutt.v1compat.snutt.V1CompatEvSummaryController
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpMethod
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.web.method.HandlerMethod
 
 /**
  * 구앱이 에러 바디로 분기하는 경로(v1 errcode, EV errcode)를 고정한다.
@@ -14,6 +21,15 @@ import org.springframework.http.HttpMethod
 class V1CompatErrorFormatTest : AbstractV1CompatTest() {
     @Autowired
     lateinit var userRepository: UserRepository
+
+    @Autowired
+    lateinit var exceptionHandler: V1CompatExceptionHandler
+
+    @Autowired
+    lateinit var evController: V1CompatEvController
+
+    @Autowired
+    lateinit var evSummaryController: V1CompatEvSummaryController
 
     private val evaluationBody =
         """{"content":"설명이 친절하고 과제 난이도도 적당한 좋은 강의입니다","grade_satisfaction":4.0,"teaching_skill":4.0,""" +
@@ -116,4 +132,35 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
         assertEquals(null, lecture.courseId)
         assertV1Error(v1Post("/v1/ev-service/v1/semester-lectures/${lecture.id}/evaluations", evaluationBody, token), 404, 24002)
     }
+
+    // @ExceptionHandler(Exception::class)가 있으면 Spring은 cause 쪽 핸들러를 찾지 않는다. 감싼 예외가 catch-all로 가
+    // 원래 errcode가 500 errcode 0으로 가려지지 않게 한다. 요청 경로로는 SnuttException이 감싸여 오는 곳이 지금 없어
+    // 실제 핸들러 빈과 실제 컨트롤러 메서드로 핸들러를 직접 부른다.
+    @Test
+    fun `다른 예외로 감싸인 SnuttException은 catch-all이 아니라 원래 errcode로 응답한다`() {
+        val snuttHandler = handlerOf(evSummaryController, "getLectureEvaluationSummary")
+        val evHandler = handlerOf(evController, "getEvaluation")
+        fun wrap(error: ErrorType) = IllegalStateException("outer", RuntimeException("middle", SnuttException(error)))
+
+        val snutt = exceptionHandler.handleUnexpectedException(wrap(ErrorType.TIMETABLE_NOT_FOUND), snuttHandler, MockHttpServletRequest())
+        assertEquals(404, snutt.statusCode.value())
+        assertEquals(40400L, snutt.body!!.errcode)
+
+        val ev = exceptionHandler.handleUnexpectedException(wrap(ErrorType.COURSE_NOT_FOUND), evHandler, MockHttpServletRequest())
+        assertEquals(404, ev.statusCode.value())
+        assertEquals(24001L, ev.body!!.errcode)
+
+        // cause가 순환해도 끝나고, SnuttException이 없으면 그대로 500 errcode 0이다.
+        val a = IllegalStateException("a")
+        val b = IllegalArgumentException("b", a)
+        a.initCause(b)
+        val unexpected = exceptionHandler.handleUnexpectedException(a, snuttHandler, MockHttpServletRequest())
+        assertEquals(500, unexpected.statusCode.value())
+        assertEquals(0L, unexpected.body!!.errcode)
+    }
+
+    private fun handlerOf(
+        bean: Any,
+        methodName: String,
+    ): HandlerMethod = HandlerMethod(bean, bean.javaClass.methods.first { it.name == methodName })
 }

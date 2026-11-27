@@ -29,13 +29,14 @@ class V1PathExceptionResolver(
         if (handler is HandlerMethod && handler.beanType.packageName.startsWith(V1COMPAT_PACKAGE)) return null
         if (!isV1Path(request) || response.isCommitted) return null
         val language = request.language
+        val snuttException = ex as? SnuttException ?: ex.wrappedSnuttException()
         val entity =
-            if (ex is SnuttException) {
-                ex.error.toV1ErrorResponse(language, ex.displayMessage(language))
+            if (snuttException != null) {
+                snuttException.error.toV1ErrorResponse(language, snuttException.displayMessage(language))
             } else {
                 unexpectedV1ErrorResponse(ex, language)
             }
-        if (ex !is SnuttException && ex !is ErrorResponse) log.error("unhandled exception", ex)
+        if (snuttException == null && ex !is ErrorResponse) log.error("unhandled exception", ex)
         response.status = entity.statusCode.value()
         response.contentType = entity.headers.contentType.toString()
         response.characterEncoding = Charsets.UTF_8.name()

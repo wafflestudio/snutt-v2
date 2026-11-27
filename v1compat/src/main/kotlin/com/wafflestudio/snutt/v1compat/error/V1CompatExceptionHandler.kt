@@ -171,6 +171,15 @@ internal fun unexpectedV1ErrorResponse(
         )
 }
 
+/** 다른 예외로 감싸여 온 SnuttException. 감싼 예외 쪽 핸들러가 먼저 잡혀 원래 errcode가 가려지지 않게 꺼낸다. */
+internal fun Throwable.wrappedSnuttException(): SnuttException? =
+    generateSequence(cause) { it.cause?.takeIf { next -> next !== it } }
+        .take(MAX_CAUSE_DEPTH)
+        .filterIsInstance<SnuttException>()
+        .firstOrNull()
+
+private const val MAX_CAUSE_DEPTH = 16
+
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
 class V1CompatExceptionHandler {
@@ -209,8 +218,10 @@ class V1CompatExceptionHandler {
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(
         e: Exception,
+        handler: HandlerMethod,
         request: HttpServletRequest,
     ): ResponseEntity<V1ErrorResponse> {
+        e.wrappedSnuttException()?.let { return handleSnuttException(it, handler, request) }
         if (e !is ErrorResponse) log.error("unhandled exception", e)
         return unexpectedV1ErrorResponse(e, request.language)
     }
