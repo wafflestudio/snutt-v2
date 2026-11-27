@@ -18,11 +18,4 @@ class KnownFailureParityTest : AbstractParityTest() {
         parity("버그: EV user_id → user") {
             get("/ev-service/v1/evaluations/@{evaluation:bob-os}", `as` = "alice")
         }
-
-    @Test
-    fun `대표 시간표를 바꾸면 이전 대표의 수정 시각이 바뀐다`() =
-        parity("버그: 대표 해제 시 updated_at 변경") {
-            post("/v1/tables/@{tt:alice-plan-b}/primary", `as` = "alice")
-            get("/v1/tables/@{tt:alice-main}", `as` = "alice")
-        }
 }

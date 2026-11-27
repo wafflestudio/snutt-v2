@@ -157,7 +157,7 @@
   path: $.**.colorIndex
   kind: changed
   v2: 0
-  scenario: ["시간표 조회: 이관 데이터", "시간표 CRUD", "직접 만든 강의"]
+  scenario: ["시간표 조회: 이관 데이터", "시간표 CRUD", "직접 만든 강의", "시간표: 대표 변경과 수정 시각"]
   reason: >-
     사용자 테마를 쓰는 시간표에서 v1은 팔레트 번호만, v1compat은 colorIndex 0과 그 팔레트 색(color)을 함께 준다
     (LegacyTimetableDtos.legacyColorIndex/legacyColor). Android(LectureMappers.colorToLectureColor)는 colorIndex 0이면 color를 그대로 그리므로
@@ -165,7 +165,7 @@
 - endpoint: "*"
   path: $.**.color
   kind: only-v2
-  scenario: ["시간표 조회: 이관 데이터", "시간표 CRUD", "직접 만든 강의"]
+  scenario: ["시간표 조회: 이관 데이터", "시간표 CRUD", "직접 만든 강의", "시간표: 대표 변경과 수정 시각"]
   reason: 위 항목과 같은 이유로 사용자 테마 시간표의 강의에 v2만 color를 준다.
 - endpoint: "*"
   path: $.**.color

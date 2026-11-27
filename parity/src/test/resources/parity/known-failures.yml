@@ -17,12 +17,3 @@
   kind: only-v2
   reason: 위 B5와 같은 차이의 v2 쪽.
   ref: "B5"
-- endpoint: "*"
-  path: $[*].updated_at
-  kind: changed
-  scenario: 시간표 CRUD
-  label: ["GET /v1/tables/2026/3", "DELETE /v1/tables/{id}"]
-  reason: >-
-    다른 시간표를 대표로 지정하면 v2는 대표에서 풀린 시간표의 updated_at도 바꾼다(BaseEntity @UpdateTimestamp). v1은 isPrimary만 바꾸고
-    updatedAt은 그대로 뒀다(TimetableServiceImpl.setPrimary의 copy). 앱은 updated_at이 가장 최근인 시간표를 처음에 연다(/v1/tables/recent).
-  ref: "B7"

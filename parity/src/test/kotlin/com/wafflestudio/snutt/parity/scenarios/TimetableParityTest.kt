@@ -112,4 +112,16 @@ class TimetableParityTest : AbstractParityTest() {
                 label = "잘못된 option",
             )
         }
+
+    // B7: 대표를 바꿔도 두 시간표의 updated_at은 그대로다(v1은 isPrimary만 바꿔 저장했다).
+    @Test
+    fun `대표 시간표를 바꿔도 수정 시각은 그대로다`() =
+        parity("시간표: 대표 변경과 수정 시각") {
+            post("/v1/tables/@{tt:alice-plan-b}/primary", `as` = "alice")
+            get("/v1/tables/@{tt:alice-main}", `as` = "alice", label = "대표에서 풀린 시간표")
+            get("/v1/tables/@{tt:alice-plan-b}", `as` = "alice", label = "새 대표")
+            get("/v1/tables/recent", `as` = "alice")
+            delete("/v1/tables/@{tt:alice-plan-b}/primary", `as` = "alice")
+            get("/v1/tables/@{tt:alice-plan-b}", `as` = "alice", label = "대표 해제 뒤")
+        }
 }
