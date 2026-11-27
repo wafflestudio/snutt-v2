@@ -30,9 +30,6 @@ class PerfDataGenerator(
     companion object {
         const val SEED = 20261128L
 
-        /** 분포나 생성 규칙을 바꾸면 올린다. 캐시된 스키마를 다시 만들게 한다. */
-        const val VERSION = 1
-
         const val USERS = 22_000
         const val COURSES = 13_000
         const val EVALUATIONS = 16_613

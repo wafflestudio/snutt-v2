@@ -177,12 +177,9 @@ class QueryCountIntegrationTest : AbstractApiIntegrationTest() {
         val now = clock.nowKst()
         val current = YearAndSemester(2026, Semester.AUTUMN)
         dueReminder(me)
-        var fired = 0
         assertQueryCountStable(select = 3, insert = 1, update = 1, grow = { repeat(3) { dueReminder(fixtures.user()) } }) {
             reminderScheduler.fireDueReminders(now.withZoneSameInstant(ZoneId.of("Asia/Seoul")), current)
-            fired++
         }
-        assertEquals(2, fired)
         // 처음 1건, 두 번째에 새로 늘린 3건이 알림함에 쌓인다.
         assertEquals(4, notificationRepository.count())
     }
@@ -226,8 +223,9 @@ class QueryCountIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals(1, before["content"].size())
         assertEquals(5, after["content"].size())
 
+        // 요약은 course에 미리 계산된 집계를 읽으므로 강의평 수와 무관해야 한다. 오류 응답의 쿼리 수를 고정하지 않도록 200을 확인한다.
         assertQueryCountStable(select = 2, grow = { repeat(2) { evaluationBy(course, fixtures.user()) } }) {
-            body(get("/v2/courses/${course.id}/evaluation-summary", token))
+            ok(get("/v2/courses/${course.id}/evaluation-summary", token))
         }
     }
 
@@ -249,7 +247,7 @@ class QueryCountIntegrationTest : AbstractApiIntegrationTest() {
         val (course, _) = courseWithLecture()
         evaluationBy(course, fixtures.user())
         assertQueryCountStable(select = 3, grow = { repeat(3) { evaluationBy(course, fixtures.user()) } }) {
-            body(v1Get("/v1/ev-service/v1/lectures/${course.id}/evaluation-summary"))
+            ok(v1Get("/v1/ev-service/v1/lectures/${course.id}/evaluation-summary"))
         }
     }
 
@@ -360,7 +358,10 @@ class QueryCountIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals(1, before.size())
         assertEquals(2, after.size())
 
-        assertQueryCountStable(select = 5, grow = { submitDiary(Semester.AUTUMN, questions) }) { body(v1Get("/v1/diary/my")) }
+        val (v1Before, v1After) =
+            assertQueryCountStable(select = 5, grow = { submitDiary(Semester.AUTUMN, questions) }) { ok(v1Get("/v1/diary/my")).toString() }
+        assertEquals(4, Regex("qc-diary-entry").findAll(v1Before).count())
+        assertEquals(5, Regex("qc-diary-entry").findAll(v1After).count())
     }
 
     // ---- #63·#64·#66에서 통합한 그 밖의 목록 ----
@@ -518,7 +519,7 @@ class QueryCountIntegrationTest : AbstractApiIntegrationTest() {
                     semester = semester,
                     lectureId = lecture.id,
                     courseTitle = lecture.courseTitle,
-                    comment = "일기",
+                    comment = "qc-diary-entry",
                 ),
             )
         questions.forEach {
@@ -561,4 +562,6 @@ class QueryCountIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     private fun v1Get(uri: String): ResponseEntity<String> = v1Send(HttpMethod.GET, uri)
+
+    private fun ok(response: ResponseEntity<String>) = body(response).also { assertEquals(200, response.statusCode.value(), response.body) }
 }

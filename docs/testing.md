@@ -174,13 +174,15 @@ class SocialQueryPlanTest : AbstractPerfTest() {          // api/.../perf/
 - 앞부분이 같은 인덱스가 여럿이면 옵티마이저가 아무거나 고른다(예: `uk_timetable_title`과 `idx_timetable_user_semester`). 둘 다 `assertKey`에 적는다.
 - 예상 rows는 `ANALYZE` 샘플링이라 실행마다 조금 다르다. 기대값보다 넉넉한 상한만 둔다.
 - 테스트 이름에 의도(어떤 인덱스로 무엇을 피하는지)를 적는다.
+- 한계: SQL은 빈 기본 스키마에서 캡처한다. 앞 쿼리 결과에 따라 다음 쿼리나 LIMIT을 정하는 메서드(예: `findPageOfCourse(includeMine=true)`의 남은 개수)는 빈 결과 경로의 SQL만 본다.
+- `assertNoFullScan`은 type `ALL`만 막는다. 인덱스 전체를 읽는 type `index`는 통과하므로 LIMIT으로 멈추지 않는 쿼리는 `assertRowsAtMost`를 같이 건다.
 
 ### 새 쿼리를 추가하거나 바꾸면
 
 1. **조회 엔드포인트면** `QueryCountIntegrationTest`에 `assertQueryCountStable` 테스트를 추가한다. 목록이면 `grow`로 행을 늘려 쿼리 수가 그대로인지 본다.
 2. **리포지토리 쿼리(JPQL·JDSL·네이티브)면** `api/.../perf/*QueryPlanTest`에 `explainOne` 테스트를 추가한다. 쓰려는 인덱스, 풀 스캔·filesort 없음, rows 상한을 assert한다. 극단 사용자 id로도 한 번 본다.
 3. 인덱스를 추가·변경·삭제하면(`V*__*.sql`) `./gradlew perfTest`를 돌려 기존 계획이 바뀌지 않았는지 본다. 바뀐 게 의도면 테스트를 고치고 이유를 커밋 메시지에 적는다.
-4. 새 테이블이나 분포가 실행계획에 영향을 주면 `PerfDataGenerator`에 데이터를 추가하고 `VERSION`을 올린 뒤 `perf-data-profile.md`에 근거를 적는다.
+4. 새 테이블이나 분포가 실행계획에 영향을 주면 `PerfDataGenerator`에 데이터를 추가하고 `perf-data-profile.md`에 근거를 적는다. 스키마는 perf JVM마다 새로 만들므로 캐시 무효화는 없다.
 5. 의도적으로 인덱스를 못 타는 쿼리(앞뒤 와일드카드 LIKE, 캐시 뒤의 집계)는 테스트로 고정하지 말고 이유를 주석·문서에 남긴다.
 
 ## 시나리오 fixture: `ScenarioFixtures`

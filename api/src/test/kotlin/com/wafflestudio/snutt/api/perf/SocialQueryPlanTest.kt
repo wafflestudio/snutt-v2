@@ -171,9 +171,11 @@ class SocialQueryPlanTest : AbstractPerfTest() {
         explainOne { userDeviceRepository.findPushTargets(users) }
             .assertKey("user_device", "idx_user_device_user")
             .assertNoFullScan()
+            .assertRowsAtMost("user_device", 500)
         explainOne { pushPreferenceRepository.findDisabledUserIds(users, PushPreferenceType.NORMAL) }
             .assertKey("push_preference", "uk_push_preference_user_type")
             .assertNoFullScan()
+            .assertRowsAtMost("push_preference", 500)
     }
 
     @Test
