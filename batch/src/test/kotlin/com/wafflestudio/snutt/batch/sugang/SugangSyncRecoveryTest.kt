@@ -160,6 +160,8 @@ class SugangSyncRecoveryTest : SugangSyncScenarioTest() {
 
         // 1단계(강의 반영)는 커밋됐다. 시간표는 아직 옛 상태다.
         assertEquals(listOf(DayOfWeek.TUESDAY), classTimes(lecture(algo)).map { it.day })
+        // 강의는 바뀌었으므로 수강편람 updated_at도 고친다(클라이언트가 강의 목록을 다시 받는다).
+        assertEquals(clock.instant(), coursebookRepository.findAll().single().updatedAt)
         assertEquals(listOf(lecture(algo).id, lecture(compiler).id), alice.lectureIds())
         assertEquals(listOf(Schedule(DayOfWeek.MONDAY, 590)), reminderSchedules(bob.entryId(algo)))
         assertEquals(0, notificationRepository.count())

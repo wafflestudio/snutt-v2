@@ -38,8 +38,7 @@ class SugangSnuSyncJob(
 
     override fun run(target: YearAndSemester?) {
         if (target != null) {
-            syncSemester(target.year, target.semester)
-            coursebookRepository.touchUpdatedAt(target.year, target.semester, clock.instant())
+            syncSemester(target.year, target.semester, touchCoursebook = true)
             return
         }
         val condition = sugangSnuLectureApi.getCoursebookCondition()
@@ -56,10 +55,7 @@ class SugangSnuSyncJob(
             comparison > 0 -> throw IllegalStateException(
                 "최신 수강편람(${latest.year} ${latest.semester})이 수강신청 사이트(${sugangSnu.year} ${sugangSnu.semester})보다 최신이다",
             )
-            comparison == 0 -> {
-                syncCoursebook(latest)
-                coursebookRepository.touchUpdatedAt(latest.year, latest.semester, clock.instant())
-            }
+            comparison == 0 -> syncCoursebook(latest, touchCoursebook = true)
             else -> {
                 val next = nextCoursebook(latest)
                 log.info("신규 수강편람 감지: {} {}", next.year, next.semester)
@@ -74,14 +70,19 @@ class SugangSnuSyncJob(
         }
     }
 
-    private fun syncCoursebook(coursebook: Coursebook) {
+    private fun syncCoursebook(
+        coursebook: Coursebook,
+        touchCoursebook: Boolean = false,
+    ) {
         registrationPeriodExtractor.extract(coursebook.year, coursebook.semester)
-        syncSemester(coursebook.year, coursebook.semester)
+        syncSemester(coursebook.year, coursebook.semester, touchCoursebook)
     }
 
+    /** [touchCoursebook]이면 강의 반영(1단계)이 커밋됐을 때 수강편람 updated_at을 고친다. 뒤 단계가 실패해도 강의는 바뀌었기 때문이다. */
     private fun syncSemester(
         year: Int,
         semester: Semester,
+        touchCoursebook: Boolean = false,
     ) {
         val xlsx =
             sugangSnuXlsxParser.parse(
@@ -91,12 +92,14 @@ class SugangSnuSyncJob(
         val rows = xlsx.rows.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
         // 영어 엑셀이 비면 상세 API가 준 영어 값을 쓰고, 상세 API에 없는 기존 강의의 영어 필드는 보존한다. 신규 강의는 상세 API 값 그대로다.
         // 영어 엑셀이 끝까지 공개되지 않는 학기도 있어서, 신규 강의의 영어 값을 비워 두면 영영 채워지지 않는다.
+        var lecturesCommitted = false
         try {
-            sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable)
+            sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable) { lecturesCommitted = true }
         } finally {
             // 시간표 반영 단계가 실패해도 강의 반영은 이미 커밋됐을 수 있으므로 캐시는 비운다.
             lectureVocabularyService.evict(year, semester)
             courseVocabularyService.evict()
+            if (touchCoursebook && lecturesCommitted) coursebookRepository.touchUpdatedAt(year, semester, clock.instant())
         }
     }
 
