@@ -5,6 +5,7 @@ import com.linecorp.kotlinjdsl.dsl.jpql.jpql
 import com.linecorp.kotlinjdsl.querymodel.jpql.predicate.Predicate
 import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpqlExecutor
 import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.search.KeywordIntent
 import com.wafflestudio.snutt.core.common.search.SearchKeywordClassifier
@@ -12,6 +13,8 @@ import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCriteria
 import com.wafflestudio.snutt.core.domain.evaluation.dto.CourseSearchCursor
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
@@ -29,6 +32,13 @@ data class CourseVocabulary(
     val categoryPre2025: List<String>,
     val semesters: List<YearAndSemester>,
     val updatedAt: Instant?,
+)
+
+data class TakenLectureRow(
+    val year: Int,
+    val semester: Semester,
+    val lecture: Lecture,
+    val course: Course,
 )
 
 interface CourseRepository :
@@ -193,6 +203,45 @@ interface CourseRepository :
                 }
             departmentPrefix?.let { lectures += path(Lecture::department).like(it.toCharArray().joinToString("%", postfix = "%")) }
         }
+    }
+
+    fun findTakenLectures(
+        userId: Long,
+        semesters: Collection<YearAndSemester>,
+    ): List<TakenLectureRow> {
+        if (semesters.isEmpty()) return emptyList()
+        return findAll {
+            jpql {
+                selectNew<TakenLectureRow>(
+                    path(Timetable::year),
+                    path(Timetable::semester),
+                    entity(Lecture::class),
+                    entity(Course::class),
+                ).from(
+                    entity(Timetable::class),
+                    join(TimetableLecture::class).on(path(TimetableLecture::timetableId).equal(path(Timetable::id))),
+                    join(Lecture::class).on(path(Lecture::id).equal(path(TimetableLecture::lectureId))),
+                    join(Course::class).on(path(Course::id).equal(path(Lecture::courseId))),
+                ).where(
+                    and(
+                        path(Timetable::userId).equal(userId),
+                        or(
+                            *semesters
+                                .map {
+                                    and(
+                                        path(Timetable::year).equal(it.year),
+                                        path(Timetable::semester).equal(it.semester),
+                                    )
+                                }.toTypedArray(),
+                        ),
+                    ),
+                ).orderBy(
+                    path(Timetable::year).desc(),
+                    path(Timetable::semester).desc(),
+                    path(TimetableLecture::id).asc(),
+                )
+            }
+        }.filterNotNull()
     }
 
     fun getVocabulary(language: Language): CourseVocabulary {
