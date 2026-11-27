@@ -111,6 +111,21 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
     private fun Member.timetableDeeplink(row: RowData) =
         deeplink("timetable-lecture", "timetableId=${timetable.id}&lectureId=${lecture(row).id}")
 
+    /** 강좌 상세 응답에 영어 값만 채운다. null인 값은 응답에 넣지 않아 엑셀 값을 쓰게 한다. */
+    private fun lectureInfoEnglish(
+        courseNameEng: String? = null,
+        professorNameEng: String? = null,
+        categoryEng: String? = null,
+    ): String {
+        val fields =
+            listOfNotNull(
+                courseNameEng?.let { "\"sbjtEngNm\":\"$it\"" },
+                professorNameEng?.let { "\"profEngNm\":\"$it\"" },
+                categoryEng?.let { "\"sbjtFldEngNm\":\"$it\"" },
+            )
+        return """{"ltTime":[],"ltRoom":[],"LISTTAB01":{${fields.joinToString(",")}}}"""
+    }
+
     private fun pushBodies(): Map<String, String> = sentPushes().associate { it.fcmRegistrationId to it.message.body }
 
     private fun updated(
@@ -583,34 +598,49 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
     // ---------------------------------------------------------------- 영어 엑셀 공백
 
     @Test
-    fun `영어 엑셀이 비어 있으면 기존 영어 필드는 보존하고 신규 강의는 영어 없이 만든 뒤 다음 동기화에서 채운다`() {
+    fun `영어 엑셀이 비어 있으면 기존 강의의 영어 필드는 보존하고 신규 강의는 상세 API의 영어 값으로 만든다`() {
         val english = algo.copy(courseTitleEn = "Algorithms", instructorEn = "Kim", classificationEn = "Major Elective")
+        // 교양영역 영문명(categoryEn)은 영어 엑셀에 없고 상세 API만 준다.
+        sugang.lectureInfo("400.100", "001", json(lectureInfoEnglish(categoryEng = "Foundation")))
         sync(listOf(algo), englishRows = listOf(english))
         val alice = member("alice", algo)
         clearPushes()
+        assertEquals("Foundation", lecture(algo).categoryEn)
 
-        // 학기 초처럼 한국어 엑셀만 공개되어 있다. 기존 강의의 한국어 값은 그대로, 신규 강의가 하나 있다.
-        sync(listOf(algo, compiler), englishRows = emptyList())
+        // 학기 초처럼 한국어 엑셀만 공개되어 있다. 상세 API의 영어 값이 바뀌어도 기존 강의는 보존한다.
+        // 신규 강의(컴파일러)는 상세 API가 준 영어 값을 그대로 쓴다. 영어 엑셀이 끝까지 안 나오는 학기도 있어서다.
+        stubSite(listOf(algo, compiler), englishRows = emptyList())
+        sugang.lectureInfo(
+            "400.100",
+            "001",
+            json(lectureInfoEnglish(courseNameEng = "Algorithm Theory", professorNameEng = "Kim, A", categoryEng = "Changed")),
+        )
+        sugang.lectureInfo(
+            "400.200",
+            "001",
+            json(lectureInfoEnglish(courseNameEng = "Compiler Construction", professorNameEng = "Park, B", categoryEng = "Core")),
+        )
+        sugangSnuSyncJob.run(null)
 
         val kept = lecture(algo)
-        assertEquals(listOf("Algorithms", "Kim", "Major Elective"), listOf(kept.courseTitleEn, kept.instructorEn, kept.classificationEn))
+        assertEquals(
+            listOf("Algorithms", "Kim", "Major Elective", "Foundation"),
+            listOf(kept.courseTitleEn, kept.instructorEn, kept.classificationEn, kept.categoryEn),
+        )
         val created = lecture(compiler)
         assertEquals(
-            listOf<String?>(null, null, null, null, null, null, null),
-            listOf(
-                created.courseTitleEn,
-                created.instructorEn,
-                created.departmentEn,
-                created.academicYearEn,
-                created.categoryEn,
-                created.classificationEn,
-                created.remarkEn,
-            ),
+            listOf("Compiler Construction", "Park, B", "Core"),
+            listOf(created.courseTitleEn, created.instructorEn, created.categoryEn),
         )
+        // 영어 엑셀에만 있는 값은 비어 있다.
+        assertEquals(listOf<String?>(null, null), listOf(created.classificationEn, created.remarkEn))
         assertEquals(0, notificationRepository.count())
 
-        // 영어 엑셀이 공개되면 신규 강의의 영어 필드가 채워진다. 영어 필드 변경은 알리지 않는다.
-        sync(listOf(algo, compiler), englishRows = listOf(english, compiler.copy(courseTitleEn = "Compilers")))
+        // 영어 엑셀이 공개되면 엑셀 값이 상세 API 값을 채운다. 영어 필드 변경은 알리지 않는다.
+        stubSite(listOf(algo, compiler), englishRows = listOf(english, compiler.copy(courseTitleEn = "Compilers")))
+        sugang.lectureInfo("400.100", "001", json(lectureInfoEnglish(categoryEng = "Foundation")))
+        sugang.lectureInfo("400.200", "001", json(lectureInfoEnglish(categoryEng = "Core")))
+        sugangSnuSyncJob.run(null)
 
         assertEquals("Compilers", lecture(compiler).courseTitleEn)
         assertEquals("Elective", lecture(compiler).classificationEn)
@@ -618,6 +648,38 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
         assertEquals(0, notificationRepository.count())
         assertEquals(emptyMap<String, String>(), pushBodies())
         assertEquals(listOf(kept.id), alice.lectureIds())
+    }
+
+    @Test
+    fun `영어 엑셀이 비어 있어도 한국어 필드가 바뀌면 시간표·관심강좌 사용자에게 알리고 푸시한다`() {
+        val english = algo.copy(courseTitleEn = "Algorithms", instructorEn = "Kim")
+        sync(listOf(algo), englishRows = listOf(english))
+        val alice = member("alice", algo)
+        setReminder(alice.user, alice.timetable, alice.entryId(algo), TimetableLectureReminderOption.ZERO_MINUTE)
+        val bob = userWithDevice("bob", Language.EN)
+        bookmarkService.addLecture(bob.id!!, lecture(algo).id!!)
+        val oldCourseId = lecture(algo).courseId
+        clearPushes()
+
+        sync(listOf(algo.copy(instructor = "이교수", classTime = "수(13:00~14:15)")), englishRows = emptyList())
+
+        val lecture = lecture(algo)
+        assertEquals("이교수" to "Kim", lecture.instructor to lecture.instructorEn)
+        assertEquals("Algorithms", lecture.courseTitleEn)
+        assertNotEquals(oldCourseId, lecture.courseId)
+        assertEquals(listOf(ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "301-101", 780, 855)), classTimes(lecture))
+        assertEquals(listOf(Schedule(DayOfWeek.WEDNESDAY, 780)), reminderSchedules(alice.entryId(algo)))
+        // 보존한 영어 필드는 바뀐 항목으로 치지 않는다. 한국어 항목만 적는다.
+        assertEquals(
+            listOf(updated("알고리즘", "교수, 강의 시간/장소") to alice.timetableDeeplink(algo)),
+            notificationsOf(alice.user).map { it.message to it.deeplink },
+        )
+        assertEquals(
+            listOf("2026 Fall · Bookmarks: \"Algorithms\" was updated. (changed: Instructor, Class time/place)"),
+            notificationsOf(bob).map { it.messageEn },
+        )
+        assertEquals(mapOf("fcm-alice" to "강의 1개가 변경되었습니다. 알림함에서 자세히 확인하세요."), pushBodies())
+        assertEquals(listOf(lecture.id), alice.lectureIds())
     }
 
     @Test

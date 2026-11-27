@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.system.CapturedOutput
 import org.springframework.boot.test.system.OutputCaptureExtension
@@ -92,14 +94,9 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
     fun `v1 경로의 처리되지 않은 예외는 v1 에러 형식의 500 errcode 0으로 응답한다`() {
         val (token, _) = v1Register("v1unhandled")
 
-        // x-os-version은 user_device.os_version VARCHAR(32)에 그대로 들어간다. 검증이 없어 DB 오류(500)가 난다.
-        val response =
-            v1Send(
-                HttpMethod.POST,
-                "/v1/user/device/fcm-too-long",
-                legacyToken = token,
-                headers = mapOf("x-os-type" to "android", "x-os-version" to "9".repeat(64)),
-            )
+        // 메일 SDK가 런타임 예외를 던지면 MailLogService가 그대로 다시 던진다(SnuttException이 아니다).
+        whenever(mailClient.send(any(), any(), any())).thenThrow(RuntimeException("mail sdk down"))
+        val response = v1Post("/v1/user/email/verification", """{"email":"v1unhandled@snu.ac.kr"}""", token)
 
         assertV1Error(response, 500, 0)
         // v1 DEFAULT_ERROR: message는 개발자용 문구, displayMessage는 사용자 안내 문구.

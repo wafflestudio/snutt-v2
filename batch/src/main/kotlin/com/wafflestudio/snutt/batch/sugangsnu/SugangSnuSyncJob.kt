@@ -88,11 +88,9 @@ class SugangSnuSyncJob(
                 sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
                 sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
             )
-        val rows =
-            xlsx.rows
-                .map { sugangSnuLectureEnricher.enrich(year, semester, it) }
-                // 영어 엑셀이 없으면 상세 API가 주는 영어 값도 쓰지 않는다. 영어 필드는 영어 엑셀이 생긴 뒤 한꺼번에 채운다.
-                .map { if (xlsx.englishAvailable) it else it.withoutEnglish() }
+        val rows = xlsx.rows.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
+        // 영어 엑셀이 비면 기존 강의의 영어 필드는 보존한다. 신규 강의는 상세 API가 준 영어 값을 그대로 쓴다.
+        // 영어 엑셀이 끝까지 공개되지 않는 학기도 있어서, 신규 강의의 영어 값을 비워 두면 영영 채워지지 않는다.
         sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable)
         lectureVocabularyService.evict(year, semester)
         courseVocabularyService.evict()

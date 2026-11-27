@@ -18,6 +18,8 @@ dependencies {
     api("org.springframework:spring-web")
     api("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-restclient")
+    // FeedbackService가 자동 재시도를 끈 HttpComponents 클라이언트를 직접 만든다. 버전은 Boot BOM을 따른다.
+    implementation("org.apache.httpcomponents.client5:httpclient5")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.security:spring-security-crypto")
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
