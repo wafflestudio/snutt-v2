@@ -295,7 +295,7 @@ DbFaults.failing("timetable", "UPDATE", fault = DbFault.DEADLOCK)     // 1213이
 
 - `batch/.../sugang/SugangSyncScenarioTest`를 상속한다. `sync(rows, englishRows)`가 수강편람 사이트를 stub하고 잡을 학기 지정 없이 돌린다. 시간표 담기·리마인더·관심강좌는 실제 서비스(`addLecture`, `setReminder`, `bookmarkService`)로 한다.
 - 어디에 쓸지: 한 학기를 따라가는 골든패스는 `SugangSemesterLifecycleTest`, 동기화 diff 분기(추가·폐강·필드별 변경·겹침·멱등·영어 엑셀 공백·학기 경계·트랜잭션)는 `SugangSyncDiffTest`, 사이트 HTTP 오류·응답 형식 이상은 `SugangSnuSyncJobTest`, 빈자리 판정은 `VacancyNotificationJobTest`.
-- 단계 사이 장애: 동기화는 강의 반영(1단계)을 커밋한 뒤 시간표 반영·폐강·알림 배출을 따로 커밋하고, 남은 일은 `sugang_sync_pending_*`와 `sugang_sync_outbox`(V6)에 남겨 다음 실행이 정확히 한 번 마친다. 이 계약은 `SugangSyncRecoveryTest`가 고정한다.
+- 단계 사이 장애: 동기화는 강의 반영(1단계)을 커밋한 뒤 시간표 반영·폐강·알림 배출을 따로 커밋하고, 남은 일은 `sugang_sync_pending_*`, 알림 `sugang_sync_outbox`, 푸시 `sugang_sync_push_outbox`(V6)에 남겨 다음 실행이 정확히 한 번 마친다. 이 계약은 `SugangSyncRecoveryTest`가 고정한다.
 - `SugangXlsxFixture.RowData`의 영어 값 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로다.
 
 ## 새 테스트 체크리스트
