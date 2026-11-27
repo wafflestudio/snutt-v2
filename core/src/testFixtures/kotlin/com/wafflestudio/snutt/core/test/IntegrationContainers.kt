@@ -9,10 +9,10 @@ import org.testcontainers.mysql.MySQLContainer
 @TestConfiguration(proxyBeanMethods = false)
 class IntegrationContainers {
     companion object {
-        val mysql: MySQLContainer = MySQLContainer("mysql:26.7").apply { start() }
+        val mysql: MySQLContainer = MySQLContainer(TestImages.MYSQL).apply { start() }
 
         val redis: GenericContainer<*> =
-            GenericContainer("valkey/valkey:9-alpine").withExposedPorts(6379).apply { start() }
+            GenericContainer(TestImages.VALKEY).withExposedPorts(6379).apply { start() }
     }
 
     @Bean
