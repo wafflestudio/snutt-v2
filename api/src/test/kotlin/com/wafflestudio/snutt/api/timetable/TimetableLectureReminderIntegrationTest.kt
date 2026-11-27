@@ -6,16 +6,12 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.timetable.model.LectureOverrides
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
-import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderScheduleRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
-import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
-import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -25,12 +21,6 @@ import java.time.Instant
 class TimetableLectureReminderIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
     lateinit var reminderService: TimetableLectureReminderService
-
-    @Autowired
-    lateinit var userRepository: UserRepository
-
-    @Autowired
-    lateinit var timetableRepository: TimetableRepository
 
     @Autowired
     lateinit var timetableLectureRepository: TimetableLectureRepository
@@ -53,29 +43,9 @@ class TimetableLectureReminderIntegrationTest : AbstractApiIntegrationTest() {
 
     @BeforeEach
     fun seed() {
-        userId =
-            userRepository
-                .save(
-                    User(
-                        email = "reminder@snu.ac.kr",
-                        isEmailVerified = true,
-                        nickname = "reminderuser",
-                        nicknameTag = "0000",
-                        localId = "reminderuser",
-                    ),
-                ).id!!
-        timetableId =
-            timetableRepository
-                .save(
-                    Timetable(
-                        userId = userId,
-                        year = 2026,
-                        semester = Semester.AUTUMN,
-                        title = "나의 시간표",
-                        themeId = 2L,
-                        isPrimary = true,
-                    ),
-                ).id!!
+        val user = fixtures.user("reminderuser", email = "reminder@snu.ac.kr")
+        userId = user.id!!
+        timetableId = fixtures.timetable(user, fixtures.coursebook(2026, Semester.AUTUMN)).id!!
         timetableLectureId = saveCustomLecture(classTimes).id!!
     }
 

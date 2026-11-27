@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.migration
 
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
+import com.wafflestudio.snutt.core.test.TestImages
 import com.wafflestudio.snutt.migration.step.AggregateStep
 import com.wafflestudio.snutt.migration.step.CatalogStep
 import com.wafflestudio.snutt.migration.step.CourseStep
@@ -462,14 +463,14 @@ class MigrationIntegrationTest {
 
         @JvmStatic
         val targetMysql: MySQLContainer =
-            MySQLContainer("mysql:26.7")
+            MySQLContainer(TestImages.MYSQL)
                 .withDatabaseName("snutt")
                 .withUrlParam("rewriteBatchedStatements", "true")
 
         @JvmStatic
-        val evMysql: MySQLContainer = MySQLContainer("mysql:26.7").withDatabaseName("snutt_ev")
+        val evMysql: MySQLContainer = MySQLContainer(TestImages.MYSQL).withDatabaseName("snutt_ev")
 
         @JvmStatic
-        val mongo: GenericContainer<*> = GenericContainer("mongo:8.2.7").withExposedPorts(27017)
+        val mongo: GenericContainer<*> = GenericContainer(TestImages.MONGO).withExposedPorts(27017)
     }
 }

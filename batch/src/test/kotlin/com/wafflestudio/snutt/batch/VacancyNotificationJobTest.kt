@@ -1,19 +1,15 @@
 package com.wafflestudio.snutt.batch
 
 import com.wafflestudio.snutt.batch.vacancy.RegistrationStatus
-import com.wafflestudio.snutt.batch.vacancy.SugangSnuRegistrationStatusCrawler
 import com.wafflestudio.snutt.batch.vacancy.VacancyNotificationJob
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
-import com.wafflestudio.snutt.core.domain.coursebook.repository.CoursebookRepository
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
-import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRegistrationStatusRepository
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.repository.NotificationRepository
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreference
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
@@ -22,8 +18,6 @@ import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationD
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationPhase
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationTimeSlot
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
-import com.wafflestudio.snutt.core.domain.user.model.User
-import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.core.domain.vacancy.model.VacancyNotification
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -35,42 +29,14 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Import
-import org.springframework.context.annotation.Primary
-import org.springframework.test.context.bean.override.mockito.MockitoBean
-import java.time.Clock
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import java.time.LocalDateTime
 
-@Import(VacancyNotificationJobTest.ClockConfig::class)
 class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
-    @TestConfiguration(proxyBeanMethods = false)
-    class ClockConfig {
-        @Bean
-        @Primary
-        fun fixedClock(): Clock = Clock.fixed(Instant.parse("2026-09-12T02:30:00Z"), ZoneId.of("Asia/Seoul"))
-    }
-
-    @Autowired
-    lateinit var clock: Clock
-
-    @MockitoBean
-    lateinit var crawler: SugangSnuRegistrationStatusCrawler
-
     @Autowired
     lateinit var vacancyNotificationJob: VacancyNotificationJob
 
     @Autowired
-    lateinit var lectureRepository: LectureRepository
-
-    @Autowired
     lateinit var lectureRegistrationStatusRepository: LectureRegistrationStatusRepository
-
-    @Autowired
-    lateinit var userRepository: UserRepository
 
     @Autowired
     lateinit var vacancyNotificationRepository: VacancyNotificationRepository
@@ -82,16 +48,17 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
     lateinit var userDeviceRepository: UserDeviceRepository
 
     @Autowired
-    lateinit var coursebookRepository: CoursebookRepository
-
-    @Autowired
     lateinit var semesterRegistrationPeriodService:
         SemesterRegistrationPeriodService
 
+    private lateinit var autumn: Coursebook
+
     @BeforeEach
     fun seed() {
-        coursebookRepository.save(Coursebook(year = 2026, semester = Semester.AUTUMN))
-        val now = ZonedDateTime.now(clock)
+        // 2026-09-12 11:30 KST: 13:00 빈자리 신청 시간대 직전
+        clock.setKst(LocalDateTime.of(2026, 9, 12, 11, 30))
+        autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val now = clock.nowKst()
         semesterRegistrationPeriodService.upsert(
             2026,
             Semester.AUTUMN,
@@ -112,43 +79,32 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @Test
     fun `만석 해제된 강의 구독자에게 푸시와 알림함이 간다`() {
-        val user =
-            userRepository.save(
-                User(
-                    email = "vacancy@snu.ac.kr",
-                    isEmailVerified = true,
-                    nickname = "vacancyuser",
-                    nicknameTag = "0000",
-                    localId = "vacancyuser",
-                ),
-            )
+        val user = fixtures.user("vacancyuser", email = "vacancy@snu.ac.kr")
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-1"))
         userDeviceRepository.save(
             UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-1-en", language = Language.EN),
         )
         val lecture =
-            lectureRepository.save(
-                Lecture(
-                    year = 2026,
-                    semester = Semester.AUTUMN,
-                    courseNumber = "2114.408A",
-                    lectureNumber = "001",
-                    courseTitle = "HCI이론 및 실습",
-                    courseTitleEn = "Theories and Practices of HCI",
-                    instructor = "임하진",
-                    department = "언론정보학과(연합전공 정보문화학)",
-                    academicYear = "4학년",
-                    classification = "전필",
-                    credit = 3,
-                    quota = 25,
-                ),
-            )
+            fixtures.lecture(
+                autumn,
+                courseTitle = "HCI이론 및 실습",
+                courseNumber = "2114.408A",
+                lectureNumber = "001",
+                credit = 3,
+            ) {
+                courseTitleEn = "Theories and Practices of HCI"
+                instructor = "임하진"
+                department = "언론정보학과(연합전공 정보문화학)"
+                academicYear = "4학년"
+                classification = "전필"
+                quota = 25
+            }
         lectureRegistrationStatusRepository.save(
             LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 25, wasFull = true),
         )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
-        whenever(crawler.getPageCount(any(), any())).thenReturn(1)
-        whenever(crawler.getRegistrationStatus(any(), any(), any()))
+        whenever(registrationStatusCrawler.getPageCount(any(), any())).thenReturn(1)
+        whenever(registrationStatusCrawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(
                 listOf(RegistrationStatus("2114.408A", "001", registrationCount = 24, wasFull = true)),
                 listOf(RegistrationStatus("2114.408A", "001", registrationCount = 0, wasFull = false)),
@@ -177,36 +133,25 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @Test
     fun `처음 보이는 강의는 상태만 저장하고 푸시하지 않는다`() {
-        val user =
-            userRepository.save(
-                User(
-                    email = "firstseen@snu.ac.kr",
-                    isEmailVerified = true,
-                    nickname = "firstseen",
-                    nicknameTag = "0000",
-                    localId = "firstseen",
-                ),
-            )
+        val user = fixtures.user("firstseen", email = "firstseen@snu.ac.kr")
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-3"))
         val lecture =
-            lectureRepository.save(
-                Lecture(
-                    year = 2026,
-                    semester = Semester.AUTUMN,
-                    courseNumber = "400.301",
-                    lectureNumber = "001",
-                    courseTitle = "운영체제",
-                    instructor = "김준우",
-                    department = "컴퓨터공학부",
-                    academicYear = "3학년",
-                    classification = "전선",
-                    credit = 3,
-                    quota = 24,
-                ),
-            )
+            fixtures.lecture(
+                autumn,
+                courseTitle = "운영체제",
+                courseNumber = "400.301",
+                lectureNumber = "001",
+                credit = 3,
+            ) {
+                instructor = "김준우"
+                department = "컴퓨터공학부"
+                academicYear = "3학년"
+                classification = "전선"
+                quota = 24
+            }
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
-        whenever(crawler.getPageCount(any(), any())).thenReturn(1)
-        whenever(crawler.getRegistrationStatus(any(), any(), any()))
+        whenever(registrationStatusCrawler.getPageCount(any(), any())).thenReturn(1)
+        whenever(registrationStatusCrawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(
                 listOf(RegistrationStatus("400.301", "001", registrationCount = 23, wasFull = true)),
                 listOf(RegistrationStatus("400.301", "001", registrationCount = 0, wasFull = false)),
@@ -221,43 +166,32 @@ class VacancyNotificationJobTest : AbstractBatchIntegrationTest() {
 
     @Test
     fun `알림을 끈 사용자는 제외된다`() {
-        val user =
-            userRepository.save(
-                User(
-                    email = "vacancyoff@snu.ac.kr",
-                    isEmailVerified = true,
-                    nickname = "vacancyoff",
-                    nicknameTag = "0000",
-                    localId = "vacancyoff",
-                ),
-            )
+        val user = fixtures.user("vacancyoff", email = "vacancyoff@snu.ac.kr")
         userDeviceRepository.save(UserDevice(user = user, osType = "ios", fcmRegistrationId = "fcm-token-2"))
         pushPreferenceRepository.save(
             PushPreference(user = user, type = PushPreferenceType.VACANCY_NOTIFICATION, isEnabled = false),
         )
         val lecture =
-            lectureRepository.save(
-                Lecture(
-                    year = 2026,
-                    semester = Semester.AUTUMN,
-                    courseNumber = "F31.113",
-                    lectureNumber = "001",
-                    courseTitle = "경영학을 위한 수학",
-                    instructor = "안명숙",
-                    department = "수리과학부",
-                    academicYear = "1학년",
-                    category = "수학과학컴퓨팅",
-                    classification = "교양",
-                    credit = 3,
-                    quota = 50,
-                ),
-            )
+            fixtures.lecture(
+                autumn,
+                courseTitle = "경영학을 위한 수학",
+                courseNumber = "F31.113",
+                lectureNumber = "001",
+                credit = 3,
+            ) {
+                instructor = "안명숙"
+                department = "수리과학부"
+                academicYear = "1학년"
+                category = "수학과학컴퓨팅"
+                classification = "교양"
+                quota = 50
+            }
         lectureRegistrationStatusRepository.save(
             LectureRegistrationStatus(lectureId = lecture.id!!, registrationCount = 50, wasFull = true),
         )
         vacancyNotificationRepository.save(VacancyNotification(userId = user.id!!, lectureId = lecture.id!!))
-        whenever(crawler.getPageCount(any(), any())).thenReturn(1)
-        whenever(crawler.getRegistrationStatus(any(), any(), any()))
+        whenever(registrationStatusCrawler.getPageCount(any(), any())).thenReturn(1)
+        whenever(registrationStatusCrawler.getRegistrationStatus(any(), any(), any()))
             .thenReturn(
                 listOf(RegistrationStatus("F31.113", "001", registrationCount = 49, wasFull = true)),
                 listOf(RegistrationStatus("F31.113", "001", registrationCount = 0, wasFull = false)),

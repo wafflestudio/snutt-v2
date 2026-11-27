@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.api.coverage
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
-import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -24,15 +23,17 @@ import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeReposit
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.test.fixture.saveLectureWithTimes
 import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.LocalDateTime
 
 class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
@@ -167,12 +168,24 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     }
 
     @Test
-    fun `학기 상태는 현재와 다음 학기를 알려준다`() {
-        val response = get("/v2/semesters/status")
-        assertEquals(200, response.statusCode.value())
-        val next = body(response)["next"]
-        assertTrue(next.hasNonNull("year"))
-        assertTrue(next.hasNonNull("semester"))
+    fun `학기 상태는 KST 날짜 기준으로 현재와 다음 학기를 알려준다`() {
+        // 2026-08-31 23:59 KST(= 14:59Z): 여름학기 종료 후 공백기
+        clock.setKst(LocalDateTime.of(2026, 8, 31, 23, 59))
+        val beforeResponse = get("/v2/semesters/status")
+        assertEquals(200, beforeResponse.statusCode.value())
+        val before = body(beforeResponse)
+        assertFalse(before.hasNonNull("current"))
+        assertEquals(2026, before["next"]["year"].asInt())
+        assertEquals(Semester.AUTUMN.value, before["next"]["semester"].asInt())
+
+        // 2026-09-01 00:00 KST(= 08-31T15:00Z): UTC로는 아직 8월이지만 가을학기다
+        clock.setKst(LocalDateTime.of(2026, 9, 1, 0, 0))
+        val afterResponse = get("/v2/semesters/status")
+        assertEquals(200, afterResponse.statusCode.value())
+        val after = body(afterResponse)
+        assertEquals(2026, after["current"]["year"].asInt())
+        assertEquals(Semester.AUTUMN.value, after["current"]["semester"].asInt())
+        assertEquals(Semester.WINTER.value, after["next"]["semester"].asInt())
     }
 
     @Test

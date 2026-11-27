@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.diary
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
-import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
@@ -20,6 +19,7 @@ import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.test.fixture.saveLectureWithTimes
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach

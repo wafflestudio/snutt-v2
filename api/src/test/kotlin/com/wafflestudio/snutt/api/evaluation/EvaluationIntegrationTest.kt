@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.evaluation
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
-import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -18,6 +17,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRep
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.test.fixture.saveLectureWithTimes
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

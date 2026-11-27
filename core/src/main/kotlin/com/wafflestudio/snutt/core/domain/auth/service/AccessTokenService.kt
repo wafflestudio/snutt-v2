@@ -7,8 +7,8 @@ import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import java.util.Date
 
 data class AccessTokenPayload(
@@ -20,6 +20,7 @@ data class AccessTokenPayload(
 class AccessTokenService(
     private val es256Keys: Es256Keys,
     @param:Value("\${snutt.auth.jwt.access-token-ttl}") private val accessTokenTtl: Duration,
+    private val clock: Clock,
 ) {
     companion object {
         private const val ISSUER = "snutt"
@@ -29,7 +30,7 @@ class AccessTokenService(
     }
 
     fun issue(payload: AccessTokenPayload): String {
-        val now = Instant.now()
+        val now = clock.instant()
         return Jwts
             .builder()
             .issuer(ISSUER)
@@ -48,6 +49,7 @@ class AccessTokenService(
                 Jwts
                     .parser()
                     .verifyWith(es256Keys.publicKey)
+                    .clock { Date.from(clock.instant()) }
                     .requireIssuer(ISSUER)
                     .require(TYPE_CLAIM, TOKEN_TYPE)
                     .build()

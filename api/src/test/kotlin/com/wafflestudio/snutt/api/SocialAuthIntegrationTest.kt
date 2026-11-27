@@ -1,20 +1,12 @@
 package com.wafflestudio.snutt.api
 
-import com.wafflestudio.snutt.core.domain.auth.OAuth2Client
 import com.wafflestudio.snutt.core.domain.auth.OAuth2UserResponse
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito
 import org.springframework.http.ResponseEntity
-import org.springframework.test.context.bean.override.mockito.MockitoBean
 
 class SocialAuthIntegrationTest : AbstractApiIntegrationTest() {
-    @MockitoBean(name = "GOOGLE")
-    private lateinit var googleClient: OAuth2Client
-
-    @MockitoBean(name = "APPLE")
-    private lateinit var appleClient: OAuth2Client
-
     private fun providers(response: ResponseEntity<String>): List<String> = body(response)["authProviders"].values().map { it.asString() }
 
     @Test

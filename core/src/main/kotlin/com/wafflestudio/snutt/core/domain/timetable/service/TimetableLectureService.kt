@@ -19,7 +19,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
+import java.time.Clock
 
 data class TimetableLectureAddRequest(
     val lectureId: Long,
@@ -61,6 +61,7 @@ class TimetableLectureService(
     private val lectureRepository: LectureRepository,
     private val lectureService: LectureService,
     private val timetableLectureReminderService: TimetableLectureReminderService,
+    private val clock: Clock,
 ) {
     @Transactional
     fun addLecture(
@@ -256,7 +257,7 @@ class TimetableLectureService(
         val timetable = lockTimetable(userId, timetableId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         timetableLectureRepository.delete(timetableLecture)
-        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
+        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), clock.instant())
         return timetableService.getTimetableDisplay(userId, timetable.id!!)
     }
 
@@ -266,7 +267,7 @@ class TimetableLectureService(
         theme: TimetableThemeDisplay,
         lectures: List<TimetableLectureDisplay>,
     ): TimetableDisplay {
-        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
+        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), clock.instant())
         val updatedTimetable = timetableService.getTimetable(userId, timetable.id!!)
         return TimetableDisplay(timetable = updatedTimetable, theme = theme, lectures = lectures)
     }

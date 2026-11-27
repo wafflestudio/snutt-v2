@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
 import java.time.LocalTime
 import java.time.ZoneId
@@ -36,6 +37,7 @@ class ReminderScheduler(
     private val timetableLectureReminderService: TimetableLectureReminderService,
     private val pushService: PushService,
     private val schedulerLock: SchedulerLock,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val kst = ZoneId.of("Asia/Seoul")
@@ -43,19 +45,19 @@ class ReminderScheduler(
     @Scheduled(cron = "0 * * * * *")
     fun fireDueReminders() {
         schedulerLock.withLock("reminder", Duration.ofSeconds(50)) {
-            val current = SemesterCalendar.current()
+            val current = SemesterCalendar.current(clock)
             if (current == null) {
                 log.debug("현재 진행 중인 학기가 없어 리마인더를 보내지 않는다")
                 return@withLock
             }
-            fireDueReminders(ZonedDateTime.now(kst), current)
+            fireDueReminders(ZonedDateTime.now(clock.withZone(kst)), current)
         }
     }
 
     @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
     fun deletePastSemesterReminders() {
         schedulerLock.withLock("reminder-cleanup", Duration.ofMinutes(10)) {
-            val current = SemesterCalendar.current() ?: return@withLock
+            val current = SemesterCalendar.current(clock) ?: return@withLock
             timetableLectureReminderService.deletePastSemesterReminders(current)
         }
     }
@@ -91,6 +93,7 @@ class DiaryScheduler(
     private val deeplinkResolver: DeeplinkResolver,
     private val diaryPushQueue: DiaryPushQueue,
     @param:Value("\${snutt.diary.push-sample-rate}") private val sampleRate: Double,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val kst = ZoneId.of("Asia/Seoul")
@@ -98,19 +101,19 @@ class DiaryScheduler(
     @Scheduled(cron = "0 0 6 * * MON-FRI", zone = "Asia/Seoul")
     fun planDiaryNotificationsScheduled() {
         schedulerLock.withLock("diary-plan", Duration.ofMinutes(10)) {
-            val current = SemesterCalendar.current()
+            val current = SemesterCalendar.current(clock)
             if (current == null) {
                 log.debug("현재 진행 중인 학기가 없어 일기장 알림을 예약하지 않는다")
                 return@withLock
             }
-            planDiaryNotifications(ZonedDateTime.now(kst), current)
+            planDiaryNotifications(ZonedDateTime.now(clock.withZone(kst)), current)
         }
     }
 
     @Scheduled(cron = "0 * * * * *")
     fun sendDueDiaryNotificationsScheduled() {
         schedulerLock.withLock("diary-dispatch", Duration.ofSeconds(50)) {
-            sendDueDiaryNotifications(ZonedDateTime.now(kst))
+            sendDueDiaryNotifications(ZonedDateTime.now(clock.withZone(kst)))
         }
     }
 
@@ -131,9 +134,9 @@ class DiaryScheduler(
 
     fun sendDiaryNotificationsNow() {
         val target =
-            SemesterCalendar.current()
+            SemesterCalendar.current(clock)
                 ?: coursebookService.getLatestCoursebook().let { YearAndSemester(it.year, it.semester) }
-        send(diaryPushes(ZonedDateTime.now(kst), target).map { it.userId to it.lectureId })
+        send(diaryPushes(ZonedDateTime.now(clock.withZone(kst)), target).map { it.userId to it.lectureId })
     }
 
     private fun diaryPushes(

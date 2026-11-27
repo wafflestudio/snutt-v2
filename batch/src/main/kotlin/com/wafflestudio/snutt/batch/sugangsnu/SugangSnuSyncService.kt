@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
-import java.time.Instant
+import java.time.Clock
 
 private data class LectureInput(
     val lecture: Lecture,
@@ -85,6 +85,7 @@ class SugangSnuSyncService(
     private val timetableLectureReminderService: TimetableLectureReminderService,
     private val deeplinkResolver: DeeplinkResolver,
     transactionManager: PlatformTransactionManager,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val transactionTemplate = TransactionTemplate(transactionManager)
@@ -154,7 +155,7 @@ class SugangSnuSyncService(
         }
         lectureRepository.flush()
         val changedTimetableIds = affectedEntries.map { it.timetableId }.distinct()
-        if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, Instant.now())
+        if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, clock.instant())
         val affectedCourses =
             (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                 .distinct()

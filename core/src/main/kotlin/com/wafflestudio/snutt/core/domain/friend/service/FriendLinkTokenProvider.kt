@@ -3,19 +3,20 @@ package com.wafflestudio.snutt.core.domain.friend.service
 import com.wafflestudio.snutt.core.domain.auth.service.Es256Keys
 import io.jsonwebtoken.Jwts
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import java.util.Date
 
 @Component
 class FriendLinkTokenProvider(
     private val es256Keys: Es256Keys,
+    private val clock: Clock,
 ) {
     fun issue(
         userId: Long,
         ttl: Duration = VALIDITY,
     ): String {
-        val now = Instant.now()
+        val now = clock.instant()
         return Jwts
             .builder()
             .issuer(ISSUER)
@@ -32,6 +33,7 @@ class FriendLinkTokenProvider(
             Jwts
                 .parser()
                 .verifyWith(es256Keys.publicKey)
+                .clock { Date.from(clock.instant()) }
                 .requireIssuer(ISSUER)
                 .require(TYPE_CLAIM, TOKEN_TYPE)
                 .build()

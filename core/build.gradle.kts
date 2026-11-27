@@ -41,4 +41,5 @@ dependencies {
     testFixturesApi("org.springframework.boot:spring-boot-testcontainers")
     testFixturesApi("org.testcontainers:testcontainers-mysql")
     testFixturesApi("org.mockito.kotlin:mockito-kotlin:6.4.0")
+    testFixturesImplementation("net.ttddyy:datasource-proxy:1.11.0")
 }

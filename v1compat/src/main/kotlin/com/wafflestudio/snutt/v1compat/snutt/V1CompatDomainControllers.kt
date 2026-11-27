@@ -52,6 +52,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
+import java.time.Clock
 import java.time.Instant
 
 data class LegacyFriendRequest(
@@ -325,6 +326,7 @@ data class LegacyNotificationCountResponse(
 class V1CompatNotificationController(
     private val notificationService: NotificationService,
     private val legacyNotificationRepository: LegacyNotificationRepository,
+    private val clock: Clock,
 ) {
     @Transactional
     @GetMapping("")
@@ -346,7 +348,7 @@ class V1CompatNotificationController(
                 limit = limit,
                 offset = offset.toInt(),
             )
-        if (explicit > 0) legacyNotificationRepository.markChecked(user.id!!, Instant.now())
+        if (explicit > 0) legacyNotificationRepository.markChecked(user.id!!, clock.instant())
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(

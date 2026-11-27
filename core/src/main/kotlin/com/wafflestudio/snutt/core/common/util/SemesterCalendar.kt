@@ -2,13 +2,16 @@ package com.wafflestudio.snutt.core.common.util
 
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
+import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
 
 object SemesterCalendar {
     private val KST = ZoneId.of("Asia/Seoul")
 
-    fun current(date: LocalDate = LocalDate.now(KST)): YearAndSemester? {
+    fun current(clock: Clock): YearAndSemester? = current(LocalDate.now(clock.withZone(KST)))
+
+    fun current(date: LocalDate): YearAndSemester? {
         for (year in date.year - 1..date.year) {
             for ((semester, range) in ranges(year)) {
                 if (date in range.first..range.second) return YearAndSemester(year, semester)
@@ -17,7 +20,9 @@ object SemesterCalendar {
         return null
     }
 
-    fun next(date: LocalDate = LocalDate.now(KST)): YearAndSemester {
+    fun next(clock: Clock): YearAndSemester = next(LocalDate.now(clock.withZone(KST)))
+
+    fun next(date: LocalDate): YearAndSemester {
         for (year in date.year..date.year + 1) {
             for ((semester, range) in ranges(year)) {
                 if (date < range.first) return YearAndSemester(year, semester)
