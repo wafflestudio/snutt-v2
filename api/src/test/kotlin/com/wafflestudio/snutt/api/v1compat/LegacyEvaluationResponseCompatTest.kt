@@ -83,7 +83,9 @@ class LegacyEvaluationResponseCompatTest : AbstractV1CompatTest() {
         assertZeroScores(list["content"].items().single())
 
         assertZeroScores(body(v1Get("/v1/ev-service/v1/evaluations/$othersEvaluationId", legacyToken)))
-        assertZeroScores(body(v1Get("/v1/ev-service/v1/lectures/$courseId/evaluations/users/me", legacyToken))["evaluations"].items().single())
+        assertZeroScores(
+            body(v1Get("/v1/ev-service/v1/lectures/$courseId/evaluations/users/me", legacyToken))["evaluations"].items().single(),
+        )
         assertZeroScores(body(v1Get("/v1/ev-service/v1/evaluations/users/me", legacyToken))["content"].items().single())
 
         val v2Evaluation = body(get("/v2/evaluations/$othersEvaluationId", v2Login("evreader")))
@@ -106,7 +108,7 @@ class LegacyEvaluationResponseCompatTest : AbstractV1CompatTest() {
         assertEquals(200, updated.statusCode.value(), "body=${updated.body}")
         val evaluation = body(updated)
         assertEquals("내용만 고친 snuev 강의평입니다. 점수는 그대로 둡니다.", evaluation["content"].asString())
-        scoreKeys.forEach { key -> assertFalse(evaluation.has(key) && !evaluation[key].isNull, "$key: $evaluation") }
+        scoreKeys.forEach { key -> assertFalse(evaluation.has(key), "$key: $evaluation") }
         // 고친 뒤에도 조회는 0점이다.
         assertZeroScores(body(v1Get("/v1/ev-service/v1/evaluations/$myEvaluationId", legacyToken)))
     }
@@ -116,6 +118,7 @@ class LegacyEvaluationResponseCompatTest : AbstractV1CompatTest() {
         listOf(
             "/v1/ev-service/v1/lectures/$courseId/evaluations",
             "/v1/ev-service/v1/evaluations/users/me",
+            // 태그 강의평은 이 시드에서 비어 있을 수 있다. 여기서는 빈 cursor가 400이 아닌지가 요점이다.
             "/v1/ev-service/v1/tags/main/1/evaluations",
         ).forEach { path ->
             val firstPage = v1Get(path, legacyToken)
@@ -126,7 +129,9 @@ class LegacyEvaluationResponseCompatTest : AbstractV1CompatTest() {
         }
         assertEquals(
             listOf(othersEvaluationId),
-            body(v1Get("/v1/ev-service/v1/lectures/$courseId/evaluations?cursor=", legacyToken))["content"].items().map { it["id"].asLong() },
+            body(
+                v1Get("/v1/ev-service/v1/lectures/$courseId/evaluations?cursor=", legacyToken),
+            )["content"].items().map { it["id"].asLong() },
         )
     }
 

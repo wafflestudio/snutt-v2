@@ -50,12 +50,15 @@ class UserThemeLectureColorCompatTest : AbstractV1CompatTest() {
         timetableId = timetable.id!!
         val os = fixtures.lecture(autumn, courseTitle = "운영체제", times = listOf(ClassPlaceAndTime(DayOfWeek.MONDAY, "", 600, 660)))
         val ds = fixtures.lecture(autumn, courseTitle = "자료구조", times = listOf(ClassPlaceAndTime(DayOfWeek.TUESDAY, "", 600, 660)))
-        first = fixtures.addLecture(timetable, os, paletteIndex = 2)
+        first = fixtures.addLecture(timetable, os, paletteIndex = 0)
         second = fixtures.addLecture(timetable, ds, paletteIndex = 1)
     }
 
     private fun legacyLecture(timetableLecture: TimetableLecture): JsonNode =
-        body(v1Get("/v1/tables/$timetableId", legacyToken))["lecture_list"].items().single { it["_id"].asString() == timetableLecture.id.toString() }
+        body(v1Get("/v1/tables/$timetableId", legacyToken))["lecture_list"].items().single {
+            it["_id"].asString() ==
+                timetableLecture.id.toString()
+        }
 
     private fun v2Lecture(timetableLecture: TimetableLecture): JsonNode =
         body(get("/v2/timetables/$timetableId", v2Token))["lectures"].items().single { it["id"].asLong() == timetableLecture.id }
@@ -90,23 +93,25 @@ class UserThemeLectureColorCompatTest : AbstractV1CompatTest() {
     }
 
     @Test
-    fun `팔레트에 같은 색이 여럿이어도 직접 지정한 색으로 굳지 않는다`() {
+    fun `팔레트에 같은 색이 여럿이면 v1처럼 마지막 칸을 따라간다`() {
+        // first는 0번 칸에 있지만 0번과 2번이 같은 색이다. v1 modifyTheme은 같은 색이면 마지막 칸의 변경을 따랐다.
         legacyModifyRemark(first, legacyLecture(first)["color"])
 
         val stored = v2Lecture(first)
         assertTrue(stored["customColor"]?.isNull ?: true, "body=$stored")
-        assertEquals(0, stored["paletteIndex"].asInt())
+        assertEquals(2, stored["paletteIndex"].asInt())
 
-        // 신앱이 테마의 0번 색을 바꾸면 구앱에서도 그 강의 색이 바뀐다
-        val modified =
-            patch(
-                "/v2/themes/$themeId",
-                """{"colors":[{"backgroundColor":"#e54459","foregroundColor":"#ffffff"},""" +
-                    """{"backgroundColor":"#7ac73f","foregroundColor":"#ffffff"},{"backgroundColor":"#1d99e8","foregroundColor":"#ffffff"}]}""",
-                v2Token,
-            )
+        // 0번 칸만 바꾸면 그대로, 2번 칸을 바꾸면 따라간다
+        modifyPalette(listOf("#e54459", "#7ac73f", "#1d99e8"))
+        assertEquals("#1d99e8", legacyLecture(first)["color"]["bg"].asString())
+        modifyPalette(listOf("#e54459", "#7ac73f", "#f58d3d"))
+        assertEquals("#f58d3d", legacyLecture(first)["color"]["bg"].asString())
+    }
+
+    private fun modifyPalette(backgrounds: List<String>) {
+        val colors = backgrounds.joinToString(",") { """{"backgroundColor":"$it","foregroundColor":"#ffffff"}""" }
+        val modified = patch("/v2/themes/$themeId", """{"colors":[$colors]}""", v2Token)
         assertEquals(200, modified.statusCode.value(), "body=${modified.body}")
-        assertEquals("#e54459", legacyLecture(first)["color"]["bg"].asString())
     }
 
     @Test

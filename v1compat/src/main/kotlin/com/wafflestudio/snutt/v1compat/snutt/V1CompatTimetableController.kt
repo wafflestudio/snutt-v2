@@ -309,10 +309,11 @@ class V1CompatTimetableController(
         if (theme.kind == ThemeKind.BUILTIN) return null to value
         // 사용자 테마 시간표에서 두 앱은 팔레트 색을 골라도 colorIndex 0 + 그 색을 보낸다(v1도 그렇게 저장했다). 팔레트에 있는 색이면
         // 팔레트 번호로 저장해 테마 색 변경을 따라가게 한다(v1 modifyTheme도 팔레트 색과 같은 강의 색을 바꿨다). 같은 색이 팔레트에
-        // 여럿이면 첫 번호를 쓴다. 직접 지정한 색으로 굳히면 이후 테마를 고쳐도 그 강의만 색이 남는다.
+        // 여럿이면 마지막 번호를 쓴다(v1 modifyTheme의 색→새 색 맵은 toMap()이라 같은 색의 마지막 칸을 따랐다).
+        // 직접 지정한 색으로 굳히면 이후 테마를 고쳐도 그 강의만 색이 남는다.
         val palette = theme.colors
         val index =
-            palette.indices.firstOrNull {
+            palette.indices.lastOrNull {
                 palette[it].backgroundColor.equals(value.backgroundColor, true) &&
                     palette[it].foregroundColor.equals(value.foregroundColor, true)
             }

@@ -187,6 +187,10 @@ class TimetableService(
         return displayOf(timetable)
     }
 
+    /**
+     * 대표 여부는 TimetableRepository.updateIsPrimary(벌크 update, clearAutomatically)로 바꾼다. 같은 트랜잭션에서 이 호출 전에 읽은
+     * 엔티티는 준영속이 되므로, 이 메서드를 다른 트랜잭션 안에서 부르고 그 뒤에 엔티티를 고치면 변경이 저장되지 않는다.
+     */
     @Transactional
     fun setPrimary(
         userId: Long,

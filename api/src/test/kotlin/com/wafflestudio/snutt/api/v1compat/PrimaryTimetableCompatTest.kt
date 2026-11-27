@@ -28,6 +28,7 @@ class PrimaryTimetableCompatTest : AbstractV1CompatTest() {
 
     @BeforeEach
     fun seed() {
+        // 학기를 만들기 전에 가입해야 가입 시 기본 시간표가 생기지 않아 /v1/tables/recent가 두 시간표 중에서만 고른다.
         legacyToken = v1Register("primaryuser").first
         val user = userRepository.findByLocalIdAndActiveTrue("primaryuser")!!
         val spring = fixtures.coursebook(2026, Semester.SPRING)
