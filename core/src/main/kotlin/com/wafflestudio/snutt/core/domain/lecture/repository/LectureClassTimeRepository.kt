@@ -18,7 +18,7 @@ class LectureClassTimeBatchRepositoryImpl(
         jdbcTemplate.batchUpdate(
             "INSERT INTO lecture_class_time (lecture_id, day, place, start_minute, end_minute) VALUES (?, ?, ?, ?, ?)",
             classTimes,
-            classTimes.size,
+            BATCH_SIZE,
         ) { ps, classTime ->
             ps.setLong(1, classTime.lectureId)
             ps.setInt(2, classTime.day.value)
@@ -26,6 +26,10 @@ class LectureClassTimeBatchRepositoryImpl(
             ps.setInt(4, classTime.startMinute)
             ps.setInt(5, classTime.endMinute)
         }
+    }
+
+    private companion object {
+        const val BATCH_SIZE = 1_000
     }
 }
 

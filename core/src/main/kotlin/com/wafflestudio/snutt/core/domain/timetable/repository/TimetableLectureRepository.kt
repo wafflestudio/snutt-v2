@@ -19,9 +19,4 @@ interface TimetableLectureRepository : JpaRepository<TimetableLecture, Long> {
     fun findForUpdateByTimetableIdIn(timetableIds: Collection<Long>): List<TimetableLecture>
 
     fun findByLectureIdIn(lectureIds: Collection<Long>): List<TimetableLecture>
-
-    fun deleteByTimetableIdAndId(
-        timetableId: Long,
-        id: Long,
-    )
 }

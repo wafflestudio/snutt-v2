@@ -22,7 +22,7 @@ class NotificationBatchRepositoryImpl(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             notifications,
-            notifications.size,
+            BATCH_SIZE,
         ) { ps, notification ->
             ps.setObject(1, notification.userId)
             ps.setString(2, notification.title)
@@ -34,5 +34,9 @@ class NotificationBatchRepositoryImpl(
             ps.setObject(8, now)
             ps.setObject(9, now)
         }
+    }
+
+    private companion object {
+        const val BATCH_SIZE = 1_000
     }
 }
