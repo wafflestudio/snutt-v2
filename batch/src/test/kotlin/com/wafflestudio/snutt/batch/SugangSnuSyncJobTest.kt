@@ -349,6 +349,20 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     }
 
     @Test
+    fun `영어 엑셀에 강의 행이 없으면 실패하고 영어 필드를 지우지 않는다`() {
+        val old = lectureRepository.save(existingLecture().apply { courseTitleEn = "Advanced Korean" })
+        sugang.coursebookCondition(2026, Semester.AUTUMN)
+        sugang.lectureXlsx("ko", SugangXlsxFixture.xlsx(listOf(changedRow())).byteArray)
+        sugang.lectureXlsx("en", SugangXlsxFixture.englishXlsx(emptyList()).byteArray)
+
+        val e = assertThrows<IllegalArgumentException> { runJob() }
+
+        assertEquals("영어 xlsx에 강의 행이 없다", e.message)
+        assertUnchanged(old)
+        assertEquals("Advanced Korean", lectureRepository.findById(old.id!!).get().courseTitleEn)
+    }
+
+    @Test
     fun `필수 컬럼이 빠진 엑셀이면 실패하고 기존 강의는 그대로다`() {
         val old = lectureRepository.save(existingLecture())
         sugang.coursebookCondition(2026, Semester.AUTUMN)
