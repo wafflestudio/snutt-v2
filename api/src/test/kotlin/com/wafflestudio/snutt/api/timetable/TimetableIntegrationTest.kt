@@ -1,7 +1,6 @@
 package com.wafflestudio.snutt.api.timetable
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
-import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -11,6 +10,8 @@ import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureClassTimeRepository
 import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.test.fixture.saveLectureWithTimes
+import com.wafflestudio.snutt.core.test.query.assertQueryCount
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -176,7 +177,8 @@ class TimetableIntegrationTest : AbstractApiIntegrationTest() {
         assertFalse(customLecture.hasNonNull("lectureId"))
 
         post("/v2/timetables/$timetableId/lectures", """{"lectureId":${lectureIds[0]}}""", token)
-        val detail = get("/v2/timetables/$timetableId", token)
+        // 강의 수와 무관하게 조회 쿼리 수가 고정되어야 한다(N+1 회귀 방지). 쓰기는 없어야 한다.
+        val detail = assertQueryCount(select = 6, insert = 0, update = 0, delete = 0) { get("/v2/timetables/$timetableId", token) }
         val referenceLectureId = body(detail)["lectures"].first { it.hasNonNull("lectureId") }["id"].asString()
 
         val modified =

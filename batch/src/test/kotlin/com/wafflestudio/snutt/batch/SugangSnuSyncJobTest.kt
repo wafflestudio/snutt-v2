@@ -1,10 +1,6 @@
 package com.wafflestudio.snutt.batch
 
-import com.wafflestudio.snutt.batch.sugangsnu.LectureBuildingSync
-import com.wafflestudio.snutt.batch.sugangsnu.RegistrationPeriodExtractor
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuCoursebookCondition
-import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureApi
-import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuLectureEnricher
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuSyncJob
 import com.wafflestudio.snutt.batch.sugangsnu.SugangSnuXlsxParser
 import com.wafflestudio.snutt.core.common.client.Language
@@ -31,7 +27,6 @@ import org.mockito.Mockito
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.bean.override.mockito.MockitoBean
 
 class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
     @Autowired
@@ -60,18 +55,6 @@ class SugangSnuSyncJobTest : AbstractBatchIntegrationTest() {
 
     @Autowired
     lateinit var timetableLectureRepository: TimetableLectureRepository
-
-    @MockitoBean
-    lateinit var sugangSnuLectureApi: SugangSnuLectureApi
-
-    @MockitoBean
-    lateinit var sugangSnuLectureEnricher: SugangSnuLectureEnricher
-
-    @MockitoBean
-    lateinit var lectureBuildingSync: LectureBuildingSync
-
-    @MockitoBean
-    lateinit var registrationPeriodExtractor: RegistrationPeriodExtractor
 
     @BeforeEach
     fun seed() {
