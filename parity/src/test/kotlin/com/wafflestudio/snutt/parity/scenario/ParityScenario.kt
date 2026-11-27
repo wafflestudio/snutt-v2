@@ -225,6 +225,14 @@ class ParityScenario(
         variable: String,
     ): String? = vars.getValue(side)[variable]
 
+    /** 쪽마다 다른 값을 직접 정한다. 같은 자리에 쪽마다 다른 입력을 넣어 비교할 때 쓴다(id 별칭으로는 등록하지 않는다). */
+    fun define(
+        variable: String,
+        values: Map<Side, String>,
+    ) {
+        values.forEach { (side, value) -> vars.getValue(side)[variable] = value }
+    }
+
     private fun resolve(
         side: Side,
         template: String,
