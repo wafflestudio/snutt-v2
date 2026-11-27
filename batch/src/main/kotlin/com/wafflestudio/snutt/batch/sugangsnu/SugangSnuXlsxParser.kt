@@ -30,6 +30,26 @@ data class SugangLectureRow(
     val categoryEn: String? = null,
     val classificationEn: String? = null,
     val remarkEn: String? = null,
+) {
+    fun withoutEnglish(): SugangLectureRow =
+        copy(
+            courseTitleEn = null,
+            instructorEn = null,
+            departmentEn = null,
+            academicYearEn = null,
+            categoryEn = null,
+            classificationEn = null,
+            remarkEn = null,
+        )
+}
+
+/**
+ * [englishAvailable]이 false면 영어 엑셀에 강의 행이 없었다(학기 초에 한국어 엑셀만 먼저 공개되는 경우).
+ * 이때 [rows]의 영어 필드는 비어 있고, 동기화는 기존 강의의 영어 필드를 보존해야 한다.
+ */
+data class SugangLectureXlsx(
+    val rows: List<SugangLectureRow>,
+    val englishAvailable: Boolean,
 )
 
 @Component
@@ -74,16 +94,23 @@ class SugangSnuXlsxParser {
                             remarkEn = get("Remark").ifEmpty { null },
                         )
                 }.toMap()
-                // 영어 엑셀만 비어 오면 상세 API가 채우지 않는 영어 필드(classificationEn 등)가 모두 지워지므로 한국어처럼 중단한다.
-                .ifEmpty { throw IllegalArgumentException("영어 xlsx에 강의 행이 없다") }
         }
 
     fun parse(
         koreanXlsx: Resource,
         englishXlsx: Resource,
-    ): List<SugangLectureRow> {
+    ): SugangLectureXlsx {
         val englishByKey = parseEnglish(englishXlsx)
-        return WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
+        if (englishByKey.isEmpty()) log.warn("영어 xlsx에 강의 행이 없다. 기존 강의의 영어 필드는 보존하고 신규 강의는 영어 필드 없이 동기화한다")
+        val rows = parseKorean(koreanXlsx, englishByKey)
+        return SugangLectureXlsx(rows, englishAvailable = englishByKey.isNotEmpty())
+    }
+
+    private fun parseKorean(
+        koreanXlsx: Resource,
+        englishByKey: Map<Pair<String, String>, SugangLectureRowEnglish>,
+    ): List<SugangLectureRow> =
+        WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
             val sheet = workbook.getSheetAt(0)
             val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
             val rows =
@@ -93,7 +120,6 @@ class SugangSnuXlsxParser {
             log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
             rows
         }
-    }
 
     private fun headerIndex(
         sheet: Sheet,

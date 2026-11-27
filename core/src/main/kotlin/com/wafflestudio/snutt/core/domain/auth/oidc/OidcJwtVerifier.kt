@@ -39,6 +39,11 @@ class OidcJwtVerifier(
             null
         }
 
+    /** 받아 둔 JWKS를 모두 버린다. 테스트가 매번 같은 상태에서 시작하도록 베이스가 부른다. */
+    fun clearCache() {
+        jwkSets.clear()
+    }
+
     fun looksLikeJwt(token: String): Boolean {
         val parts = token.split(".")
         return parts.size == 3 && parts.none { it.isBlank() }

@@ -39,7 +39,7 @@ class SugangSnuLiveTest {
         val en = api.downloadLectureXlsx(condition.latestYear, condition.latestSemester, "en").byteArray
         println("live: ${condition.latestYear} ${condition.latestSemester}, ko=${ko.size}B en=${en.size}B")
 
-        val rows = SugangSnuXlsxParser().parse(ko.asResource(), en.asResource())
+        val rows = SugangSnuXlsxParser().parse(ko.asResource(), en.asResource()).rows
         println("live: ${rows.size}개 강의 파싱, 영어 매칭 ${rows.count { it.courseTitleEn != null }}개")
         assertEquals(SugangXlsxFixtureFiles.dataRowCount(ko), rows.size)
         assertTrue(rows.count { it.courseTitleEn != null } * 2 > rows.size, "영어 엑셀과 절반 이상 매칭되어야 한다")

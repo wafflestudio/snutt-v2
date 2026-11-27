@@ -73,6 +73,6 @@ class SocialProviderStubs(
         fun status(code: Int): ResponseDefinitionBuilder = aResponse().withStatus(code).withBody("upstream error")
 
         /** read-timeout(테스트 1초)보다 늦는 응답. */
-        fun slow(response: ResponseDefinitionBuilder): ResponseDefinitionBuilder = response.withFixedDelay(3_000)
+        fun slow(response: ResponseDefinitionBuilder): ResponseDefinitionBuilder = response.withFixedDelay(1_500)
     }
 }

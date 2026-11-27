@@ -12,6 +12,8 @@ import com.wafflestudio.snutt.core.test.fixture.ScenarioFixturesConfig
 import com.wafflestudio.snutt.core.test.query.QueryCountConfig
 import com.wafflestudio.snutt.core.test.time.MutableClock
 import com.wafflestudio.snutt.core.test.time.TestClockConfig
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.mockito.kotlin.any
 import org.mockito.kotlin.whenever
@@ -63,6 +65,15 @@ abstract class AbstractIntegrationTest {
         whenever(mailClient.send(any(), any(), any())).thenReturn(MailSendOutcome.SENT)
         clearAllTables()
         redisTemplate.execute { it.serverCommands().flushAll() }
+    }
+
+    /**
+     * stub과 맞지 않은 요청이 없어야 한다. 404를 삼키는 클라이언트(SNU 지도 등)가 있어 stub 경로가 틀려도 테스트가 통과할 수 있으므로
+     * 모든 통합테스트에서 따로 본다. 404 자체를 검증하려면 stub으로 404를 돌려준다.
+     */
+    @AfterEach
+    fun noUnmatchedExternalRequests() {
+        assertEquals(emptyList<String>(), ExternalApiMock.server.findAllUnmatchedRequests().map { "${it.method} ${it.url}" })
     }
 
     private fun clearAllTables() {
