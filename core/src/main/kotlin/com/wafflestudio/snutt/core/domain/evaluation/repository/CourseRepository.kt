@@ -255,7 +255,6 @@ interface CourseRepository :
                     jpql {
                         selectDistinct(path(Lecture::credit))
                             .from(entity(Lecture::class))
-                            .where(path(Lecture::courseId).isNotNull())
                             .orderBy(path(Lecture::credit).asc())
                     }
                 }.filterNotNull(),
@@ -266,7 +265,6 @@ interface CourseRepository :
                     jpql {
                         selectNew<YearAndSemester>(path(Lecture::year), path(Lecture::semester))
                             .from(entity(Lecture::class))
-                            .where(path(Lecture::courseId).isNotNull())
                             .groupBy(path(Lecture::year), path(Lecture::semester))
                             .orderBy(path(Lecture::year).desc(), path(Lecture::semester).desc())
                     }
@@ -274,7 +272,7 @@ interface CourseRepository :
             updatedAt =
                 findAll {
                     jpql {
-                        select(max(path(Lecture::updatedAt))).from(entity(Lecture::class)).where(path(Lecture::courseId).isNotNull())
+                        select(max(path(Lecture::updatedAt))).from(entity(Lecture::class))
                     }
                 }.firstOrNull(),
         )
@@ -285,7 +283,7 @@ interface CourseRepository :
             jpql {
                 selectDistinct(path(property))
                     .from(entity(Lecture::class))
-                    .where(and(path(Lecture::courseId).isNotNull(), path(property).isNotNull(), path(property).notEqual("")))
+                    .where(and(path(property).isNotNull(), path(property).notEqual("")))
                     .orderBy(path(property).asc())
             }
         }.filterNotNull()
