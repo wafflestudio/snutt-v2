@@ -1,0 +1,736 @@
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+    <!--[if lt IE 9]>
+    <![endif]-->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="author" content="AnyMobi-G">
+    <title>서울대학교 수강신청 시스템</title>
+    <meta name="apple-mobile-web-app-title" content="SNU CRS">
+    <meta name="description" content="서울대학교 학생의 학기 계획을 미리 체계적으로 세울 수 있는 편리한 수강신청 시스템">
+    <meta name="keywords" content="서울대학교 수강신청, 수강신청, 시간표, 관심강좌, 예비수강신청">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://sugang.snu.ac.kr">
+    <meta property="og:title" content="서울대학교 수강신청 시스템">
+    <meta property="og:description" content="서울대학교 학생의 학기 계획을 미리 체계적으로 세울 수 있는 편리한 수강신청 시스템">
+        <!--// 공통 //-->
+</head>
+<body onload="fnInit();">
+<a href="#skip-con" class="skipnavigation"><span>본문 영역으로 바로가기</span></a>
+<div id="wrapper">
+    <input type="hidden" id="isloginChk" value="false"/>
+    <!-- 		<span id="continueConnectionStr" style="display:none;"></span> -->
+    <!-- header -->
+<header id="header">
+	<!-- PC용 헤더 -->
+	<div class="only-on-header">
+		<div class="head-top">
+			<div class="head-inner">
+				<h1 class="logo"><a href="/sugang/co/co010.action"><span class="sr-only">홈 바로가기</span></a>
+					<span class="logo-name">
+								2026 - 겨울학기
+					</span>
+				</h1>
+				<div class="total-search-wrap">
+					<div>
+						<fieldset>
+							<legend>통합검색</legend>
+							<select id="hTotalSelect" title="" disabled>
+								<option value="nm" lang="ko">Search</option>
+							</select>
+							<label for="hTotalSearch">
+								<input type="text" id="hTotalSearch" onkeyup="fnSearchEnterEvent()" class="total-search-input" name="hTotalSearch" title="전체 강좌 검색은 돋보기 버튼을 클릭하세요" placeholder="전체 강좌 검색은 돋보기 버튼을 클릭하세요">
+								<a href="javascript:void(0);" onclick="fnTotalSearch();" class="total-search-btn" title="강좌 검색"><span class="sr-only">강좌 검색 버튼</span></a>
+							</label>
+							<span class="total-filter"><button type="button" class="total-filter-btn" title="상세검색"><span class="sr-only">상세검색</span></button></span>
+						</fieldset>
+					</div>
+				</div>
+				<div class="account-info">
+				</div>
+			</div>
+		</div>
+		<div class="head-bottom">
+			<div class="head-inner">
+				<div class="nav">
+					<ul class="gnb-main">
+						<li id="h_cc000">	<!--// li class="on" : 현재위치 (depth 1) //-->
+							<a href="javascript:void(0);" class="main-menu"><span lang="ko">강좌검색</span></a>
+							<div class="sub-menu-wrap">
+								<ul>
+									<li id="h_cc210"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">관심강좌</span></a></li>
+									<li id="h_cc400"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">수강지도상담</span></a></li>
+								</ul>
+							</div>
+						</li>
+						<li id="h_ca000">
+							<a href="javascript:void(0);" id="cartEm" class="main-menu"><span lang="ko">수강신청</span></a>
+							<div class="sub-menu-wrap" style="width:1500px;">
+								<ul>
+									<li id="h_ca710"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">예비장바구니</span></a></li>
+									<li id="h_ca202"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">예비수강신청</span></a></li>
+									<li id="h_ca210"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">예비수강신청내역</span></a></li>
+								</ul>
+								<ul>
+									<li id="h_ca510"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">장바구니</span></a></li>
+									<li id="h_ca102"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">수강신청</span></a></li>
+									<li id="h_ca110"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">수강신청내역</span></a></li>
+								</ul>
+								<ul>
+									<li id="h_ca600"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">정원 외 신청</span></a></li>
+								</ul>
+							</div>
+						</li>
+						<li id="h_mba">
+							<a href="javascript:void(0);" class="main-menu"><span lang="ko">MBA / EMBA 수강신청</span></a>
+							<div class="sub-menu-wrap">
+								<ul>
+									<li id="h_gsmba"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">MBA수강신청</span></a></li>
+									<li id="h_emba"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">E MBA수강신청</span></a></li>
+								</ul>
+							</div>
+						</li>
+						<li>
+							<a href="https://snugenie.snu.ac.kr/login/sso.do" class="main-menu" target="new" class="link-item"><span lang="ko">수강교과목추천(스누지니)</span></a>
+						</li>
+					</ul>
+				</div>
+				<div class="h-link-list">
+					<ul>
+						<li>
+							<a href="https://snugenie.snu.ac.kr/login/sso.do?redirectUrl=/mypage/stdCmplCond.do" target="new" class="link-item"><span lang="ko">학업이수현황</span></a>
+						</li>
+						<li id="h_notice"><a href="/sugang/co/co100.action" class="link-item" lang="ko">공지사항</a></li>
+						<li id="h_faq"><a href="/sugang/co/co110.action" class="link-item">FAQ</a></li>
+						<!-- <li id="h_qna"><a href="/sugang/co/co120.action" class="link-item">Q&amp;A</a></li> -->
+						<li id="h_available"><a href="/sugang/cc/cc300.action" class="link-item"><span lang="ko">수업교시기준</span></a></li>
+						<li id="h_english"><a href="javascript:void(0)" onclick="fnLngPageMove()" class="link-item"><span lang="ko">ENGLISH</span></a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!--// PC용 헤더 //-->
+	<!-- 모바일용 헤더 -->
+	<div class="only-mo-header">
+		<div class="head-inner">
+			<h1 class="logo"><a href="/sugang/co/co010.action"><span class="sr-only">홈 바로가기</span></a></h1>
+			<span class="logo-title">
+						2026 - 겨울학기
+			</span>
+			<button type="button" class="search-btn"></button>
+			<button type="button" id="mbMenuCartEm" name="mbMenuCartEm" class="open-sm-btn">
+				<span></span><i class='sr-only'>메뉴 열기</i>
+			</button>
+		</div>
+		<div class="sm-wrap" >
+			<div class="sm-head">
+					<p><span lang="ko">로그인 하세요.</span></p>
+			</div>
+			<div class="sm-body">
+				<div class="sm-body-top">
+					<div class="sm-btn-wrap login">
+							<span class="sm-btn english" style="float: none; margin: 0 auto; width: 100%;"><a href="javascript:void(0)" onclick="fnLngPageMove()" ><span lang="ko">ENGLISH</span></a></span>
+					</div>
+					<div class="sm-link-wrap">
+						<ul>
+							<li id="h_mb_notice"><a href="/sugang/co/co100.action" class="link-item" lang="ko">공지사항</a></li>
+							<li id="h_mb_faq"><a href="/sugang/co/co110.action" class="link-item">FAQ</a></li>
+							<!-- <li id="h_mb_qna"><a href="/sugang/co/co120.action" class="link-item">Q&amp;A</a></li> -->
+							<li id="h_mb_available"><a href="/sugang/cc/cc300.action" class="link-item"><span lang="ko">수업교시기준</span></a></li>
+						</ul>
+						<a href="https://now.snu.ac.kr/popup/card/37" class="link-item guide" title="" target="_blank"><em class="q-mark"><img src="/kor/images/btn/btn_information.png" alt="수강신청 방법 안내 도움말 이미지"></em><span lang="ko">장바구니 초보를 위한 수강신청 안내</span></a>
+					</div>
+				</div>
+				<div class="sm-menu-wrap">
+					<ul class="sm-toggle-wrap">
+						<li id="h_mb_cc000">
+							<button type="button" class="sm-toggle-btn" title=""><span lang="ko">강좌검색</span></button>
+							<ul class="sub-menu-wrap">
+								<li id="h_mb_cc210"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">관심강좌</span></a></li>
+								<li id="h_mb_cc400"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">수강지도상담</span></a></li>
+							</ul>
+						</li>
+						<li id="h_mb_ca000">
+							<button type="button" id="mbCartEm" name="mbCartEm" class="sm-toggle-btn" lang="ko">수강신청</button>
+							<ul class="sub-menu-wrap">
+								<li id="h_mb_ca710"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">예비장바구니</span></a></li>
+								<li id="h_mb_ca202"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">예비수강신청</span></a></li>
+								<li id="h_mb_ca210"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">예비수강신청내역</span></a></li>
+								<li id="h_mb_ca510"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">장바구니</span></a></li>
+								<li id="h_mb_ca102"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">수강신청</span></a></li>
+								<li id="h_mb_ca110"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">수강신청내역</span></a></li>
+								<li id="h_mb_ca600"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">정원 외 신청</span></a></li>
+							</ul>
+						</li>
+						<li id="h_mb_mba">
+							<button type="button" class="sm-toggle-btn" title=""><span lang="ko">MBA수강신청</span></button>
+							<ul class="sub-menu-wrap">
+								<li><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">MBA수강신청</span></a></li>
+								<li id="h_mb_emba"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">E MBA수강신청</span></a></li>
+							</ul>
+						</li>
+					</ul>
+				</div>
+			</div>
+			<button type="button" class="close-sm-btn" onclick="closeSideMenu();"><span></span><i class="sr-only">메뉴 닫기</i></button>
+		</div>
+	</div>
+	<!--// 모바일용 헤더 //-->
+	<form id="h_hidden" name="h_hidden">
+	</form>
+	<!-- 통합검색 필터 -->
+	<form id="HD100" name="HD100" method="post">
+		<input type="hidden" id="HEADER_LANG_KIND" value="ko" />
+		<input type="hidden" id="HEADER_SSO_LOGON_URL" value="https://sso.snu.ac.kr/snu/ssologin.jsp?si_redirect_address=https://sugang.snu.ac.kr/sugang/co/co010.action" />
+		<div class="search-filter-wrap">
+			<div>
+				<div class="sf-header" style="display: none;">
+					<fieldset class="search-con">
+						<legend>강좌검색</legend>
+						<div class="left">
+							<button type="button" class="sf-back-btn"><span class="sr-only">검색 옵션창 닫기</span></button>
+							<select id="hMobileTotalSelect" title="">
+								<option value="nm" lang="ko">교과목명</option>
+								<option value="no" lang="ko">교과목번호</option>
+							</select>
+						</div>
+						<div class="cs-input">
+							<label for="hMobileTotalSearch" class="sr-only" lang="ko">전체 강좌 검색은 조회 버튼을 클릭하세요</label>
+							<input type="text" id="hMobileTotalSearch" name="hMobileTotalSearch" onkeyup="fnSearchEnterEvent()" class="search-input" title="전체 강좌 검색은 조회 버튼을 클릭하세요" placeholder="전체 강좌 검색은 조회 버튼을 클릭하세요">
+						</div>
+						<div class="right">
+							<button type="button" onclick="fnTotalSearch();" class="cs-btn search-btn"><span class="sr-only">강좌 검색</span></button>
+							<button type="button" class="cs-btn search-filter-btn"><span class="sr-only">검색 옵션</span></button>
+						</div>
+					</fieldset>
+				</div>
+				<div class="sf-dt" style="display: none;">
+					<em class="fc-blue" id="hMbCurrSchyy">2026</em> <em lang="ko">년도</em>
+					<em class="fc-blue" id="hMbCurrShtmNm">겨울학기</em> <em lang="ko">강좌를 검색합니다.</em>
+				</div>
+				<div class="sf-form">
+					<div class="sf-top">
+						<div class="title">
+							<span lang="ko">상세검색</span>
+							<div class="sf-item-year">
+								<div>
+									<em id="hCurrSchyy">2026</em>
+									<select id="hSrchOpenSchyy" name="hSrchOpenSchyy" onchange="fnSrchOpenSchyy('');" title="">
+											<option value="2026">2026</option>
+											<option value="2025">2025</option>
+											<option value="2024">2024</option>
+											<option value="2023">2023</option>
+											<option value="2022">2022</option>
+											<option value="2021">2021</option>
+											<option value="2020">2020</option>
+											<option value="2019">2019</option>
+											<option value="2018">2018</option>
+											<option value="2017">2017</option>
+											<option value="2016">2016</option>
+											<option value="2015">2015</option>
+											<option value="2014">2014</option>
+											<option value="2013">2013</option>
+									</select>	<!--// 이전학기 검색조건(상세검색)인 클릭시 노출 //-->
+								</div>
+								<span lang="ko">년도</span>
+								<div>
+									<em id="hCurrShtmNm"></em>
+									<input type=hidden name="hCurrShtmFg" id="hCurrShtmFg" value="U000200002U000300002"/>
+									<select id="hSrchOpenShtm" name="hSrchOpenShtm" onchange="fnSrchOpenSchyy('');" title="">
+									</select>
+								</div>
+								<span lang="ko">강좌를 검색합니다.</span>
+							</div>		<!--// 이전학기 검색조건(상세검색)인 클릭시 em(hide), select(show) 처리함 //-->
+						</div>
+						<div class="top-btns">
+							<button type="reset" class="cc-btn filter-reset-btn" lang="ko"><span class="sr-only">검색 옵션 초기화</span>초기화</button>
+							<button type="button" class="close-filter-btn"><span class="sr-only">검색 옵션창 닫기</span></button>
+						</div>
+					</div>
+					<div class="sf-body">
+						<div class="fieldset">
+							<fieldset>
+								<legend>상세검색 항목</legend>
+								<div class="sf-item-con">
+									<div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchOpenShyr" lang="ko">학년</label>
+												<div>
+													<select id="hSrchCptnCorsFg" name="hSrchCptnCorsFg" title="">
+													</select>
+													<select id="hSrchOpenShyr" name="hSrchOpenShyr" title="">
+													</select>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchOpenUpSbjtFldCd" lang="ko">교양영역</label>
+												<div>
+													<select id="hSrchOpenUpSbjtFldCd" name="hSrchOpenUpSbjtFldCd" onchange="fnSrchOpenSbjtFldCd();" title="">
+													</select>
+													<select id="hSrchOpenSbjtFldCd" name="hSrchOpenSbjtFldCd" title="">
+													</select>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchOpenUnionDeptCd" lang="ko">연합/연계 전공</label>
+												<div>
+													<select id="hSrchOpenUnionDeptCd" name="hSrchOpenUnionDeptCd" onchange="fnSrchOpenUnionDeptCd();" title="">
+													</select>
+												</div>
+											</div>
+											<div class="sf-item">
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchOpenUpDeptCd" lang="ko">개설학과</label>
+												<div>
+													<select id="hSrchOpenUpDeptCd" name="hSrchOpenUpDeptCd" onchange="fnSrchOpenDeptCd();" title="">
+													</select>
+													<select id="hSrchOpenDeptCd" name="hSrchOpenDeptCd" onchange="fnSrchOpenMjCd();" title="">
+													</select>
+													<select id="hSrchOpenMjCd" name="hSrchOpenMjCd" title="">
+													</select>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchOpenSubmattCorsFg" lang="ko">과정구분</label>
+												<div>
+													<select id="hSrchOpenSubmattCorsFg" name="hSrchOpenSubmattCorsFg" title="">
+													</select>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label class="diff" lang="ko">교과구분</label>
+												<div id="hSrchOpenSubmattFg">
+													<!-- <label class="cc-check-item small"><input type="radio" name="srchOpenSubmattFgCd"><em title="전체"></em><span>전체</span></label> -->
+												</div>
+											</div>
+											<div class="sf-item mv-t2">
+												<label for="hSrchExcept" class="diff" lang="ko">검색제외 설정</label>
+												<div>
+													<input type="text" id="hSrchExcept" name="hSrchExcept" onkeyup="fnSearchEnterEvent()">
+													<div class="cc-txt" lang="ko">입력하는 단어가 포함된 강좌명을 검색결과에서 제외하라는 조건을 설정합니다. 여러 개의 단어는 쉼표(,)로 구분해서 입력하세요.</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="sf-item-con sf-last-semester">
+									<div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchOpenPntMin" lang="ko">학점</label>
+												<div>
+													<div>
+														<input type="text" id="hSrchOpenPntMin" name="hSrchOpenPntMin" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+														<span>~</span>
+														<input type="text" id="hSrchOpenPntMax" name="hSrchOpenPntMax" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchCamp" lang="ko">강의동</label>
+												<div>
+													<div class='campus'>
+														<select id="hSrchCamp" name="hSrchCamp" onchange="fnCampus();" title="">
+														</select>
+														<input type="text" id="hSrchBdNo" name="hSrchBdNo" onkeyup="fnSearchEnterEvent()" title=""  >
+														<a href="javascript:openCampusMap();" class="campus-map-btn" title=""><div lang="ko">캠퍼스맵 보기</div></a>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchProfNm" lang="ko">교수명</label>
+												<div>
+													<div>
+														<input type="text" id="hSrchProfNm" name="hSrchProfNm" onkeyup="fnSearchEnterEvent()" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchOpenSbjtTmNm" lang="ko">수업교시</label>
+												<div>
+													<div class="sf-class-period">
+														<select id="hSrchOpenSbjtTmNm" name="hSrchOpenSbjtTmNm" title="">
+														</select>
+														<select id="hSrchOpenSbjtDayNm" name="hSrchOpenSbjtDayNm" title="">
+															<option lang="ko">요일선택</option>
+															<option value="mon" lang="ko">월요일</option>
+															<option value="tue" lang="ko">화요일</option>
+															<option value="wed" lang="ko">수요일</option>
+															<option value="thu" lang="ko">목요일</option>
+															<option value="fri" lang="ko">금요일</option>
+															<option value="sat" lang="ko">토요일</option>
+														</select>
+														<button type="button" onclick="javascript:fnSbjtAdd();" class="period-btn add-period-btn" title="수업교시 추가"><span></span></button>
+													</div>
+													<ul class="sf-class-period-added" id="hSrchOpenSbjtTmDayUl">
+													</ul>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchTlsnAplyCapaCntMin" lang="ko">정원</label>
+												<div>
+													<div>
+														<input type="tel" id="hSrchTlsnAplyCapaCntMin" name="hSrchTlsnAplyCapaCntMin" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+														<span>~</span>
+														<input type="tel" id="hSrchTlsnAplyCapaCntMax" name="hSrchTlsnAplyCapaCntMax" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchLsnProgType" class="diff" lang="ko">수업진행 형태</label>
+												<div>
+													<div>
+														<select id="hSrchLsnProgType" name="hSrchLsnProgType" title="">
+														</select>
+														<label class="cc-check-item small" style="margin-left: 15px;">
+															<input type="checkbox" id="hSrchIsEngSbjt" name="hSrchIsEngSbjt"><em title=""></em><span lang="ko">영어강의여부</span>
+														</label>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchTlsnRcntMin" class="diff" lang="ko">수강신청 인원</label>
+												<div>
+													<div >
+														<input type="tel" id="hSrchTlsnRcntMin" name="hSrchTlsnRcntMin" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+														<span>~</span>
+														<input type="tel" id="hSrchTlsnRcntMax" name="hSrchTlsnRcntMax" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item pd-1">
+												<div>
+													<div>
+														<!--<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchIsAplyAvailable" name="hSrchIsAplyAvailable"><em></em><span lang="ko">정원미달여부</span></label>-->
+														<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchMrksApprMthdChgPosbYn" name="hSrchMrksApprMthdChgPosbYn"><em></em><span lang="ko">성적평가방법 변경가능</span></label>
+														<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchIsPendingCourse" name="hSrchIsPendingCourse"><em></em><span lang="ko">장바구니보류여부</span></label>
+														<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchGenrlRemoteLtYn" name="hSrchGenrlRemoteLtYn"><em></em><span lang="ko">일반원격강좌</span></label>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchMrksGvMthd" lang="ko">성적부여 형태</label>
+												<div>
+													<div>
+														<select id="hSrchMrksGvMthd" name="hSrchMrksGvMthd" title="">
+														</select>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>	<!--// 이전학기 검색조건 항목 //-->
+								<button type="button" class="cc-btn view-last-semester-btn" onclick="fnSrchOpenSchyy('reverse');"><span lang="ko">이전학기 검색조건 <em id="hSeeMore" lang="ko">더보기</em></span></button>
+							</fieldset>
+						</div>
+					</div>
+					<div class="sf-footer">
+						<button type="button" onclick="fnTotalSearch();" class="filter-submit-btn" lang="ko">검색</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+	<!--// 통합검색 필터 -->
+	<!-- SSO 로그인 -->
+	<form id="HD101" name="HD101">
+	</form>
+	<!-- 합검색 필터 -->
+	<form id="HD102" name="HD102" method="post">
+		<input type="hidden" name="workType" id="workType" />
+		<input type="hidden" name="pageNo" id="pageNo" />
+		<input type="hidden" name="srchOpenSchyy" id="srchOpenSchyy" />
+		<input type="hidden" name="srchOpenShtm" id="srchOpenShtm" />
+		<input type="hidden" name="srchSbjtNm" id="srchSbjtNm" />
+		<input type="hidden" name="srchSbjtCd" id="srchSbjtCd" />
+		<input type="hidden" name="seeMore" id="seeMore" />
+		<input type="hidden" name="srchCptnCorsFg" id="srchCptnCorsFg" />
+		<input type="hidden" name="srchOpenShyr" id="srchOpenShyr" />
+		<input type="hidden" name="srchOpenUpSbjtFldCd" id="srchOpenUpSbjtFldCd" />
+		<input type="hidden" name="srchOpenSbjtFldCd" id="srchOpenSbjtFldCd" />
+		<input type="hidden" name="srchOpenUpDeptCd" id="srchOpenUpDeptCd" />
+		<input type="hidden" name="srchOpenDeptCd" id="srchOpenDeptCd" />
+		<input type="hidden" name="srchOpenMjCd" id="srchOpenMjCd" />
+		<input type="hidden" name="srchOpenSubmattCorsFg" id="srchOpenSubmattCorsFg" />
+		<input type="hidden" name="srchOpenSubmattFgCd1" id="srchOpenSubmattFgCd1" />
+		<input type="hidden" name="srchOpenSubmattFgCd2" id="srchOpenSubmattFgCd2" />
+		<input type="hidden" name="srchOpenSubmattFgCd3" id="srchOpenSubmattFgCd3" />
+		<input type="hidden" name="srchOpenSubmattFgCd4" id="srchOpenSubmattFgCd4" />
+		<input type="hidden" name="srchOpenSubmattFgCd5" id="srchOpenSubmattFgCd5" />
+		<input type="hidden" name="srchOpenSubmattFgCd6" id="srchOpenSubmattFgCd6" />
+		<input type="hidden" name="srchOpenSubmattFgCd7" id="srchOpenSubmattFgCd7" />
+		<input type="hidden" name="srchOpenSubmattFgCd8" id="srchOpenSubmattFgCd8" />
+		<input type="hidden" name="srchOpenSubmattFgCd9" id="srchOpenSubmattFgCd9" />
+		<input type="hidden" name="srchExcept" id="srchExcept" />
+		<input type="hidden" name="srchOpenPntMin" id="srchOpenPntMin" />
+		<input type="hidden" name="srchOpenPntMax" id="srchOpenPntMax" />
+		<input type="hidden" name="srchCamp" id="srchCamp" />
+		<input type="hidden" name="srchBdNo" id="srchBdNo" />
+		<input type="hidden" name="srchProfNm" id="srchProfNm" />
+		<input type="hidden" name="srchOpenSbjtTmNm" id="srchOpenSbjtTmNm" />
+		<input type="hidden" name="srchOpenSbjtDayNm" id="srchOpenSbjtDayNm" />
+		<input type="hidden" name="srchOpenSbjtTm" id="srchOpenSbjtTm" />
+		<input type="hidden" name="srchOpenSbjtNm" id="srchOpenSbjtNm" />
+		<input type="hidden" name="srchTlsnAplyCapaCntMin" id="srchTlsnAplyCapaCntMin" />
+		<input type="hidden" name="srchTlsnAplyCapaCntMax" id="srchTlsnAplyCapaCntMax" />
+		<input type="hidden" name="srchLsnProgType" id="srchLsnProgType" />
+		<input type="hidden" name="srchTlsnRcntMin" id="srchTlsnRcntMin" />
+		<input type="hidden" name="srchTlsnRcntMax" id="srchTlsnRcntMax" />
+		<input type="hidden" name="srchMrksGvMthd" id="srchMrksGvMthd" />
+		<input type="hidden" name="srchIsEngSbjt" id="srchIsEngSbjt" />
+		<!--<input type="hidden" name="srchIsAplyAvailable" id="srchIsAplyAvailable" />-->
+		<input type="hidden" name="srchMrksApprMthdChgPosbYn" id="srchMrksApprMthdChgPosbYn" />
+		<input type="hidden" name="srchIsPendingCourse" id="srchIsPendingCourse" />
+		<input type="hidden" name="srchGenrlRemoteLtYn" id="srchGenrlRemoteLtYn" />
+		<input type="hidden" name="srchLanguage" id="srchLanguage" value="ko" />
+		<input type="hidden" name="srchCurrPage" id="srchCurrPage" value="1" />
+		<input type="hidden" name="srchPageSize" id="srchPageSize" value="9999" />
+	</form>
+</header>
+    <!-- //header -->
+    <!-- contents -->
+    <div id="skip-con" class="container">
+        <div class="content">
+            <div id="div" class="main-grid unlogged">    <!--// unlogged : 로그인한 경우 삭제 //-->
+                <div class="mg-group mg-grp-1">
+                            <div id="log_wrap" class="login-wrap">
+                                <div class="mg-item" style="height:210px;">
+                                    <div class="con-box">
+                                        <form id="CO010" name="CO010" method="post">
+                                            <input type="hidden" name="si_redirect_address" id="redirect" />
+                                            <input type="hidden" name="si_realm" value="SnuUser1" />
+                                            <h2><strong class="fc-blue" lang="ko">로그인 하세요.</strong></h2>
+<!-- 2023-08-30 SR2308-12242 CH2308-00091 통합인증 SSO 적용 관련 주석 처리
+                                            <div class="enter">
+                                                <fieldset>
+                                                    <legend class="sr-only" lang="ko">마이스누 아이디와 비밀번호를 입력하여 로그인하세요</legend>
+                                                    <label for="user-class-num" class="sr-only" lang="ko">아이디 입력</label>
+                                                    <input type="text" name="si_id" id="si_id" title="마이스누 아이디" tabindex="1" onkeypress="fnEnterSsoLogin(event);" onfocus="fnSsoUsername(0);" onblur="fnSsoUsername(1);" placeHolder="마이스누 아이디" autocomplete="off"">
+                                                    <label for="user-pw" class="sr-only" lang="ko">비밀번호 입력</label>
+                                                    <input type="hidden" name="si_pwd" id="si_pwd"/>
+                                                    <input type="password" name="v_password" id="v_password" onkeypress="fnEnterSsoLogin(event);" onblur="fnPassword(1);"  value="" style="display:none"/>
+                                                    <input type="text" name="t_password" id="t_password" title="마이스누 비밀번호" tabindex="2" onfocus="fnPassword(0);" placeHolder="마이스누 비밀번호"/>
+                                                    <input type="hidden" name="netfunnel_key" id="netfunnel_key"/>
+                                                </fieldset>
+                                            </div>
+-->
+                                            <div class="btns">
+                                                <button type="button" class="cc-btn login-btn" onclick="javascript:fnSsoLogin();"><span  lang="ko">로그인</span></button>
+                                            </div>
+                                            <div class="bottom">
+                                                <div class="txt" lang="ko">본인 아이디 또는 비밀번호 찾기가 가능합니다.</div>
+                                                <a href="javascript:next_page5('sso_index.jsp','find','Y','ko','id');" class="find-account-btn">
+                                                    <span lang="ko">아이디 찾기</span> &nbsp;/&nbsp;
+                                                </a>
+                                                <a href="javascript:next_page5('sso_index.jsp','find','Y','ko','pw');" class="find-account-btn">
+                                                    <span lang="ko">비밀번호 찾기</span>
+                                                </a>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--// 로그인 //-->
+                            <!--// 로그인한 경우 삭제 //-->
+                    <div class="mg-item mg-period-guide">
+                        <div class="con-box">
+                            <h2>
+                                <strong>
+                                    <em class="fc-blue">
+                                                2026<span lang="ko">학년도</span> 겨울학기
+                                    </em> <span lang="ko">수강신청 기간안내</span></strong>   <!-- 2020학년도 겨울학기 -->
+                                <small class="indent">
+                                    ※ <span lang="ko">장바구니는 선착순이 아닙니다.</span>
+                                </small>
+                            </h2>
+                            <div class="table-con">
+                                <table>
+                                    <caption><strong><span lang="ko">학기별 수강신청 기간 게시판</span></strong><span lang="ko">학기별 수강신청 기간의 목록 표입니다. 구분, 일자, 시간, 대상 등으로 구성되어 있습니다.</span></caption>
+                                    <colgroup>
+                                        <col width="25%"/>
+                                        <col width="40%"/>
+                                        <col width="19%"/>
+                                        <col />
+                                    </colgroup>
+                                    <thead>
+                                    <tr>
+                                        <th data-th="구분" scope="col"><span lang="ko">수강신청 구분</span></th>
+                                        <th data-th="일자" scope="col"><span lang="ko">일자</span></th>
+                                        <th data-th="시간" scope="col"><span lang="ko">시간</span></th>
+                                        <th data-th="대상" scope="col" class="right_no"><span lang="ko">대상</span></th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                            <tr >
+                                                <th data-th="구분" scope="row">
+                                                    <span>수강취소(개강전)</span>
+                                                </th>
+                                                <td data-th="일자">
+                                                    2026-12-11(금)&nbsp;~&nbsp;
+                                                    2026-12-21(월)
+                                                </td>
+                                                <td data-th="시간">00 : 00 ~ 23 : 59</td>
+                                                <td data-th="대상">
+                                                    전액 환불(mySNU-학사정보-계절학기수강취소/환불)
+                                                </td>
+                                            </tr>
+                                            <tr >
+                                                <th data-th="구분" scope="row">
+                                                    <span>수강취소(개강후) </span>
+                                                </th>
+                                                <td data-th="일자">
+                                                    2026-12-22(화)&nbsp;~&nbsp;
+                                                    2027-01-07(목)
+                                                </td>
+                                                <td data-th="시간">00 : 00 ~ 23 : 59</td>
+                                                <td data-th="대상">
+                                                    2/3 환불(~1/1), 1/2 환불(~1/7) 메뉴: mySNU-학사정보-수업-계절학기수강취소/환불
+                                                </td>
+                                            </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>        <!--// 수강신청 기간안내 //-->
+                </div>
+                <div class="mg-group mg-grp-2">
+                    <div class="mg-item mg-course-reg-guide">
+                        <a href="https://now.snu.ac.kr/popup/card/37" class="cc-btn link" target="_blank"><span lang="ko">장바구니 초보를 위한 수강신청 안내<span class="sr-only">새창으로 열기</span></span></a>
+                    </div>
+                    <div class="mg-item mg-manual-down">
+                                <a href="/kor/guide/manual.pdf" download class="cc-btn down"><span lang="ko">수강신청방법 매뉴얼</span><span class="sr-only" lang="ko">다운받기</span></a>
+                    </div>        <!--// 수강신청방법 매뉴얼 다운로드 //-->
+                    <div id="sugangGuideContents" class="mg-item mg-course-guide con-expand opened"    >
+                        <div class="con-box">
+                            <h2 class="title-line"><strong class="fc-blue" lang="ko">수강안내</strong></h2>
+                                    <div class="editor-content">
+                                            <p>★ 강의매매 방지를 위한 수강신청제도 시스템을 운영합니다.(2025년 동계 계절수업부터 운영중)<br /><br />자세한 사항은 mySNU 포털 공지사항 혹은 수강신청사이트 공지사항을 참고해 주시기 바랍니다.</p><br /><br /><p><a href="https://my.snu.ac.kr/sp/comm/login-sso?returnUrl=%2Fctt%2Fbb%2Fbulletin%3Fb%3D2%26p%3D12611">https://my.snu.ac.kr/sp/comm/login-sso?returnUrl=%2Fctt%2Fbb%2Fbulletin%3Fb%3D2%26p%3D12611</a></p><br /><br /><p>★ 동계 계절수업 수강취소 ★<br /><br />&nbsp;&nbsp;&nbsp; mySNU - 학사정보 - 수업/성적 - 수업 - 계절수업수강취소/환불<br /><br />&nbsp;&nbsp;&nbsp; ※ 수강신청 사이트가 아닌 mySNU에서 취소 신청</p><br /><br /><p>&nbsp;(개강전=전액환불) 2026. 12. 11.(금) ~ 12. 21.(월)<br /><br />&nbsp;(개강후=2/3환불) 2026. 12. 22.(화) ~ 2027. 1. 1.(금)<br /><br />&nbsp;(개강후=1/2환불) 2027. 1. 2.(토) ~ 1. 7.(목)<br /><br />&nbsp;[등록금 납부 및 폐강 등 수강신청 세부 일정은 마이스누 학생공지 동계계절수업 수강신청 안내 참고]</p><br /><br /><p>* 중복수강신청: (1차) 11. 4.(수) ~ 11. 9.(월) 18:00 (2차) 11. 11.(수) ~ 11. 13.(금) 16:00<br /><br />* 기간 내에 교원 승인까지 완료되어야 합니다.</p><br /><br /><p>◎ 2026학년도 2학기에 수강중인 교과목을 동계 계절수업에 바로 수강신청할 수 없으며,<br /><br />수강신청 내역 취소처리 또는 성적상의 불이익(재수강 미인정, 동일과목 성적 중복 인정)이 발생할 수 있습니다.<br /><br /><br /><br />* 동계 계절수업 수강가능학점: 최대 9학점(동계 계절수업 교과목+교류수학 시 타교수학학점)<br /><br />* 국내 교류수학시 총합 9학점이 넘지 않도록 유의하여 수강신청 필요</p><br /><br /><p>★ 로그인 없이도 강좌 검색이 가능합니다.<br /><br />- 전체 강좌 검색(검색창 돋보기(검색) 아이콘 클릭)<br /><br />- 조건별 강좌 검색(검색상 돋보기(검색) 아이콘 옆 간편/상세검색 아이콘 클릭)</p><br /><br /><p>★ 이전학기 교과목 검색<br /><br />&nbsp;검색창 상세조건 아이콘(돋보기 버튼 옆) 클릭&rarr; 이전학기 검색조건 더보기 클릭 &rarr; 학년도 및 학기 변경 &rarr; 검색 버튼</p><br /><br /><p>1. 수강신청 대상 : 전체학생(휴학생 포함) - 2027년 2월 졸업예정자는 2026학년도 2학기 등록자만 가능<br /><br />2. 수강신청학점 : 최대 9학점<br /><br />3. 학부/대학원 과정간, 대학원의 석사/박사과정간 과거 이수한 과목의 수강신청(중복수강)은 가능하나 졸업/이수학점으로 인정되지 않습니다.<br /><br />- 학부 3학년이상만 석사과정의 교과목 수강 가능(1,2학년 수강시 성적표에 표기되나, 졸업학점으로 인정 안됨)<br /><br />- 대학원 과정 학생의 경우 6학점까지 학부과목 수강 가능(대학원 과정(석,박사) 통산)(학과장 또는 전공주임교수의 승인, 가능여부를 반드시 해당 대학(원)에 문의후 신청) 　<br /><br />4. 수강신청시 보안문자(2자리 숫자)를 입력해야만 수강신청이 가능합니다. 　<br /><br />5. 수강신청 및 변경 후 반드시 개인 수강내역을 확인하시어 불이익이 발생하지 않도록 주의하시기 바랍니다.<br /><br />6. 수강신청관련 실수 사례<br /><br />- 수강 미신청 후 수강신청으로 착각하여 계속 수업에 참석(성적취득 불가)<br /><br />- 수강신청, 변경, 취소기간 종료 후 처리 요청(처리불가)<br /><br />7. 수강신청에 어려움이 있을 경우 반드시 소속 단과대학(학과)에 수강지도를 받으시기 바랍니다. 　<br /><br />[매크로 사용 및 ID를 도용하는 경우 매크로 사용 및 ID도용자는 IP를 추적 등을 통해 학칙(규정)에 따라 처리될 수 있습니다.]</p><br />
+                                    </div>
+                        </div>
+                        <div class="expanded-btn style="display: block;">
+                        <button type="button"><span class="sr-only" lang="ko">수강안내 내용</span><em lang="ko">전체보기</em><i class="arrow"></i></button>
+                    </div>
+                </div>
+                <!--// 수강안내 //-->
+            </div>
+            <div class="mg-bbs">
+                <div class="mg-item">
+                    <div class="con-box">
+                        <div>
+                            <h2 class="title-line"><strong class="fc-blue" lang="ko">공지사항</strong></h2>
+                            <div class="link-con dot">
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('NOTICE', '6541','9999587','0')">
+                                                        2026학년도 2학기 기초교양 수강편람: 공통교육과정..
+                                            </a>
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('NOTICE', '6540','9999588','0')">
+                                                        2026학년도 2학기 전공 및 대학원과정 수강편람 게시..
+                                            </a>
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('NOTICE', '6524','9999604','0')">
+                                                        시스템 동시접속 제한 및 브라우저 캐시 삭제 방법 안내..
+                                            </a>
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('NOTICE', '6497','9999629','0')">
+                                                        [필독] 수강신청 부정행위 금지 안내
+                                            </a>
+                            </div>
+                            <a class="view-more-btn arrow-img gray" href="co100.action"><i></i><span class="sr-only" lang="ko">공지사항 페이지로 이동</span><span lang="ko">더보기</span>&nbsp;</a>
+                        </div>
+                    </div>
+                </div>        <!--// 공지사항 //-->
+                <div class="mg-item">
+                    <div class="con-box">
+                        <div>
+                            <h2 class="title-line"><strong class="fc-blue">FAQ</strong></h2>
+                            <div class="link-con faq">
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('FAQ', '6356','9999968','0')" >
+                                                        수강반 제한이란 무엇인가요?
+                                            </a>
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('FAQ', '6344','9999969','0')" >
+                                                        수강취소 FAQ
+                                            </a>
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('FAQ', '6343','9999970','0')" >
+                                                        eTL 관련 FAQ
+                                            </a>
+                                            <a class="link-item ellipsis" href="javascript:fnDetail('FAQ', '6342','9999971','0')" >
+                                                        재수강 및 성적평가방법 변경 FAQ
+                                            </a>
+                            </div>
+                            <a class="view-more-btn arrow-img gray" href="co110.action"><i></i><span class="sr-only" lang="ko">자주 묻는 질문 페이지로 이동</span><span lang="ko">더보기</span>&nbsp;</a>
+                        </div>
+                    </div>
+                </div>        <!--// FAQ //-->
+            </div>
+        </div>
+    </div>
+</div>    <!--// 본문 //-->
+<!-- //contents -->
+<!-- footer -->
+<footer id="footer">
+	<input type="hidden" id="isloginChk" value="false" />
+	<div class="foot-inner">
+		<div class="foot-left">
+			<div class="foot-link">
+				<a href="https://www.snu.ac.kr/personal_information" target="new"
+					><span lang="ko">개인정보처리방침</span></a> <a
+					href="https://www.snu.ac.kr/prohibition_of_unauthorized_email_collection"
+					target="new"><span lang="ko">이메일무단수집거부</span></a>
+			</div>
+			<div class="foot-copy">Copyright (C) 2020 SEOUL NATIONAL UNIVERSITY.
+				All Rights Reserved.</div>
+		</div>
+	</div>
+</footer>
+<a class="scroll-top-btn" href="javascript:void(0);" role="button"
+	onclick="onScrollTop();"><span class="arrow"></span><span
+	class="sr-only">페이지 맨 위로 이동</span></a>
+<div id="overlay"></div>
+<div id="timeOverlay" data-dialog-name="login-dialog"></div>
+<div id="menuOverlay"></div>
+<!--// 닫기 -->
+<!-- 로그인 연장 팝업 -->
+<div class="cc-dialog-wrap" id="divLoginExtension"
+	data-dialog-name="login-dialog">
+	<div>
+		<div class="top">
+			<p class="title" lang="ko">로그인 연장</p>
+			<div>
+				<span lang="ko">로그인 연장을 원하지 않으실 경우</span>,<br> <span lang="ko">자동로그아웃 됩니다</span>.
+			</div>
+			<div>
+				<em class="time-countdown"><em id="timerPup"></em></em>
+			</div>
+		</div>
+		<div class="grid-con md-btns">
+			<button type="button" class="grid-item cc-btn cancel"
+				onclick="fnLogout()" lang="ko">로그아웃</button>
+			<button type="button" class="grid-item cc-btn"
+				onclick="sessionExtend();" lang="ko">로그인 연장</button>
+		</div>
+	</div>
+</div>
+<!-- // 로그인 연장 팝업 -->
+<!-- //footer -->
+</body>
+</html>

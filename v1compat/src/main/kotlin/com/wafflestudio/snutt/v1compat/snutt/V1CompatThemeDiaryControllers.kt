@@ -14,7 +14,7 @@ import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.friend.repository.FriendRepository
-import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
+import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.model.PublishedTheme
@@ -583,14 +583,17 @@ class V1CompatReminderController(
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
     private val courseRepository: CourseRepository,
-    private val lectureService: LectureService,
+    private val lectureRepository: LectureRepository,
 ) {
     @V1Public
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
         @PathVariable lectureId: Long,
     ): LegacyEvSummary {
-        val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
+        // v1은 강의가 없어도 EV 요약이 없는 것과 같이 40407(EV_DATA_NOT_FOUND)로 응답한다.
+        val courseId =
+            lectureRepository.findByIdOrNull(lectureId)?.courseId
+                ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         val course = courseRepository.findByIdOrNull(courseId)
         return LegacyEvSummary(
             evLectureId = courseId,

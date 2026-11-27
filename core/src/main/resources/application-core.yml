@@ -7,6 +7,7 @@ snutt:
     sender-name: SNUTT
     region: ap-chuncheon-1
   github:
+    base-url: https://api.github.com
     repo-owner: wafflestudio
     repo-name: snutt-feedbacks
   storage:
@@ -17,6 +18,12 @@ snutt:
     auth-type: config
     config-profile: DEFAULT
   auth:
+    social:
+      google-base-url: https://www.googleapis.com
+      kakao-base-url: https://kapi.kakao.com
+      facebook-graph-base-url: https://graph.facebook.com
+      facebook-jwks-uri: https://www.facebook.com/.well-known/oauth/openid/jwks/
+      apple-jwks-uri: https://appleid.apple.com/auth/keys
     jwt:
       access-token-ttl: PT2H
       password-reset-token-ttl: PT15M

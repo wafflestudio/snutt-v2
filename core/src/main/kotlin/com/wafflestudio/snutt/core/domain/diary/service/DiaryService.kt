@@ -125,10 +125,10 @@ class DiaryService(
         request: DiarySubmissionRequest,
     ) {
         if (request.comment.length > COMMENT_MAX_LENGTH) throw SnuttException(ErrorType.DIARY_COMMENT_TOO_LONG)
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
-        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (diarySubmissionRepository.existsByUserIdAndLectureIdAndCreatedAtAfter(
                 userId,
                 lecture.id!!,

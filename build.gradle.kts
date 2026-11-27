@@ -67,11 +67,13 @@ subprojects {
     // 태그가 붙은 테스트는 PR CI(`test`)에서 빠지고 태그별 전용 태스크로만 돈다. 값은 testFixtures의 TestTags와 같다.
     // parity-known-failure는 parity가 찾은 실제 버그를 재현하는 시나리오다. 고쳐지기 전까지 빨간 상태라 parityTest와 분리한다.
     // parity-snapshot은 시드 대신 운영 덤프를 넣어 도는 parity(작업 M 리허설용)다. 덤프 경로를 줘야 돈다.
+    // live는 실제 외부 사이트(sugang.snu.ac.kr)를 호출하므로 사람이 직접 `./gradlew liveTest`로만 돌린다.
     val separatedTags =
         mapOf(
             "parity" to "parityTest",
             "perf" to "perfTest",
             "stress" to "stressTest",
+            "live" to "liveTest",
             "parity-known-failure" to "parityKnownFailureTest",
             "parity-snapshot" to "paritySnapshotTest",
         )
@@ -91,6 +93,13 @@ subprojects {
             // 아직 해당 태그 테스트가 없는 모듈에서도 태스크가 성공해야 한다.
             failOnNoDiscoveredTests = false
             shouldRunAfter(tasks.named("test"))
+            if (tag == "live") {
+                // 외부 상태를 확인하는 테스트라 매번 실제로 돌아야 한다.
+                outputs.upToDateWhen { false }
+                // -PrefreshFixtures를 주면 받은 응답으로 src/test/resources/fixtures를 갱신한다.
+                systemProperty("snutt.live.refreshFixtures", project.hasProperty("refreshFixtures").toString())
+                systemProperty("snutt.live.fixturesDir", project.file("src/test/resources/fixtures").absolutePath)
+            }
         }
     }
 }

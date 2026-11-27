@@ -1,0 +1,219 @@
+package com.wafflestudio.snutt.api.v1compat
+
+import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.v1compat.error.V1CompatExceptionHandler
+import com.wafflestudio.snutt.v1compat.ev.V1CompatEvController
+import com.wafflestudio.snutt.v1compat.snutt.V1CompatEvSummaryController
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
+import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatus
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.web.method.HandlerMethod
+import org.springframework.web.server.ResponseStatusException
+
+/**
+ * 구앱이 에러 바디로 분기하는 경로(v1 errcode, EV errcode)를 고정한다.
+ * 기대값은 v1 서버 코드에서 가져왔다. 출처는 각 테스트에 적는다.
+ */
+class V1CompatErrorFormatTest : AbstractV1CompatTest() {
+    @Autowired
+    lateinit var userRepository: UserRepository
+
+    @Autowired
+    lateinit var exceptionHandler: V1CompatExceptionHandler
+
+    @Autowired
+    lateinit var evController: V1CompatEvController
+
+    @Autowired
+    lateinit var evSummaryController: V1CompatEvSummaryController
+
+    private val evaluationBody =
+        """{"content":"설명이 친절하고 과제 난이도도 적당한 좋은 강의입니다","grade_satisfaction":4.0,"teaching_skill":4.0,""" +
+            """"gains":4.0,"life_balance":4.0,"rating":4.0}"""
+
+    private fun verifiedLegacyUser(localId: String): String {
+        val (token, _) = v1Register(localId)
+        val user = userRepository.findByLocalIdAndActiveTrue(localId)!!
+        user.isEmailVerified = true
+        userRepository.save(user)
+        return token
+    }
+
+    // snutt-ev ErrorType: LECTURE_NOT_FOUND(24001)은 EV lecture(= v2 course), SEMESTER_LECTURE_NOT_FOUND(24002)는
+    // EV semester_lecture(= v2 lecture)다. EvaluationService.getEvaluationSummaryOfLecture / getSemesterLectureToWriteEvaluation.
+    @Test
+    fun `EV 경로에서 없는 과목은 24001, 없는 분반은 24002로 응답한다`() {
+        val token = verifiedLegacyUser("evcode")
+
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/987654/evaluation-summary", token), 404, 24001)
+        assertV1Error(v1Post("/v1/ev-service/v1/semester-lectures/987654/evaluations", evaluationBody, token), 404, 24002)
+    }
+
+    // snutt-ev LectureService.getLectureIdFromCourseNumber / getLectureIdFromSnuttId: 둘 다 LectureNotFoundException(24001).
+    // snuttId 변형은 snutt_lecture_id_map이 없을 때(= 분반이 없거나 EV lecture와 이어지지 않았을 때)도 24001이다.
+    @Test
+    fun `EV lectures id 조회는 두 변형 모두 과목을 찾지 못하면 24001로 응답한다`() {
+        val token = verifiedLegacyUser("evlectureid")
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val unlinked = fixtures.lecture(autumn, courseTitle = "과목 없는 강의")
+
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?course_number=NOPE.001&instructor=nobody", token), 404, 24001)
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?semesterLectureSnuttId=987654", token), 404, 24001)
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?semesterLectureSnuttId=5f1e2d3c4b5a697887766554", token), 404, 24001)
+        assertV1Error(v1Get("/v1/ev-service/v1/lectures/id?semesterLectureSnuttId=${unlinked.id}", token), 404, 24001)
+    }
+
+    // snutt EvService.getEvSummary: EV에 요약이 없으면 EvDataNotFoundException(40407). 강의가 없어도 같다.
+    @Test
+    fun `앱 강의평 요약은 강의가 없거나 과목이 연결되지 않으면 40407로 응답한다`() {
+        val (token, _) = v1Register("evsummary404")
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val unlinked = fixtures.lecture(autumn, courseTitle = "과목 없는 강의")
+
+        assertV1Error(v1Get("/v1/ev/lectures/987654/summary", token), 404, 40407)
+        assertV1Error(v1Get("/v1/ev/lectures/${unlinked.id}/summary", token), 404, 40407)
+    }
+
+    // v1 ErrorWebFilter(snutt/api/.../filter/ErrorWebFilter.kt): SnuttException이 아니면 500 + DEFAULT_ERROR(errcode 0),
+    // ResponseStatusException(매핑 없는 경로 404, 메서드 405, 미디어 타입 415)이면 그 상태 + errcode 0.
+    // Android는 errcode 없는 바디를 파싱하지 못해 Unknown 에러가 된다.
+    @Test
+    fun `v1 경로의 처리되지 않은 예외는 v1 에러 형식의 500 errcode 0으로 응답한다`() {
+        val (token, _) = v1Register("v1unhandled")
+
+        // x-os-version은 user_device.os_version VARCHAR(32)에 그대로 들어간다. 검증이 없어 DB 오류(500)가 난다.
+        val response =
+            v1Send(
+                HttpMethod.POST,
+                "/v1/user/device/fcm-too-long",
+                legacyToken = token,
+                headers = mapOf("x-os-type" to "android", "x-os-version" to "9".repeat(64)),
+            )
+
+        assertV1Error(response, 500, 0)
+        // v1 DEFAULT_ERROR: message는 개발자용 문구, displayMessage는 사용자 안내 문구.
+        assertEquals("API 호출에 실패하였습니다", body(response)["message"].asString())
+        assertEquals("서버에 문제가 있으니, 잠시 후 다시 시도해주세요", body(response)["displayMessage"].asString())
+    }
+
+    @Test
+    fun `v1 경로의 매핑 없는 경로와 메서드, 미디어 타입 오류도 v1 에러 형식으로 응답한다`() {
+        val (token, _) = v1Register("v1notfound")
+
+        // v1 ErrorWebFilter: ResponseStatusException이면 message = ProblemDetail title(상태 reason phrase).
+        val notFound = v1Get("/v1/no-such-endpoint", token)
+        assertV1Error(notFound, 404, 0)
+        assertEquals("Not Found", body(notFound)["message"].asString())
+        assertEquals("서버에 문제가 있으니, 잠시 후 다시 시도해주세요", body(notFound)["displayMessage"].asString())
+        assertV1Error(v1Get("/v1/ev-service/v1/no-such-endpoint", token), 404, 0)
+        val methodNotAllowed = v1Delete("/v1/configs", token)
+        assertV1Error(methodNotAllowed, 405, 0)
+        assertEquals("Method Not Allowed", body(methodNotAllowed)["message"].asString())
+        val unsupportedMediaType =
+            v1Send(HttpMethod.POST, "/v1/tables", "year=2026", token, headers = mapOf("Content-Type" to "text/plain"))
+        assertV1Error(unsupportedMediaType, 415, 0)
+        assertEquals("Unsupported Media Type", body(unsupportedMediaType)["message"].asString())
+        // API key 검증은 핸들러 매핑과 상관없이 v1 경로 전체에 걸린다. 매핑 없는 경로에서도 v1 형식으로 나가야 한다.
+        assertV1Error(v1Send(HttpMethod.GET, "/v1/no-such-endpoint", apiKey = null), 403, 0x2000)
+    }
+
+    // 인터셉터와 핸들러 매핑은 디코딩하고 `;` 파라미터를 뺀 경로로 맞춘다. raw URI로 판정하면 이런 요청이
+    // 인터셉터에는 걸리고(API key 검사) 에러 형식 판정에서는 빠져 ProblemDetail로 나간다.
+    @Test
+    fun `경로 파라미터나 인코딩이 섞인 v1 경로도 v1 에러 형식으로 응답한다`() {
+        val (token, _) = v1Register("v1rawpath")
+
+        assertV1Error(v1Get("/v1;jsessionid=abc/no-such-endpoint", token), 404, 0)
+        assertV1Error(v1Send(HttpMethod.GET, "/v1;jsessionid=abc/no-such-endpoint", apiKey = null), 403, 0x2000)
+        assertV1Error(v1Send(HttpMethod.GET, "/ev-service;x=1/v1/no-such-endpoint", apiKey = null), 403, 0x2000)
+    }
+
+    @Test
+    fun `v2 경로의 오류는 그대로 ProblemDetail로 응답한다`() {
+        val response = get("/v2/no-such-endpoint")
+
+        assertEquals(404, response.statusCode.value())
+        assertEquals("application/problem+json", response.headers.contentType.toString())
+        assertEquals(false, body(response).has("errcode"))
+    }
+
+    @Test
+    fun `EV 경로에서 강의평 과목이 연결되지 않은 분반은 24002로 응답한다`() {
+        val token = verifiedLegacyUser("evnocourse")
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val lecture = fixtures.lecture(autumn, courseTitle = "과목 없는 강의")
+
+        assertEquals(null, lecture.courseId)
+        assertV1Error(v1Post("/v1/ev-service/v1/semester-lectures/${lecture.id}/evaluations", evaluationBody, token), 404, 24002)
+    }
+
+    // @ExceptionHandler(Exception::class)가 있으면 Spring은 cause 쪽 핸들러를 찾지 않는다. 감싼 예외가 catch-all로 가
+    // 원래 errcode가 500 errcode 0으로 가려지지 않게 한다. 요청 경로로는 SnuttException이 감싸여 오는 곳이 지금 없어
+    // 실제 핸들러 빈과 실제 컨트롤러 메서드로 핸들러를 직접 부른다.
+    @Test
+    fun `다른 예외로 감싸인 SnuttException은 catch-all이 아니라 원래 errcode로 응답한다`() {
+        val snuttHandler = handlerOf(evSummaryController, "getLectureEvaluationSummary")
+        val evHandler = handlerOf(evController, "getEvaluation")
+
+        fun wrap(error: ErrorType) = IllegalStateException("outer", RuntimeException("middle", SnuttException(error)))
+
+        val snutt = exceptionHandler.handleUnexpectedException(wrap(ErrorType.TIMETABLE_NOT_FOUND), snuttHandler, MockHttpServletRequest())
+        assertEquals(404, snutt.statusCode.value())
+        assertEquals(40400L, snutt.body!!.errcode)
+
+        val ev = exceptionHandler.handleUnexpectedException(wrap(ErrorType.COURSE_NOT_FOUND), evHandler, MockHttpServletRequest())
+        assertEquals(404, ev.statusCode.value())
+        assertEquals(24001L, ev.body!!.errcode)
+
+        // cause가 순환해도 끝나고, SnuttException이 없으면 그대로 500 errcode 0이다.
+        val a = IllegalStateException("a")
+        val b = IllegalArgumentException("b", a)
+        a.initCause(b)
+        val unexpected = exceptionHandler.handleUnexpectedException(a, snuttHandler, MockHttpServletRequest())
+        assertEquals(500, unexpected.statusCode.value())
+        assertEquals(0L, unexpected.body!!.errcode)
+    }
+
+    // Spring이 상태를 정한 예외라도 5xx(예: 503)는 서버 문제라 로그로 남겨야 한다. 4xx는 남기지 않는다.
+    @Test
+    @ExtendWith(OutputCaptureExtension::class)
+    fun `상태가 정해진 예외는 5xx일 때만 서버 오류 로그를 남긴다`(output: CapturedOutput) {
+        val handler = handlerOf(evSummaryController, "getLectureEvaluationSummary")
+
+        val notFound =
+            exceptionHandler.handleUnexpectedException(
+                ResponseStatusException(HttpStatus.NOT_FOUND, "nf-marker"),
+                handler,
+                MockHttpServletRequest(),
+            )
+        assertEquals(404, notFound.statusCode.value())
+        assertFalse(output.out.contains("nf-marker"))
+
+        val unavailable =
+            exceptionHandler.handleUnexpectedException(
+                ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "su-marker"),
+                handler,
+                MockHttpServletRequest(),
+            )
+        assertEquals(503, unavailable.statusCode.value())
+        assertEquals(0L, unavailable.body!!.errcode)
+        assertTrue(output.out.contains("unhandled exception"))
+        assertTrue(output.out.contains("su-marker"))
+    }
+
+    private fun handlerOf(
+        bean: Any,
+        methodName: String,
+    ): HandlerMethod = HandlerMethod(bean, bean.javaClass.methods.first { it.name == methodName })
+}

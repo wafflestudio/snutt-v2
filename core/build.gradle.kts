@@ -42,4 +42,8 @@ dependencies {
     testFixturesApi("org.testcontainers:testcontainers-mysql")
     testFixturesApi("org.mockito.kotlin:mockito-kotlin:6.4.0")
     testFixturesImplementation("net.ttddyy:datasource-proxy:1.11.0")
+    // perf 데이터셋을 별도 스키마(snutt_perf)에 만들 때 운영과 같은 migration을 적용한다.
+    testFixturesImplementation("org.flywaydb:flyway-mysql")
+    // 외부 HTTP API를 네트워크 경계에서 mock한다. standalone은 Jetty·Jackson 2를 shading해 Spring Boot 4 의존성과 충돌하지 않는다.
+    testFixturesApi("org.wiremock:wiremock-standalone:3.13.2")
 }

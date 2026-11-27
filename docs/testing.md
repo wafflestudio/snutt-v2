@@ -19,8 +19,9 @@
 | `parity` | `@ParityTest` | `./gradlew parityTest` | v1 서버와 v1compat 응답 비교 ([parity.md](parity.md)) |
 | `parity-known-failure` | `@ParityKnownFailure` | `./gradlew parityKnownFailureTest` | parity가 찾은 버그 재현. 고쳐지기 전까지 실패가 정상 |
 | `parity-snapshot` | `@ParitySnapshot` | `./gradlew paritySnapshotTest -Dparity.source.…` | 외부 덤프(운영 스냅샷)로 도는 parity |
-| `perf` | `@PerfTest` | `./gradlew perfTest` | 쿼리 수·실행계획 같은 결정적 성능 지표 |
+| `perf` | `@PerfTest` | `./gradlew perfTest` | 운영 분포 데이터에서 실행계획(EXPLAIN) 검증 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
+| `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접, CI 아님) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
 - `./gradlew test`는 위 태그를 모두 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
@@ -40,6 +41,7 @@
 `AbstractIntegrationTest`(공통 루트)가 해 주는 것:
 - 매 테스트 전에 모든 테이블을 비우고(빌트인 테마 제외) Redis를 `FLUSHALL`하고 `clock`을 시스템 시각으로 되돌린다.
 - `pushClient`, `mailClient` mock (기본 스텁: 발송 성공).
+- `wireMock`: 외부 HTTP API mock 서버. 매 테스트 전에 stub과 요청 기록을 지운다(아래 "mock 경계").
 - `clock: MutableClock`, `fixtures: ScenarioFixtures` 주입.
 - DataSource를 datasource-proxy로 감싼다(쿼리 수 측정용).
 
@@ -48,14 +50,49 @@
 Spring 컨텍스트는 모듈마다 한 번만 떠야 한다. 지금 api 1개, batch 1개, parity 1개다.
 - 테스트 클래스에 `@MockitoBean`, `@MockitoSpyBean`, `@Import`, `@TestPropertySource`, `@DirtiesContext`, `@SpringBootTest(properties=...)`를 새로 달지 않는다. 하나라도 다르면 컨텍스트가 하나 더 뜬다(수십 초, 메모리 수백 MB).
 - 새 mock이 필요하면 모듈 베이스(`AbstractApiIntegrationTest`, `AbstractBatchIntegrationTest`)에 추가한다. 스텁하지 않은 mock은 기본값(null, 0, 빈 컬렉션)을 돌려주고 매 테스트 뒤 reset되므로 다른 테스트에 영향이 없다.
-- 이미 베이스에 있는 mock: api는 `uploadUriIssuer`, `googleClient`(`GOOGLE`), `appleClient`(`APPLE`)이고, batch는 `sugangSnuLectureApi`, `sugangSnuLectureEnricher`, `lectureBuildingSync`, `registrationPeriodExtractor`, `registrationStatusCrawler`다.
+- 이미 베이스에 있는 빈 mock: 공통 `pushClient`, `mailClient`, api `uploadUriIssuer`. batch 베이스에는 빈 mock이 없다.
 - api 테스트 컨텍스트는 `snutt.scheduling.enabled=false`로 `@Scheduled`를 끈다. 스케줄러는 `ReminderScheduler.fireDueReminders()`처럼 직접 호출한다.
+- 두 베이스 모두 `spring.http.clients.read-timeout=1s`다(운영 api 5초, batch 30초). batch는 빈자리 잡의 대기(`snutt.vacancy.chunk-delay`, `overload-retry-delay`)도 0에 가깝게 줄인다.
 
 ## mock 경계
 
-- 외부 HTTP API(sugang.snu.ac.kr, OAuth 제공자, GitHub 등)는 네트워크 경계(WireMock 등)에서 mock하는 것을 목표로 한다. 지금 베이스에 있는 빈 mock(sugang, OAuth)은 과도기 상태다. 네트워크 경계 mock으로 바꾸면 베이스에서 빼고, 그 클라이언트의 base URL은 설정값으로 주입한다.
+- 외부 HTTP API는 빈이 아니라 네트워크 경계에서 WireMock(`core.test.external.ExternalApiMock`)으로 mock한다. HTTP 호출, 응답 파싱, 오류 처리까지 프로덕션 코드를 그대로 탄다.
 - FCM(`PushClient`), 메일(`MailClient`), OCI 업로드(`UploadUriIssuer`)처럼 SDK가 경계인 것은 빈 mock을 그대로 쓴다.
 - 우리 코드의 서비스나 리포지토리는 mock하지 않는다. 실제 DB와 Redis를 통과시킨다.
+
+### WireMock 쓰는 법
+
+- 서버는 JVM당 하나다. `ExternalApiMockConfig`가 외부 base URL 설정을 모두 이 서버로 돌린다. 서비스마다 경로 접두사가 다르다(`ExternalService`).
+- 매 테스트 전에 `AbstractIntegrationTest`가 stub과 요청 기록을 지운다. 테스트에서는 `wireMock`으로 stub하고 검증한다.
+- stub 경로는 `ExternalApiMock.path(ExternalService.X, "/프로덕션이/부르는/경로")`로 만든다. 모듈별 헬퍼가 있다.
+  - batch: `SugangSnuStubs`(`sugang`). 수강편람 조건, 엑셀, 강좌 상세, 메인·검색 페이지, SNU 지도.
+  - api: `SocialProviderStubs`(Google·Kakao·Facebook·Apple JWKS·GitHub Issues), `OidcTestIssuer`(테스트 RSA 키쌍으로 JWKS와 id_token 생성).
+- stub하지 않은 요청은 WireMock이 404를 준다. 호출되면 안 되는 API는 `wireMock.verify(0, ...)`나 요청 수로 확인한다.
+- 매 테스트 뒤 `AbstractIntegrationTest`가 stub과 맞지 않은 요청이 없었는지 검사한다(404를 삼키는 클라이언트가 있어서다). 404 응답을 검증하려면 404를 stub한다.
+- OIDC JWKS 캐시(`OidcJwtVerifier`)는 api 베이스가 매 테스트 전에 비운다.
+- 새 외부 연동을 추가하면: base URL을 yml 설정값으로 빼고(운영 기본값 유지), `ExternalService`와 `ExternalApiMockConfig`에 항목을 추가한다.
+
+### 외부 연동 테스트에서 볼 것
+
+골든패스와 함께 타임아웃, 5xx, 4xx(토큰 만료 등), 응답 형식 이상(필드 누락·빈 엑셀·잘린 바디)을 넣고, 시스템이 어떻게 끝나야 하는지(배치 중단, 부분 반영 없음, 에러 코드)를 assert한다.
+
+- 타임아웃: `withFixedDelay(1_500)`(read-timeout 1초보다 조금 길게). 대기는 WireMock 쪽이라 `Thread.sleep`이 아니다.
+- **RestClient는 Apache HttpClient 5 위에서 돈다**(firebase-admin이 끌어와 Spring Boot가 자동 선택). 기본 재시도가 켜져 있어 **429·503은 1초 뒤 한 번 더 보낸다(POST 포함)**. 500·502·타임아웃은 재시도하지 않는다. 그래서:
+  - "5xx면 실패" 테스트는 500을 쓴다. 503을 쓰면 1초 늦어지고, 시나리오 stub이면 재시도가 다음 응답을 먹어 의도와 다른 경로를 탄다.
+  - 재시도 자체는 `FeedbackIntegrationTest`, `SugangSnuSyncJobTest`의 503 테스트가 고정한다.
+- 상태가 바뀌는 응답(실패 후 성공)은 WireMock 시나리오로 만든다. 예: `SugangSnuStubs.searchPageSequence`.
+
+### fixture
+
+- 실제 응답 형태를 `src/test/resources/fixtures/<서비스>/`에 둔다. 출처와 손본 내용은 같은 폴더의 `README.md`에 적는다.
+- sugang fixture는 실제 사이트에서 받은 것이다(엑셀은 `.xls`). 프로그램으로 엑셀을 만드는 `SugangXlsxFixture`는 행 내용을 마음대로 정해야 할 때 쓴다.
+- OAuth·GitHub fixture는 공식 문서 예시 형태로 만든 것이다. 실제 토큰·계정 값은 넣지 않는다.
+
+### live 테스트 (`@LiveTest`)
+
+- `./gradlew :batch:liveTest`는 실제 수강편람 사이트에 요청 3번(조건, 한국어·영어 엑셀)을 보내 파서가 통과하는지, 컬럼이 fixture와 같은지 본다.
+- `-PrefreshFixtures`를 주면 받은 엑셀을 잘라 `fixtures/sugang/lectures-{ko,en}.xls`를 갱신한다. 바뀐 컬럼은 출력에 찍힌다.
+- 사이트가 잦은 요청에 IP를 막을 수 있다. 학기가 바뀌었거나 파싱 오류가 의심될 때만 돌린다.
 
 ## 시간: `MutableClock`
 
@@ -76,6 +113,7 @@ clock.nowKst()                                        // ZonedDateTime(KST)
   - Hibernate `@CreationTimestamp`/`@UpdateTimestamp`(`BaseEntity`의 `created_at`, `updated_at`, `LectureRegistrationStatus`)
   - `User` 생성자 기본값 `lastLoginAt`, `notificationCheckedAt`(`core/domain/user/model/User.kt`, 엔티티라 빈 주입 불가)
   - `OciUploadUriIssuer`의 업로드 URL 만료 시각(dev/prod 프로파일 전용, 테스트에서는 `uploadUriIssuer` mock)
+  - OIDC id_token의 `exp`·`iat` 검사(`OidcJwtVerifier`, jjwt가 시스템 시각으로 본다). 테스트 토큰은 `OidcTestIssuer`가 실제 현재 시각 기준으로 만든다.
   - `migration` 모듈의 `Instant.now()` 전부(일회성 이관 도구, Spring 컨텍스트 테스트 아님)
   - DB의 `NOW()`, Redis TTL
 - 이 값들과 Clock 시각을 비교하는 로직을 테스트할 때는 해당 컬럼을 JDBC로 직접 세팅한다(예: `MailLogIntegrationTest`). `User`를 만든 뒤 시각이 중요하면 필드를 명시적으로 넣는다.
@@ -96,6 +134,62 @@ val detail = assertQueryCount(select = 6, insert = 0, update = 0, delete = 0) {
 - 실패 메시지에 실행된 SQL 전체가 찍힌다. 기대값은 그 목록을 보고 N+1이 아닌지 확인한 뒤 정한다.
 - 예시: `TimetableIntegrationTest`의 `custom 강의와 customization override`.
 
+### N+1 고정: `assertQueryCountStable`
+
+조회 엔드포인트는 "데이터가 늘어도 쿼리 수가 같다"를 고정한다. 요청을 한 번 보내고, `grow`로 응답에 들어갈 데이터를 늘린 뒤 다시 보내 두 번 모두 기대값과 같은지 본다. 쓰기 쿼리는 기본 0이다.
+
+```kotlin
+val (before, after) =
+    assertQueryCountStable(select = 3, grow = { repeat(4) { befriend(fixtures.user()) } }) {
+        body(get("/v2/friends?state=ACTIVE", token))
+    }
+assertEquals(1, before.size())
+assertEquals(5, after.size())   // grow가 응답에 실제로 반영됐는지 꼭 확인한다. 안 하면 검증이 빈다.
+```
+
+- 주요 엔드포인트(v2와 v1compat)는 `api/.../querycount/QueryCountIntegrationTest`에 모여 있다. PR CI에서 돈다.
+- 실패 메시지에 늘리기 전후 SQL 목록이 둘 다 찍힌다. 늘린 뒤에만 반복되는 쿼리가 있으면 N+1이다.
+
+## 실행계획: `explain` (`@PerfTest`)
+
+쿼리 수만으로는 "인덱스를 타는지"를 모른다. perf 테스트는 리포지토리 쿼리가 실제로 내보내는 SQL을 캡처해 운영 분포 데이터에서 `EXPLAIN`하고 계획을 assert한다. 실행시간은 보지 않는다.
+
+```kotlin
+class SocialQueryPlanTest : AbstractPerfTest() {          // api/.../perf/
+    @Test
+    fun `대기 중인 친구 요청은 복합 인덱스 순서로 filesort 없이 읽는다`() {
+        explainOne { friendRepository.findByFromUserIdAndIsAcceptedFalseOrderByCreatedAtDesc(perf.heavyFriendUserId) }
+            .assertKey("friend", "idx_friend_from_user_accepted_created")
+            .assertNoFilesort()
+    }
+}
+```
+
+동작:
+1. `AbstractPerfTest`는 `AbstractApiIntegrationTest`를 상속하고 `@PerfTest`만 붙인다. 컨텍스트는 api 테스트와 같다.
+2. 블록 안 리포지토리 호출은 평소처럼 기본 스키마(비어 있다)에서 실행된다. `recordQueries`가 SQL과 바인딩 파라미터를 캡처한다.
+3. `explain`이 같은 SQL·파라미터로 perf 스키마 `snutt_perf`에서 `EXPLAIN FORMAT=TRADITIONAL`(assert용)과 `FORMAT=TREE`(실패 메시지용)를 실행한다.
+
+`snutt_perf`는 싱글톤 MySQL 컨테이너 안의 별도 스키마다. perf JVM에서 처음 `perf`를 읽을 때 한 번 만든다(Flyway migration → `PerfDataGenerator` → `ANALYZE TABLE`, 약 25초). 매 테스트 초기화는 기본 스키마만 비우므로 부딪히지 않는다. 모든 perf 테스트가 공유하니 **perf 스키마에 쓰지 않는다.**
+
+- 데이터 분포와 근거는 [perf-data-profile.md](perf-data-profile.md)에 있다. 파라미터는 `perf`의 대표 id를 넘긴다: `typicalUserId`, `heavyTimetableUserId`(시간표 773개), `heavyFriendUserId`, `heavyNotificationUserId`, `snuevUserId`(강의평 94%), `popularCourseId`(강의평 212개), `popularLectureId` 등. 극단값에서도 계획이 버티는지 본다.
+- `explainOne { }`은 SELECT가 하나여야 한다. 여러 개면 `explainAll { }`로 받아 하나씩 본다.
+- assert: `assertKey(table, vararg keys)`, `assertAccess(table, vararg types)`, `assertNoFullScan(vararg allowed)`, `assertNoFilesort(vararg allowed)`, `assertNoTemporary(vararg allowed)`, `assertRowsAtMost(table, max)`. 테이블은 SQL 별칭이 아니라 실제 테이블 이름으로 쓴다.
+- `<derived2>`, `<union1,2>` 같은 임시 테이블은 풀 스캔 검사에서 빠진다. UNION 결과를 다시 정렬하는 filesort처럼 피할 수 없는 것은 `allowed`로 명시한다(예: `SocialQueryPlanTest`의 친구 목록).
+- 앞부분이 같은 인덱스가 여럿이면 옵티마이저가 아무거나 고른다(예: `uk_timetable_title`과 `idx_timetable_user_semester`). 둘 다 `assertKey`에 적는다.
+- 예상 rows는 `ANALYZE` 샘플링이라 실행마다 조금 다르다. 기대값보다 넉넉한 상한만 둔다.
+- 테스트 이름에 의도(어떤 인덱스로 무엇을 피하는지)를 적는다.
+- 한계: SQL은 빈 기본 스키마에서 캡처한다. 앞 쿼리 결과에 따라 다음 쿼리나 LIMIT을 정하는 메서드(예: `findPageOfCourse(includeMine=true)`의 남은 개수)는 빈 결과 경로의 SQL만 본다.
+- `assertNoFullScan`은 type `ALL`만 막는다. 인덱스 전체를 읽는 type `index`는 통과하므로 LIMIT으로 멈추지 않는 쿼리는 `assertRowsAtMost`를 같이 건다.
+
+### 새 쿼리를 추가하거나 바꾸면
+
+1. **조회 엔드포인트면** `QueryCountIntegrationTest`에 `assertQueryCountStable` 테스트를 추가한다. 목록이면 `grow`로 행을 늘려 쿼리 수가 그대로인지 본다.
+2. **리포지토리 쿼리(JPQL·JDSL·네이티브)면** `api/.../perf/*QueryPlanTest`에 `explainOne` 테스트를 추가한다. 쓰려는 인덱스, 풀 스캔·filesort 없음, rows 상한을 assert한다. 극단 사용자 id로도 한 번 본다.
+3. 인덱스를 추가·변경·삭제하면(`V*__*.sql`) `./gradlew perfTest`를 돌려 기존 계획이 바뀌지 않았는지 본다. 바뀐 게 의도면 테스트를 고치고 이유를 커밋 메시지에 적는다.
+4. 새 테이블이나 분포가 실행계획에 영향을 주면 `PerfDataGenerator`에 데이터를 추가하고 `perf-data-profile.md`에 근거를 적는다. 스키마는 perf JVM마다 새로 만들므로 캐시 무효화는 없다.
+5. 의도적으로 인덱스를 못 타는 쿼리(앞뒤 와일드카드 LIKE, 캐시 뒤의 집계)는 테스트로 고정하지 말고 이유를 주석·문서에 남긴다.
+
 ## 시나리오 fixture: `ScenarioFixtures`
 
 학기 개설부터 시간표에 강의를 넣는 데까지를 몇 줄로 쓴다. api와 batch 테스트 모두 `fixtures`로 바로 쓸 수 있다.
@@ -115,12 +209,56 @@ fixtures.addLecture(timetable, lecture)
 - 강의와 수업시간만 저장하려면 `saveLectureWithTimes(...)`(`core.test.fixture`)를 쓴다.
 - 필요한 엔티티가 없을 때만 메서드를 추가한다. 쓰는 곳이 하나뿐이면 그 테스트 안에 둔다.
 
+## 동시성: `runConcurrently`, `LockContention`
+
+"이 락이 이 race를 막는다"를 좁게 증명한다. 도구는 `core.test.concurrency`에 있고, 시나리오와 테스트는 `api/src/test/.../api/concurrency/`에 있다.
+
+```kotlin
+import com.wafflestudio.snutt.core.test.concurrency.runConcurrently
+
+// 스레드 5개를 latch 하나로 동시에 출발시킨다. 결과와 예외를 인덱스 순서로 모은다.
+val outcome = runConcurrently(5) { index -> service.addLecture(userId, timetableId, TimetableLectureAddRequest(lectureIds[index])) }
+outcome.assertOutcome(successes = 1, ErrorType.LECTURE_TIME_OVERLAP)
+```
+
+- `assertOutcome(successes, errorType)`는 성공 수를 확인하고, 나머지가 모두 그 `ErrorType`의 `SnuttException`인지 확인한다. 데드락, lock wait timeout, unique 위반(`DataIntegrityViolationException`, 즉 500)이 섞이면 원인을 붙여 실패한다.
+- 30초 안에 끝나지 않으면 데드락이나 락 대기로 보고 실패한다.
+- 결과는 불변식으로 검증한다. 성공 수와 최종 DB 상태(행 수, 집계값)를 본다.
+
+DB 락은 `LockContention.holdThenContend`로 검증한다. latch만 쓰면 요청이 실제로 겹칠지 스케줄러 운에 달린다.
+
+```kotlin
+val contention = LockContention(transactionManager, entityManagerFactory)
+contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = { request(it) })
+```
+
+1. holder가 트랜잭션 안에서 서비스를 호출하고 flush한 뒤 커밋하지 않고 멈춘다. 서비스가 잡은 락(FOR UPDATE, insert·update한 행)은 holder가 계속 쥐고 있다.
+2. contender 4개를 동시에 출발시킨다.
+3. contender 각각이 InnoDB 락을 기다리거나(root 연결로 `performance_schema.data_lock_waits`를 본다) 이미 끝났으면 holder를 커밋한다.
+
+이렇게 하면 contender는 매번 holder가 커밋하기 전에 출발한다. 락이 없거나 락을 잡기 전에 읽은 스냅숏으로 판단하면 매번 불변식이 깨진다. 결과의 0번은 holder, 1..N은 contender다.
+
+- 서비스가 `@Transactional(isolation = READ_COMMITTED)`이면 `isolation`을 같게 넘긴다. 바깥 트랜잭션에 참여한 메서드의 isolation은 무시되기 때문이다.
+- 커넥션을 N+1개 쓰므로 contender는 Hikari 풀(기본 10)보다 충분히 적게 둔다. PR CI는 4개를 쓴다.
+- Redis 락(`SchedulerLock`, 인증코드 발송 제한)은 DB 대기가 없으므로 `runConcurrently`와 `pollUntil`로 검증한다. 락 안에서 다른 스레드가 모두 시도할 때까지 `pollUntil`로 기다리면 겹침을 보장할 수 있다.
+- 기다릴 때는 `pollUntil { 조건 }`을 쓴다. `Thread.sleep`으로 타이밍을 맞추지 않는다.
+
+시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 요청 수를 늘려 `runAllAtOnce()`로 돌리거나 `request`를 HTTP 호출로 바꿔 쓴다.
+
+새 락을 추가하거나 고치면 다음을 확인한다. 동시성 테스트를 쓰고, 락을 잠시 지운 채 돌려서 그 테스트가 실패하는지 본다. `@RepeatedTest(20)`으로 한 번 돌려 flaky하지 않은지도 본다. 반복 설정은 커밋하지 않는다.
+
+### 수강편람 동기화 시나리오 (batch)
+
+- `batch/.../sugang/SugangSyncScenarioTest`를 상속한다. `sync(rows, englishRows)`가 수강편람 사이트를 stub하고 잡을 학기 지정 없이 돌린다. 시간표 담기·리마인더·관심강좌는 실제 서비스(`addLecture`, `setReminder`, `bookmarkService`)로 한다.
+- 어디에 쓸지: 한 학기를 따라가는 골든패스는 `SugangSemesterLifecycleTest`, 동기화 diff 분기(추가·폐강·필드별 변경·겹침·멱등·영어 엑셀 공백·학기 경계·트랜잭션)는 `SugangSyncDiffTest`, 사이트 HTTP 오류·응답 형식 이상은 `SugangSnuSyncJobTest`, 빈자리 판정은 `VacancyNotificationJobTest`.
+- `SugangXlsxFixture.RowData`의 영어 값 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로다.
+
 ## 새 테스트 체크리스트
 
 1. 골든패스 시나리오인가? 쓰려는 사이드케이스가 외부 입력이나 레거시 데이터에서 생기는가?
 2. 맞는 베이스를 상속했고, 클래스에 `@MockitoBean`/`@Import`/프로퍼티를 새로 달지 않았는가?
-3. 외부 API mock이 네트워크 경계에 있는가? 빈 mock이 꼭 필요하면 모듈 베이스에 추가했는가?
+3. 외부 API mock이 네트워크 경계(WireMock)에 있는가? 5xx는 500으로 stub했는가(503은 HTTP 클라이언트가 재시도한다)? 빈 mock이 꼭 필요하면(SDK 경계) 모듈 베이스에 추가했는가?
 4. 시간 의존 로직이면 `clock`을 고정했는가? KST 경계를 다루는가?
 5. 난수 seed를 고정했는가? `Thread.sleep` 없이 polling으로 기다리는가?
-6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가?
+6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가? 새 쿼리면 "새 쿼리를 추가하거나 바꾸면"을 따랐는가?
 7. `./gradlew ktlintCheck test`(태그를 붙였으면 해당 태스크도)를 돌려 통과했는가?

@@ -49,7 +49,8 @@ class V1UserAuthInterceptor(
         val token = request.getHeader("x-access-token") ?: throw SnuttException(ErrorType.MISSING_ACCESS_TOKEN)
         val user = legacyTokenService.authenticate(token)
         if (handler.has(V1AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
-        if (handler.has(V1EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
+        // v1 EvService는 isEmailVerified == false일 때만 막았다. 인증 여부가 없던(null) 이관 계정은 통과한다.
+        if (handler.has(V1EmailVerifiedRequired::class.java) && user.isEmailVerified == false) {
             throw SnuttException(ErrorType.EMAIL_NOT_VERIFIED)
         }
         request.setAttribute(USER_ATTRIBUTE, user)

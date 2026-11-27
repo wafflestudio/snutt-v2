@@ -12,9 +12,9 @@ import org.springframework.stereotype.Component
 class AppleClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
     @param:Value("\${snutt.auth.oidc.apple-app-id}") private val appleAppId: String,
+    @param:Value("\${snutt.auth.social.apple-jwks-uri}") private val jwksUri: String,
 ) : OAuth2Client {
     companion object {
-        private const val APPLE_JWK_URI = "https://appleid.apple.com/auth/keys"
         private const val APPLE_ISSUER = "https://appleid.apple.com"
     }
 
@@ -23,7 +23,7 @@ class AppleClient(
         val claims =
             oidcJwtVerifier.verifyAndDecodeToken(
                 token = token,
-                jwksUri = APPLE_JWK_URI,
+                jwksUri = jwksUri,
                 issuer = APPLE_ISSUER,
                 audience = appleAppId,
             ) ?: return null

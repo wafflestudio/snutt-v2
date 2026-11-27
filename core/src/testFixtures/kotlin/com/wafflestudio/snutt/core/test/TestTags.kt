@@ -3,14 +3,15 @@ package com.wafflestudio.snutt.core.test
 import org.junit.jupiter.api.Tag
 
 /**
- * `./gradlew test`에서 제외되고 전용 태스크(`parityTest`, `perfTest`, `stressTest`, `parityKnownFailureTest`, `paritySnapshotTest`)로만
- * 도는 JUnit 태그.
+ * `./gradlew test`에서 제외되고 전용 태스크(`parityTest`, `perfTest`, `stressTest`, `liveTest`, `parityKnownFailureTest`,
+ * `paritySnapshotTest`)로만 도는 JUnit 태그.
  * 루트 build.gradle.kts의 태그 목록과 값이 같아야 한다.
  */
 object TestTags {
     const val PARITY = "parity"
     const val PERF = "perf"
     const val STRESS = "stress"
+    const val LIVE = "live"
     const val PARITY_KNOWN_FAILURE = "parity-known-failure"
     const val PARITY_SNAPSHOT = "parity-snapshot"
 }
@@ -21,7 +22,7 @@ object TestTags {
 @Tag(TestTags.PARITY)
 annotation class ParityTest
 
-/** 실행계획·쿼리 수처럼 결정적인 성능 지표를 검증하는 테스트. `./gradlew perfTest`로 돈다. */
+/** 운영 분포 데이터(snutt_perf)에서 실행계획을 검증하는 테스트. `./gradlew perfTest`로 돈다. 쿼리 수 검증은 태그 없이 PR CI에서 돈다. */
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 @Tag(TestTags.PERF)
@@ -32,6 +33,15 @@ annotation class PerfTest
 @Retention(AnnotationRetention.RUNTIME)
 @Tag(TestTags.STRESS)
 annotation class StressTest
+
+/**
+ * 실제 외부 사이트를 호출하는 smoke 테스트. `./gradlew liveTest`로만 돌고 CI에서는 돌지 않는다.
+ * 수강편람 사이트는 잦은 요청에 IP를 막을 수 있으므로 요청 수를 최소로 유지한다.
+ */
+@Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+@Tag(TestTags.LIVE)
+annotation class LiveTest
 
 /**
  * parity가 찾은 실제 차이(버그)를 재현하는 시나리오. 고쳐지기 전까지 실패하므로 `parityTest`에서 빠지고
