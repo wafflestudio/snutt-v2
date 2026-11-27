@@ -36,7 +36,7 @@ import kotlin.random.Random
  * 부하: 사용자마다 대표 시간표(2026 가을)에 월요일 10~12시 강의가 있고 지난 학기(2026 봄) 시간표에도 리마인더 강의가 있다.
  * 스레드마다 자기 강의 하나를 맡아 직접 만든 강의를 넣고 지우고, 강의 제목을 바꾸고, 시간표·리마인더를 읽는다.
  * [reminderEdits]면 리마인더 설정과 수업 시간 변경(리마인더 재계산)도 섞는다. 같은 강의의 리마인더를 동시에 바꾸는 race는
- * [KnownFailureRaceStressTest]에 따로 있다.
+ * [RaceScenarioStressTest]의 setReminderOnSameLecture에 따로 있다.
  *
  * 반복마다 리마인더 발송 시각 = 실제 수업 시간 + offset, 수업 시간 없는 리마인더 없음, 정리 뒤 지난 학기 리마인더 없음,
  * [DomainInvariants], 스케줄러 예외·5xx·데드락을 본다.

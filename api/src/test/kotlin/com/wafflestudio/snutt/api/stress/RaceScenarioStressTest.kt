@@ -24,7 +24,7 @@ class RaceScenarioStressTest : AbstractStressTest() {
         }
 
     companion object {
-        /** stress에서 통과해야 하는 race. 재현된 버그는 [KnownFailureRaceStressTest]로 옮긴다. */
+        /** stress에서 통과해야 하는 race. 재현된 버그는 `@StressKnownFailure` 클래스로 옮긴다. */
         val RACES: Map<String, (ConcurrencyScenarios, Int) -> ConcurrencyScenario> =
             linkedMapOf(
                 "overlappingLecturesIntoOneTimetable" to { s, n -> s.overlappingLecturesIntoOneTimetable(n) },
@@ -47,6 +47,7 @@ class RaceScenarioStressTest : AbstractStressTest() {
                 "setDefaultThemeWhileDeletingIt" to { s, n -> s.setDefaultThemeWhileDeletingIt(n) },
                 "savePushPreferencesTwice" to { s, n -> s.savePushPreferencesTwice(n) },
                 "registerSameDeviceTwice" to { s, n -> s.registerSameDeviceTwice(n) },
+                "registerSameTokenFromDifferentUsers" to { s, n -> s.registerSameTokenFromDifferentUsers(n) },
                 "sameNicknameConcurrently" to { s, n -> s.sameNicknameConcurrently(n) },
                 "setReminderOnSameLecture" to { s, n -> s.setReminderOnSameLecture(n) },
             )

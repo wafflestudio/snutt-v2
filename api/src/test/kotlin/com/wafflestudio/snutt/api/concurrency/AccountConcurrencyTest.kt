@@ -43,4 +43,9 @@ class AccountConcurrencyTest : AbstractConcurrencyTest() {
     fun `같은 FCM 토큰 등록을 동시에 보내도 오류 없이 활성 기기는 하나다`() {
         scenarios.registerSameDeviceTwice(REQUESTS).runContended(contention)
     }
+
+    @Test
+    fun `다른 사용자들이 같은 FCM 토큰을 동시에 등록해도 오류 없이 활성 기기는 하나다`() {
+        scenarios.registerSameTokenFromDifferentUsers(REQUESTS).runContended(contention)
+    }
 }
