@@ -25,6 +25,16 @@ class AccountConcurrencyTest : AbstractConcurrencyTest() {
     }
 
     @Test
+    fun `기본 테마 지정과 해제가 겹치면 해제는 지정된 결과를 보고 거절된다`() {
+        scenarios.setAndUnsetDefaultThemeTogether(REQUESTS).runContended(contention)
+    }
+
+    @Test
+    fun `테마를 기본으로 지정하는 동안 지우면 기본 설정이 기본 테마로 돌아간다`() {
+        scenarios.setDefaultThemeWhileDeletingIt(REQUESTS).runContended(contention)
+    }
+
+    @Test
     fun `같은 푸시 설정 저장을 동시에 보내도 오류 없이 종류마다 행은 하나다`() {
         scenarios.savePushPreferencesTwice(REQUESTS).runContended(contention)
     }

@@ -452,6 +452,38 @@ class ConcurrencyScenarios(
         )
     }
 
+    /** 기본 테마를 지정하는 요청(요청 0)과 기본 테마 해제 요청이 겹친다. 해제는 지정된 결과를 보고 판단하므로 NOT_DEFAULT_THEME이다. */
+    fun setAndUnsetDefaultThemeTogether(requests: Int): ConcurrencyScenario {
+        val user = fixtures.user()
+        val service: TimetableThemeService = beans.getBean()
+        val fall = service.builtinThemeId("fall")
+        val snutt = service.builtinThemeId("snutt")
+        return scenario(
+            requests,
+            request = { if (it == 0) service.setDefault(user.id!!, fall) else service.unsetDefault(user.id!!, snutt) },
+            verify = { outcome ->
+                outcome.assertOutcome(successes = 1, ErrorType.NOT_DEFAULT_THEME)
+                assertEquals(fall, service.getDefaultThemeId(user.id!!))
+            },
+        )
+    }
+
+    /** 내 테마를 기본으로 지정하는 요청(요청 0)과 그 테마를 지우는 요청이 겹친다. 삭제는 기본 설정을 기본 테마로 되돌린다. */
+    fun setDefaultThemeWhileDeletingIt(requests: Int): ConcurrencyScenario {
+        val user = fixtures.user()
+        val service: TimetableThemeService = beans.getBean()
+        val theme = service.addTheme(user.id!!, "지울 테마", listOf(ColorSet("#000001", "#ffffff")))
+        return scenario(
+            requests,
+            request = { if (it == 0) service.setDefault(user.id!!, theme.id) else service.deleteTheme(user.id!!, theme.id) },
+            verify = { outcome ->
+                outcome.assertOutcome(successes = 2, ErrorType.THEME_NOT_FOUND)
+                assertEquals(0, count("SELECT COUNT(*) FROM timetable_theme WHERE id = ?", theme.id))
+                assertEquals(service.builtinThemeId("snutt"), service.getDefaultThemeId(user.id!!))
+            },
+        )
+    }
+
     /** 같은 푸시 설정 저장을 [requests]번 동시에 보낸다(설정 행이 아직 없다). 모두 성공하고 종류마다 행은 하나다. */
     fun savePushPreferencesTwice(requests: Int): ConcurrencyScenario {
         val user = fixtures.user()
