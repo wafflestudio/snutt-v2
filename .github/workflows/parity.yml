@@ -1,0 +1,42 @@
+name: Parity
+
+# v1 서버와 v1compat 응답 비교(docs/parity.md). 시간이 길고 v1 빌드에 GitHub Packages 읽기 권한이 필요해
+# PR 게이트에는 넣지 않고 수동으로 돌린다. wafflestudio/spring-waffle 패키지의 Actions access에 이 레포가 있어야 한다.
+on:
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Cache v1 server jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches/snutt-parity
+          key: snutt-parity-${{ hashFiles('parity/v1/versions.properties') }}
+
+      - name: Run parity
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew parityTest
+
+      - name: Upload parity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report
+          path: parity/build/reports/parity

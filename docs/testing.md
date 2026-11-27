@@ -16,12 +16,14 @@
 | 태그 | 어노테이션 | 실행 | 용도 |
 |---|---|---|---|
 | 없음 | - | `./gradlew test` (PR CI, 배포 게이트) | 기본 |
-| `parity` | `@ParityTest` | `./gradlew parityTest` | v1 서버와 v1compat 응답 비교 |
+| `parity` | `@ParityTest` | `./gradlew parityTest` | v1 서버와 v1compat 응답 비교 ([parity.md](parity.md)) |
+| `parity-known-failure` | `@ParityKnownFailure` | `./gradlew parityKnownFailureTest` | parity가 찾은 버그 재현. 고쳐지기 전까지 실패가 정상 |
+| `parity-snapshot` | `@ParitySnapshot` | `./gradlew paritySnapshotTest -Dparity.source.…` | 외부 덤프(운영 스냅샷)로 도는 parity |
 | `perf` | `@PerfTest` | `./gradlew perfTest` | 쿼리 수·실행계획 같은 결정적 성능 지표 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
-- `./gradlew test`는 위 세 태그를 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
+- `./gradlew test`는 위 태그를 모두 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
 - 태그를 추가하려면 루트 `build.gradle.kts`의 `separatedTags`와 `TestTags`를 함께 고친다.
 - 테스트 JVM 타임존은 운영과 같은 UTC로 고정되어 있다(`user.timezone=UTC`). 로컬 타임존에 기대지 않는다.
 
@@ -33,6 +35,7 @@
 | batch 잡 통합테스트 | `AbstractBatchIntegrationTest` (batch 모듈) |
 | Spring 없이 되는 순수 로직(파서, 계산) | 베이스 없음. 외부 입력 파싱처럼 경계가 분명한 것만 쓴다 |
 | migration | `MigrationIntegrationTest`처럼 컨테이너를 직접 띄운다. 이미지는 `TestImages` 상수를 쓴다 |
+| v1 서버와 응답 비교 | `AbstractParityTest` (parity 모듈). 사용법은 [parity.md](parity.md) |
 
 `AbstractIntegrationTest`(공통 루트)가 해 주는 것:
 - 매 테스트 전에 모든 테이블을 비우고(빌트인 테마 제외) Redis를 `FLUSHALL`하고 `clock`을 시스템 시각으로 되돌린다.
@@ -42,7 +45,7 @@
 
 ### 컨텍스트 캐시 규칙 (중요)
 
-Spring 컨텍스트는 모듈마다 한 번만 떠야 한다. 지금 api 1개, batch 1개다.
+Spring 컨텍스트는 모듈마다 한 번만 떠야 한다. 지금 api 1개, batch 1개, parity 1개다.
 - 테스트 클래스에 `@MockitoBean`, `@MockitoSpyBean`, `@Import`, `@TestPropertySource`, `@DirtiesContext`, `@SpringBootTest(properties=...)`를 새로 달지 않는다. 하나라도 다르면 컨텍스트가 하나 더 뜬다(수십 초, 메모리 수백 MB).
 - 새 mock이 필요하면 모듈 베이스(`AbstractApiIntegrationTest`, `AbstractBatchIntegrationTest`)에 추가한다. 스텁하지 않은 mock은 기본값(null, 0, 빈 컬렉션)을 돌려주고 매 테스트 뒤 reset되므로 다른 테스트에 영향이 없다.
 - 이미 베이스에 있는 mock: api는 `uploadUriIssuer`, `googleClient`(`GOOGLE`), `appleClient`(`APPLE`)이고, batch는 `sugangSnuLectureApi`, `sugangSnuLectureEnricher`, `lectureBuildingSync`, `registrationPeriodExtractor`, `registrationStatusCrawler`다.
