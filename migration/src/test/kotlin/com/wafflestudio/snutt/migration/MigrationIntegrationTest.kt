@@ -232,6 +232,18 @@ class MigrationIntegrationTest {
         assertNotNull(custom["classPlaceAndTimes"])
     }
 
+    // v1 modifyTheme은 색→새 색 맵(toMap)으로 강의 색을 바꿔 같은 색의 마지막 칸을 따랐다. v1compat도 lastOrNull이라 이관도 같게 한다.
+    @Test
+    fun `팔레트에 같은 색이 여럿이면 직접 지정한 색을 마지막 팔레트 번호로 옮긴다`() {
+        val row =
+            jdbc.queryForMap(
+                "SELECT palette_index, custom_color FROM timetable_lecture WHERE lecture_id = ?",
+                context.lectureIds[lectureId.toHexString()],
+            )
+        assertEquals(2, (row["palette_index"] as Number).toInt())
+        assertNull(row["custom_color"])
+    }
+
     @Test
     fun `테마는 색상과 공개 정보와 원본 참조를 유지한다`() {
         val copy =
@@ -344,8 +356,15 @@ class MigrationIntegrationTest {
                     .append("name", "원본 테마")
                     .append("status", "PUBLISHED")
                     .append("isCustom", true)
-                    .append("colors", listOf(Document("bg", "#111111").append("fg", "#FFFFFF")))
-                    .append("publishInfo", Document("publishName", "공개된 테마").append("authorAnonymous", true).append("downloads", 7)),
+                    // 같은 색이 팔레트에 두 번 있다(1, 2번). v1 앱이 이 색을 고르면 colorIndex 0 + 그 색으로 저장했다.
+                    .append(
+                        "colors",
+                        listOf(
+                            Document("bg", "#111111").append("fg", "#FFFFFF"),
+                            Document("bg", "#333333").append("fg", "#FFFFFF"),
+                            Document("bg", "#333333").append("fg", "#FFFFFF"),
+                        ),
+                    ).append("publishInfo", Document("publishName", "공개된 테마").append("authorAnonymous", true).append("downloads", 7)),
                 Document("_id", themeCopy)
                     .append("userId", userWithBoth)
                     .append("name", "받아온 테마")
@@ -362,6 +381,7 @@ class MigrationIntegrationTest {
                 .append("semester", 3)
                 .append("title", "나의 시간표")
                 .append("theme", 0)
+                .append("themeId", themeOrigin.toHexString())
                 .append("is_primary", true)
                 .append("updated_at", Date())
                 .append(
@@ -372,7 +392,8 @@ class MigrationIntegrationTest {
                             .append("course_title", "내가 바꾼 이름")
                             .append("instructor", "Chenglin Fan")
                             .append("class_time_json", listOf(classTime(0), classTime(2)))
-                            .append("colorIndex", 3),
+                            .append("colorIndex", 0)
+                            .append("color", Document("bg", "#333333").append("fg", "#ffffff")),
                         Document("_id", ObjectId())
                             .append("course_title", "직접 만든 강의")
                             .append("class_time_json", listOf(classTime(4)))

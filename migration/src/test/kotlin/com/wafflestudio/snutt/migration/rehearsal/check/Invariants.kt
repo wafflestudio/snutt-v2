@@ -92,6 +92,15 @@ class Invariants(
                 "SELECT COUNT(*) FROM timetable_lecture tl JOIN timetable t ON t.id = tl.timetable_id " +
                     "JOIN timetable_theme th ON th.id = t.theme_id WHERE tl.palette_index >= JSON_LENGTH(th.colors)",
             ),
+            // 이관은 colorIndex 0 + 직접 지정한 색이 팔레트에 있으면 그 번호로 옮긴다(같은 색이 여럿이면 마지막 번호, v1·v1compat과 같다).
+            Invariant(
+                "팔레트에 있는 색은 직접 지정한 색으로 남지 않는다",
+                "SELECT COUNT(*) FROM timetable_lecture tl JOIN timetable t ON t.id = tl.timetable_id " +
+                    "JOIN timetable_theme th ON th.id = t.theme_id " +
+                    "JOIN JSON_TABLE(th.colors, '$[*]' COLUMNS (bg VARCHAR(32) PATH '$.backgroundColor', fg VARCHAR(32) PATH '$.foregroundColor')) c " +
+                    "WHERE tl.custom_color IS NOT NULL AND LOWER(c.bg) = LOWER(tl.custom_color->>'$.backgroundColor') " +
+                    "AND LOWER(c.fg) = LOWER(tl.custom_color->>'$.foregroundColor')",
+            ),
             Invariant(
                 "직접 만든 강의는 제목과 수업 시간을 override에 가진다",
                 "SELECT COUNT(*) FROM timetable_lecture WHERE lecture_id IS NULL AND (overrides IS NULL OR " +
