@@ -95,6 +95,8 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
             )
 
         assertV1Error(response, 500, 0)
+        // v1 DEFAULT_ERROR: message는 개발자용 문구, displayMessage는 사용자 안내 문구.
+        assertEquals("API 호출에 실패하였습니다", body(response)["message"].asString())
         assertEquals("서버에 문제가 있으니, 잠시 후 다시 시도해주세요", body(response)["displayMessage"].asString())
     }
 
@@ -102,14 +104,19 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
     fun `v1 경로의 매핑 없는 경로와 메서드, 미디어 타입 오류도 v1 에러 형식으로 응답한다`() {
         val (token, _) = v1Register("v1notfound")
 
-        assertV1Error(v1Get("/v1/no-such-endpoint", token), 404, 0)
+        // v1 ErrorWebFilter: ResponseStatusException이면 message = ProblemDetail title(상태 reason phrase).
+        val notFound = v1Get("/v1/no-such-endpoint", token)
+        assertV1Error(notFound, 404, 0)
+        assertEquals("Not Found", body(notFound)["message"].asString())
+        assertEquals("서버에 문제가 있으니, 잠시 후 다시 시도해주세요", body(notFound)["displayMessage"].asString())
         assertV1Error(v1Get("/v1/ev-service/v1/no-such-endpoint", token), 404, 0)
-        assertV1Error(v1Delete("/v1/configs", token), 405, 0)
-        assertV1Error(
-            v1Send(HttpMethod.POST, "/v1/tables", "year=2026", token, headers = mapOf("Content-Type" to "text/plain")),
-            415,
-            0,
-        )
+        val methodNotAllowed = v1Delete("/v1/configs", token)
+        assertV1Error(methodNotAllowed, 405, 0)
+        assertEquals("Method Not Allowed", body(methodNotAllowed)["message"].asString())
+        val unsupportedMediaType =
+            v1Send(HttpMethod.POST, "/v1/tables", "year=2026", token, headers = mapOf("Content-Type" to "text/plain"))
+        assertV1Error(unsupportedMediaType, 415, 0)
+        assertEquals("Unsupported Media Type", body(unsupportedMediaType)["message"].asString())
         // API key 검증은 핸들러 매핑과 상관없이 v1 경로 전체에 걸린다. 매핑 없는 경로에서도 v1 형식으로 나가야 한다.
         assertV1Error(v1Send(HttpMethod.GET, "/v1/no-such-endpoint", apiKey = null), 403, 0x2000)
     }
