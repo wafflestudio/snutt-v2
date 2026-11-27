@@ -73,9 +73,37 @@ fun registerV1Jar(
 val (buildSnuttJar, snuttJar) = registerV1Jar("snutt", "PARITY_SNUTT_REPO")
 val (buildEvJar, evJar) = registerV1Jar("ev", "PARITY_EV_REPO")
 
+// 캐시에 남은 jar도 parity 전에 검사한다. 이 검사가 생기기 전에 빌드된 jar나 손으로 넣은 jar가 깨져 있으면
+// v1이 기동 후 요청마다 NoSuchMethodError를 내므로, 시나리오 실패 대신 여기서 이유를 밝히고 멈춘다.
+val checkV1Jars =
+    tasks.register("checkV1Jars") {
+        description = "v1 jar의 Hibernate enhancement가 일관된지 검사한다(parity/v1/check-v1-jar.sh)."
+        dependsOn(buildSnuttJar, buildEvJar)
+        val script = file("v1/check-v1-jar.sh")
+        val jars = listOf(snuttJar, evJar)
+        val marker = layout.buildDirectory.file("v1/check-v1-jars.ok")
+        inputs.file(script)
+        inputs.files(jars)
+        outputs.file(marker)
+        doLast {
+            jars.forEach { jar ->
+                val result =
+                    ProcessBuilder("bash", script.absolutePath, jar.absolutePath)
+                        .redirectErrorStream(true)
+                        .start()
+                val output = result.inputStream.bufferedReader().readText()
+                if (result.waitFor() != 0) {
+                    throw GradleException("$output\n깨진 jar를 지우고 다시 빌드한다: rm ${jar.absolutePath}")
+                }
+                logger.lifecycle(output.trim())
+            }
+            marker.get().asFile.writeText("ok\n")
+        }
+    }
+
 listOf("parityTest", "parityKnownFailureTest", "paritySnapshotTest").forEach { name ->
     tasks.named<Test>(name) {
-        dependsOn(buildSnuttJar, buildEvJar, v1ShimJar)
+        dependsOn(buildSnuttJar, buildEvJar, checkV1Jars, v1ShimJar)
         systemProperty("parity.v1.snutt-jar", snuttJar.absolutePath)
         systemProperty("parity.v1.ev-jar", evJar.absolutePath)
         systemProperty(

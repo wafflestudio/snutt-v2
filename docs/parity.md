@@ -52,6 +52,16 @@
 
 `PARITY_SNUTT_REPO`, `PARITY_EV_REPO` 환경변수로 clone할 저장소를 바꿀 수 있다(예: 로컬 사본 `~/IdeaProjects/snutt`). 커밋은 바뀌지 않는다.
 
+### v1 jar 빌드
+
+snutt-ev `core`는 Hibernate Gradle 플러그인으로 엔티티를 bytecode enhance한다(`enableLazyInitialization`). 플러그인은 컴파일 출력 디렉터리를 `File.listFiles()` 순서(파일시스템의 readdir 순서)로 돌며 클래스를 제자리에서 덮어쓰고, 다음 클래스를 enhance할 때 그 디렉터리를 다시 읽는다. 그래서 결과가 빌드한 파일시스템에 따라 달라진다. `@MappedSuperclass BaseEntity`(필드가 모두 `val`)가 엔티티보다 먼저 enhance되면 엔티티의 `$$_hibernate_read_id`가 BaseEntity에 없는 `$$_hibernate_write_id`를 부르고, v1이 엔티티 id를 읽는 요청마다 `NoSuchMethodError`로 500을 낸다. 로컬 `/tmp`(tmpfs)에서는 `domain/`이 `common/`보다 먼저 나와 정상이었고, CI 러너(ext4)에서는 반대 순서라 깨진 jar가 나왔다. v1 운영 Docker 빌드도 같은 조건이라 순서는 빌드 환경에 달려 있다.
+
+그래서 `build-v1-jar.sh`는 v1 레포를 고치지 않고 두 가지를 더한다.
+- [`stable-hibernate-enhancement.init.gradle`](../parity/v1/stable-hibernate-enhancement.init.gradle)을 `--init-script`로 얹는다. 플러그인의 enhancement action을 같은 enhancer(플러그인의 `EnhancementHelper.generateEnhancer`, `Helper.toClassLoader`)를 쓰는 action으로 바꾸되, 다른 클래스는 enhance 전 사본에서 읽고 클래스 파일을 경로 순으로 돈다. ext4와 tmpfs에서 빌드한 jar가 바이트 단위로 같고, `core.jar`는 기존에 정상이던 jar와 같다. hibernate 플러그인이 없는 snutt 빌드에는 영향이 없다.
+- [`check-v1-jar.sh`](../parity/v1/check-v1-jar.sh)로 jar를 검사해 통과해야 캐시에 둔다. jar 안 클래스가 부르는 `$$_hibernate_*` 메서드가 대상 클래스에 실제로 선언돼 있는지 `javap`로 본다. 깨진 jar면 빠진 메서드 목록을 출력하고 실패한다.
+
+캐시에 이미 있는 jar도 parity 태스크 전에 `checkV1Jars`가 같은 검사를 한다(jar가 바뀌지 않으면 UP-TO-DATE). 실패하면 메시지에 나온 jar를 지우고 다시 돌리면 새로 빌드된다. CI 캐시 키에는 `versions.properties`와 위 세 스크립트의 해시가 들어가므로, 어느 하나를 바꾸면 CI jar도 새로 빌드된다.
+
 ### 의존성과 설정
 
 | | 이미지 | 근거 |
