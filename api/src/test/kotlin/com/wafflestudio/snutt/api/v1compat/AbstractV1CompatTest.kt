@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.springframework.http.HttpMethod
 import org.springframework.http.ResponseEntity
 import org.springframework.web.client.RestClient
+import tools.jackson.databind.JsonNode
 
 /**
  * 구버전 앱(v1compat 엔드포인트)과 신버전 앱(v2 엔드포인트)을 한 테스트에서 함께 부르는 시나리오 베이스.
@@ -63,6 +64,9 @@ abstract class AbstractV1CompatTest : AbstractApiIntegrationTest() {
         uri: String,
         legacyToken: String? = null,
     ): ResponseEntity<String> = v1Send(HttpMethod.DELETE, uri, legacyToken = legacyToken)
+
+    /** JSON 배열을 원소 목록으로 바꾼다. */
+    protected fun JsonNode.items(): List<JsonNode> = (0 until size()).map { get(it) }
 
     /** 구앱으로 가입하고 레거시 토큰과 사용자 id(문자열)를 돌려준다. */
     protected fun v1Register(
