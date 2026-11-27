@@ -1,13 +1,39 @@
 name: Parity
 
-# v1 서버와 v1compat 응답 비교(docs/parity.md). 시간이 길고 v1 빌드에 GitHub Packages 읽기 권한이 필요해
-# PR 게이트에는 넣지 않고 수동으로 돌린다. wafflestudio/spring-waffle 패키지의 Actions access에 이 레포가 있어야 한다.
+# v1 서버와 v1compat 응답 비교(docs/parity.md). PR 게이트(ci.yml)와 별개로, v1compat 응답을 바꿀 수 있는 경로가 바뀐 PR,
+# nightly, 수동 실행에서 돈다. v1 jar 빌드가 GitHub Packages(wafflestudio/spring-waffle)를 읽으므로
+# org 관리자가 그 패키지의 "Manage Actions access"에 이 레포를 추가해야 한다.
 on:
+  pull_request:
+    branches: [ develop, prod ]
+    # v1compat 응답을 만드는 코드 전부. 근거는 docs/testing.md "CI에서 도는 테스트".
+    paths:
+      - 'v1compat/**'
+      - 'migration/src/main/**'
+      - 'parity/**'
+      - 'core/src/main/**'
+      - 'core/src/testFixtures/**'
+      - 'api/src/main/**'
+      - '!api/src/main/kotlin/com/wafflestudio/snutt/api/v2/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '*/build.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/parity.yml'
+  schedule:
+    - cron: '0 18 * * *' # 매일 03:00 KST
   workflow_dispatch:
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   parity:
     runs-on: ubuntu-24.04-arm
+    # fork PR의 GITHUB_TOKEN은 이 레포의 패키지 접근 권한을 받지 못해 v1 빌드가 실패한다.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: read
@@ -23,20 +49,32 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      # v1 jar는 고정 커밋에서 빌드하므로 versions.properties와 빌드 스크립트가 같으면 결과가 같다.
+      # 스케줄 실행은 기본 브랜치에서 돌아 캐시를 만들고, PR은 기본 브랜치 캐시를 읽는다.
       - name: Cache v1 server jars
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.gradle/caches/snutt-parity
-          key: snutt-parity-${{ hashFiles('parity/v1/versions.properties') }}
+          key: snutt-parity-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('parity/v1/versions.properties', 'parity/v1/build-v1-jar.sh') }}
 
       - name: Run parity
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew parityTest
 
+      - name: Write summary
+        if: ${{ !cancelled() }}
+        run: |
+          summary=parity/build/reports/parity/parityTest/summary.md
+          if [ -f "$summary" ]; then cat "$summary" >> "$GITHUB_STEP_SUMMARY"; fi
+
       - name: Upload parity report
-        if: always()
-        uses: actions/upload-artifact@v4
+        if: failure()
+        uses: actions/upload-artifact@v7
         with:
           name: parity-report
-          path: parity/build/reports/parity
+          path: |
+            parity/build/reports/parity
+            parity/build/reports/tests/parityTest
+            parity/build/test-results/parityTest
+          retention-days: 14

@@ -1,0 +1,39 @@
+name: Mutation testing
+
+# pitest로 핵심 비즈니스 코드(수강편람 동기화, 시간표·강의평 서비스)의 mutation score를 잰다(docs/testing.md "mutation testing").
+# 통합테스트를 mutant마다 다시 돌려 오래 걸리므로 주 1회와 수동 실행에서만 돈다. 점수 임계값은 두지 않는다(리포트를 보는 용도).
+on:
+  schedule:
+    - cron: '0 19 * * 6' # 일요일 04:00 KST
+  workflow_dispatch:
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pitest:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Run pitest
+        run: ./gradlew pitest -PpitestThreads=2
+
+      - name: Upload PIT report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pitest-report
+          path: '*/build/reports/pitest'
+          retention-days: 30
