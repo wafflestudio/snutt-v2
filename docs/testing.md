@@ -246,9 +246,25 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 - Redis 락(`SchedulerLock`, 인증코드 발송 제한)은 DB 대기가 없으므로 `runConcurrently`와 `pollUntil`로 검증한다. 락 안에서 다른 스레드가 모두 시도할 때까지 `pollUntil`로 기다리면 겹침을 보장할 수 있다.
 - 기다릴 때는 `pollUntil { 조건 }`을 쓴다. `Thread.sleep`으로 타이밍을 맞추지 않는다.
 
+`whileContended`를 주면 contender가 락을 기다리는 동안(holder 커밋 직전) 다른 스레드에서 요청 하나를 커밋한다. "잡이 대상을 고른 뒤 락을 기다리는 사이 다른 요청이 끼어든다"를 재현할 때 쓴다(예: `SugangSyncRecoveryTest`의 복사).
+
+### 장애 주입: `DbFaults`
+
+단계 중간에 트랜잭션이 죽는 상황은 프로덕션 코드에 훅을 두지 않고 DB 트리거로 만든다.
+
+```kotlin
+DbFaults.failing("timetable", "UPDATE", "NEW.id = ${timetable.id}").use { assertThrows<IllegalStateException> { sync(rows) } }
+DbFaults.failing("timetable", "UPDATE", fault = DbFault.DEADLOCK)     // 1213이라 락 충돌 재시도 경로를 탄다
+```
+
+- root 연결로 `BEFORE` 트리거를 만들고 닫으면 지운다. 테이블 초기화(TRUNCATE)는 트리거를 지우지 않으므로 반드시 `use`로 닫는다.
+- 그 쓰기를 하는 트랜잭션이 커밋 전에 끝나므로, 프로세스 종료·연결 끊김과 남는 DB 상태가 같다.
+- 조건(`condition`)은 트리거 안의 SQL 식이다(`NEW.`/`OLD.` 컬럼). 다른 요청의 쓰기까지 막지 않게 좁힌다. 잡만 쓰는 테이블에 걸면 사용자 요청과 섞이지 않는다.
+- `DbFault.DEADLOCK`은 InnoDB 데드락 지표(`INNODB_METRICS`)를 올리지 않는다. stress에서 주입한 장애로 남은 ERROR 로그는 따로 걸러야 한다(`SugangSyncRecoversFromFaultsStressTest`).
+
 시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 `ConcurrencyScenarios(beans, fixtures, HttpScenarioActions(...))`로 요청을 HTTP로 바꿔 요청 수를 늘려 돌린다. 시나리오의 요청은 `ScenarioActions`(서비스 호출 = `ServiceScenarioActions`)로만 보낸다.
 
-락 순서는 user 행 → timetable 행(여러 개면 id 순) → timetable_lecture → 리마인더 → 리마인더 발송 시각이고, 강의(lecture) 행은 시간표 다음에 잠근다(시간표에 담을 때 공유 락). 수강편람 동기화처럼 강의 행을 먼저 쓰는 작업은 그 트랜잭션에서 시간표를 잠그지 않고 커밋한 뒤 시간표를 따로 잠근다. 범위 DELETE 뒤 INSERT는 gap 락으로 이웃 행의 INSERT와 데드락이 나므로, 읽은 뒤 바뀐 행만 id로 지우고 넣는다.
+락 순서는 user 행 → timetable 행(여러 개면 id 순) → timetable_lecture → 리마인더 → 리마인더 발송 시각이고, 강의(lecture) 행은 시간표 다음에 잠근다(시간표에 담을 때 공유 락). 강의를 여러 개 한꺼번에 담을 때(시간표 복사)는 행을 넣기 전에 강의를 id 순으로 `FOR SHARE`한다. 행을 넣을 때마다 외래 키 검사가 담긴 순서대로 강의 락을 잡으면 강의를 id 순으로 X락하는 동기화와 사이클이 생긴다. 수강편람 동기화처럼 강의 행을 먼저 쓰는 작업은 그 트랜잭션에서 시간표를 잠그지 않고 커밋한 뒤 시간표를 따로 잠근다. 강의나 시간표를 쥔 채 남기는 기록(동기화의 남은 일, 알림 outbox)은 외래 키 없는 테이블에 넣는다(부모 행 공유 락을 잡지 않는다). 범위 DELETE 뒤 INSERT는 gap 락으로 이웃 행의 INSERT와 데드락이 나므로, 읽은 뒤 바뀐 행만 id로 지우고 넣는다.
 
 새 락을 추가하거나 고치면 다음을 확인한다. 동시성 테스트를 쓰고, 락을 잠시 지운 채 돌려서 그 테스트가 실패하는지 본다. `@RepeatedTest(20)`으로 한 번 돌려 flaky하지 않은지도 본다. 반복 설정은 커밋하지 않는다.
 
@@ -279,6 +295,7 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 
 - `batch/.../sugang/SugangSyncScenarioTest`를 상속한다. `sync(rows, englishRows)`가 수강편람 사이트를 stub하고 잡을 학기 지정 없이 돌린다. 시간표 담기·리마인더·관심강좌는 실제 서비스(`addLecture`, `setReminder`, `bookmarkService`)로 한다.
 - 어디에 쓸지: 한 학기를 따라가는 골든패스는 `SugangSemesterLifecycleTest`, 동기화 diff 분기(추가·폐강·필드별 변경·겹침·멱등·영어 엑셀 공백·학기 경계·트랜잭션)는 `SugangSyncDiffTest`, 사이트 HTTP 오류·응답 형식 이상은 `SugangSnuSyncJobTest`, 빈자리 판정은 `VacancyNotificationJobTest`.
+- 단계 사이 장애: 동기화는 강의 반영(1단계)을 커밋한 뒤 시간표 반영·폐강·알림 배출을 따로 커밋하고, 남은 일은 `sugang_sync_pending_*`와 `sugang_sync_outbox`(V6)에 남겨 다음 실행이 정확히 한 번 마친다. 이 계약은 `SugangSyncRecoveryTest`가 고정한다.
 - `SugangXlsxFixture.RowData`의 영어 값 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로다.
 
 ## 새 테스트 체크리스트
