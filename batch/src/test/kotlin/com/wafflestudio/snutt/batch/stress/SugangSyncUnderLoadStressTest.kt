@@ -1,0 +1,274 @@
+package com.wafflestudio.snutt.batch.stress
+
+import com.wafflestudio.snutt.batch.SugangXlsxFixture.RowData
+import com.wafflestudio.snutt.batch.sugang.SugangSyncScenarioTest
+import com.wafflestudio.snutt.core.common.enums.DayOfWeek
+import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.common.error.ErrorType
+import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureAddRequest
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureModifyRequest
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
+import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.test.StressTest
+import com.wafflestudio.snutt.core.test.concurrency.runConcurrently
+import com.wafflestudio.snutt.core.test.stress.DomainInvariants
+import com.wafflestudio.snutt.core.test.stress.FailureKind
+import com.wafflestudio.snutt.core.test.stress.MySqlProbe
+import com.wafflestudio.snutt.core.test.stress.ServerErrorLog
+import com.wafflestudio.snutt.core.test.stress.StressRun
+import com.wafflestudio.snutt.core.test.stress.StressSettings
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.ApplicationContext
+import java.time.Duration
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import javax.sql.DataSource
+import kotlin.random.Random
+
+/**
+ * 수강편람 동기화 잡([com.wafflestudio.snutt.batch.sugangsnu.SugangSnuSyncJob])이 도는 동안 사용자들이 시간표를 고친다.
+ * batch 모듈에는 웹 서버가 없으므로 사용자 요청은 컨트롤러가 부르는 서비스(`TimetableLectureService`, 리마인더 서비스)를 스레드에서 바로 부른다.
+ *
+ * 반복마다: 강의 [LECTURES]개로 첫 동기화 → 사용자마다 겹치지 않는 강의 몇 개를 담고 리마인더를 건다 → 엑셀을 바꿔(수업 시간 변경 30%,
+ * 폐강 10%, 신설 10%, 제목 변경) 잡을 백그라운드에서 돌리는 동안 스레드들이 하위 클래스가 정한 요청을 잡이 끝날 때까지 보낸다.
+ * 끝나면 잡이 성공했는지, 시간표 시간 겹침 없음·리마인더 발송 시각 = 수업 시간 + offset·고아 행 없음([DomainInvariants])을 본다.
+ *
+ * 동기화는 학기 전체를 한 트랜잭션으로 처리하면서 timetable 행을 잠그지 않고(스냅숏으로 겹침을 판단) 마지막에 touchUpdatedAt으로 timetable을
+ * 갱신한다. 그래서 겹치는 사용자 요청과 데드락·정합성 문제가 날 수 있다.
+ */
+abstract class AbstractSugangSyncUnderLoadStressTest(
+    private val scenarioName: String,
+    /** 사용자 요청 구성. [SAFE_OPERATIONS], [ADD_OPERATION], [EDIT_OPERATIONS], [REMINDER_OPERATIONS] 중에서 고른다. */
+    private val operations: List<String>,
+) : SugangSyncScenarioTest() {
+    @Autowired lateinit var applicationContext: ApplicationContext
+
+    @Autowired lateinit var dataSource: DataSource
+
+    @Autowired lateinit var timetableService: TimetableService
+
+    private val settings = StressSettings.fromSystemProperties()
+    private val invariants by lazy { DomainInvariants(applicationContext) }
+
+    private class Owner(
+        val user: User,
+        val timetable: Timetable,
+    )
+
+    @Test
+    fun `수강편람 동기화 중에 사용자들이 시간표를 고친다`() {
+        ServerErrorLog().use { serverErrors ->
+            val run = StressRun(scenarioName, settings, MySqlProbe.environment(dataSource), serverErrors)
+            for (iteration in 1..settings.iterations) {
+                if (run.shouldStop()) break
+                run.iteration(iteration) { runIteration(run, iteration) }
+            }
+            run.finish()
+        }
+    }
+
+    private fun runIteration(
+        run: StressRun,
+        iteration: Int,
+    ) {
+        resetStores()
+        val random = Random(settings.seed + iteration)
+        val before = (0 until LECTURES).map { row(it, random) }
+        sync(before)
+        val lectures = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN)
+        val owners = prepareOwners(lectures, random)
+
+        val after = mutate(before, random)
+        // 엑셀에서 한 글자도 바뀌지 않은 강의. 동기화가 이 강의를 담은 timetable_lecture는 건드리지 않는다.
+        val unchanged = (before.toSet() intersect after.toSet()).map { it.courseNumber }.toSet()
+        val stableLectureIds = lectures.filter { it.courseNumber in unchanged }.map { it.id!! }.toSet()
+        stubSite(after)
+        val executor = Executors.newSingleThreadExecutor()
+        val job = executor.submit<Throwable?> { runCatching { sugangSnuSyncJob.run(null) }.exceptionOrNull() }
+        try {
+            runConcurrently(settings.threads, LOAD_TIMEOUT) { thread ->
+                val threadRandom = Random(settings.seed * 13 + iteration * 7_919L + thread)
+                val owner = owners[thread % owners.size]
+                var ops = 0
+                // 잡이 끝날 때까지 계속 보내고, 잡이 빨리 끝나도 최소 opsPerThread개는 보낸다.
+                while (!job.isDone || ops < settings.opsPerThread) {
+                    operate(run, owner, lectures, stableLectureIds, threadRandom)
+                    ops++
+                }
+            }
+        } catch (e: AssertionError) {
+            run.fail(FailureKind.CLIENT_TIMEOUT, "load", e.message.orEmpty())
+            return
+        } finally {
+            val error = job.get(LOAD_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
+            executor.shutdownNow()
+            if (error != null) {
+                run.record("sugangSnuSyncJob", FailureKind.classify(error).name, allowed = false, detail = FailureKind.summarize(error))
+            } else {
+                run.record("sugangSnuSyncJob", "ok", allowed = true)
+            }
+        }
+        // 동기화가 반영됐는지(롤백되지 않았는지) 확인한다: 폐강 강의는 없고 신설 강의는 있다.
+        val synced = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN).map { it.courseNumber }.toSet()
+        val expected = after.map { it.courseNumber }.toSet()
+        if (synced != expected) throw AssertionError("동기화 결과가 엑셀과 다르다: 없어야 할 ${synced - expected}, 있어야 할 ${expected - synced}")
+        invariants.assertHolds()
+    }
+
+    /** 사용자마다 대표 시간표에 서로 겹치지 않는 강의를 실제 서비스로 담고, 담은 강의마다 리마인더를 건다. */
+    private fun prepareOwners(
+        lectures: List<Lecture>,
+        random: Random,
+    ): List<Owner> {
+        val autumn = coursebookRepository.findAll().single()
+        return (0 until (settings.threads / THREADS_PER_USER).coerceAtLeast(2)).map {
+            val user = fixtures.user()
+            val timetable = fixtures.timetable(user, autumn)
+            lectures.shuffled(random).take(INITIAL_LECTURES_PER_USER).forEach { lecture ->
+                val entryId =
+                    runCatching { addLecture(user, timetable, lecture) }
+                        .recoverCatching { e -> if (e is SnuttException && e.error == ErrorType.LECTURE_TIME_OVERLAP) null else throw e }
+                        .getOrThrow()
+                entryId?.let { setReminder(user, timetable, it, TimetableLectureReminderOption.TEN_MINUTES_BEFORE) }
+            }
+            Owner(user, timetable)
+        }
+    }
+
+    private fun operate(
+        run: StressRun,
+        owner: Owner,
+        lectures: List<Lecture>,
+        stableLectureIds: Set<Long>,
+        random: Random,
+    ) {
+        val userId = owner.user.id!!
+        val timetableId = owner.timetable.id!!
+        val entries =
+            MySqlProbe.jdbc
+                .queryForList(
+                    "SELECT id, lecture_id FROM timetable_lecture WHERE timetable_id = ?",
+                    timetableId,
+                ).map { (it["id"] as Number).toLong() to (it["lecture_id"] as Number?)?.toLong() }
+        val entryId = entries.randomOrNull(random)?.first ?: Long.MAX_VALUE
+        val stableEntryId = entries.filter { it.second in stableLectureIds }.randomOrNull(random)?.first ?: Long.MAX_VALUE
+        val operation = operations[random.nextInt(operations.size)]
+        val allowed =
+            when (operation) {
+                ADD_OPERATION -> setOf(ErrorType.LECTURE_TIME_OVERLAP, ErrorType.DUPLICATE_LECTURE, ErrorType.LECTURE_NOT_FOUND)
+                "modifyLectureTime" ->
+                    setOf(ErrorType.TIMETABLE_LECTURE_NOT_FOUND, ErrorType.LECTURE_TIME_OVERLAP, ErrorType.LECTURE_NOT_FOUND)
+                "setReminder" -> setOf(ErrorType.TIMETABLE_LECTURE_NOT_FOUND, ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
+                else -> setOf(ErrorType.TIMETABLE_LECTURE_NOT_FOUND, ErrorType.LECTURE_NOT_FOUND)
+            }
+        try {
+            when (operation) {
+                ADD_OPERATION ->
+                    timetableLectureService.addLecture(
+                        userId,
+                        timetableId,
+                        TimetableLectureAddRequest(lectures.random(random).id!!),
+                    )
+                "deleteLecture" -> timetableLectureService.deleteLecture(userId, timetableId, entryId)
+                "modifyLectureTitle", "modifyStableLectureTitle" ->
+                    timetableLectureService.modifyLecture(
+                        userId,
+                        timetableId,
+                        if (operation == "modifyStableLectureTitle") stableEntryId else entryId,
+                        TimetableLectureModifyRequest(courseTitle = "내 제목 ${random.nextInt(100)}"),
+                    )
+                "getTimetable" -> timetableService.getTimetableDisplay(userId, timetableId)
+                "modifyLectureTime" -> {
+                    val start = 540 + random.nextInt(17) * 30
+                    val time = ClassPlaceAndTime(DayOfWeek.entries[random.nextInt(5)], "변경", start, start + 50)
+                    timetableLectureService.modifyLecture(
+                        userId,
+                        timetableId,
+                        entryId,
+                        TimetableLectureModifyRequest(classPlaceAndTimes = listOf(time)),
+                    )
+                }
+                "setReminder" ->
+                    reminderService.modifyReminder(
+                        userId,
+                        timetableId,
+                        entryId,
+                        TimetableLectureReminderOption.entries.random(random),
+                    )
+                else -> error(operation)
+            }
+            run.record(operation, "ok", allowed = true)
+        } catch (e: SnuttException) {
+            run.record(operation, e.error.name, allowed = e.error in allowed)
+        } catch (e: Exception) {
+            run.record(operation, FailureKind.classify(e).name, allowed = false, detail = FailureKind.summarize(e))
+        }
+    }
+
+    /** 평일 09:00~17:00 사이 30분 단위로 시작하는 75분 강의. 서로 겹치는 것이 많다. */
+    private fun row(
+        index: Int,
+        random: Random,
+    ): RowData {
+        val start = 540 + random.nextInt(17) * 30
+        return RowData(
+            courseNumber = "S%03d".format(index),
+            lectureNumber = "001",
+            courseTitle = "부하강의$index",
+            classTime = "${DAYS[random.nextInt(5)]}(${hhmm(start)}~${hhmm(start + 75)})",
+            place = "301-${100 + index}",
+            instructor = "교수$index",
+        )
+    }
+
+    /** 수업 시간 변경 30%, 폐강 10%, 제목 변경 10%, 신설 [LECTURES]/10개. */
+    private fun mutate(
+        rows: List<RowData>,
+        random: Random,
+    ): List<RowData> {
+        val changed =
+            rows.mapNotNull { row ->
+                when (random.nextInt(10)) {
+                    0 -> null
+                    1, 2, 3 ->
+                        row(
+                            row.courseNumber.drop(1).toInt(),
+                            random,
+                        ).copy(courseTitle = row.courseTitle, courseTitleEn = row.courseTitleEn)
+                    4 -> row.copy(courseTitle = row.courseTitle + " (개편)")
+                    else -> row
+                }
+            }
+        return changed + (0 until LECTURES / 10).map { row(LECTURES + it, random) }
+    }
+
+    private fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
+
+    companion object {
+        /** 동기화와 겹쳐도 통과해야 하는 요청: 동기화가 바꾸지 않는 강의의 제목 변경, 시간표 조회. */
+        val SAFE_OPERATIONS = listOf("modifyStableLectureTitle", "getTimetable")
+        const val ADD_OPERATION = "addLecture"
+
+        /** 동기화가 바꾸거나 지우는 강의일 수도 있는, 이미 담은 강의를 고치거나 지운다. */
+        val EDIT_OPERATIONS = listOf("modifyLectureTitle", "deleteLecture")
+
+        /** 리마인더 발송 시각을 다시 쓰는 요청. */
+        val REMINDER_OPERATIONS = listOf("modifyLectureTime", "setReminder")
+
+        const val LECTURES = 120
+        const val THREADS_PER_USER = 5
+        const val INITIAL_LECTURES_PER_USER = 6
+        val DAYS = listOf("월", "화", "수", "목", "금")
+        val LOAD_TIMEOUT: Duration = Duration.ofMinutes(5)
+    }
+}
+
+/** 동기화가 바꾸지 않는 강의의 제목을 고치고 시간표를 읽는다(같은 시간표에 동기화가 바꾸는 강의도 있다). 통과해야 한다. */
+@StressTest
+class SugangSyncUnderLoadStressTest : AbstractSugangSyncUnderLoadStressTest("sugang-sync-under-load", SAFE_OPERATIONS)

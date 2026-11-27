@@ -68,6 +68,7 @@ subprojects {
     // parity-known-failure는 parity가 찾은 실제 버그를 재현하는 시나리오다. 고쳐지기 전까지 빨간 상태라 parityTest와 분리한다.
     // parity-snapshot은 시드 대신 운영 덤프를 넣어 도는 parity(작업 M 리허설용)다. 덤프 경로를 줘야 돈다.
     // live는 실제 외부 사이트(sugang.snu.ac.kr)를 호출하므로 사람이 직접 `./gradlew liveTest`로만 돌린다.
+    // stress-known-failure는 stress가 재현한 버그를 고정한 테스트다. 고칠 때까지 test와 stressTest에서 빠진다.
     val separatedTags =
         mapOf(
             "parity" to "parityTest",
@@ -76,7 +77,10 @@ subprojects {
             "live" to "liveTest",
             "parity-known-failure" to "parityKnownFailureTest",
             "parity-snapshot" to "paritySnapshotTest",
+            "stress-known-failure" to "stressKnownFailureTest",
         )
+    // 다른 태그와 함께 붙을 수 있는 보조 태그. 자기 전용 태스크가 아니면 항상 뺀다.
+    val auxiliaryTags = setOf("parity-known-failure", "parity-snapshot", "stress-known-failure")
 
     tasks.named<Test>("test") {
         useJUnitPlatform { excludeTags(*separatedTags.keys.toTypedArray()) }
@@ -89,10 +93,15 @@ subprojects {
             group = LifecycleBasePlugin.VERIFICATION_GROUP
             testClassesDirs = testSourceSet.output.classesDirs
             classpath = testSourceSet.runtimeClasspath
-            useJUnitPlatform { includeTags(tag) }
+            useJUnitPlatform {
+                includeTags(tag)
+                excludeTags(*(auxiliaryTags - tag).toTypedArray())
+            }
             // 아직 해당 태그 테스트가 없는 모듈에서도 태스크가 성공해야 한다.
             failOnNoDiscoveredTests = false
             shouldRunAfter(tasks.named("test"))
+            if (tag == "stress") configureStress(this, "stress")
+            if (tag == "stress-known-failure") configureStress(this, "stress-known-failure")
             if (tag == "live") {
                 // 외부 상태를 확인하는 테스트라 매번 실제로 돌아야 한다.
                 outputs.upToDateWhen { false }
@@ -102,6 +111,34 @@ subprojects {
             }
         }
     }
+}
+
+/**
+ * stress 규모는 Gradle 프로퍼티로 바꾼다: -PstressThreads, -PstressIterations, -PstressOpsPerThread, -PstressSeed.
+ * 값을 주지 않으면 테스트 코드의 기본값(StressSettings)을 쓴다. 리포트는 build/reports/stress(known-failure는 stress-known-failure)에 남는다.
+ */
+fun Project.configureStress(
+    task: Test,
+    reportName: String,
+) {
+    val reportDir =
+        layout.buildDirectory
+            .dir("reports/$reportName")
+            .get()
+            .asFile
+    mapOf(
+        "stressThreads" to "snutt.stress.threads",
+        "stressIterations" to "snutt.stress.iterations",
+        "stressOpsPerThread" to "snutt.stress.opsPerThread",
+        "stressSeed" to "snutt.stress.seed",
+    ).forEach { (property, systemProperty) ->
+        findProperty(property)?.let { task.systemProperty(systemProperty, it.toString()) }
+    }
+    task.systemProperty("snutt.stress.reportDir", reportDir.absolutePath)
+    // 결과는 매번의 인터리빙에 달려 있으므로 캐시된 결과를 쓰지 않는다.
+    task.outputs.upToDateWhen { false }
+    task.doFirst { reportDir.deleteRecursively() }
+    task.testLogging { showStandardStreams = false }
 }
 
 project(":api") {
