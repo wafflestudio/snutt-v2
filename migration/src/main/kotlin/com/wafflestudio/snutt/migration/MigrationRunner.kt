@@ -66,6 +66,17 @@ class MigrationRunner(
     override fun run(args: ApplicationArguments) {
         require(args.nonOptionArgs.isEmpty()) { "부분 이관은 지원하지 않는다. --truncate 외의 인자는 받지 않는다" }
         val truncate = args.getOptionValues("truncate")?.let { it.singleOrNull()?.toBooleanStrictOrNull() ?: it.isEmpty() } ?: false
+        migrate(truncate)
+    }
+
+    /**
+     * 모든 단계를 순서대로 돌린다. 단계가 끝날 때마다(실패해도) [onStepDone]에 단계 이름과 소요 시간(ms)을 넘긴다.
+     * 리허설 도구가 단계별 시간 리포트에 쓴다(중간 단계가 실패해도 그때까지의 시간이 남는다).
+     */
+    fun migrate(
+        truncate: Boolean,
+        onStepDone: (step: String, elapsedMs: Long) -> Unit = { _, _ -> },
+    ) {
         val tables = steps.flatMap { it.tables }
         if (truncate) {
             MigrationSupport.truncate(jdbc, tables)
@@ -77,8 +88,13 @@ class MigrationRunner(
         val total =
             measureTimeMillis {
                 steps.forEach { step ->
-                    val elapsed = measureTimeMillis { step.run() }
-                    log.info("[{}] 완료 ({} ms)", step.javaClass.simpleName, elapsed)
+                    val start = System.nanoTime()
+                    try {
+                        step.run()
+                    } finally {
+                        onStepDone(step.javaClass.simpleName, (System.nanoTime() - start) / 1_000_000)
+                    }
+                    log.info("[{}] 완료", step.javaClass.simpleName)
                 }
             }
         log.info("이관 완료 ({} ms)", total)
