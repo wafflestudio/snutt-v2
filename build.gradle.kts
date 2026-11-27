@@ -59,7 +59,30 @@ subprojects {
 
     tasks.withType<Test> {
         systemProperty("spring.profiles.active", "test")
+        // 운영 main()이 TimeZone.setDefault(UTC)를 하므로 테스트 JVM도 로컬 타임존과 무관하게 UTC로 맞춘다.
+        systemProperty("user.timezone", "UTC")
         useJUnitPlatform()
+    }
+
+    // 태그가 붙은 테스트는 PR CI(`test`)에서 빠지고 태그별 전용 태스크로만 돈다. 값은 testFixtures의 TestTags와 같다.
+    val separatedTags = listOf("parity", "perf", "stress")
+
+    tasks.named<Test>("test") {
+        useJUnitPlatform { excludeTags(*separatedTags.toTypedArray()) }
+    }
+
+    val testSourceSet = the<SourceSetContainer>()["test"]
+    separatedTags.forEach { tag ->
+        tasks.register<Test>("${tag}Test") {
+            description = "JUnit 태그 '$tag'가 붙은 테스트만 실행한다."
+            group = LifecycleBasePlugin.VERIFICATION_GROUP
+            testClassesDirs = testSourceSet.output.classesDirs
+            classpath = testSourceSet.runtimeClasspath
+            useJUnitPlatform { includeTags(tag) }
+            // 아직 해당 태그 테스트가 없는 모듈에서도 태스크가 성공해야 한다.
+            failOnNoDiscoveredTests = false
+            shouldRunAfter(tasks.named("test"))
+        }
     }
 }
 
