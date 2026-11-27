@@ -247,6 +247,8 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 
 시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 `ConcurrencyScenarios(beans, fixtures, HttpScenarioActions(...))`로 요청을 HTTP로 바꿔 요청 수를 늘려 돌린다. 시나리오의 요청은 `ScenarioActions`(서비스 호출 = `ServiceScenarioActions`)로만 보낸다.
 
+락 순서는 user 행 → timetable 행(여러 개면 id 순) → timetable_lecture → 리마인더 → 리마인더 발송 시각이고, 강의(lecture) 행은 시간표 다음에 잠근다(시간표에 담을 때 공유 락). 수강편람 동기화처럼 강의 행을 먼저 쓰는 작업은 그 트랜잭션에서 시간표를 잠그지 않고 커밋한 뒤 시간표를 따로 잠근다. 범위 DELETE 뒤 INSERT는 gap 락으로 이웃 행의 INSERT와 데드락이 나므로, 읽은 뒤 바뀐 행만 id로 지우고 넣는다.
+
 새 락을 추가하거나 고치면 다음을 확인한다. 동시성 테스트를 쓰고, 락을 잠시 지운 채 돌려서 그 테스트가 실패하는지 본다. `@RepeatedTest(20)`으로 한 번 돌려 flaky하지 않은지도 본다. 반복 설정은 커밋하지 않는다.
 
 ### stress (`@StressTest`)
