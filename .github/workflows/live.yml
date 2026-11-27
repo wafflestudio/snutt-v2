@@ -1,0 +1,39 @@
+name: Live smoke
+
+# 실제 수강편람 사이트(sugang.snu.ac.kr)를 호출해 파서·fixture가 지금 사이트와 맞는지 본다(docs/testing.md "live 테스트").
+# 잦은 호출은 IP 밴 위험이 있어 스케줄 없이 사람이 수동으로만 실행한다.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: live
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Run live tests
+        run: ./gradlew liveTest
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-report
+          path: |
+            */build/reports/tests/liveTest
+            */build/test-results/liveTest
+          retention-days: 14
