@@ -7,8 +7,12 @@ import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderOption
+import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
+import com.wafflestudio.snutt.core.test.IntegrationContainers
 import com.wafflestudio.snutt.core.test.concurrency.LockContention
+import com.wafflestudio.snutt.core.test.concurrency.pollUntil
+import com.wafflestudio.snutt.core.test.stress.MySqlProbe
 import jakarta.persistence.EntityManagerFactory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -16,7 +20,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.transaction.PlatformTransactionManager
+import java.sql.DriverManager
 import java.time.LocalDateTime
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * 수강편람 동기화와 같은 시간표를 고치는 사용자 요청이 겹칠 때. holder(사용자 요청)가 커밋하지 않고 락을 쥔 채로 잡(contender)을 돌리고,
@@ -27,6 +34,8 @@ class SugangSyncConcurrencyTest : SugangSyncScenarioTest() {
     @Autowired lateinit var transactionManager: PlatformTransactionManager
 
     @Autowired lateinit var entityManagerFactory: EntityManagerFactory
+
+    @Autowired lateinit var timetableService: TimetableService
 
     private val contention by lazy { LockContention(transactionManager, entityManagerFactory) }
 
@@ -162,5 +171,38 @@ class SugangSyncConcurrencyTest : SugangSyncScenarioTest() {
 
         assertNull(error)
         assertEquals(listOf(Schedule(DayOfWeek.THURSDAY, 13 * 60 - 10)), reminderSchedules(entryId))
+    }
+
+    @Test
+    fun `시간표 복사는 강의를 id 순으로 잠그므로 강의를 id 순으로 잠그는 동기화와 데드락이 나지 않는다`() {
+        sync(listOf(algo, compiler))
+        val alice = userWithDevice("alice")
+        val timetable = timetableOf(alice)
+        // 시간표에는 id가 큰 강의(compiler)를 먼저 담는다. 복사가 담긴 순서대로 강의 FK 공유 락을 잡으면 compiler → algo 순이 된다.
+        val (low, high) = listOf(lecture(algo.courseNumber), lecture(compiler.courseNumber)).sortedBy { it.id }
+        addLecture(alice, timetable, high)
+        addLecture(alice, timetable, low)
+
+        // 동기화 1단계처럼 강의를 id 순으로 잠그는 트랜잭션이 작은 id를 잡은 상태에서 복사가 시작된다.
+        val mysql = IntegrationContainers.mysql
+        DriverManager.getConnection(mysql.jdbcUrl, "root", mysql.password).use { sync1 ->
+            sync1.autoCommit = false
+            sync1.createStatement().use { it.executeQuery("SELECT id FROM lecture WHERE id = ${low.id} FOR UPDATE").close() }
+            val executor = Executors.newSingleThreadExecutor()
+            try {
+                val copy = executor.submit<Timetable> { timetableService.copyTimetable(alice.id!!, timetable.id!!) }
+                pollUntil(message = { "복사가 강의 락을 기다리지 않는다" }) {
+                    MySqlProbe.jdbc.queryForObject("SELECT COUNT(*) FROM performance_schema.data_lock_waits", Int::class.java)!! > 0
+                }
+                // 복사가 큰 id 강의에 공유 락을 쥔 채 작은 id를 기다리면 여기서 데드락(1213)이 난다.
+                sync1.createStatement().use { it.executeQuery("SELECT id FROM lecture WHERE id = ${high.id} FOR UPDATE").close() }
+                sync1.commit()
+
+                val copied = copy.get(30, TimeUnit.SECONDS)
+                assertEquals(listOf(high.id, low.id), timetableLectureIds(copied))
+            } finally {
+                executor.shutdownNow()
+            }
+        }
     }
 }
