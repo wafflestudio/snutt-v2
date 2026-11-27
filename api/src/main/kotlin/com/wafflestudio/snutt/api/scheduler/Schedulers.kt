@@ -16,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
+import com.wafflestudio.snutt.core.domain.notification.service.TargetedNotificationPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
@@ -63,14 +64,18 @@ class ReminderScheduler(
         now: ZonedDateTime,
         current: YearAndSemester,
     ) {
-        timetableLectureReminderService.processDueReminders(now, current).forEach { push ->
-            pushService.sendPushAndNotification(
-                userIds = listOf(push.userId),
-                message = push.message.copy(isUrgentOnAndroid = true, shouldSendAsDataMessage = true),
-                type = NotificationType.NORMAL,
-                preferenceType = PushPreferenceType.NORMAL,
-            )
-        }
+        val pushes =
+            timetableLectureReminderService.processDueReminders(now, current).map { push ->
+                TargetedNotificationPush(
+                    userIds = listOf(push.userId),
+                    message = push.message.copy(isUrgentOnAndroid = true, shouldSendAsDataMessage = true),
+                )
+            }
+        pushService.sendBatchPushAndNotification(
+            pushes = pushes,
+            type = NotificationType.NORMAL,
+            preferenceType = PushPreferenceType.NORMAL,
+        )
     }
 }
 
@@ -140,12 +145,13 @@ class DiaryScheduler(
         val latestSendAt = now.toLocalDate().atTime(LATEST_SEND_TIME).atZone(kst)
         val primaries =
             timetableRepository
-                .findByYearAndSemesterAndIsPrimaryTrue(target.year, target.semester)
+                .findPrimaryTargetsByYearAndSemester(target.year, target.semester)
                 .shuffled()
                 .let { it.take((it.size * sampleRate).toInt().coerceAtLeast(if (it.isEmpty()) 0 else 1)) }
+        if (primaries.isEmpty()) return emptyList()
         val entriesByTimetableId =
             timetableLectureRepository
-                .findByTimetableIdIn(primaries.map { it.id!! })
+                .findByTimetableIdIn(primaries.map { it.timetableId })
                 .filter { it.lectureId != null }
                 .groupBy { it.timetableId }
         val classTimesByLectureId =
@@ -156,9 +162,9 @@ class DiaryScheduler(
                         .mapNotNull { it.lectureId }
                         .distinct(),
                 ).groupBy { it.lectureId }
-        return primaries.mapNotNull { timetable ->
+        return primaries.mapNotNull { targetTimetable ->
             val endMinuteByLectureId =
-                entriesByTimetableId[timetable.id].orEmpty().mapNotNull { entry ->
+                entriesByTimetableId[targetTimetable.timetableId].orEmpty().mapNotNull { entry ->
                     val times =
                         entry.overrides?.classPlaceAndTimes
                             ?: classTimesByLectureId[entry.lectureId].orEmpty().map { it.toClassPlaceAndTime() }
@@ -168,7 +174,7 @@ class DiaryScheduler(
             val delayMinutes = Random.nextInt(MIN_DELAY_MINUTES, MAX_DELAY_MINUTES + 1)
             val sendAt = startOfDay.plusMinutes((lastEndMinute + delayMinutes).toLong())
             if (sendAt.isAfter(latestSendAt)) return@mapNotNull null
-            DiaryPush(userId = timetable.userId, lectureId = endMinuteByLectureId.random().first, sendAt = sendAt.toInstant())
+            DiaryPush(userId = targetTimetable.userId, lectureId = endMinuteByLectureId.random().first, sendAt = sendAt.toInstant())
         }
     }
 

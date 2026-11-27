@@ -35,11 +35,6 @@ interface TimetableLectureRepository :
 
     fun findByLectureIdIn(lectureIds: Collection<Long>): List<TimetableLecture>
 
-    fun deleteByTimetableIdAndId(
-        timetableId: Long,
-        id: Long,
-    )
-
     fun findReminderRowsByTimetableId(timetableId: Long): List<TimetableLectureReminderRow> = findReminderRows(timetableId, null)
 
     fun findReminderRowByTimetableIdAndId(

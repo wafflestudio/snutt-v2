@@ -33,6 +33,10 @@ spring:
       timeout: 3s
       repositories:
         enabled: false
+  datasource:
+    hikari:
+      data-source-properties:
+        rewriteBatchedStatements: true
   jpa:
     open-in-view: false
     hibernate:

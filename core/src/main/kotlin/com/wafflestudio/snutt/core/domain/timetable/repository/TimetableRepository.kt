@@ -9,6 +9,11 @@ import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 
+data class PrimaryTimetableTarget(
+    val timetableId: Long,
+    val userId: Long,
+)
+
 interface TimetableRepository : JpaRepository<Timetable, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     fun findForUpdateByIdAndUserId(
@@ -25,11 +30,6 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
 
     fun findByUserIdAndYearAndSemester(
         userId: Long,
-        year: Int,
-        semester: Semester,
-    ): List<Timetable>
-
-    fun findByYearAndSemesterAndIsPrimaryTrue(
         year: Int,
         semester: Semester,
     ): List<Timetable>
@@ -63,6 +63,17 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
         userId: Long,
         themeId: Long,
     ): List<Timetable>
+
+    @Query(
+        """
+        SELECT new com.wafflestudio.snutt.core.domain.timetable.repository.PrimaryTimetableTarget(t.id, t.userId)
+        FROM Timetable t WHERE t.year = :year AND t.semester = :semester AND t.isPrimary = true
+        """,
+    )
+    fun findPrimaryTargetsByYearAndSemester(
+        year: Int,
+        semester: Semester,
+    ): List<PrimaryTimetableTarget>
 
     fun countByUserId(userId: Long): Long
 }

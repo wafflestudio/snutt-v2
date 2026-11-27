@@ -6,7 +6,6 @@ import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.Deeplink
 import com.wafflestudio.snutt.core.common.push.DeeplinkResolver
-import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.coursebook.service.CoursebookService
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureRegistrationStatus
@@ -16,6 +15,7 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationType
 import com.wafflestudio.snutt.core.domain.notification.service.PushService
+import com.wafflestudio.snutt.core.domain.notification.service.TargetedNotificationPush
 import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationPhase
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationTimeSlot
@@ -99,14 +99,11 @@ class VacancyNotificationJob(
                 TransactionTemplate(transactionManager)
                     .execute { processChunk(lectureMap, storedStatuses, statuses, window) }
                     .orEmpty()
-            pendingPushes.forEach { push ->
-                pushService.sendPushAndNotification(
-                    userIds = push.userIds,
-                    message = push.message,
-                    type = NotificationType.LECTURE_VACANCY,
-                    preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
-                )
-            }
+            pushService.sendBatchPushAndNotification(
+                pushes = pendingPushes,
+                type = NotificationType.LECTURE_VACANCY,
+                preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
+            )
             Thread.sleep(DELAY_PER_CHUNK_MS)
         }
         if (processedChunks == 0) {
@@ -116,17 +113,12 @@ class VacancyNotificationJob(
         return true
     }
 
-    private data class PendingVacancyPush(
-        val userIds: List<Long>,
-        val message: LocalizedPushMessage,
-    )
-
     private fun processChunk(
         lectureMap: Map<String, Lecture>,
         storedStatuses: Map<Long, LectureRegistrationStatus>,
         crawled: List<RegistrationStatus>,
         window: RegistrationWindow,
-    ): List<PendingVacancyPush> {
+    ): List<TargetedNotificationPush> {
         val updates = mutableListOf<LectureRegistrationStatus>()
         val notiTargets = mutableListOf<Lecture>()
         crawled.forEach { status ->
@@ -149,12 +141,18 @@ class VacancyNotificationJob(
             }
         }
         lectureRegistrationStatusRepository.saveAll(updates)
+        if (notiTargets.isEmpty()) return emptyList()
 
+        val userIdsByLectureId =
+            vacancyNotificationRepository
+                .findByLectureIdIn(notiTargets.map { it.id!! })
+                .groupBy({ it.lectureId }, { it.userId })
         val targetTime = window.nextOpenTime(ZonedDateTime.now(clock).withZoneSameInstant(KST))
-        return notiTargets.map { lecture ->
-            val userIds = vacancyNotificationRepository.findByLectureId(lecture.id!!).map { it.userId }
+        return notiTargets.mapNotNull { lecture ->
+            val userIds = userIdsByLectureId[lecture.id!!].orEmpty()
+            if (userIds.isEmpty()) return@mapNotNull null
             log.info("빈자리 감지: {} ({}-{})", lecture.courseTitle, lecture.courseNumber, lecture.lectureNumber)
-            PendingVacancyPush(
+            TargetedNotificationPush(
                 userIds = userIds,
                 message =
                     NotificationTemplate.LECTURE_VACANCY
