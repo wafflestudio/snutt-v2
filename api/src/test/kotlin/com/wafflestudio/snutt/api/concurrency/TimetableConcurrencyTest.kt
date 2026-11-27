@@ -60,7 +60,7 @@ class TimetableConcurrencyTest : AbstractConcurrencyTest() {
      * 커밋되면 조회는 옛 테마(3색)에 새 테마(9색) 기준 index를 붙인다. 그 인터리빙을 순서대로 재현한다. 500이 아니라 팔레트 안의 색을 줘야 한다.
      */
     @Test
-    fun `시간표를 읽은 뒤 테마 변경이 커밋돼도 조회는 팔레트 밖 index로 실패하지 않는다`() {
+    fun `시간표를 읽은 뒤 테마 변경이 커밋돼도 조회는 팔레트 밖 index로 실패하지 않고 팔레트 안으로 접은 index와 색을 준다`() {
         val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
         val user = fixtures.user()
         val threeColors = (1..3).map { ColorSet("#00000$it", "#ffffff") }
@@ -74,5 +74,7 @@ class TimetableConcurrencyTest : AbstractConcurrencyTest() {
 
         assertEquals(5, display.lectures.size)
         assertTrue(display.lectures.all { it.color in threeColors })
+        // 응답의 index도 색과 같은 접은 값이다. 클라이언트가 index로 팔레트를 찾아도 같은 색이 나온다.
+        assertTrue(display.lectures.all { it.paletteIndex in threeColors.indices && threeColors[it.paletteIndex] == it.color })
     }
 }
