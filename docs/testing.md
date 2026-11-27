@@ -19,9 +19,10 @@
 | `parity` | `@ParityTest` | `./gradlew parityTest` | v1 서버와 v1compat 응답 비교 |
 | `perf` | `@PerfTest` | `./gradlew perfTest` | 쿼리 수·실행계획 같은 결정적 성능 지표 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
+| `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접, CI 아님) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
-- `./gradlew test`는 위 세 태그를 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
+- `./gradlew test`는 위 네 태그를 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
 - 태그를 추가하려면 루트 `build.gradle.kts`의 `separatedTags`와 `TestTags`를 함께 고친다.
 - 테스트 JVM 타임존은 운영과 같은 UTC로 고정되어 있다(`user.timezone=UTC`). 로컬 타임존에 기대지 않는다.
 
@@ -37,6 +38,7 @@
 `AbstractIntegrationTest`(공통 루트)가 해 주는 것:
 - 매 테스트 전에 모든 테이블을 비우고(빌트인 테마 제외) Redis를 `FLUSHALL`하고 `clock`을 시스템 시각으로 되돌린다.
 - `pushClient`, `mailClient` mock (기본 스텁: 발송 성공).
+- `wireMock`: 외부 HTTP API mock 서버. 매 테스트 전에 stub과 요청 기록을 지운다(아래 "mock 경계").
 - `clock: MutableClock`, `fixtures: ScenarioFixtures` 주입.
 - DataSource를 datasource-proxy로 감싼다(쿼리 수 측정용).
 
@@ -45,14 +47,47 @@
 Spring 컨텍스트는 모듈마다 한 번만 떠야 한다. 지금 api 1개, batch 1개다.
 - 테스트 클래스에 `@MockitoBean`, `@MockitoSpyBean`, `@Import`, `@TestPropertySource`, `@DirtiesContext`, `@SpringBootTest(properties=...)`를 새로 달지 않는다. 하나라도 다르면 컨텍스트가 하나 더 뜬다(수십 초, 메모리 수백 MB).
 - 새 mock이 필요하면 모듈 베이스(`AbstractApiIntegrationTest`, `AbstractBatchIntegrationTest`)에 추가한다. 스텁하지 않은 mock은 기본값(null, 0, 빈 컬렉션)을 돌려주고 매 테스트 뒤 reset되므로 다른 테스트에 영향이 없다.
-- 이미 베이스에 있는 mock: api는 `uploadUriIssuer`, `googleClient`(`GOOGLE`), `appleClient`(`APPLE`)이고, batch는 `sugangSnuLectureApi`, `sugangSnuLectureEnricher`, `lectureBuildingSync`, `registrationPeriodExtractor`, `registrationStatusCrawler`다.
+- 이미 베이스에 있는 빈 mock: 공통 `pushClient`, `mailClient`, api `uploadUriIssuer`. batch 베이스에는 빈 mock이 없다.
 - api 테스트 컨텍스트는 `snutt.scheduling.enabled=false`로 `@Scheduled`를 끈다. 스케줄러는 `ReminderScheduler.fireDueReminders()`처럼 직접 호출한다.
+- 두 베이스 모두 `spring.http.clients.read-timeout=1s`다(운영 api 5초, batch 30초). batch는 빈자리 잡의 대기(`snutt.vacancy.chunk-delay`, `overload-retry-delay`)도 0에 가깝게 줄인다.
 
 ## mock 경계
 
-- 외부 HTTP API(sugang.snu.ac.kr, OAuth 제공자, GitHub 등)는 네트워크 경계(WireMock 등)에서 mock하는 것을 목표로 한다. 지금 베이스에 있는 빈 mock(sugang, OAuth)은 과도기 상태다. 네트워크 경계 mock으로 바꾸면 베이스에서 빼고, 그 클라이언트의 base URL은 설정값으로 주입한다.
+- 외부 HTTP API는 빈이 아니라 네트워크 경계에서 WireMock(`core.test.external.ExternalApiMock`)으로 mock한다. HTTP 호출, 응답 파싱, 오류 처리까지 프로덕션 코드를 그대로 탄다.
 - FCM(`PushClient`), 메일(`MailClient`), OCI 업로드(`UploadUriIssuer`)처럼 SDK가 경계인 것은 빈 mock을 그대로 쓴다.
 - 우리 코드의 서비스나 리포지토리는 mock하지 않는다. 실제 DB와 Redis를 통과시킨다.
+
+### WireMock 쓰는 법
+
+- 서버는 JVM당 하나다. `ExternalApiMockConfig`가 외부 base URL 설정을 모두 이 서버로 돌린다. 서비스마다 경로 접두사가 다르다(`ExternalService`).
+- 매 테스트 전에 `AbstractIntegrationTest`가 stub과 요청 기록을 지운다. 테스트에서는 `wireMock`으로 stub하고 검증한다.
+- stub 경로는 `ExternalApiMock.path(ExternalService.X, "/프로덕션이/부르는/경로")`로 만든다. 모듈별 헬퍼가 있다.
+  - batch: `SugangSnuStubs`(`sugang`). 수강편람 조건, 엑셀, 강좌 상세, 메인·검색 페이지, SNU 지도.
+  - api: `SocialProviderStubs`(Google·Kakao·Facebook·Apple JWKS·GitHub Issues), `OidcTestIssuer`(테스트 RSA 키쌍으로 JWKS와 id_token 생성).
+- stub하지 않은 요청은 WireMock이 404를 준다. 호출되면 안 되는 API는 `wireMock.verify(0, ...)`나 요청 수로 확인한다.
+- 새 외부 연동을 추가하면: base URL을 yml 설정값으로 빼고(운영 기본값 유지), `ExternalService`와 `ExternalApiMockConfig`에 항목을 추가한다.
+
+### 외부 연동 테스트에서 볼 것
+
+골든패스와 함께 타임아웃, 5xx, 4xx(토큰 만료 등), 응답 형식 이상(필드 누락·빈 엑셀·잘린 바디)을 넣고, 시스템이 어떻게 끝나야 하는지(배치 중단, 부분 반영 없음, 에러 코드)를 assert한다.
+
+- 타임아웃: `withFixedDelay(3_000)`(read-timeout 1초보다 길게). 대기는 WireMock 쪽이라 `Thread.sleep`이 아니다.
+- **RestClient는 Apache HttpClient 5 위에서 돈다**(firebase-admin이 끌어와 Spring Boot가 자동 선택). 기본 재시도가 켜져 있어 **429·503은 1초 뒤 한 번 더 보낸다(POST 포함)**. 500·502·타임아웃은 재시도하지 않는다. 그래서:
+  - "5xx면 실패" 테스트는 500을 쓴다. 503을 쓰면 1초 늦어지고, 시나리오 stub이면 재시도가 다음 응답을 먹어 의도와 다른 경로를 탄다.
+  - 재시도 자체는 `FeedbackIntegrationTest`, `SugangSnuSyncJobTest`의 503 테스트가 고정한다.
+- 상태가 바뀌는 응답(실패 후 성공)은 WireMock 시나리오로 만든다. 예: `SugangSnuStubs.searchPageSequence`.
+
+### fixture
+
+- 실제 응답 형태를 `src/test/resources/fixtures/<서비스>/`에 둔다. 출처와 손본 내용은 같은 폴더의 `README.md`에 적는다.
+- sugang fixture는 실제 사이트에서 받은 것이다(엑셀은 `.xls`). 프로그램으로 엑셀을 만드는 `SugangXlsxFixture`는 행 내용을 마음대로 정해야 할 때 쓴다.
+- OAuth·GitHub fixture는 공식 문서 예시 형태로 만든 것이다. 실제 토큰·계정 값은 넣지 않는다.
+
+### live 테스트 (`@LiveTest`)
+
+- `./gradlew :batch:liveTest`는 실제 수강편람 사이트에 요청 3번(조건, 한국어·영어 엑셀)을 보내 파서가 통과하는지, 컬럼이 fixture와 같은지 본다.
+- `-PrefreshFixtures`를 주면 받은 엑셀을 잘라 `fixtures/sugang/lectures-{ko,en}.xls`를 갱신한다. 바뀐 컬럼은 출력에 찍힌다.
+- 사이트가 잦은 요청에 IP를 막을 수 있다. 학기가 바뀌었거나 파싱 오류가 의심될 때만 돌린다.
 
 ## 시간: `MutableClock`
 
@@ -73,6 +108,7 @@ clock.nowKst()                                        // ZonedDateTime(KST)
   - Hibernate `@CreationTimestamp`/`@UpdateTimestamp`(`BaseEntity`의 `created_at`, `updated_at`, `LectureRegistrationStatus`)
   - `User` 생성자 기본값 `lastLoginAt`, `notificationCheckedAt`(`core/domain/user/model/User.kt`, 엔티티라 빈 주입 불가)
   - `OciUploadUriIssuer`의 업로드 URL 만료 시각(dev/prod 프로파일 전용, 테스트에서는 `uploadUriIssuer` mock)
+  - OIDC id_token의 `exp`·`iat` 검사(`OidcJwtVerifier`, jjwt가 시스템 시각으로 본다). 테스트 토큰은 `OidcTestIssuer`가 실제 현재 시각 기준으로 만든다.
   - `migration` 모듈의 `Instant.now()` 전부(일회성 이관 도구, Spring 컨텍스트 테스트 아님)
   - DB의 `NOW()`, Redis TTL
 - 이 값들과 Clock 시각을 비교하는 로직을 테스트할 때는 해당 컬럼을 JDBC로 직접 세팅한다(예: `MailLogIntegrationTest`). `User`를 만든 뒤 시각이 중요하면 필드를 명시적으로 넣는다.
@@ -116,7 +152,7 @@ fixtures.addLecture(timetable, lecture)
 
 1. 골든패스 시나리오인가? 쓰려는 사이드케이스가 외부 입력이나 레거시 데이터에서 생기는가?
 2. 맞는 베이스를 상속했고, 클래스에 `@MockitoBean`/`@Import`/프로퍼티를 새로 달지 않았는가?
-3. 외부 API mock이 네트워크 경계에 있는가? 빈 mock이 꼭 필요하면 모듈 베이스에 추가했는가?
+3. 외부 API mock이 네트워크 경계(WireMock)에 있는가? 5xx는 500으로 stub했는가(503은 HTTP 클라이언트가 재시도한다)? 빈 mock이 꼭 필요하면(SDK 경계) 모듈 베이스에 추가했는가?
 4. 시간 의존 로직이면 `clock`을 고정했는가? KST 경계를 다루는가?
 5. 난수 seed를 고정했는가? `Thread.sleep` 없이 polling으로 기다리는가?
 6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가?
