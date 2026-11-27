@@ -16,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.test.StressTest
 import com.wafflestudio.snutt.core.test.concurrency.runConcurrently
+import com.wafflestudio.snutt.core.test.fault.DbFaults
 import com.wafflestudio.snutt.core.test.stress.DomainInvariants
 import com.wafflestudio.snutt.core.test.stress.FailureKind
 import com.wafflestudio.snutt.core.test.stress.MySqlProbe
@@ -44,8 +45,13 @@ import kotlin.random.Random
  */
 abstract class AbstractSugangSyncUnderLoadStressTest(
     private val scenarioName: String,
-    /** 사용자 요청 구성. [SAFE_OPERATIONS], [ADD_OPERATION], [EDIT_OPERATIONS], [REMINDER_OPERATIONS] 중에서 고른다. */
+    /** 사용자 요청 구성. [SAFE_OPERATIONS], [ADD_OPERATION], [COPY_OPERATION], [EDIT_OPERATIONS], [REMINDER_OPERATIONS] 중에서 고른다. */
     private val operations: List<String>,
+    /**
+     * 켜면 부하 중 동기화의 시간표 반영 묶음과 알림 배출을 DB 트리거로 실패시키고([DbFaults]), 부하가 끝난 뒤 장애 없이 한 번 더 돌린다.
+     * 두 번째 실행이 남은 일을 마쳐 불변식이 성립하고, 남은 기록이 없고, 같은 알림이 두 번 남지 않아야 한다.
+     */
+    private val injectFaults: Boolean = false,
 ) : SugangSyncScenarioTest() {
     @Autowired lateinit var applicationContext: ApplicationContext
 
@@ -67,7 +73,7 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
             val run = StressRun(scenarioName, settings, MySqlProbe.environment(dataSource), serverErrors)
             for (iteration in 1..settings.iterations) {
                 if (run.shouldStop()) break
-                run.iteration(iteration) { runIteration(run, iteration) }
+                run.iteration(iteration) { runIteration(run, iteration, serverErrors) }
             }
             run.finish()
         }
@@ -76,6 +82,7 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
     private fun runIteration(
         run: StressRun,
         iteration: Int,
+        serverErrors: ServerErrorLog,
     ) {
         resetStores()
         val random = Random(settings.seed + iteration)
@@ -89,6 +96,17 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
         val unchanged = (before.toSet() intersect after.toSet()).map { it.courseNumber }.toSet()
         val stableLectureIds = lectures.filter { it.courseNumber in unchanged }.map { it.id!! }.toSet()
         stubSite(after)
+        val faults =
+            if (injectFaults) {
+                listOf(
+                    // 짝수 id 시간표가 든 반영 묶음이 처리 표시에서 실패한다(묶음 전체가 롤백된다).
+                    DbFaults.failing("sugang_sync_pending_timetable", "UPDATE", "NEW.timetable_id % 2 = 0"),
+                    // 알림 배출이 짝수 id outbox 행을 지우다 실패한다(옮긴 notification도 함께 롤백된다).
+                    DbFaults.failing("sugang_sync_outbox", "DELETE", "OLD.id % 2 = 0"),
+                )
+            } else {
+                emptyList()
+            }
         val executor = Executors.newSingleThreadExecutor()
         val job = executor.submit<Throwable?> { runCatching { sugangSnuSyncJob.run(null) }.exceptionOrNull() }
         try {
@@ -108,11 +126,32 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
         } finally {
             val error = job.get(LOAD_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
             executor.shutdownNow()
-            if (error != null) {
+            faults.forEach { it.close() }
+            if (injectFaults) {
+                // 주입한 장애로 잡이 실패하는 것은 정상이다. 그 밖의 서버 오류만 실패로 센다.
+                run.record("sugangSnuSyncJob(faults)", error?.let { "failed" } ?: "ok", allowed = error == null || error.isInjected())
+                serverErrors.drain().filterNot { it.error.isInjected() }.forEach { entry ->
+                    run.fail(entry.kind, entry.logger.substringAfterLast('.'), FailureKind.summarize(entry.error))
+                }
+            } else if (error != null) {
                 run.record("sugangSnuSyncJob", FailureKind.classify(error).name, allowed = false, detail = FailureKind.summarize(error))
             } else {
                 run.record("sugangSnuSyncJob", "ok", allowed = true)
             }
+        }
+        if (injectFaults) {
+            // 장애 없이 다시 돌린다. 엑셀은 그대로라 diff는 비고, 남은 시간표 반영과 알림을 마친다.
+            sync(after)
+            val leftovers =
+                listOf("sugang_sync_pending_lecture", "sugang_sync_pending_timetable", "sugang_sync_outbox")
+                    .associateWith { MySqlProbe.jdbc.queryForObject("SELECT COUNT(*) FROM $it", Long::class.java)!! }
+                    .filterValues { it > 0 }
+            if (leftovers.isNotEmpty()) throw AssertionError("다시 돌린 뒤에도 남은 기록이 있다: $leftovers")
+            val duplicated =
+                MySqlProbe.jdbc.queryForList(
+                    "SELECT user_id, message, deeplink, COUNT(*) AS n FROM notification GROUP BY user_id, message, deeplink HAVING n > 1",
+                )
+            if (duplicated.isNotEmpty()) throw AssertionError("같은 알림이 두 번 이상 남았다: ${duplicated.take(5)}")
         }
         // 동기화가 반영됐는지(롤백되지 않았는지) 확인한다: 폐강 강의는 없고 신설 강의는 있다.
         val synced = lectureRepository.findByYearAndSemester(2026, Semester.AUTUMN).map { it.courseNumber }.toSet()
@@ -185,6 +224,7 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
                     )
                 "getTimetable" -> timetableService.getTimetableDisplay(userId, timetableId)
                 "renameTimetable" -> timetableService.modifyTimetableTitle(userId, timetableId, "시간표 ${random.nextInt(1000)}")
+                COPY_OPERATION -> timetableService.copyTimetable(userId, timetableId)
                 "modifyLectureTime" -> {
                     val start = 540 + random.nextInt(17) * 30
                     val time = ClassPlaceAndTime(DayOfWeek.entries[random.nextInt(5)], "변경", start, start + 50)
@@ -251,6 +291,9 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
 
     private fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 
+    private fun Throwable.isInjected(): Boolean =
+        generateSequence(this) { it.cause }.any { it.message.orEmpty().contains("injected fault") }
+
     companion object {
         /**
          * 동기화와 겹쳐도 통과해야 하는 요청: 동기화가 바꾸지 않는 강의의 제목 변경, 시간표 조회, 시간표 이름 변경(user 행 → timetable 순으로 잠근다.
@@ -258,6 +301,9 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
          */
         val SAFE_OPERATIONS = listOf("modifyStableLectureTitle", "getTimetable", "renameTimetable")
         const val ADD_OPERATION = "addLecture"
+
+        /** 대표 시간표를 복사한다. 복사는 원본을 잠그고 담긴 강의를 id 순으로 공유 락으로 잠근 뒤 행을 넣는다. */
+        const val COPY_OPERATION = "copyTimetable"
 
         /** 동기화가 바꾸거나 지우는 강의일 수도 있는, 이미 담은 강의를 고치거나 지운다. */
         val EDIT_OPERATIONS = listOf("modifyLectureTitle", "deleteLecture")
@@ -301,3 +347,23 @@ class SugangSyncWithLectureAddsStressTest :
 @StressTest
 class SugangSyncWithReminderEditsStressTest :
     AbstractSugangSyncUnderLoadStressTest("sugang-sync-with-reminder-edits", SAFE_OPERATIONS + REMINDER_OPERATIONS)
+
+/**
+ * 동기화 중에 사용자가 시간표를 복사하고 강의를 담는다. 예전에는 (1) 복사가 담긴 순서대로 강의 FK 공유 락을 잡아 강의를 id 순으로 잠그는
+ * 동기화와 데드락이 났고, (2) 동기화가 영향받는 시간표를 고른 뒤 복사된 시간표는 겹침이 그대로 남았다.
+ */
+@StressTest
+class SugangSyncWithCopiesStressTest :
+    AbstractSugangSyncUnderLoadStressTest("sugang-sync-with-copies", SAFE_OPERATIONS + ADD_OPERATION + COPY_OPERATION)
+
+/**
+ * 부하 중 동기화의 시간표 반영 묶음과 알림 배출이 실패한 뒤, 다음 실행이 남은 시간표 반영·알림을 정확히 한 번 마친다.
+ * 예전에는 1단계가 커밋된 뒤 2단계가 실패하면 다음 실행이 그 시간표를 다시 보지 않아 겹침과 옛 리마인더 발송 시각이 남았다.
+ */
+@StressTest
+class SugangSyncRecoversFromFaultsStressTest :
+    AbstractSugangSyncUnderLoadStressTest(
+        "sugang-sync-recovers-from-faults",
+        SAFE_OPERATIONS + COPY_OPERATION,
+        injectFaults = true,
+    )
