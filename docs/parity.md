@@ -171,8 +171,8 @@ parity가 찾은 실제 차이는 고치지 않고 [`KnownFailureParityTest`](..
 | B3 | `isEmailVerified`가 없던 계정이 강의평에서 403 0x3011 | 강의평: isEmailVerified 없는 계정(carol) | 고침(작업 D). audit 요약 4. 앱의 강의 상세 요약(`/v1/ev/lectures/{id}/summary`)은 막히지 않는다 |
 | B4 | v1 경로의 없는 경로(404)·지원하지 않는 메서드(405)가 ProblemDetail(`errcode` 없음) | 레거시 에러 바디: 404·405 | 고침(작업 D). audit 요약 6 |
 | B5 | EV 응답의 `user_id → user {id, email, local_id}` 치환이 없음 | 버그: EV user_id → user | audit 요약 5. known-failures.yml에도 있음. 강의평 웹이 `user`를 읽는지 확인 필요 |
-| B5b | EV `cursor=`(빈 값): v1 첫 페이지, v2 400 20001 | 확인: EV 빈 cursor | audit "커서". 웹이 빈 cursor를 보내는지 확인 필요 |
-| B6 | 세부 점수가 NULL인 강의평에서 v1 EV는 `0.0`, v2는 필드 생략 | 버그: EV NULL 점수 | parity가 새로 찾음. known-failures.yml에도 있음 |
+| B5b | EV `cursor=`(빈 값): v1 첫 페이지, v2 400 20001 | 강의평 웹: 빈 cursor | 고침(작업 G2, v1compat `legacyCursor`). audit "커서". 빈 값이 아닌 잘못된 커서는 v1(첫 페이지)과 달리 400으로 남긴다 |
+| B6 | 세부 점수가 NULL인 강의평에서 v1 EV는 `0.0`, v2는 필드 생략 | 강의평 웹: 세부 점수 없는 강의평 | 고침(작업 G2, v1compat EV 매퍼만, v2 API는 NULL 그대로). 수정(PATCH) 응답은 v1처럼 생략 |
 | B7 | 다른 시간표를 대표로 지정하면 v2는 대표에서 풀린 시간표의 `updated_at`도 바꾼다(v1은 그대로) | 버그: 대표 해제 시 updated_at 변경 | parity가 새로 찾음. known-failures.yml에 시간표 CRUD 시나리오 한정으로 있음. 앱이 처음 여는 `/v1/tables/recent`가 바뀔 수 있다 |
 
 parity가 찾았고 이 작업에서 고친 것: v1compat 시간표 목록 순서(같은 학기 안에서 v1은 생성 순, v2는 유일 인덱스 때문에 제목 순). `V1CompatTimetableController`에서 id 순으로 정렬한다.

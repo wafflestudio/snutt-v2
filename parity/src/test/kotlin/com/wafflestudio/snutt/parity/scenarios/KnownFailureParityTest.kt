@@ -25,16 +25,4 @@ class KnownFailureParityTest : AbstractParityTest() {
             post("/v1/tables/@{tt:alice-plan-b}/primary", `as` = "alice")
             get("/v1/tables/@{tt:alice-main}", `as` = "alice")
         }
-
-    @Test
-    fun `세부 점수가 없는 강의평`() =
-        parity("버그: EV NULL 점수") {
-            get("/ev-service/v1/lectures/@{course:linear}/evaluations", `as` = "alice")
-        }
-
-    @Test
-    fun `강의평 첫 페이지에 빈 cursor`() =
-        parity("확인: EV 빈 cursor") {
-            get("/ev-service/v1/lectures/@{course:os}/evaluations?cursor=", `as` = "alice")
-        }
 }

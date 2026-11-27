@@ -17,14 +17,6 @@
   kind: only-v2
   reason: 위 B5와 같은 차이의 v2 쪽.
   ref: "B5"
-- endpoint: "* /ev-service/v1/**"
-  path: $.**.{grade_satisfaction,teaching_skill,gains,life_balance}
-  kind: only-v1
-  v1: 0.0
-  reason: >-
-    세부 점수가 NULL인 강의평(snuev에서 넘어온 강의평, V2 이후 점수 없이 쓴 강의평)에서 v1 EV는 0.0을 내고 v2는 필드를 뺀다.
-    강의평 웹이 숫자를 기대하면 화면이 깨진다.
-  ref: "B6"
 - endpoint: "*"
   path: $[*].updated_at
   kind: changed

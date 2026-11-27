@@ -94,4 +94,20 @@ class EvParityTest : AbstractParityTest() {
             get("/ev-service/v1/tags/main", `as` = "carol")
             get("/v1/ev/lectures/@{lecture:os}/summary", `as` = "carol")
         }
+
+    // B6: 세부 점수가 NULL인 강의평(snuev 출처)의 점수를 v1처럼 0.0으로 낸다(v1compat EV 매퍼).
+    @Test
+    fun `세부 점수가 없는 강의평`() =
+        parity("강의평 웹: 세부 점수 없는 강의평") {
+            get("/ev-service/v1/lectures/@{course:linear}/evaluations", `as` = "alice")
+        }
+
+    // B5b: 빈 cursor는 v1 PageUtils.getCursor처럼 첫 페이지로 본다.
+    @Test
+    fun `강의평 첫 페이지에 빈 cursor`() =
+        parity("강의평 웹: 빈 cursor") {
+            get("/ev-service/v1/lectures/@{course:os}/evaluations?cursor=", `as` = "alice", label = "과목 강의평")
+            get("/ev-service/v1/evaluations/users/me?cursor=", `as` = "alice", label = "내 강의평")
+            get("/ev-service/v1/tags/main/1/evaluations?cursor=", `as` = "alice", label = "태그 강의평")
+        }
 }

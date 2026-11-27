@@ -282,7 +282,7 @@
   kind: changed
   v1: 2
   v2: 1
-  scenario: ["강의평 웹: 조회", "강의평 웹: 쓰기"]
+  scenario: ["강의평 웹: 조회", "강의평 웹: 쓰기", "강의평 웹: 빈 cursor"]
   reason: >-
     시드 강의평(bob-os)의 공감 2개 중 하나는 없는 사용자의 것이다. 이관이 그 공감을 빼고(EVALUATION_LIKE_USER_MISSING) 공감 수를 다시 센다.
 - endpoint: GET /ev-service/v1/tags/main
