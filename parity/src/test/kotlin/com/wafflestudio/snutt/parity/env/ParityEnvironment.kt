@@ -63,6 +63,8 @@ class PreparedData(
     /** 쪽별 `별칭 → 값`. 요청의 `@{별칭}`을 채운다. `token:<사용자>`를 포함한다. */
     val vars: Map<Side, Map<String, String>>,
     val users: Map<String, SeedUser>,
+    /** v1 저장소를 비우기 직전 시각. 이후의 시각 값(요청·이관 시각)은 형식만 비교한다. */
+    val preparedSince: java.time.Instant,
 )
 
 object ParityEnvironment {
@@ -89,6 +91,11 @@ object ParityEnvironment {
         v2: JdbcTemplate,
     ): PreparedData {
         ParityContainers.start()
+        // 컨테이너 시계 차이를 감안해 1분 앞당긴다.
+        val preparedSince =
+            java.time.Instant
+                .now()
+                .minusSeconds(60)
         resetV1()
         val loaded = source.load(LegacyStores(mongoClient.getDatabase(ParityContainers.MONGO_DATABASE), evSource.jdbc))
         exportSeedOnce(source, loaded)
@@ -114,6 +121,7 @@ object ParityEnvironment {
                 ),
             vars = mapOf(Side.V1 to v1Values, Side.V2 to v2Values),
             users = loaded.users,
+            preparedSince = preparedSince,
         )
     }
 

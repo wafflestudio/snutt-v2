@@ -74,9 +74,11 @@ class ParityScenario(
     private val knownFailures: AllowedDiffs?,
     knownIds: Map<Side, Map<String, List<String>>>,
     initialVars: Map<Side, Map<String, String>>,
+    /** 데이터를 준비하기 시작한 시각. 이후에 생긴 시각 값은 형식만 비교한다. */
+    preparedSince: java.time.Instant,
 ) {
     private val vars = Side.entries.associateWith { side -> HashMap(initialVars.getValue(side)) }
-    private val ids = IdNormalizer(knownIds)
+    private val ids = IdNormalizer(knownIds, preparedSince)
     val exchanges = mutableListOf<Exchange>()
 
     var defaultHeaders: Map<String, String> =

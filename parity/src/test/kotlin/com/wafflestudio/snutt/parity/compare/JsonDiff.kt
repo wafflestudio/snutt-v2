@@ -112,7 +112,9 @@ object JsonBodies {
         when (node) {
             is Map<*, *> -> node.entries.associate { (k, v) -> k.toString() to canonical(v) }
             is List<*> -> node.map(::canonical)
-            is Int, is Short, is Byte, is BigInteger -> (node as Number).toLong()
+            is Int, is Short, is Byte -> (node as Number).toLong()
+            // Long 범위를 넘는 정수는 잘라 같게 만들지 않도록 그대로 둔다.
+            is BigInteger -> runCatching { node.longValueExact() }.getOrDefault(node)
             is Float, is BigDecimal -> (node as Number).toDouble()
             else -> node
         }

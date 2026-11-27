@@ -36,10 +36,10 @@
   path: $.errcode
   kind: changed
   v1: 0
+  v2: 40002
   onlyErrors: true
   reason: >-
-    v1은 WebFlux 입력 오류(바디 파싱 실패, 필수 파라미터 누락, 타입 오류, 잘못된 enum)를 errcode 0으로 냈고 v2는 40001(파라미터)/40002(바디)를 낸다.
-    상태 코드는 따로 비교한다(둘 다 400이어야 함).
+    v1은 WebFlux 바디 오류(파싱 실패, 잘못된 enum)를 errcode 0으로 냈고 v2는 40002를 낸다. 상태 코드는 따로 비교한다(둘 다 400이어야 함).
   ref: docs/v1-compat-audit.md "에러 응답", #59
 
 # ---------------------------------------------------------------------------
@@ -79,11 +79,6 @@
   v2: 1
   scenario: "시간표 조회: 이관 데이터"
   reason: 위 항목과 같은 강의(INVALID_CUSTOM_COLOR). 이관은 색을 버리고 팔레트 첫 색을 쓴다.
-- endpoint: GET /v1/notification
-  path: $[*].deeplink
-  kind: changed
-  reason: >-
-    알림 deeplink 안의 시간표·강의 ObjectId를 이관이 새 id로 바꾼다(NotificationStep.rewriteDeeplink). 전환 뒤 앱은 새 id로만 시간표를 찾을 수 있다.
 - endpoint: GET /v1/configs
   path: $.vacancy_notification.visible
   kind: changed
@@ -104,28 +99,43 @@
   path: $[*].{isPrimary,title}
   kind: changed
   scenario: "앱 시작: 소셜 계정(bob, carol, dave)"
+  label: GET /v1/tables
   reason: >-
-    같은 학기에 제목이 같고 둘 다 대표인 시간표 두 개(dave). 이관이 가장 최근에 고친 쪽만 대표로 남기고(PRIMARY_TIMETABLE_DUPLICATE)
+    시나리오에서 시간표 목록은 dave만 조회한다. 같은 학기에 제목이 같고 둘 다 대표인 시간표 두 개(dave). 이관이 가장 최근에 고친 쪽만 대표로 남기고(PRIMARY_TIMETABLE_DUPLICATE)
     두 번째 제목에 " (2)"를 붙인다(TIMETABLE_TITLE_DUPLICATE, v2 유일 제약).
 - endpoint: GET /v1/friends/{id}/primary-table
-  path: $.{id,title}
+  path: $.{id,title,updatedAt}
   kind: changed
   scenario: 친구 조회
   reason: 위와 같은 dave의 시간표. v1은 대표 둘 중 먼저 찾은 것, v2는 이관이 남긴 대표(최근에 고친 쪽, 제목 " (2)")를 준다.
-- endpoint: "*"
+- endpoint: POST /v1/auth/login_local
   path: "**"
   scenario: "로그인: 아이디 중복 계정(frank)"
   reason: >-
     같은 아이디를 쓰는 활성 계정 둘. v1은 로그인에서 IncorrectResultSizeDataAccessException으로 500이었다. 이관은 최종 로그인이 최신인 계정에만
-    로컬 로그인 수단을 남기므로(LOCAL_ID_DUPLICATE) v2는 그 계정으로 로그인되고, 다른 계정의 localId는 사라진다.
+    로컬 로그인 수단을 남기므로(LOCAL_ID_DUPLICATE) v2는 그 계정으로 로그인된다.
+- endpoint: GET /v1/users/me
+  path: $.localId
+  kind: only-v1
+  v1: frank
+  scenario: "로그인: 아이디 중복 계정(frank)"
+  reason: 위와 같은 이유로 최종 로그인이 오래된 계정(frank-old)의 로컬 아이디가 사라진다.
 - endpoint: "*"
-  path: "**"
+  path: status
+  v1: 500
+  v2: 403
   scenario: "인증: 공유 credentialHash(grace, heidi)"
   reason: >-
     두 계정이 같은 credentialHash를 가졌다. v1은 토큰 조회에서 non unique result로 500이었다. 이관은 이런 토큰을 옮기지 않으므로
     (LEGACY_TOKEN_AMBIGUOUS) v2는 403 0x2002를 주고 앱이 다시 로그인시킨다.
   ref: docs/v1-compat-audit.md "마이그레이션 관련 관찰 - 레거시 토큰"
-
+- endpoint: "*"
+  path: $.errcode
+  v1: 0
+  v2: 8194
+  onlyErrors: true
+  scenario: "인증: 공유 credentialHash(grace, heidi)"
+  reason: 위와 같다(v1 500 errcode 0 → v2 0x2002). 문구는 에러 문구 항목이 다룬다.
 # ---------------------------------------------------------------------------
 # 무작위 값
 # ---------------------------------------------------------------------------
@@ -272,6 +282,7 @@
   kind: changed
   v1: 2
   v2: 1
+  scenario: ["강의평 웹: 조회", "강의평 웹: 쓰기"]
   reason: >-
     시드 강의평(bob-os)의 공감 2개 중 하나는 없는 사용자의 것이다. 이관이 그 공감을 빼고(EVALUATION_LIKE_USER_MISSING) 공감 수를 다시 센다.
 - endpoint: GET /ev-service/v1/tags/main

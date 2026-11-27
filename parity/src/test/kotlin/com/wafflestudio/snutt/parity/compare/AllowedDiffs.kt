@@ -38,8 +38,8 @@ data class AllowedDiff(
     val onlyErrors: Boolean = false,
     /** 특정 시나리오에서만 허용할 때(하나 또는 목록). 없으면 그 엔드포인트를 부르는 모든 시나리오. */
     val scenario: List<String>? = null,
-    /** 시나리오 안의 특정 요청(label)에서만 허용할 때. [scenario]와 함께 쓴다. */
-    val label: String? = null,
+    /** 시나리오 안의 특정 요청(label, 하나 또는 목록)에서만 허용할 때. [scenario]와 함께 쓴다. */
+    val label: List<String>? = null,
     /**
      * kind가 only-v1/only-v2이고 [path]가 배열일 때, 이 키 값들을 가진 원소를 그쪽 배열에서 빼고 나머지를 비교한다
      * (`{id: 317}`). 원소 하나가 끼거나 빠져 뒤 원소의 인덱스가 밀리는 경우에 쓴다. 뺀 원소마다 차이 하나가 남는다.
@@ -63,19 +63,34 @@ data class AllowedDiff(
     ): Boolean =
         endpointRegex.matches(endpointLabel) &&
             (scenario == null || scenarioName in scenario) &&
-            (label == null || label == exchangeLabel) &&
+            (label == null || exchangeLabel in label) &&
             (kind == null || DiffKind.of(kind) == diff.kind) &&
+            (element == null || elementMatches(if (diff.kind == DiffKind.ONLY_V1) diff.v1 else diff.v2)) &&
             (!onlyErrors || errorResponse) &&
             (v1 == null || same(v1, diff.v1)) &&
             (v2 == null || same(v2, diff.v2)) &&
             pathRegex.matches(diff.path)
+
+    fun matchesEndpoint(endpointLabel: String): Boolean = endpointRegex.matches(endpointLabel)
+
+    /** element 조건: 문자열 조건에 `*`가 있으면 glob으로 본다(`@course-minted:*`). 원소를 뺀 차이에만 맞는다. */
+    fun elementMatches(item: Any?): Boolean =
+        element.orEmpty().all { (k, v) ->
+            val actual = (item as? Map<*, *>)?.get(k)
+            if (v is String && '*' in v) {
+                actual is String && Regex(v.split('*').joinToString(".*") { Regex.escape(it) }).matches(actual)
+            } else {
+                actual == AllowedDiffs.canonicalValue(v)
+            }
+        }
 
     private fun same(
         expected: Any,
         actual: Any?,
     ): Boolean {
         val wanted = canonical(expected)
-        return if (wanted is Map<*, *> && actual is Map<*, *>) wanted.all { (k, v) -> actual[k] == v } else wanted == actual
+        val got = canonical(actual)
+        return if (wanted is Map<*, *> && got is Map<*, *>) wanted.all { (k, v) -> got[k] == v } else wanted == got
     }
 
     private fun canonical(value: Any?): Any? =
@@ -178,24 +193,15 @@ class AllowedDiffs(
     ): List<AllowedDiff> =
         entries.filter {
             (it.kind == DiffKind.ORDER.code || it.element != null) &&
-                it.endpoint == endpoint &&
+                it.matchesEndpoint(endpoint) &&
                 (it.scenario == null || scenario in it.scenario) &&
-                (it.label == null || it.label == exchangeLabel)
+                (it.label == null || exchangeLabel in it.label)
         }
 
-    /** 문자열 조건에 `*`가 있으면 glob으로 본다(`@course-minted:*`). */
     fun sameElement(
         rule: AllowedDiff,
         item: Any?,
-    ): Boolean =
-        rule.element.orEmpty().all { (k, v) ->
-            val actual = (item as? Map<*, *>)?.get(k)
-            if (v is String && '*' in v) {
-                actual is String && Regex(v.split('*').joinToString(".*") { Regex.escape(it) }).matches(actual)
-            } else {
-                actual == canonicalValue(v)
-            }
-        }
+    ): Boolean = rule.elementMatches(item)
 
     @Synchronized
     fun unused(): List<AllowedDiff> = entries.filterIndexed { index, _ -> index !in used }

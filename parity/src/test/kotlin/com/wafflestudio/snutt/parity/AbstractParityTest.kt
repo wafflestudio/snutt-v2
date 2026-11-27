@@ -83,6 +83,7 @@ abstract class AbstractParityTest : AbstractIntegrationTest() {
                 knownFailures = if (tolerateKnownFailures) knownFailures else null,
                 knownIds = data.knownIds,
                 initialVars = data.vars,
+                preparedSince = data.preparedSince,
             )
         try {
             scenario.block()

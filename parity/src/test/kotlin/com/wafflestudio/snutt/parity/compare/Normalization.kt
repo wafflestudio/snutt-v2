@@ -47,10 +47,13 @@ object NormalizationRules {
     val TOKEN_KEYS = setOf("token")
 
     /**
-     * 시각 문자열은 형식만 비교한다. 값은 요청 시각(두 서버에 순서대로 보내므로 다름)이나 이관 시각에 따라 달라진다.
-     * 형식은 "날짜만/오프셋 없음/Z/오프셋" 네 가지로 나누고, 소수부 자릿수는 보지 않는다: v1은 Mongo 밀리초, v2는 MySQL
-     * 마이크로초를 저장하고, 값이 0이면 Java가 소수부를 생략한다. 클라이언트는 소수부 자릿수와 무관하게 파싱한다
+     * 시각 문자열. 이 시나리오를 준비한 뒤(시드를 넣고 이관한 뒤) 생긴 시각은 형식만 비교한다: 요청 시각(두 서버에 순서대로
+     * 보내므로 다름)이나 이관 시각(이관이 Instant.now()로 채운 값)이라 값이 같을 수 없다. 그 전의 시각(시드 값을 이관이 옮긴 것)은
+     * 형식과 값을 함께 비교해 시간대·날짜 밀림 같은 이관 오류를 잡는다.
+     * 형식은 "날짜만/오프셋 없음/Z/오프셋" 네 가지이고, 값은 같은 순간이면 같게 쓴다(소수부 자릿수는 보지 않음): v1은 Mongo 밀리초,
+     * v2는 MySQL 마이크로초를 저장하고, 값이 0이면 Java가 소수부를 생략한다. 클라이언트는 소수부 자릿수와 무관하게 파싱한다
      * (Android `Instant.parse`는 0~9자리, iOS는 ISO8601 ± 소수부 두 형식을 시도. docs/v1-compat-audit.md "JSON 직렬화").
+     * 오프셋 없는 시각과 날짜는 UTC로 보고 판정한다.
      */
     private val DATE = Regex("""^\d{4}-\d{2}-\d{2}$""")
     private val DATETIME = Regex("""^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})?$""")
@@ -63,6 +66,32 @@ object NormalizationRules {
             "Z" -> "<datetime:Z>"
             else -> "<datetime:$zone>"
         }
+    }
+
+    /** [volatileSince] 이후의 시각이면 형식만, 아니면 형식과 정규화한 값을 돌려준다. 시각이 아니면 null. */
+    fun datetimeToken(
+        value: String,
+        volatileSince: java.time.Instant,
+    ): String? {
+        val shape = datetimeShape(value) ?: return null
+        val instant =
+            when (shape) {
+                "<date>" ->
+                    java.time.LocalDate
+                        .parse(value)
+                        .atStartOfDay(java.time.ZoneOffset.UTC)
+                        .toInstant()
+                "<datetime:local>" ->
+                    java.time.LocalDateTime
+                        .parse(value)
+                        .toInstant(java.time.ZoneOffset.UTC)
+                else ->
+                    java.time.OffsetDateTime
+                        .parse(value)
+                        .toInstant()
+            }
+        if (!instant.isBefore(volatileSince)) return shape
+        return if (shape == "<date>") "$shape$value" else "$shape$instant"
     }
 
     /** v1 ObjectId. 이 모양이 아닌 값(EV의 숫자 id 등)은 v1 쪽에서 등장 순서 번호로 바꾸지 않는다. */
@@ -83,6 +112,8 @@ object NormalizationRules {
  */
 class IdNormalizer(
     known: Map<Side, Map<String, List<String>>>,
+    /** 이 시각 이후의 시각 값은 형식만 비교한다([NormalizationRules.datetimeToken]). */
+    val volatileSince: java.time.Instant = java.time.Instant.EPOCH,
 ) {
     private val reverse = known.mapValues { (_, table) -> HashMap(table.mapValues { it.value.toMutableList() }) }
 
@@ -99,6 +130,26 @@ class IdNormalizer(
     private val v1SlotAliases = HashMap<String, MutableSet<String>>()
 
     fun beginExchange() = v1SlotAliases.clear()
+
+    /** 자리마다 지금까지 나온 별칭 종류(`tt`, `user` …). 같은 자리에는 같은 종류만 온다. */
+    private val slotKinds = HashMap<String, MutableSet<String>>()
+
+    /**
+     * deeplink 안의 `timetableId=`·`lectureId=` 값은 이관이 새 id로 바꾼다(NotificationStep.rewriteDeeplink). 그 값을 id처럼
+     * 별칭으로 바꾸고 나머지 문자열은 그대로 비교한다.
+     */
+    fun normalizeDeeplink(
+        side: Side,
+        slot: String,
+        value: String,
+        evEndpoint: Boolean,
+    ): String =
+        DEEPLINK_ID.replace(value) { match ->
+            val (name, id) = match.destructured
+            // 종류는 파라미터 이름으로 정해진다(timetableId → 시간표, lectureId → 수강편람 강의).
+            val kindHint = if (name == "timetableId") "@tt:" else "@lecture:"
+            "$name=" + normalize(side, name, "$slot?$name", id, evEndpoint, kindHint)
+        }
 
     fun register(
         side: Side,
@@ -142,7 +193,14 @@ class IdNormalizer(
             }
         if (chosen != null) {
             if (side == Side.V1) v1SlotAliases.getOrPut(slot) { HashSet() } += chosen
+            slotKinds.getOrPut(slot) { HashSet() } += kind(chosen)
             return "@$chosen$suffix"
+        }
+        // v1은 새 id인데 v2 값이 이 자리에 오던 종류의 기존(시드) 엔티티다. 예: 복사 응답에 원본이 그대로 나옴. 순번을 주면
+        // v1의 새 id와 같아 보이므로 후보를 그대로 적어 차이로 남긴다.
+        if (side == Side.V2 && (hint as? String)?.startsWith("#") == true) {
+            val sameKind = candidates.filter { it !in captured && kind(it) in slotKinds[slot].orEmpty() }
+            if (sameKind.isNotEmpty()) return "@{${sameKind.sorted().joinToString("|")}}$suffix"
         }
         // 이관이 id를 보존하는 값(EV 과목·강의평 id)은 같은 자리의 v1 원래 값과 같다. 별칭이 없어도 그대로 둔다.
         if (side == Side.V2 && hint != null && hint !is String && hint.toString() == raw) return value
@@ -176,6 +234,7 @@ class IdNormalizer(
     companion object {
         const val NUMBER_SUFFIX = "~num"
         private val EV_KINDS = setOf("course", "course-minted", "evaluation", "semester")
+        private val DEEPLINK_ID = Regex("""(timetableId|lectureId)=([0-9A-Za-z]+)""")
     }
 }
 
@@ -232,11 +291,12 @@ object Normalizer {
         evEndpoint: Boolean,
         hint: Any?,
     ): Any {
-        if (key in NormalizationRules.TOKEN_KEYS && value is String) return "<token>"
+        if (key in NormalizationRules.TOKEN_KEYS && value is String && value.isNotBlank()) return "<token>"
         if (key != null && key in NormalizationRules.ID_KEYS && (value is String || value is Number)) {
             return ids.normalize(side, key, slot, value, evEndpoint, hint)
         }
-        if (value is String) NormalizationRules.datetimeShape(value)?.let { return it }
+        if (key == "deeplink" && value is String) return ids.normalizeDeeplink(side, slot, value, evEndpoint)
+        if (value is String) NormalizationRules.datetimeToken(value, ids.volatileSince)?.let { return it }
         return value
     }
 }

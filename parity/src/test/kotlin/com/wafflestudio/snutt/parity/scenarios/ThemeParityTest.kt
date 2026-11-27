@@ -13,6 +13,7 @@ class ThemeParityTest : AbstractParityTest() {
             get("/v1/themes", `as` = "alice")
             get("/v1/themes/@{theme:alice-custom}", `as` = "alice")
             get("/v1/themes", `as` = "carol", label = "사용자 테마 없는 사용자")
+            get("/v1/themes", `as` = "bob", label = "게시한 테마가 있는 사용자")
             get("/v1/themes/best?page=1", `as` = "alice")
             get("/v1/themes/friends?page=1", `as` = "alice")
             post("/v1/themes/search?query=${java.net.URLEncoder.encode("공개", Charsets.UTF_8)}", `as` = "alice")

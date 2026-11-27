@@ -94,7 +94,13 @@ listOf("parityTest", "parityKnownFailureTest", "paritySnapshotTest").forEach { n
                 .asFile.absolutePath,
         )
         // 운영 스냅샷으로 돌릴 때(작업 M) 넘기는 값과 시드 덤프 출력 위치. docs/parity.md "외부 데이터로 돌리기".
-        listOf("parity.source.mongo-archive", "parity.source.ev-dump", "parity.source.roles", "parity.dump-seed-to").forEach { key ->
+        listOf(
+            "parity.source.mongo-archive",
+            "parity.source.mongo-database",
+            "parity.source.ev-dump",
+            "parity.source.roles",
+            "parity.dump-seed-to",
+        ).forEach { key ->
             providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
         }
         maxHeapSize = providers.systemProperty("parity.heap").orElse("1g").get()
