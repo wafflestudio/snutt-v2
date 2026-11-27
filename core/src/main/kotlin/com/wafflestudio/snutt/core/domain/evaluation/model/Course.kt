@@ -17,4 +17,28 @@ class Course(
     var avgLifeBalance: Double? = null,
     @Column(insertable = false, updatable = false)
     val latestLectureId: Long? = null,
+    @Column(insertable = false, updatable = false)
+    val titleEn: String? = null,
+    @Column(insertable = false, updatable = false)
+    val instructorEn: String? = null,
+    @Column(insertable = false, updatable = false)
+    val department: String? = null,
+    @Column(insertable = false, updatable = false)
+    val departmentEn: String? = null,
+    @Column(insertable = false, updatable = false)
+    val academicYear: String? = null,
+    @Column(insertable = false, updatable = false)
+    val academicYearEn: String? = null,
+    @Column(insertable = false, updatable = false)
+    val category: String? = null,
+    @Column(insertable = false, updatable = false)
+    val categoryEn: String? = null,
+    @Column(insertable = false, updatable = false)
+    val categoryPre2025: String? = null,
+    @Column(insertable = false, updatable = false)
+    val classification: String? = null,
+    @Column(insertable = false, updatable = false)
+    val classificationEn: String? = null,
+    @Column(insertable = false, updatable = false)
+    val credit: Int? = null,
 ) : BaseEntity()
