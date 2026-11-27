@@ -48,6 +48,7 @@ class RaceScenarioStressTest : AbstractStressTest() {
                 "savePushPreferencesTwice" to { s, n -> s.savePushPreferencesTwice(n) },
                 "registerSameDeviceTwice" to { s, n -> s.registerSameDeviceTwice(n) },
                 "sameNicknameConcurrently" to { s, n -> s.sameNicknameConcurrently(n) },
+                "setReminderOnSameLecture" to { s, n -> s.setReminderOnSameLecture(n) },
             )
 
         @JvmStatic

@@ -20,16 +20,4 @@ class KnownFailureRaceStressTest : AbstractStressTest() {
                 httpScenarios.registerSameTokenFromDifferentUsers(requests)
             }
         }
-
-    /**
-     * 리마인더가 없는 강의에 리마인더 설정을 동시에 보내면 둘 다 "리마인더 없음"을 보고 insert해 `uk_timetable_lecture_reminder` 위반이 500으로 나간다.
-     * `TimetableLectureReminderService.modifyReminder`는 시간표를 잠그지 않고 conflictAs도 없다.
-     */
-    @Test
-    fun `같은 강의에 리마인더 설정을 동시에 보낸다`() =
-        stress("race-setReminderOnSameLecture") {
-            runRaceIterations(this, "setReminderOnSameLecture", RaceScenarioStressTest.RACE_TIMEOUT) { requests ->
-                httpScenarios.setReminderOnSameLecture(requests)
-            }
-        }
 }
