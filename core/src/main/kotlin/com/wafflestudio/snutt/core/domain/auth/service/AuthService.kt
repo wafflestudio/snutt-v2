@@ -25,8 +25,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import java.util.Base64
 
 data class TokenPair(
@@ -46,6 +46,7 @@ class AuthService(
     private val eventPublisher: ApplicationEventPublisher,
     oauth2Clients: Map<String, OAuth2Client>,
     @param:Value("\${snutt.auth.refresh-token-ttl}") private val refreshTokenTtl: Duration,
+    private val clock: Clock,
 ) {
     private val oauth2Clients = oauth2Clients.mapKeys { AuthProvider.valueOf(it.key) }
     private val secureRandom = SecureRandom()
@@ -90,7 +91,7 @@ class AuthService(
     ): User {
         val user = userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.UNREGISTERED_LOCAL_ID)
         if (!passwordEncoder.matches(password, user.localPw)) throw SnuttException(ErrorType.PASSWORD_MISMATCH)
-        user.lastLoginAt = Instant.now()
+        user.lastLoginAt = clock.instant()
         return user
     }
 
@@ -101,7 +102,7 @@ class AuthService(
     ): User {
         val response = fetchSocialUser(provider, token)
         val user = findBySocialResponse(provider, response) ?: createSocialUser(provider, response)
-        user.lastLoginAt = Instant.now()
+        user.lastLoginAt = clock.instant()
         return user
     }
 
@@ -115,7 +116,7 @@ class AuthService(
         if (!user.active) throw SnuttException(ErrorType.INVALID_REFRESH_TOKEN)
 
         val newRefreshToken = generateRefreshToken()
-        val now = Instant.now()
+        val now = clock.instant()
         val rotatedCount =
             refreshTokenRepository.rotate(
                 presentedTokenHash = presentedTokenHash,
@@ -136,7 +137,7 @@ class AuthService(
             RefreshToken(
                 user = user,
                 tokenHash = sha256Hex(refreshToken),
-                expiresAt = Instant.now() + refreshTokenTtl,
+                expiresAt = clock.instant() + refreshTokenTtl,
             ),
         )
         val accessToken = accessTokenService.issue(AccessTokenPayload(userId = user.id!!, tokenVersion = user.tokenVersion))

@@ -64,8 +64,9 @@ class UserStep(
                     }
 
                     val email = doc.str("email")
-                    var isEmailVerified = doc.bool("isEmailVerified")
-                    if (active && isEmailVerified && email != null && emailOwner[email.lowercase()] != externalId) {
+                    // v1에서 필드가 없던 계정은 null로 둔다. v1은 null이면 강의평을 막지 않았다.
+                    var isEmailVerified = doc.get("isEmailVerified") as? Boolean
+                    if (active && isEmailVerified == true && email != null && emailOwner[email.lowercase()] != externalId) {
                         isEmailVerified = false
                         context.resolved(MigrationSupport.ResolutionReasons.VERIFIED_EMAIL_DUPLICATE)
                     }

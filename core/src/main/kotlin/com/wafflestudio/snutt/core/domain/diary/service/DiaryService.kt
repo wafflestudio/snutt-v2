@@ -24,7 +24,7 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
+import java.time.Clock
 import java.time.temporal.ChronoUnit
 
 data class DiaryQuestionnaireRequest(
@@ -58,6 +58,7 @@ class DiaryService(
     private val lectureRepository: LectureRepository,
     private val timetableService: TimetableService,
     private val userRepository: UserRepository,
+    private val clock: Clock,
 ) {
     companion object {
         const val COMMENT_MAX_LENGTH = 1000
@@ -101,7 +102,7 @@ class DiaryService(
                 ?: throw SnuttException(ErrorType.PRIMARY_TIMETABLE_NOT_FOUND)
         val recentlySubmittedIds =
             diarySubmissionRepository
-                .findByUserIdAndCreatedAtAfter(userId, Instant.now().minus(1, ChronoUnit.DAYS))
+                .findByUserIdAndCreatedAtAfter(userId, clock.instant().minus(1, ChronoUnit.DAYS))
                 .mapNotNull { it.lectureId }
         val eligible =
             timetableService
@@ -124,14 +125,14 @@ class DiaryService(
         request: DiarySubmissionRequest,
     ) {
         if (request.comment.length > COMMENT_MAX_LENGTH) throw SnuttException(ErrorType.DIARY_COMMENT_TOO_LONG)
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val lecture =
             lectureRepository.findByIdOrNull(request.lectureId)
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
-        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (diarySubmissionRepository.existsByUserIdAndLectureIdAndCreatedAtAfter(
                 userId,
                 lecture.id!!,
-                Instant.now().minus(SUBMISSION_COOLDOWN_HOURS, ChronoUnit.HOURS),
+                clock.instant().minus(SUBMISSION_COOLDOWN_HOURS, ChronoUnit.HOURS),
             )
         ) {
             throw SnuttException(ErrorType.DIARY_SUBMISSION_TOO_FREQUENT)

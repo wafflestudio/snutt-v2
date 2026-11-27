@@ -20,7 +20,10 @@ import com.wafflestudio.snutt.core.domain.lecture.dto.LectureSort
 import com.wafflestudio.snutt.core.domain.lecture.dto.SearchTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.lecture.model.LectureClassTime
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
 import java.time.Instant
 import kotlin.reflect.KProperty1
 
@@ -84,6 +87,23 @@ interface LectureRepository :
     JpaRepository<Lecture, Long>,
     KotlinJdslJpqlExecutor {
     fun findByCourseIdOrderByYearDescSemesterDesc(courseId: Long): List<Lecture>
+
+    /** 시간표에 담기 전 강의 행을 공유 락으로 읽는다. 수강편람 동기화가 이 강의를 고치거나 지우는 중이면 그 커밋을 기다린다. */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("SELECT l FROM Lecture l WHERE l.id = :id")
+    fun findForShareById(id: Long): Lecture?
+
+    /** 수강편람 동기화가 고칠 강의를 id 순으로 잠근다. */
+    @Query(value = "SELECT id FROM lecture WHERE id IN (:ids) ORDER BY id FOR UPDATE", nativeQuery = true)
+    fun lockAllByIdIn(ids: Collection<Long>): List<Long>
+
+    /** 시간표에 여러 강의를 한꺼번에 담기 전에 강의 행을 id 순으로 공유 락으로 잠근다. 동기화(강의를 id 순으로 X락)와 순서를 맞춘다. */
+    @Query(value = "SELECT id FROM lecture WHERE id IN (:ids) ORDER BY id FOR SHARE", nativeQuery = true)
+    fun lockAllForShareByIdIn(ids: Collection<Long>): List<Long>
+
+    /** 지울 강의를 id 순으로 잠그되, 다른 트랜잭션이 잡고 있는 행(지금 시간표에 담기는 중인 강의)은 건너뛴다. */
+    @Query(value = "SELECT id FROM lecture WHERE id IN (:ids) ORDER BY id FOR UPDATE SKIP LOCKED", nativeQuery = true)
+    fun lockAllByIdInSkipLocked(ids: Collection<Long>): List<Long>
 
     fun findByYearAndSemester(
         year: Int,

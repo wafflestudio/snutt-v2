@@ -11,6 +11,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.Instant
 
 data class NotificationCursor(
@@ -23,6 +24,7 @@ class NotificationService(
     private val notificationRepository: NotificationRepository,
     private val userRepository: UserRepository,
     private val cursorCodec: CursorCodec,
+    private val clock: Clock,
 ) {
     @Transactional
     fun getNotifications(
@@ -55,7 +57,7 @@ class NotificationService(
     }
 
     private fun markChecked(user: User) {
-        user.notificationCheckedAt = Instant.now()
+        user.notificationCheckedAt = clock.instant()
         userRepository.save(user)
     }
 

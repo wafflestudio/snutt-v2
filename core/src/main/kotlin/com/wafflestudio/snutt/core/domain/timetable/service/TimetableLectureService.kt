@@ -19,7 +19,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
+import java.time.Clock
 
 data class TimetableLectureAddRequest(
     val lectureId: Long,
@@ -61,6 +61,7 @@ class TimetableLectureService(
     private val lectureRepository: LectureRepository,
     private val lectureService: LectureService,
     private val timetableLectureReminderService: TimetableLectureReminderService,
+    private val clock: Clock,
 ) {
     @Transactional
     fun addLecture(
@@ -69,8 +70,9 @@ class TimetableLectureService(
         request: TimetableLectureAddRequest,
     ): TimetableDisplay {
         val timetable = lockTimetable(userId, timetableId)
+        // 공유 락: 수강편람 동기화가 이 강의의 수업 시간을 바꾸거나 강의를 지우는 중이면 그 커밋 뒤의 값으로 겹침을 검사한다.
         val lecture =
-            lectureRepository.findByIdOrNull(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+            lectureRepository.findForShareById(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         if (timetable.year != lecture.year || timetable.semester != lecture.semester) {
             throw SnuttException(ErrorType.LECTURE_SEMESTER_MISMATCH)
         }
@@ -256,7 +258,7 @@ class TimetableLectureService(
         val timetable = lockTimetable(userId, timetableId)
         val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
         timetableLectureRepository.delete(timetableLecture)
-        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
+        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), clock.instant())
         return timetableService.getTimetableDisplay(userId, timetable.id!!)
     }
 
@@ -266,7 +268,7 @@ class TimetableLectureService(
         theme: TimetableThemeDisplay,
         lectures: List<TimetableLectureDisplay>,
     ): TimetableDisplay {
-        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), Instant.now())
+        timetableRepository.touchUpdatedAt(listOf(timetable.id!!), clock.instant())
         val updatedTimetable = timetableService.getTimetable(userId, timetable.id!!)
         return TimetableDisplay(timetable = updatedTimetable, theme = theme, lectures = lectures)
     }

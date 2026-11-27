@@ -6,16 +6,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
-import java.time.Clock
-
-@Configuration
-class BatchConfig {
-    @Bean
-    fun clock(): Clock = Clock.systemUTC()
-}
 
 @Component
 class JobRunner(

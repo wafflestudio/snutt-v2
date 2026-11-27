@@ -1,0 +1,96 @@
+name: Parity
+
+# v1 서버와 v1compat 응답 비교(docs/parity.md). PR 게이트(ci.yml)와 별개로, v1compat 응답을 바꿀 수 있는 경로가 바뀐 PR,
+# nightly, 수동 실행에서 돈다. v1 jar 빌드가 GitHub Packages(wafflestudio/spring-waffle)를 읽으므로
+# org 관리자가 그 패키지의 "Manage Actions access"에 이 레포를 추가해야 한다.
+on:
+  pull_request:
+    branches: [ develop, prod ]
+    # v1compat 응답을 만드는 코드 전부. 근거는 docs/testing.md "CI에서 도는 테스트".
+    paths:
+      - 'v1compat/**'
+      - 'migration/src/main/**'
+      - 'parity/**'
+      - 'core/src/main/**'
+      - 'core/src/testFixtures/**'
+      - 'api/src/main/**'
+      - '!api/src/main/kotlin/com/wafflestudio/snutt/api/v2/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '*/build.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/parity.yml'
+  schedule:
+    - cron: '0 18 * * *' # 매일 03:00 KST
+  workflow_dispatch:
+
+concurrency:
+  group: parity-${{ github.ref }}
+  # PR은 새 커밋이 오면 이전 실행을 취소한다. 스케줄·수동 실행은 서로 취소하지 않는다.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04-arm
+    # fork PR의 GITHUB_TOKEN은 이 레포의 패키지 접근 권한을 받지 못해 v1 빌드가 실패한다.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      # v1 jar는 고정 커밋에서 빌드하므로 versions.properties와 빌드 스크립트(parity/v1)가 같으면 결과가 같다.
+      # 스케줄 실행은 기본 브랜치에서 돌아 캐시를 만들고, PR은 기본 브랜치 캐시를 읽는다.
+      # actions/cache는 job이 성공해야 저장하므로 restore/save를 나눈다. parity가 차이로 실패해도 빌드한 jar는 남긴다.
+      - name: Restore v1 server jars
+        id: v1-jars
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.gradle/caches/snutt-parity
+          key: snutt-parity-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('parity/v1/versions.properties', 'parity/v1/build-v1-jar.sh', 'parity/v1/stable-hibernate-enhancement.init.gradle', 'parity/v1/check-v1-jar.sh') }}
+
+      - name: Build v1 server jars
+        if: steps.v1-jars.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew :parity:buildV1SnuttJar :parity:buildV1EvJar
+
+      - name: Save v1 server jars
+        if: steps.v1-jars.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.gradle/caches/snutt-parity
+          key: ${{ steps.v1-jars.outputs.cache-primary-key }}
+
+      - name: Run parity
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./gradlew parityTest
+
+      - name: Write summary
+        if: ${{ !cancelled() }}
+        run: |
+          summary=parity/build/reports/parity/parityTest/summary.md
+          if [ -f "$summary" ]; then cat "$summary" >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload parity report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: parity-report
+          path: |
+            parity/build/reports/parity
+            parity/build/reports/tests/parityTest
+            parity/build/test-results/parityTest
+          retention-days: 14

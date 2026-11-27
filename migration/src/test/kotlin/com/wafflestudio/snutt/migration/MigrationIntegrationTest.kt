@@ -2,6 +2,7 @@ package com.wafflestudio.snutt.migration
 
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
+import com.wafflestudio.snutt.core.test.TestImages
 import com.wafflestudio.snutt.migration.step.AggregateStep
 import com.wafflestudio.snutt.migration.step.CatalogStep
 import com.wafflestudio.snutt.migration.step.CourseStep
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.assertThrows
 import org.springframework.boot.jdbc.DataSourceBuilder
 import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.containers.GenericContainer
@@ -41,12 +43,14 @@ class MigrationIntegrationTest {
     private lateinit var ev: EvSource
     private lateinit var mongoClient: MongoClient
     private lateinit var context: MigrationContext
+    private lateinit var steps: List<MigrationStep>
 
     private val userWithBoth = ObjectId()
     private val userDupOld = ObjectId()
     private val userDupNew = ObjectId()
     private val userShareA = ObjectId()
     private val userShareB = ObjectId()
+    private val userVerificationUnset = ObjectId()
     private val lectureId = ObjectId()
     private val lectureDuplicate = ObjectId()
     private val timetableId = ObjectId()
@@ -77,8 +81,8 @@ class MigrationIntegrationTest {
         context = MigrationContext()
         val mongoSource = MongoSource(mongoClient, "snutt")
         val jsonMapper = JsonMapper.builder().findAndAddModules().build()
-        val steps =
-            listOf<MigrationStep>(
+        steps =
+            listOf(
                 CatalogStep(jdbc, context, mongoSource, jsonMapper),
                 UserStep(jdbc, context, mongoSource),
                 CourseStep(jdbc, context, mongoSource, ev),
@@ -94,8 +98,61 @@ class MigrationIntegrationTest {
                 LegacySearchTagStep(jdbc, context, ev),
                 ValidateStep(jdbc, context, mongoSource, ev),
             )
-        MigrationSupport.requireEmpty(jdbc, steps.flatMap { it.tables }.distinct())
+        MigrationSupport.requireEmpty(jdbc, MigrationRunner.targetTables(steps))
         steps.forEach { it.run() }
+    }
+
+    @Test
+    fun `스키마의 모든 테이블은 이관 대상이거나 이관이 다루지 않는 목록에 있다`() {
+        val schema =
+            jdbc
+                .queryForList(
+                    "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'",
+                    String::class.java,
+                ).map { requireNotNull(it) }
+        val targets = MigrationRunner.targetTables(steps)
+        val unmanaged = MigrationRunner.UNMANAGED_TABLES.keys
+
+        assertEquals(emptySet<String>(), targets.toSet() intersect unmanaged, "두 목록에 함께 있는 테이블")
+        assertEquals(
+            schema.sorted(),
+            (targets + unmanaged).sorted(),
+            "새 테이블은 단계의 tables·SYNC_STATE_TABLES(재이관 때 비울 것)나 UNMANAGED_TABLES(이유와 함께) 중 한 곳에 넣는다",
+        )
+    }
+
+    // 이관이 채운 테이블은 이미 차 있으므로, 단계가 쓰지 않는 대상(동기화 상태)만 골라 검사한다. 러너는 같은 targetTables로 truncate한다.
+    @Test
+    fun `수강편람 동기화 상태가 남아 있으면 비우지 않은 이관을 쓰기 전에 거부한다`() {
+        val rows =
+            mapOf(
+                "sugang_sync_pending_lecture" to
+                    "INSERT INTO sugang_sync_pending_lecture (lecture_id, class_times_changed, changed_labels, changed_labels_en, " +
+                    "notifiable, created_at) VALUES (1, TRUE, '', '', TRUE, NOW(6))",
+                "sugang_sync_pending_timetable" to
+                    "INSERT INTO sugang_sync_pending_timetable (pending_lecture_id, timetable_id, notify) VALUES (1, 1, TRUE)",
+                "sugang_sync_outbox" to
+                    "INSERT INTO sugang_sync_outbox (user_id, title, message, type, created_at) VALUES (1, '제목', '본문', 'LECTURE_UPDATE', NOW(6))",
+                "sugang_sync_push_outbox" to "INSERT INTO sugang_sync_push_outbox (user_id, updated, deleted) VALUES (1, 1, 0)",
+            )
+        assertEquals(MigrationRunner.SYNC_STATE_TABLES.toSet(), rows.keys)
+        val written = steps.flatMap { it.tables }.toSet()
+        val stateTargets = MigrationRunner.targetTables(steps).filterNot { it in written }
+        assertEquals(rows.keys, stateTargets.toSet())
+
+        MigrationSupport.requireEmpty(jdbc, stateTargets)
+        rows.forEach { (table, insert) ->
+            jdbc.update(insert)
+            try {
+                val error = assertThrows<IllegalStateException> { MigrationSupport.requireEmpty(jdbc, stateTargets) }
+                assertTrue(error.message.orEmpty().startsWith("$table "), error.message)
+                // --truncate도 같은 대상 목록으로 비운다.
+                MigrationSupport.truncate(jdbc, stateTargets)
+                MigrationSupport.requireEmpty(jdbc, stateTargets)
+            } finally {
+                jdbc.update("DELETE FROM `$table`")
+            }
+        }
     }
 
     @Test
@@ -179,6 +236,18 @@ class MigrationIntegrationTest {
         assertNotNull(custom["classPlaceAndTimes"])
     }
 
+    // v1 modifyTheme은 색→새 색 맵(toMap)으로 강의 색을 바꿔 같은 색의 마지막 칸을 따랐다. v1compat도 lastOrNull이라 이관도 같게 한다.
+    @Test
+    fun `팔레트에 같은 색이 여럿이면 직접 지정한 색을 마지막 팔레트 번호로 옮긴다`() {
+        val row =
+            jdbc.queryForMap(
+                "SELECT palette_index, custom_color FROM timetable_lecture WHERE lecture_id = ?",
+                context.lectureIds[lectureId.toHexString()],
+            )
+        assertEquals(2, (row["palette_index"] as Number).toInt())
+        assertNull(row["custom_color"])
+    }
+
     @Test
     fun `테마는 색상과 공개 정보와 원본 참조를 유지한다`() {
         val copy =
@@ -245,6 +314,16 @@ class MigrationIntegrationTest {
         )
     }
 
+    // v1 User.isEmailVerified는 Boolean?이고, 필드가 없던(null) 계정은 강의평을 쓸 수 있었다(EvService: == false만 막음).
+    @Test
+    fun `이메일 인증 여부가 없던 사용자는 null로 옮겨 false와 구분한다`() {
+        fun verification(id: ObjectId): Any? =
+            jdbc.queryForMap("SELECT is_email_verified FROM `user` WHERE id = ?", context.userIds[id.toHexString()])["is_email_verified"]
+
+        assertNull(verification(userVerificationUnset))
+        assertEquals(false, verification(userShareA))
+    }
+
     @Test
     fun `검색 태그는 큐레이션 그룹을 뺀 나머지만 옮긴다`() {
         val groups =
@@ -268,6 +347,7 @@ class MigrationIntegrationTest {
                 userDocument(userDupNew, "dup-new", "hash-dup-new", localId = "dup", lastLogin = 2_000L),
                 userDocument(userShareA, "share-a", "hash-shared", localId = "share-a"),
                 userDocument(userShareB, "share-b", "hash-shared", localId = "share-b"),
+                userDocument(userVerificationUnset, "unset", "hash-unset", localId = "unset", isEmailVerified = null),
             ),
         )
         db.getCollection("lectures").insertMany(
@@ -280,8 +360,15 @@ class MigrationIntegrationTest {
                     .append("name", "원본 테마")
                     .append("status", "PUBLISHED")
                     .append("isCustom", true)
-                    .append("colors", listOf(Document("bg", "#111111").append("fg", "#FFFFFF")))
-                    .append("publishInfo", Document("publishName", "공개된 테마").append("authorAnonymous", true).append("downloads", 7)),
+                    // 같은 색이 팔레트에 두 번 있다(1, 2번). v1 앱이 이 색을 고르면 colorIndex 0 + 그 색으로 저장했다.
+                    .append(
+                        "colors",
+                        listOf(
+                            Document("bg", "#111111").append("fg", "#FFFFFF"),
+                            Document("bg", "#333333").append("fg", "#FFFFFF"),
+                            Document("bg", "#333333").append("fg", "#FFFFFF"),
+                        ),
+                    ).append("publishInfo", Document("publishName", "공개된 테마").append("authorAnonymous", true).append("downloads", 7)),
                 Document("_id", themeCopy)
                     .append("userId", userWithBoth)
                     .append("name", "받아온 테마")
@@ -298,6 +385,7 @@ class MigrationIntegrationTest {
                 .append("semester", 3)
                 .append("title", "나의 시간표")
                 .append("theme", 0)
+                .append("themeId", themeOrigin.toHexString())
                 .append("is_primary", true)
                 .append("updated_at", Date())
                 .append(
@@ -308,7 +396,8 @@ class MigrationIntegrationTest {
                             .append("course_title", "내가 바꾼 이름")
                             .append("instructor", "Chenglin Fan")
                             .append("class_time_json", listOf(classTime(0), classTime(2)))
-                            .append("colorIndex", 3),
+                            .append("colorIndex", 0)
+                            .append("color", Document("bg", "#333333").append("fg", "#ffffff")),
                         Document("_id", ObjectId())
                             .append("course_title", "직접 만든 강의")
                             .append("class_time_json", listOf(classTime(4)))
@@ -348,10 +437,11 @@ class MigrationIntegrationTest {
         localId: String? = null,
         isAdmin: Boolean = false,
         lastLogin: Long = 1_700_000_000_000L,
+        isEmailVerified: Boolean? = false,
     ) = Document("_id", id)
         .append("email", "$nickname@snu.ac.kr")
         .append("nickname", "$nickname#0001")
-        .append("isEmailVerified", false)
+        .apply { isEmailVerified?.let { append("isEmailVerified", it) } }
         .append(
             "credential",
             Document("localId", localId)
@@ -462,14 +552,14 @@ class MigrationIntegrationTest {
 
         @JvmStatic
         val targetMysql: MySQLContainer =
-            MySQLContainer("mysql:26.7")
+            MySQLContainer(TestImages.MYSQL)
                 .withDatabaseName("snutt")
                 .withUrlParam("rewriteBatchedStatements", "true")
 
         @JvmStatic
-        val evMysql: MySQLContainer = MySQLContainer("mysql:26.7").withDatabaseName("snutt_ev")
+        val evMysql: MySQLContainer = MySQLContainer(TestImages.MYSQL).withDatabaseName("snutt_ev")
 
         @JvmStatic
-        val mongo: GenericContainer<*> = GenericContainer("mongo:8.2.7").withExposedPorts(27017)
+        val mongo: GenericContainer<*> = GenericContainer(TestImages.MONGO).withExposedPorts(27017)
     }
 }

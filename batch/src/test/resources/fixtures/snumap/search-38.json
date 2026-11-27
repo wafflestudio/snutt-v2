@@ -1,0 +1,37 @@
+{
+  "search_list": [
+    {
+      "lat_val": 37.272118,
+      "lon_val": 126.570297,
+      "lat_val1": 37.4553647,
+      "lon_val1": 126.9508217,
+      "vil_dong_nm": "38",
+      "name": "해동학술정보실",
+      "ename": "Haedong Library",
+      "con_type": "F",
+      "fac_type": "OTHER"
+    },
+    {
+      "lat_val": 37.272118,
+      "lon_val": 126.570297,
+      "lat_val1": 37.4553647,
+      "lon_val1": 126.9508217,
+      "vil_dong_nm": "38",
+      "name": "해동학술정보실 열람실",
+      "ename": "Haedong Library Reading Room",
+      "con_type": "F",
+      "fac_type": "OTHER"
+    },
+    {
+      "lat_val": null,
+      "lon_val": null,
+      "lat_val1": 37.4553,
+      "lon_val1": 126.9508,
+      "vil_dong_nm": "38",
+      "name": "해동",
+      "ename": null,
+      "con_type": "S",
+      "fac_type": "BUS"
+    }
+  ]
+}

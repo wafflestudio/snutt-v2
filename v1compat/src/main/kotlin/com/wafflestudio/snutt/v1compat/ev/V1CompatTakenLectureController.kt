@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
 
 data class LegacyTakenLecturesResponse(
     val content: List<LegacyTakenLectureDto>,
@@ -184,6 +185,7 @@ class V1CompatCourseSearchController(
     private val legacyCourseRepository: LegacyCourseRepository,
     private val courseRepository: CourseRepository,
     private val lectureRepository: LectureRepository,
+    private val clock: Clock,
 ) {
     @GetMapping("/tags/search")
     fun getSearchTags(): LegacySearchTagGroupsResponse = LegacySearchTagGroupsResponse(tagGroups = legacySearchTagService.searchTagGroups())
@@ -195,7 +197,7 @@ class V1CompatCourseSearchController(
     ): LegacyLectureIdResponse {
         val course =
             courseRepository.findByCourseNumberAndInstructor(courseNumber, instructor)
-                ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+                ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return LegacyLectureIdResponse(id = course.id!!)
     }
 
@@ -208,7 +210,7 @@ class V1CompatCourseSearchController(
                 .toLongOrNull()
                 ?.let { lectureRepository.findByIdOrNull(it) }
                 ?.courseId
-                ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+                ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return LegacyLectureIdResponse(id = courseId, snuttId = semesterLectureSnuttId)
     }
 
@@ -241,7 +243,7 @@ class V1CompatCourseSearchController(
         val result = courseSearchService.getCourseWithLectures(courseId, user.id!!)
         val course = result.course
         val latestLecture = course.latestLectureId?.let { id -> result.lectures.firstOrNull { it.lecture.id == id }?.lecture }
-        val next = SemesterCalendar.next()
+        val next = SemesterCalendar.next(clock)
         return LegacyCourseWithSemestersResponse(
             id = course.id,
             title = language.select(course.title, latestLecture?.courseTitleEn),

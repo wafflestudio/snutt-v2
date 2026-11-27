@@ -22,7 +22,9 @@ import com.wafflestudio.snutt.core.domain.friend.service.FriendState
 import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.notification.service.NotificationService
 import com.wafflestudio.snutt.core.domain.popup.service.PopupService
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
+import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceItem
 import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceService
 import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableDisplay
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableService
@@ -52,6 +54,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.JsonNode
+import java.time.Clock
 import java.time.Instant
 
 data class LegacyFriendRequest(
@@ -325,6 +328,7 @@ data class LegacyNotificationCountResponse(
 class V1CompatNotificationController(
     private val notificationService: NotificationService,
     private val legacyNotificationRepository: LegacyNotificationRepository,
+    private val clock: Clock,
 ) {
     @Transactional
     @GetMapping("")
@@ -346,7 +350,7 @@ class V1CompatNotificationController(
                 limit = limit,
                 offset = offset.toInt(),
             )
-        if (explicit > 0) legacyNotificationRepository.markChecked(user.id!!, Instant.now())
+        if (explicit > 0) legacyNotificationRepository.markChecked(user.id!!, clock.instant())
         val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
         return notifications.map {
             LegacyNotificationDto(
@@ -548,10 +552,19 @@ class V1CompatConfigController(
 class V1CompatPushPreferenceController(
     private val pushPreferenceService: PushPreferenceService,
 ) {
+    // v2는 저장된 행만 돌려준다(없으면 켜짐으로 보고 발송). v1은 저장되지 않은 종류를 기본값(켜짐)으로 채워 줬고,
+    // 구앱 설정 화면은 이 목록으로 토글을 그리므로 v1compat에서 채운다. NORMAL은 v1도 저장된 경우에만 내려줬다.
     @GetMapping("")
     fun getPushPreferences(
         @V1CurrentUser user: User,
-    ): PushPreferenceDto = pushPreferenceService.getPushPreferences(user.id!!)
+    ): PushPreferenceDto {
+        val stored = pushPreferenceService.getPushPreferences(user.id!!).pushPreferences.associateBy { it.type }
+        val items =
+            PushPreferenceType.entries.mapNotNull { type ->
+                stored[type] ?: PushPreferenceItem(type, isEnabled = true).takeUnless { type == PushPreferenceType.NORMAL }
+            }
+        return PushPreferenceDto(items)
+    }
 
     @PostMapping("")
     fun savePushPreferences(

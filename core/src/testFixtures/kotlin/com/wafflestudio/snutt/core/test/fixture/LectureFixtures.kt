@@ -1,4 +1,4 @@
-package com.wafflestudio.snutt.api.testutil
+package com.wafflestudio.snutt.core.test.fixture
 
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture

@@ -19,10 +19,10 @@ class FacebookClient(
     private val oidcJwtVerifier: OidcJwtVerifier,
     @param:Value("\${snutt.auth.oidc.facebook-app-id}") private val facebookAppId: String,
     private val restClient: RestClient,
+    @param:Value("\${snutt.auth.social.facebook-graph-base-url}") private val graphBaseUrl: String,
+    @param:Value("\${snutt.auth.social.facebook-jwks-uri}") private val jwksUri: String,
 ) : OAuth2Client {
     companion object {
-        private const val USER_INFO_URI = "https://graph.facebook.com/me"
-        private const val FACEBOOK_JWK_URI = "https://www.facebook.com/.well-known/oauth/openid/jwks/"
         private const val FACEBOOK_ISSUER = "https://www.facebook.com"
     }
 
@@ -34,7 +34,7 @@ class FacebookClient(
             fetchSocialProfile("facebook") {
                 restClient
                     .get()
-                    .uri("$USER_INFO_URI?access_token={token}", token)
+                    .uri("$graphBaseUrl/me?access_token={token}", token)
                     .retrieve()
                     .body(FacebookOAuth2UserResponse::class.java)
             }
@@ -45,7 +45,7 @@ class FacebookClient(
         val claims =
             oidcJwtVerifier.verifyAndDecodeToken(
                 token = token,
-                jwksUri = FACEBOOK_JWK_URI,
+                jwksUri = jwksUri,
                 issuer = FACEBOOK_ISSUER,
                 audience = facebookAppId,
             ) ?: return null

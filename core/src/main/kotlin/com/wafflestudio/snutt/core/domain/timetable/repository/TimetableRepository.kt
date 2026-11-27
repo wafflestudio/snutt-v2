@@ -26,6 +26,11 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
         userId: Long,
     ): Timetable?
 
+    /** 여러 시간표를 id 순으로 잠근다(수강편람 동기화). 사용자 요청과 같이 timetable 행을 먼저 잠그고 timetable_lecture를 고친다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Timetable t WHERE t.id IN :ids ORDER BY t.id")
+    fun findAllForUpdateByIdIn(ids: Collection<Long>): List<Timetable>
+
     fun findByUserId(userId: Long): List<Timetable>
 
     fun findByUserIdAndYearAndSemester(
@@ -41,6 +46,17 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
     fun touchUpdatedAt(
         timetableIds: Collection<Long>,
         updatedAt: Instant,
+    )
+
+    /**
+     * 대표 여부만 바꾼다. 엔티티를 고치면 @UpdateTimestamp가 updated_at을 바꾸는데, 대표 지정·해제는 시간표 내용의 수정이 아니다.
+     * v1도 isPrimary만 바꿔 저장했고(TimetableServiceImpl.setPrimary/unSetPrimary의 copy), 앱은 updated_at이 가장 최근인 시간표를 처음에 연다.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE Timetable t SET t.isPrimary = :isPrimary WHERE t.id = :timetableId")
+    fun updateIsPrimary(
+        timetableId: Long,
+        isPrimary: Boolean,
     )
 
     fun findByUserIdAndYearAndSemesterAndTitle(

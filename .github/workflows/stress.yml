@@ -1,0 +1,76 @@
+name: Stress
+
+# 실제 HTTP 서버에 대량·동시 요청을 거는 stress 테스트(docs/testing.md "stress"). 오래 걸려 nightly와 수동 실행에서만 돈다.
+# 규모는 기본값(스레드 50, 반복 10, 스레드당 요청 20)보다 크게 준다. 재현된 버그(stressKnownFailureTest)는 돌리지 않는다.
+on:
+  schedule:
+    - cron: '0 18 * * *' # 매일 03:00 KST
+  workflow_dispatch:
+    inputs:
+      threads:
+        description: '동시 클라이언트 스레드 수 (-PstressThreads)'
+        default: '100'
+      iterations:
+        description: '시나리오 반복 수 (-PstressIterations)'
+        default: '30'
+      ops-per-thread:
+        description: '혼합 부하에서 스레드당 요청 수 (-PstressOpsPerThread)'
+        default: '40'
+      seed:
+        description: '대상 선택 seed (-PstressSeed)'
+        default: '20261128'
+
+concurrency:
+  group: stress-${{ github.ref }}
+  # 스케줄과 수동 실행이 서로 취소하지 않는다.
+  cancel-in-progress: false
+
+jobs:
+  stress:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Run stress tests
+        env:
+          STRESS_THREADS: ${{ inputs.threads || '100' }}
+          STRESS_ITERATIONS: ${{ inputs.iterations || '30' }}
+          STRESS_OPS_PER_THREAD: ${{ inputs.ops-per-thread || '40' }}
+          STRESS_SEED: ${{ inputs.seed || '20261128' }}
+        run: >-
+          ./gradlew stressTest
+          -PstressThreads="$STRESS_THREADS"
+          -PstressIterations="$STRESS_ITERATIONS"
+          -PstressOpsPerThread="$STRESS_OPS_PER_THREAD"
+          -PstressSeed="$STRESS_SEED"
+
+      - name: Write summary
+        if: ${{ !cancelled() }}
+        run: |
+          for summary in */build/reports/stress/summary.md; do
+            if [ -f "$summary" ]; then
+              echo "### ${summary%%/*}" >> "$GITHUB_STEP_SUMMARY"
+              cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Upload stress report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: stress-report
+          path: |
+            */build/reports/stress
+            */build/reports/tests/stressTest
+            */build/test-results/stressTest
+          retention-days: 14

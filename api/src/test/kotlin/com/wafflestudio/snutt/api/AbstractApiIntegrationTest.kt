@@ -2,8 +2,12 @@ package com.wafflestudio.snutt.api
 
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.storage.UploadUriIssuer
+import com.wafflestudio.snutt.core.domain.auth.oidc.OidcJwtVerifier
 import com.wafflestudio.snutt.core.test.AbstractIntegrationTest
+import com.wafflestudio.snutt.core.test.external.OidcTestSupport
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.http.ResponseEntity
@@ -12,13 +16,31 @@ import org.springframework.web.client.RestClient
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+/**
+ * api 모듈 통합테스트 베이스. 컨텍스트가 한 번만 뜨도록 이 모듈의 모든 @MockitoBean·프로퍼티는 여기에만 둔다.
+ * 스텁하지 않은 mock은 null/기본값을 돌려주고, 매 테스트 뒤 Mockito가 reset한다.
+ * 소셜 로그인 제공자와 GitHub는 빈 mock 대신 `wireMock`(네트워크 경계)으로 stub한다. read-timeout은 타임아웃 테스트가
+ * 빨리 끝나도록 1초로 줄인다(운영 5초).
+ */
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = ["snutt.scheduling.enabled=false", "spring.http.clients.read-timeout=1s"],
+)
 abstract class AbstractApiIntegrationTest : AbstractIntegrationTest() {
     @MockitoBean
     lateinit var uploadUriIssuer: UploadUriIssuer
 
     @LocalServerPort
     var port = 0
+
+    @Autowired
+    private lateinit var oidcJwtVerifier: OidcJwtVerifier
+
+    /** JWKS 캐시가 앞 테스트의 응답을 들고 있으면 JWKS 장애·키 교체 테스트가 순서에 따라 달라진다. */
+    @BeforeEach
+    fun clearOidcCache() {
+        OidcTestSupport.clearJwksCache(oidcJwtVerifier)
+    }
 
     protected val jsonMapper: JsonMapper = JsonMapper.builder().build()
 

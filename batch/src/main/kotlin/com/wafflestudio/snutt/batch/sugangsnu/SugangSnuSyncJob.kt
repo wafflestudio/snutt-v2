@@ -15,7 +15,7 @@ import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.time.Instant
+import java.time.Clock
 
 @Component
 class SugangSnuSyncJob(
@@ -30,6 +30,7 @@ class SugangSnuSyncJob(
     private val pushService: PushService,
     private val lectureVocabularyService: LectureVocabularyService,
     private val courseVocabularyService: CourseVocabularyService,
+    private val clock: Clock,
 ) : BatchJob {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -37,8 +38,7 @@ class SugangSnuSyncJob(
 
     override fun run(target: YearAndSemester?) {
         if (target != null) {
-            syncSemester(target.year, target.semester)
-            coursebookRepository.touchUpdatedAt(target.year, target.semester, Instant.now())
+            syncSemester(target.year, target.semester, touchCoursebook = true)
             return
         }
         val condition = sugangSnuLectureApi.getCoursebookCondition()
@@ -55,10 +55,7 @@ class SugangSnuSyncJob(
             comparison > 0 -> throw IllegalStateException(
                 "최신 수강편람(${latest.year} ${latest.semester})이 수강신청 사이트(${sugangSnu.year} ${sugangSnu.semester})보다 최신이다",
             )
-            comparison == 0 -> {
-                syncCoursebook(latest)
-                coursebookRepository.touchUpdatedAt(latest.year, latest.semester, Instant.now())
-            }
+            comparison == 0 -> syncCoursebook(latest, touchCoursebook = true)
             else -> {
                 val next = nextCoursebook(latest)
                 log.info("신규 수강편람 감지: {} {}", next.year, next.semester)
@@ -73,24 +70,45 @@ class SugangSnuSyncJob(
         }
     }
 
-    private fun syncCoursebook(coursebook: Coursebook) {
+    private fun syncCoursebook(
+        coursebook: Coursebook,
+        touchCoursebook: Boolean = false,
+    ) {
         registrationPeriodExtractor.extract(coursebook.year, coursebook.semester)
-        syncSemester(coursebook.year, coursebook.semester)
+        syncSemester(coursebook.year, coursebook.semester, touchCoursebook)
     }
 
+    /** [touchCoursebook]이면 강의 반영(1단계)이 커밋됐을 때 수강편람 updated_at을 고친다. 뒤 단계가 실패해도 강의는 바뀌었기 때문이다. */
     private fun syncSemester(
         year: Int,
         semester: Semester,
+        touchCoursebook: Boolean = false,
     ) {
-        val rows =
-            sugangSnuXlsxParser
-                .parse(
-                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
-                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
-                ).map { sugangSnuLectureEnricher.enrich(year, semester, it) }
-        sugangSnuSyncService.sync(year, semester, rows)
-        lectureVocabularyService.evict(year, semester)
-        courseVocabularyService.evict()
+        val xlsx =
+            sugangSnuXlsxParser.parse(
+                sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
+                sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
+            )
+        val rows = xlsx.rows.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
+        // 영어 엑셀이 비면 상세 API가 준 영어 값을 쓰고, 상세 API에 없는 기존 강의의 영어 필드는 보존한다. 신규 강의는 상세 API 값 그대로다.
+        // 영어 엑셀이 끝까지 공개되지 않는 학기도 있어서, 신규 강의의 영어 값을 비워 두면 영영 채워지지 않는다.
+        var lecturesCommitted = false
+        var failure: Throwable? = null
+        try {
+            sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable) { lecturesCommitted = true }
+        } catch (e: Throwable) {
+            failure = e
+            throw e
+        } finally {
+            // 시간표 반영 단계가 실패해도 강의 반영은 이미 커밋됐을 수 있으므로 캐시는 비운다.
+            lectureVocabularyService.evict(year, semester)
+            courseVocabularyService.evict()
+            if (touchCoursebook && lecturesCommitted) {
+                // 동기화가 실패한 중이면 그 예외(단계별 실패가 suppressed로 붙어 있다)를 덮지 않는다.
+                runCatching { coursebookRepository.touchUpdatedAt(year, semester, clock.instant()) }
+                    .onFailure { failure?.addSuppressed(it) ?: throw it }
+            }
+        }
     }
 
     private fun nextCoursebook(coursebook: Coursebook): Coursebook =

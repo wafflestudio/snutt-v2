@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
 import java.time.Instant
 
 data class LegacyTagListResponse(
@@ -242,11 +243,13 @@ data class LegacyYearAndSemesterDto(
 
 @RestController
 @RequestMapping("/v1/semesters")
-class V1CompatSemesterController {
+class V1CompatSemesterController(
+    private val clock: Clock,
+) {
     @GetMapping("/status")
     fun getSemesterStatus(): LegacySemesterStatusResponse =
         LegacySemesterStatusResponse(
-            current = SemesterCalendar.current()?.let { LegacyYearAndSemesterDto(year = it.year, semester = it.semester) },
-            next = SemesterCalendar.next().let { LegacyYearAndSemesterDto(year = it.year, semester = it.semester) },
+            current = SemesterCalendar.current(clock)?.let { LegacyYearAndSemesterDto(year = it.year, semester = it.semester) },
+            next = SemesterCalendar.next(clock).let { LegacyYearAndSemesterDto(year = it.year, semester = it.semester) },
         )
 }

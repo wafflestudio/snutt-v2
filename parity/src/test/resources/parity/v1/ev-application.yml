@@ -1,0 +1,21 @@
+# v1 snutt-ev(versions.properties의 ev.sha) 컨테이너에 spring.config.additional-location으로 얹는 설정.
+# jar 안의 설정은 그대로 쓰고, 프로파일 parity(어느 v1 프로파일과도 겹치지 않음)에서 비는 값만 채운다.
+# local/dev/prod 프로파일에만 있는 oci.vault.secret-ids는 parity 프로파일에서 비어 있어 Vault를 조회하지 않는다.
+spring:
+  # v1 설정은 classpath:/db다. 앞의 '/' 때문에 ClassLoader가 core.jar 안의 db/V*.sql을 찾지 못해 Flyway가
+  # "No migrations found"로 아무것도 하지 않는다(운영은 이미 스키마가 있어 드러나지 않음). 같은 SQL을 읽도록 고친다.
+  flyway:
+    locations: classpath:db
+  data:
+    redis:
+      timeout: 3s
+      default-ttl: 5m
+      repositories:
+        enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+server:
+  tomcat:
+    accesslog:
+      enabled: false

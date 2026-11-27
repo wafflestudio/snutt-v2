@@ -2,7 +2,6 @@ package com.wafflestudio.snutt.api.coverage
 
 import com.wafflestudio.snutt.api.AbstractApiIntegrationTest
 import com.wafflestudio.snutt.api.testutil.legacyApiKey
-import com.wafflestudio.snutt.api.testutil.saveLectureWithTimes
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
@@ -24,15 +23,21 @@ import com.wafflestudio.snutt.core.domain.theme.repository.PublishedThemeReposit
 import com.wafflestudio.snutt.core.domain.theme.repository.TimetableThemeRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
+import com.wafflestudio.snutt.core.test.fixture.saveLectureWithTimes
 import com.wafflestudio.snutt.v1compat.auth.LegacyTokenService
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.LocalDateTime
 
 class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
     @Autowired
@@ -166,13 +171,118 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
         verify(pushClient).subscribeGlobalTopic("legacy-fcm-token", Language.KO, null)
     }
 
+    private val tooLongClientHeaders =
+        mapOf(
+            "x-os-version" to "1".repeat(40),
+            "x-app-version" to "2".repeat(40),
+            "x-device-model" to "m".repeat(80),
+            "x-app-type" to "t".repeat(20),
+            "x-device-id" to "d".repeat(150),
+        )
+
+    private fun assertTruncatedDevice(registrationId: String) {
+        val device = userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(registrationId)!!
+        assertEquals(
+            listOf("1".repeat(32), "2".repeat(32), "m".repeat(64), "t".repeat(16), "d".repeat(128)),
+            listOf(device.osVersion, device.appVersion, device.deviceModel, device.appType, device.deviceId),
+        )
+    }
+
     @Test
-    fun `학기 상태는 현재와 다음 학기를 알려준다`() {
-        val response = get("/v2/semesters/status")
+    fun `클라이언트 헤더가 컬럼 길이를 넘으면 잘라서 기기를 등록한다`() {
+        val response =
+            client()
+                .post()
+                .uri("/v2/users/me/devices/fcm-long-headers")
+                .headers { headers ->
+                    headers.setBearerAuth(userAToken)
+                    tooLongClientHeaders.forEach { (name, value) -> headers.set(name, value) }
+                }.retrieve()
+                .toEntity(String::class.java)
+
         assertEquals(200, response.statusCode.value())
-        val next = body(response)["next"]
-        assertTrue(next.hasNonNull("year"))
-        assertTrue(next.hasNonNull("semester"))
+        assertTruncatedDevice("fcm-long-headers")
+        // 같은 기기가 다시 등록하면 잘린 device id로 찾아 같은 행을 갱신한다.
+        client()
+            .post()
+            .uri("/v2/users/me/devices/fcm-long-headers-2")
+            .headers { headers ->
+                headers.setBearerAuth(userAToken)
+                tooLongClientHeaders.forEach { (name, value) -> headers.set(name, value) }
+            }.retrieve()
+            .toEntity(String::class.java)
+        assertEquals(1, activeDeviceCount("d".repeat(128)))
+    }
+
+    @Test
+    fun `구 경로에서도 클라이언트 헤더가 컬럼 길이를 넘으면 잘라서 기기를 등록한다`() {
+        val legacyToken = legacyTokenService.issue(userA)
+        val response =
+            client()
+                .post()
+                .uri("/v1/user/device/legacy-long-headers")
+                .headers { headers ->
+                    headers.set("x-access-apikey", legacyApiKey())
+                    headers.set("x-access-token", legacyToken)
+                    headers.set("x-os-type", "android")
+                    tooLongClientHeaders.forEach { (name, value) -> headers.set(name, value) }
+                }.retrieve()
+                .toEntity(String::class.java)
+
+        assertEquals(200, response.statusCode.value())
+        assertTruncatedDevice("legacy-long-headers")
+    }
+
+    // fcm_registration_id는 VARCHAR(512)이고 활성 행끼리 unique다. 잘라 저장하면 다른 토큰과 충돌할 수 있어 거부한다.
+    @Test
+    fun `FCM registration id가 512자를 넘으면 v2와 v1 모두 400으로 거부하고 기기를 만들지 않는다`() {
+        val maxLength = "r".repeat(512)
+        val tooLong = "r".repeat(513)
+
+        assertEquals(200, registerDevice(maxLength, "device-max", userAToken).statusCode.value())
+        assertEquals(maxLength, userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(maxLength)!!.fcmRegistrationId)
+
+        val v2 = registerDevice(tooLong, "device-too-long", userAToken)
+        assertEquals(400, v2.statusCode.value(), "body=${v2.body}")
+        assertEquals("application/problem+json", v2.headers.contentType.toString())
+        assertEquals("/problems/invalid-parameter", body(v2)["type"].asString())
+
+        val v1 =
+            client()
+                .post()
+                .uri("/v1/user/device/$tooLong")
+                .headers { headers ->
+                    headers.set("x-access-apikey", legacyApiKey())
+                    headers.set("x-access-token", legacyTokenService.issue(userA))
+                    headers.set("x-os-type", "android")
+                }.retrieve()
+                .toEntity(String::class.java)
+        assertEquals(400, v1.statusCode.value(), "body=${v1.body}")
+        assertEquals(40001, body(v1)["errcode"].asInt())
+
+        assertEquals(1, userDeviceRepository.findAllByUserIdInAndIsDeletedFalse(listOf(userA.id!!)).size)
+        verify(pushClient, never()).subscribeGlobalTopic(eq(tooLong), any(), anyOrNull())
+    }
+
+    @Test
+    fun `학기 상태는 KST 날짜 기준으로 현재와 다음 학기를 알려준다`() {
+        // 2026-08-31 23:59 KST(= 14:59Z): 여름학기 종료 후 공백기
+        clock.setKst(LocalDateTime.of(2026, 8, 31, 23, 59))
+        val beforeResponse = get("/v2/semesters/status")
+        assertEquals(200, beforeResponse.statusCode.value())
+        val before = body(beforeResponse)
+        assertFalse(before.hasNonNull("current"))
+        assertEquals(2026, before["next"]["year"].asInt())
+        assertEquals(Semester.AUTUMN.value, before["next"]["semester"].asInt())
+
+        // 2026-09-01 00:00 KST(= 08-31T15:00Z): UTC로는 아직 8월이지만 가을학기다
+        clock.setKst(LocalDateTime.of(2026, 9, 1, 0, 0))
+        val afterResponse = get("/v2/semesters/status")
+        assertEquals(200, afterResponse.statusCode.value())
+        val after = body(afterResponse)
+        assertEquals(2026, after["current"]["year"].asInt())
+        assertEquals(Semester.AUTUMN.value, after["current"]["semester"].asInt())
+        assertEquals(Semester.WINTER.value, after["next"]["semester"].asInt())
     }
 
     @Test

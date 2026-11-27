@@ -22,7 +22,7 @@ import java.time.Instant
 data class LegacyAdminUserSearchResponse(
     val id: String,
     val email: String?,
-    val isEmailVerified: Boolean,
+    val isEmailVerified: Boolean?,
     val nickname: String,
     val localId: String?,
     val isAdmin: Boolean,

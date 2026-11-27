@@ -145,7 +145,9 @@ class TimetableService(
         title: String? = null,
     ): Timetable {
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
-        val timetable = getTimetable(userId, timetableId)
+        // 원본 시간표를 잠근 뒤 담긴 강의를 읽는다. 수강편람 동기화가 원본에서 빼는 중인 강의(폐강·겹침)를 복사본에 되살리지 않는다.
+        val timetable =
+            timetableRepository.findForUpdateByIdAndUserId(timetableId, userId) ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val siblingTitles = timetableRepository.findByUserIdAndYearAndSemester(userId, timetable.year, timetable.semester).map { it.title }
         val copiedTitle = CopyTitle.next(title ?: timetable.title, siblingTitles)
         if (copiedTitle.length > TITLE_MAX_LENGTH) throw SnuttException(ErrorType.INVALID_TIMETABLE_TITLE)
@@ -161,9 +163,12 @@ class TimetableService(
                 ),
             )
 
-        timetableLectureRepository.findByTimetableId(timetable.id!!).forEach { source ->
-            timetableLectureRepository.save(source.copyFor(copied.id!!))
-        }
+        val sources = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        // 담을 강의를 먼저 id 순으로 공유 락으로 잠근다. 행을 넣을 때마다 외래 키 검사가 담긴 순서대로 강의 락을 잡으면, 강의를 id 순으로
+        // X락으로 잠그는 수강편람 동기화(강의 반영·폐강 삭제)와 사이클이 생긴다.
+        val lectureIds = sources.mapNotNull { it.lectureId }.distinct()
+        if (lectureIds.isNotEmpty()) lectureRepository.lockAllForShareByIdIn(lectureIds)
+        sources.forEach { source -> timetableLectureRepository.save(source.copyFor(copied.id!!)) }
         return copied
     }
 
@@ -173,6 +178,8 @@ class TimetableService(
         timetableId: Long,
         themeId: Long,
     ): TimetableDisplay {
+        // 사용자 행 → 시간표 순. 테마 팔레트 변경(TimetableThemeService.modifyTheme)과 같은 순서로 잠근다.
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val timetable =
             timetableRepository.findForUpdateByIdAndUserId(timetableId, userId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
@@ -187,6 +194,10 @@ class TimetableService(
         return displayOf(timetable)
     }
 
+    /**
+     * 대표 여부는 TimetableRepository.updateIsPrimary(벌크 update, clearAutomatically)로 바꾼다. 같은 트랜잭션에서 이 호출 전에 읽은
+     * 엔티티는 준영속이 되므로, 이 메서드를 다른 트랜잭션 안에서 부르고 그 뒤에 엔티티를 고치면 변경이 저장되지 않는다.
+     */
     @Transactional
     fun setPrimary(
         userId: Long,
@@ -195,10 +206,11 @@ class TimetableService(
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val newPrimary = getTimetable(userId, timetableId)
         if (newPrimary.isPrimary) return
+        // updated_at을 건드리지 않도록 대표 여부 컬럼만 고친다(TimetableRepository.updateIsPrimary).
         timetableRepository
             .findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, newPrimary.year, newPrimary.semester)
-            ?.let { it.isPrimary = false }
-        newPrimary.isPrimary = true
+            ?.let { timetableRepository.updateIsPrimary(it.id!!, false) }
+        timetableRepository.updateIsPrimary(newPrimary.id!!, true)
     }
 
     @Transactional
@@ -208,7 +220,7 @@ class TimetableService(
     ) {
         val timetable = getTimetable(userId, timetableId)
         if (!timetable.isPrimary) return
-        timetable.isPrimary = false
+        timetableRepository.updateIsPrimary(timetable.id!!, false)
     }
 
     fun getUserPrimaryTable(
