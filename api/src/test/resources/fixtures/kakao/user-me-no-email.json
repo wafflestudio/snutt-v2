@@ -1,0 +1,7 @@
+{
+  "id": 987654321,
+  "connected_at": "2026-11-01T01:23:45Z",
+  "kakao_account": {
+    "email_needs_agreement": true
+  }
+}

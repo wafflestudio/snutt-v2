@@ -1,0 +1,18 @@
+{
+  "id": 123456789,
+  "connected_at": "2026-11-01T01:23:45Z",
+  "properties": {
+    "nickname": "홍길동"
+  },
+  "kakao_account": {
+    "profile_nickname_needs_agreement": false,
+    "profile": {
+      "nickname": "홍길동",
+      "is_default_nickname": false
+    },
+    "email_needs_agreement": false,
+    "is_email_valid": true,
+    "is_email_verified": true,
+    "email": "ksocial@snu.ac.kr"
+  }
+}

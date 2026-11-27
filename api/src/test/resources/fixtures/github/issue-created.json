@@ -1,0 +1,17 @@
+{
+  "id": 1,
+  "node_id": "MDU6SXNzdWUx",
+  "url": "https://api.github.com/repos/wafflestudio/snutt-feedbacks/issues/1347",
+  "html_url": "https://github.com/wafflestudio/snutt-feedbacks/issues/1347",
+  "number": 1347,
+  "state": "open",
+  "title": "[SNUTT] 3.9.0 ios 피드백",
+  "labels": [
+    {
+      "id": 208045946,
+      "name": "ios",
+      "color": "f29513",
+      "default": true
+    }
+  ]
+}
