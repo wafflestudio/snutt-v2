@@ -22,6 +22,7 @@
 | `perf` | `@PerfTest` | `./gradlew perfTest` | 운영 분포 데이터에서 실행계획(EXPLAIN) 검증 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
 | `stress-known-failure` | `@StressKnownFailure` | `./gradlew stressKnownFailureTest` | stress가 재현한 버그. 고칠 때까지 실패하는 것이 정상이다 |
+| `rehearsal` | `@RehearsalTest` | `./gradlew rehearsalTest` | 마이그레이션 리허설 도구를 합성 덤프로 끝까지 돌림 ([migration-rehearsal.md](migration-rehearsal.md)) |
 | `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접, CI 아님) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
@@ -36,7 +37,7 @@
 | api/v1compat HTTP 또는 서비스 통합테스트 | `AbstractApiIntegrationTest` (api 모듈, RANDOM_PORT, `get`/`post`/`register` 헬퍼) |
 | batch 잡 통합테스트 | `AbstractBatchIntegrationTest` (batch 모듈) |
 | Spring 없이 되는 순수 로직(파서, 계산) | 베이스 없음. 외부 입력 파싱처럼 경계가 분명한 것만 쓴다 |
-| migration | `MigrationIntegrationTest`처럼 컨테이너를 직접 띄운다. 이미지는 `TestImages` 상수를 쓴다 |
+| migration | `MigrationIntegrationTest`처럼 컨테이너를 직접 띄운다. 이미지는 `TestImages` 상수를 쓴다. 덤프 단위 리허설은 `rehearsal` 패키지([migration-rehearsal.md](migration-rehearsal.md)) |
 | v1 서버와 응답 비교 | `AbstractParityTest` (parity 모듈). 사용법은 [parity.md](parity.md) |
 
 `AbstractIntegrationTest`(공통 루트)가 해 주는 것:
