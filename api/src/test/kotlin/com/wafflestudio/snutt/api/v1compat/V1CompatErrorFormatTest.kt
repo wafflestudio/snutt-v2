@@ -5,6 +5,8 @@ import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.mockito.kotlin.any
+import org.mockito.kotlin.whenever
 import org.springframework.http.HttpMethod
 
 /**
@@ -44,14 +46,9 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
     fun `v1 경로의 처리되지 않은 예외는 v1 에러 형식의 500 errcode 0으로 응답한다`() {
         val (token, _) = v1Register("v1unhandled")
 
-        // x-os-version은 user_device.os_version VARCHAR(32)에 그대로 들어간다. 검증이 없어 DB 오류(500)가 난다.
-        val response =
-            v1Send(
-                HttpMethod.POST,
-                "/v1/user/device/fcm-too-long",
-                legacyToken = token,
-                headers = mapOf("x-os-type" to "android", "x-os-version" to "9".repeat(64)),
-            )
+        // 메일 SDK가 런타임 예외를 던지면 MailLogService가 그대로 다시 던진다(SnuttException이 아니다).
+        whenever(mailClient.send(any(), any(), any())).thenThrow(RuntimeException("mail sdk down"))
+        val response = v1Post("/v1/user/email/verification", """{"email":"v1unhandled@snu.ac.kr"}""", token)
 
         assertV1Error(response, 500, 0)
         assertEquals("서버에 문제가 있으니, 잠시 후 다시 시도해주세요", body(response)["displayMessage"].asString())

@@ -167,6 +167,68 @@ class CoverageGapIntegrationTest : AbstractApiIntegrationTest() {
         verify(pushClient).subscribeGlobalTopic("legacy-fcm-token", Language.KO, null)
     }
 
+    private val tooLongClientHeaders =
+        mapOf(
+            "x-os-version" to "1".repeat(40),
+            "x-app-version" to "2".repeat(40),
+            "x-device-model" to "m".repeat(80),
+            "x-app-type" to "t".repeat(20),
+            "x-device-id" to "d".repeat(150),
+        )
+
+    private fun assertTruncatedDevice(registrationId: String) {
+        val device = userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(registrationId)!!
+        assertEquals(
+            listOf("1".repeat(32), "2".repeat(32), "m".repeat(64), "t".repeat(16), "d".repeat(128)),
+            listOf(device.osVersion, device.appVersion, device.deviceModel, device.appType, device.deviceId),
+        )
+    }
+
+    @Test
+    fun `클라이언트 헤더가 컬럼 길이를 넘으면 잘라서 기기를 등록한다`() {
+        val response =
+            client()
+                .post()
+                .uri("/v2/users/me/devices/fcm-long-headers")
+                .headers { headers ->
+                    headers.setBearerAuth(userAToken)
+                    tooLongClientHeaders.forEach { (name, value) -> headers.set(name, value) }
+                }.retrieve()
+                .toEntity(String::class.java)
+
+        assertEquals(200, response.statusCode.value())
+        assertTruncatedDevice("fcm-long-headers")
+        // 같은 기기가 다시 등록하면 잘린 device id로 찾아 같은 행을 갱신한다.
+        client()
+            .post()
+            .uri("/v2/users/me/devices/fcm-long-headers-2")
+            .headers { headers ->
+                headers.setBearerAuth(userAToken)
+                tooLongClientHeaders.forEach { (name, value) -> headers.set(name, value) }
+            }.retrieve()
+            .toEntity(String::class.java)
+        assertEquals(1, activeDeviceCount("d".repeat(128)))
+    }
+
+    @Test
+    fun `구 경로에서도 클라이언트 헤더가 컬럼 길이를 넘으면 잘라서 기기를 등록한다`() {
+        val legacyToken = legacyTokenService.issue(userA)
+        val response =
+            client()
+                .post()
+                .uri("/v1/user/device/legacy-long-headers")
+                .headers { headers ->
+                    headers.set("x-access-apikey", legacyApiKey())
+                    headers.set("x-access-token", legacyToken)
+                    headers.set("x-os-type", "android")
+                    tooLongClientHeaders.forEach { (name, value) -> headers.set(name, value) }
+                }.retrieve()
+                .toEntity(String::class.java)
+
+        assertEquals(200, response.statusCode.value())
+        assertTruncatedDevice("legacy-long-headers")
+    }
+
     @Test
     fun `학기 상태는 KST 날짜 기준으로 현재와 다음 학기를 알려준다`() {
         // 2026-08-31 23:59 KST(= 14:59Z): 여름학기 종료 후 공백기
