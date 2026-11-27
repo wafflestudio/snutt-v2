@@ -17,7 +17,7 @@
 |---|---|---|---|
 | 없음 | - | `./gradlew test` (PR CI, 배포 게이트) | 기본 |
 | `parity` | `@ParityTest` | `./gradlew parityTest` | v1 서버와 v1compat 응답 비교 |
-| `perf` | `@PerfTest` | `./gradlew perfTest` | 쿼리 수·실행계획 같은 결정적 성능 지표 |
+| `perf` | `@PerfTest` | `./gradlew perfTest` | 운영 분포 데이터에서 실행계획(EXPLAIN) 검증 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
 | `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접, CI 아님) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
@@ -129,6 +129,60 @@ val detail = assertQueryCount(select = 6, insert = 0, update = 0, delete = 0) {
 - 실패 메시지에 실행된 SQL 전체가 찍힌다. 기대값은 그 목록을 보고 N+1이 아닌지 확인한 뒤 정한다.
 - 예시: `TimetableIntegrationTest`의 `custom 강의와 customization override`.
 
+### N+1 고정: `assertQueryCountStable`
+
+조회 엔드포인트는 "데이터가 늘어도 쿼리 수가 같다"를 고정한다. 요청을 한 번 보내고, `grow`로 응답에 들어갈 데이터를 늘린 뒤 다시 보내 두 번 모두 기대값과 같은지 본다. 쓰기 쿼리는 기본 0이다.
+
+```kotlin
+val (before, after) =
+    assertQueryCountStable(select = 3, grow = { repeat(4) { befriend(fixtures.user()) } }) {
+        body(get("/v2/friends?state=ACTIVE", token))
+    }
+assertEquals(1, before.size())
+assertEquals(5, after.size())   // grow가 응답에 실제로 반영됐는지 꼭 확인한다. 안 하면 검증이 빈다.
+```
+
+- 주요 엔드포인트(v2와 v1compat)는 `api/.../querycount/QueryCountIntegrationTest`에 모여 있다. PR CI에서 돈다.
+- 실패 메시지에 늘리기 전후 SQL 목록이 둘 다 찍힌다. 늘린 뒤에만 반복되는 쿼리가 있으면 N+1이다.
+
+## 실행계획: `explain` (`@PerfTest`)
+
+쿼리 수만으로는 "인덱스를 타는지"를 모른다. perf 테스트는 리포지토리 쿼리가 실제로 내보내는 SQL을 캡처해 운영 분포 데이터에서 `EXPLAIN`하고 계획을 assert한다. 실행시간은 보지 않는다.
+
+```kotlin
+class SocialQueryPlanTest : AbstractPerfTest() {          // api/.../perf/
+    @Test
+    fun `대기 중인 친구 요청은 복합 인덱스 순서로 filesort 없이 읽는다`() {
+        explainOne { friendRepository.findByFromUserIdAndIsAcceptedFalseOrderByCreatedAtDesc(perf.heavyFriendUserId) }
+            .assertKey("friend", "idx_friend_from_user_accepted_created")
+            .assertNoFilesort()
+    }
+}
+```
+
+동작:
+1. `AbstractPerfTest`는 `AbstractApiIntegrationTest`를 상속하고 `@PerfTest`만 붙인다. 컨텍스트는 api 테스트와 같다.
+2. 블록 안 리포지토리 호출은 평소처럼 기본 스키마(비어 있다)에서 실행된다. `recordQueries`가 SQL과 바인딩 파라미터를 캡처한다.
+3. `explain`이 같은 SQL·파라미터로 perf 스키마 `snutt_perf`에서 `EXPLAIN FORMAT=TRADITIONAL`(assert용)과 `FORMAT=TREE`(실패 메시지용)를 실행한다.
+
+`snutt_perf`는 싱글톤 MySQL 컨테이너 안의 별도 스키마다. perf JVM에서 처음 `perf`를 읽을 때 한 번 만든다(Flyway migration → `PerfDataGenerator` → `ANALYZE TABLE`, 약 25초). 매 테스트 초기화는 기본 스키마만 비우므로 부딪히지 않는다. 모든 perf 테스트가 공유하니 **perf 스키마에 쓰지 않는다.**
+
+- 데이터 분포와 근거는 [perf-data-profile.md](perf-data-profile.md)에 있다. 파라미터는 `perf`의 대표 id를 넘긴다: `typicalUserId`, `heavyTimetableUserId`(시간표 773개), `heavyFriendUserId`, `heavyNotificationUserId`, `snuevUserId`(강의평 94%), `popularCourseId`(강의평 212개), `popularLectureId` 등. 극단값에서도 계획이 버티는지 본다.
+- `explainOne { }`은 SELECT가 하나여야 한다. 여러 개면 `explainAll { }`로 받아 하나씩 본다.
+- assert: `assertKey(table, vararg keys)`, `assertAccess(table, vararg types)`, `assertNoFullScan(vararg allowed)`, `assertNoFilesort(vararg allowed)`, `assertNoTemporary(vararg allowed)`, `assertRowsAtMost(table, max)`. 테이블은 SQL 별칭이 아니라 실제 테이블 이름으로 쓴다.
+- `<derived2>`, `<union1,2>` 같은 임시 테이블은 풀 스캔 검사에서 빠진다. UNION 결과를 다시 정렬하는 filesort처럼 피할 수 없는 것은 `allowed`로 명시한다(예: `SocialQueryPlanTest`의 친구 목록).
+- 앞부분이 같은 인덱스가 여럿이면 옵티마이저가 아무거나 고른다(예: `uk_timetable_title`과 `idx_timetable_user_semester`). 둘 다 `assertKey`에 적는다.
+- 예상 rows는 `ANALYZE` 샘플링이라 실행마다 조금 다르다. 기대값보다 넉넉한 상한만 둔다.
+- 테스트 이름에 의도(어떤 인덱스로 무엇을 피하는지)를 적는다.
+
+### 새 쿼리를 추가하거나 바꾸면
+
+1. **조회 엔드포인트면** `QueryCountIntegrationTest`에 `assertQueryCountStable` 테스트를 추가한다. 목록이면 `grow`로 행을 늘려 쿼리 수가 그대로인지 본다.
+2. **리포지토리 쿼리(JPQL·JDSL·네이티브)면** `api/.../perf/*QueryPlanTest`에 `explainOne` 테스트를 추가한다. 쓰려는 인덱스, 풀 스캔·filesort 없음, rows 상한을 assert한다. 극단 사용자 id로도 한 번 본다.
+3. 인덱스를 추가·변경·삭제하면(`V*__*.sql`) `./gradlew perfTest`를 돌려 기존 계획이 바뀌지 않았는지 본다. 바뀐 게 의도면 테스트를 고치고 이유를 커밋 메시지에 적는다.
+4. 새 테이블이나 분포가 실행계획에 영향을 주면 `PerfDataGenerator`에 데이터를 추가하고 `VERSION`을 올린 뒤 `perf-data-profile.md`에 근거를 적는다.
+5. 의도적으로 인덱스를 못 타는 쿼리(앞뒤 와일드카드 LIKE, 캐시 뒤의 집계)는 테스트로 고정하지 말고 이유를 주석·문서에 남긴다.
+
 ## 시나리오 fixture: `ScenarioFixtures`
 
 학기 개설부터 시간표에 강의를 넣는 데까지를 몇 줄로 쓴다. api와 batch 테스트 모두 `fixtures`로 바로 쓸 수 있다.
@@ -193,5 +247,5 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 3. 외부 API mock이 네트워크 경계(WireMock)에 있는가? 5xx는 500으로 stub했는가(503은 HTTP 클라이언트가 재시도한다)? 빈 mock이 꼭 필요하면(SDK 경계) 모듈 베이스에 추가했는가?
 4. 시간 의존 로직이면 `clock`을 고정했는가? KST 경계를 다루는가?
 5. 난수 seed를 고정했는가? `Thread.sleep` 없이 polling으로 기다리는가?
-6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가?
+6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가? 새 쿼리면 "새 쿼리를 추가하거나 바꾸면"을 따랐는가?
 7. `./gradlew ktlintCheck test`(태그를 붙였으면 해당 태스크도)를 돌려 통과했는가?

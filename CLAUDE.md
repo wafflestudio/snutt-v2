@@ -8,3 +8,4 @@
 - 외부 HTTP API는 빈 mock이 아니라 WireMock(`wireMock`, `ExternalApiMock`)으로 stub한다.
 - 통합테스트는 모듈 베이스(`AbstractApiIntegrationTest`, `AbstractBatchIntegrationTest`)를 상속한다. 테스트 클래스에 `@MockitoBean`·`@Import`·프로퍼티를 새로 달지 않는다(컨텍스트 캐시가 깨진다).
 - 현재 시각은 `Clock` 빈으로만 읽고, 테스트에서는 `MutableClock`으로 고정한다. 쿼리 수는 `assertQueryCount`, 데이터는 `fixtures`(`ScenarioFixtures`)로 만든다.
+- 조회 쿼리나 인덱스를 추가·변경하면 docs/testing.md의 "새 쿼리를 추가하거나 바꾸면"을 따른다(쿼리 수는 `assertQueryCountStable`, 실행계획은 `@PerfTest`의 `explain`).
