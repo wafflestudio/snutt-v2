@@ -62,7 +62,10 @@ class NewFeatureExposureScenarioTest : AbstractV1CompatTest() {
         val authorToken = register("themeauthor")
         val (authorLegacy, _) = v1Register("themeauthor2")
         val downloaderToken = register("themedownloader")
-        val downloaderLegacy = body(v1Post("/v1/auth/login_local", """{"id":"themedownloader","password":"password1"}"""))["token"].asString()
+        val downloaderLegacy =
+            body(
+                v1Post("/v1/auth/login_local", """{"id":"themedownloader","password":"password1"}"""),
+            )["token"].asString()
 
         val themeId =
             body(post("/v2/themes", """{"name":"새벽","colors":[{"backgroundColor":"#101820","foregroundColor":"#f2aa4c"}]}""", authorToken))
@@ -206,7 +209,12 @@ class NewFeatureExposureScenarioTest : AbstractV1CompatTest() {
         val classType = diaryDailyClassTypeRepository.save(DiaryDailyClassType(name = "수업듣기"))
         val question =
             diaryQuestionRepository.save(
-                DiaryQuestion(question = "오늘 수업은 어땠나요?", shortQuestion = "수업", answerList = listOf("좋아요", "싫어요"), shortAnswerList = listOf("좋음", "싫음")),
+                DiaryQuestion(
+                    question = "오늘 수업은 어땠나요?",
+                    shortQuestion = "수업",
+                    answerList = listOf("좋아요", "싫어요"),
+                    shortAnswerList = listOf("좋음", "싫음"),
+                ),
             )
         diaryQuestionTargetRepository.save(DiaryQuestionTarget(question.id!!, classType.id!!))
 

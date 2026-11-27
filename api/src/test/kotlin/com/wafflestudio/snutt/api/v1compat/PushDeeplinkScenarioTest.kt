@@ -108,8 +108,20 @@ class PushDeeplinkScenarioTest : AbstractV1CompatTest() {
         val expected = "snutt-dev://diary?lectureId=${lecture.id}&courseTitle=$encodedTitle"
         assertEquals(expected, sent.getValue("fcm-pushdiary-old").message.urlScheme)
         assertEquals(expected, sent.getValue("fcm-pushdiary-new").message.urlScheme)
-        assertEquals(true, sent.getValue("fcm-pushdiary-old").message.body.contains("공학연구의 실습 1"))
-        assertEquals(true, sent.getValue("fcm-pushdiary-new").message.body.contains("Engineering Research Practice 1"))
+        assertEquals(
+            true,
+            sent
+                .getValue("fcm-pushdiary-old")
+                .message.body
+                .contains("공학연구의 실습 1"),
+        )
+        assertEquals(
+            true,
+            sent
+                .getValue("fcm-pushdiary-new")
+                .message.body
+                .contains("Engineering Research Practice 1"),
+        )
     }
 
     @Test

@@ -66,7 +66,8 @@ abstract class AbstractV1CompatTest : AbstractApiIntegrationTest() {
         return MigratedUser(userId, credentialHash)
     }
 
-    protected fun sha256Hex(value: String): String = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))
+    protected fun sha256Hex(value: String): String =
+        HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toByteArray()))
 
     protected fun v1Send(
         method: HttpMethod,

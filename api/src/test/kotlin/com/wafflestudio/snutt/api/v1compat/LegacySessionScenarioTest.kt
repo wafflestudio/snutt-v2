@@ -77,7 +77,10 @@ class LegacySessionScenarioTest : AbstractV1CompatTest() {
         clock.setInstant(Instant.parse("2026-09-01T00:00:00Z"))
 
         assertEquals(200, callMe(migrated.token, apiKey { }).statusCode.value())
-        assertEquals(200, callMe(migrated.token, apiKey { expiration(Date.from(Instant.parse("2026-09-01T00:00:01Z"))) }).statusCode.value())
+        assertEquals(
+            200,
+            callMe(migrated.token, apiKey { expiration(Date.from(Instant.parse("2026-09-01T00:00:01Z"))) }).statusCode.value(),
+        )
 
         assertV1Error(callMe(migrated.token, apiKey(secret = "another-secret-key-0123456789abcdef!!") { }), 403, 0x2000)
         assertV1Error(callMe(migrated.token, apiKey { claim("key_version", "1") }), 403, 0x2000)
@@ -87,7 +90,16 @@ class LegacySessionScenarioTest : AbstractV1CompatTest() {
         assertV1Error(callMe(migrated.token, apiKey = null), 403, 0x2000)
         // v2 플랫폼 키(x-client-key)만으로는 v1 경로를 통과하지 못한다
         assertV1Error(
-            v1Send(HttpMethod.GET, "/v1/users/me", legacyToken = migrated.token, apiKey = null, headers = mapOf("x-client-key" to "test-ios-key")),
+            v1Send(
+                HttpMethod.GET,
+                "/v1/users/me",
+                legacyToken = migrated.token,
+                apiKey = null,
+                headers =
+                    mapOf(
+                        "x-client-key" to "test-ios-key",
+                    ),
+            ),
             403,
             0x2000,
         )
