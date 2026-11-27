@@ -20,7 +20,9 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureR
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -58,12 +60,15 @@ class TimetableLectureReminderService(
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
     private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
     private val lectureService: LectureService,
+    transactionManager: PlatformTransactionManager,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
+    private val transactionTemplate = TransactionTemplate(transactionManager)
 
     private companion object {
         const val TIME_WINDOW_MINUTES = 10L
         const val LAST_MINUTE_OF_DAY = 1439
+        const val CLEANUP_BATCH_SIZE = 500
     }
 
     private data class DueWindow(
@@ -131,8 +136,31 @@ class TimetableLectureReminderService(
         }
     }
 
+    /**
+     * 지난 학기 리마인더를 [CLEANUP_BATCH_SIZE]개씩 지운다. 지울 id는 락 없는 SELECT로 고르고, 묶음마다 그 시간표 행을 id 순으로 잠근 뒤
+     * 리마인더만 id로 지운다. 사용자 요청과 같은 순서(timetable → 리마인더)로 잠그므로 데드락이 나지 않고, 리마인더 설정과 겹쳐도
+     * 지워진 리마인더에 발송 시각을 넣지 않는다.
+     */
     fun deletePastSemesterReminders(current: YearAndSemester) {
-        val deleted = timetableLectureReminderRepository.deleteByPastSemesters(current.year, current.semester.value)
+        var deleted = 0
+        var afterId = 0L
+        while (true) {
+            val batch =
+                timetableLectureReminderRepository.findPastSemesterReminders(
+                    current.year,
+                    current.semester.value,
+                    afterId,
+                    CLEANUP_BATCH_SIZE,
+                )
+            if (batch.isEmpty()) break
+            transactionTemplate.executeWithoutResult {
+                timetableRepository.findAllForUpdateByIdIn(batch.map { it.timetableId }.distinct())
+                timetableLectureReminderRepository.deleteAllByIdInBatch(batch.map { it.reminderId })
+            }
+            deleted += batch.size
+            afterId = batch.last().reminderId
+            if (batch.size < CLEANUP_BATCH_SIZE) break
+        }
         if (deleted > 0) log.info("과거 학기 리마인더 정리: {}건", deleted)
     }
 

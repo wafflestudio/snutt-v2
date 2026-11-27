@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.push.TargetedPushMessage
+import com.wafflestudio.snutt.core.domain.coursebook.model.Coursebook
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
 import com.wafflestudio.snutt.core.domain.device.repository.UserDeviceRepository
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
@@ -15,6 +16,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureR
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderScheduleRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.argumentCaptor
@@ -90,6 +92,35 @@ class SchedulerIntegrationTest : AbstractApiIntegrationTest() {
         assertNotNull(timetableLectureReminderRepository.findByTimetableLectureId(timetableLectureId))
         val schedule = timetableLectureReminderScheduleRepository.findByReminderId(reminder.id!!).single()
         assertNotNull(schedule.recentNotifiedAt)
+    }
+
+    @Test
+    fun `지난 학기 리마인더 정리는 지난 학기 시간표의 리마인더와 발송 시각만 지운다`() {
+        clock.setKst(LocalDateTime.of(2026, 9, 15, 4, 0))
+        val spring = fixtures.coursebook(2026, Semester.SPRING)
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+
+        fun remind(coursebook: Coursebook): Long {
+            val entryId = fixtures.addLecture(fixtures.timetable(fixtures.user(), coursebook), fixtures.lecture(coursebook)).id!!
+            val reminder =
+                timetableLectureReminderRepository.save(
+                    TimetableLectureReminder(timetableLectureId = entryId, offsetMinutes = 0),
+                )
+            timetableLectureReminderScheduleRepository.save(
+                TimetableLectureReminderSchedule(reminderId = reminder.id!!, day = DayOfWeek.MONDAY, minute = 600),
+            )
+            return entryId
+        }
+        val pastEntries = (1..3).map { remind(spring) }
+        val currentEntry = remind(autumn)
+
+        reminderScheduler.deletePastSemesterReminders()
+
+        pastEntries.forEach { assertNull(timetableLectureReminderRepository.findByTimetableLectureId(it)) }
+        val kept = timetableLectureReminderRepository.findByTimetableLectureId(currentEntry)
+        assertNotNull(kept)
+        assertEquals(1, timetableLectureReminderRepository.count())
+        assertEquals(listOf(kept!!.id), timetableLectureReminderScheduleRepository.findAll().map { it.reminderId })
     }
 
     @Test

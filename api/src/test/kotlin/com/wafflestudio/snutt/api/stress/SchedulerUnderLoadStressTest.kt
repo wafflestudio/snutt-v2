@@ -263,3 +263,11 @@ abstract class AbstractSchedulerUnderLoadStressTest(
 @StressTest
 class SchedulerUnderLoadStressTest :
     AbstractSchedulerUnderLoadStressTest("scheduler-under-load", reminderEdits = false, concurrentCleanup = false)
+
+/**
+ * 지난 학기 리마인더 정리(매일 04시)를 부하 중에 돌린다. 예전 정리 쿼리(DELETE JOIN)는 리마인더가 달린 모든 timetable_lecture → timetable 행을
+ * S락으로 읽어 강의 수정(timetable X → timetable_lecture X)과 데드락이 났다. 지금은 지울 id를 락 없이 고른 뒤 시간표를 먼저 잠그고 id로 지운다.
+ */
+@StressTest
+class ReminderCleanupUnderLoadStressTest :
+    AbstractSchedulerUnderLoadStressTest("scheduler-under-load-with-cleanup", reminderEdits = false, concurrentCleanup = true)
