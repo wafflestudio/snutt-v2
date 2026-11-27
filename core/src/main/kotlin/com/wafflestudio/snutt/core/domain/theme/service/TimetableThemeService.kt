@@ -108,6 +108,7 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ) {
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val theme =
             timetableThemeRepository.findByIdAndUserId(themeId, userId)
                 ?: throw SnuttException(ErrorType.THEME_NOT_FOUND)
@@ -145,6 +146,7 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay {
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         val fallback = builtinTheme("snutt")
         val fallbackId = fallback.id!!
