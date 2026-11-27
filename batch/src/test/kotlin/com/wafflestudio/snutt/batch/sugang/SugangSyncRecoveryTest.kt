@@ -357,6 +357,24 @@ class SugangSyncRecoveryTest : SugangSyncScenarioTest() {
     }
 
     @Test
+    fun `동기화 락을 풀지 못해도 끝난 동기화를 실패로 덮지 않는다`() {
+        val (alice, bob) = aliceAndBob()
+        // 락을 쥔 커넥션이 동기화 도중 끊긴다(네트워크 단절, wait_timeout). MySQL은 끊긴 커넥션의 락을 풀고, RELEASE_LOCK은 실패한다.
+        // 푸시는 락 안의 마지막 단계라 그 시점에 끊는다.
+        whenever(pushClient.sendMessages(any())).thenAnswer {
+            val holder = MySqlProbe.jdbc.queryForObject("SELECT IS_USED_LOCK('snutt.sugang_sync')", Long::class.java)
+            MySqlProbe.jdbc.execute("KILL $holder")
+            PushSendResult()
+        }
+
+        sync(moved)
+
+        assertRecovered(alice, bob, clock.instant())
+        assertEquals(setOf("fcm-alice", "fcm-bob"), pushBodies().keys)
+        assertNull(MySqlProbe.jdbc.queryForObject("SELECT IS_USED_LOCK('snutt.sugang_sync')", Long::class.java))
+    }
+
+    @Test
     fun `다른 동기화가 돌고 있으면 아무것도 바꾸지 않고 끝낸다`() {
         val (alice, _) = aliceAndBob()
         val mysql = IntegrationContainers.mysql
