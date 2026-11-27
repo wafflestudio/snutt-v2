@@ -39,8 +39,8 @@ import kotlin.random.Random
  * 폐강 10%, 신설 10%, 제목 변경) 잡을 백그라운드에서 돌리는 동안 스레드들이 하위 클래스가 정한 요청을 잡이 끝날 때까지 보낸다.
  * 끝나면 잡이 성공했는지, 시간표 시간 겹침 없음·리마인더 발송 시각 = 수업 시간 + offset·고아 행 없음([DomainInvariants])을 본다.
  *
- * 동기화는 학기 전체를 한 트랜잭션으로 처리하면서 timetable 행을 잠그지 않고(스냅숏으로 겹침을 판단) 마지막에 touchUpdatedAt으로 timetable을
- * 갱신한다. 그래서 겹치는 사용자 요청과 데드락·정합성 문제가 날 수 있다.
+ * 동기화는 강의 반영 → 시간표 반영(시간표를 id 순으로 잠근 뒤 다시 읽음) → 폐강 강의 삭제를 따로 커밋한다. 사용자 요청과 락 순서가 같아야
+ * 데드락이 나지 않고, 잠근 뒤의 상태를 다시 읽어야 겹침·리마인더 어긋남·외래 키 위반이 나지 않는다.
  */
 abstract class AbstractSugangSyncUnderLoadStressTest(
     private val scenarioName: String,
@@ -272,3 +272,20 @@ abstract class AbstractSugangSyncUnderLoadStressTest(
 /** 동기화가 바꾸지 않는 강의의 제목을 고치고 시간표를 읽는다(같은 시간표에 동기화가 바꾸는 강의도 있다). 통과해야 한다. */
 @StressTest
 class SugangSyncUnderLoadStressTest : AbstractSugangSyncUnderLoadStressTest("sugang-sync-under-load", SAFE_OPERATIONS)
+
+/**
+ * 동기화 중에 사용자가 동기화 대상 강의를 고치거나 지운다. 예전에는 (1) 동기화(timetable_lecture → timetable 순)와 강의 수정(timetable →
+ * timetable_lecture 순)이 데드락이 났고, (2) 사용자가 리마인더 달린 강의를 지우면 동기화가 지워진 리마인더에 발송 시각을 넣다가 외래 키 위반으로
+ * 학기 전체가 롤백됐다. 지금은 동기화가 시간표를 먼저 잠그고 잠근 뒤의 상태를 다시 읽는다(SugangSnuSyncService.sync).
+ */
+@StressTest
+class SugangSyncWithLectureEditsStressTest :
+    AbstractSugangSyncUnderLoadStressTest("sugang-sync-with-lecture-edits", SAFE_OPERATIONS + EDIT_OPERATIONS)
+
+/**
+ * 동기화 중에 사용자가 강의를 담는다. 예전에는 (1) 폐강 강의를 지울 때 사용자가 방금 담은 행 때문에 외래 키 위반으로 학기 전체가 롤백됐고,
+ * (2) 동기화가 스냅숏으로 겹침을 판단해 시간이 겹치는 강의가 남았고, (3) touchUpdatedAt과 강의 추가가 데드락이 났다.
+ */
+@StressTest
+class SugangSyncWithLectureAddsStressTest :
+    AbstractSugangSyncUnderLoadStressTest("sugang-sync-with-lecture-adds", SAFE_OPERATIONS + ADD_OPERATION)

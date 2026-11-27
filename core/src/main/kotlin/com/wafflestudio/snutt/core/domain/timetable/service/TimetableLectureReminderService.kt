@@ -17,6 +17,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureR
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRow
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderScheduleRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -52,6 +53,7 @@ data class DueReminderPush(
 @Service
 class TimetableLectureReminderService(
     private val timetableService: TimetableService,
+    private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
     private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
@@ -161,7 +163,9 @@ class TimetableLectureReminderService(
         timetableLectureId: Long,
         option: TimetableLectureReminderOption,
     ): TimetableLectureReminderDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        // 시간표 행을 먼저 잠근다(강의 수정·삭제, 수강편람 동기화와 같은 순서). 같은 강의의 리마인더 동시 설정도 여기서 줄을 선다.
+        val timetable =
+            timetableRepository.findForUpdateByIdAndUserId(timetableId, userId) ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val row =
             timetableLectureRepository.findReminderRowByTimetableIdAndId(timetable.id!!, timetableLectureId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)

@@ -31,6 +31,7 @@ import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableReposito
 import com.wafflestudio.snutt.core.domain.timetable.service.ClassTimeUtils
 import com.wafflestudio.snutt.core.domain.timetable.service.TimetableLectureReminderService
 import org.slf4j.LoggerFactory
+import org.springframework.dao.PessimisticLockingFailureException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
@@ -90,16 +91,49 @@ class SugangSnuSyncService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val transactionTemplate = TransactionTemplate(transactionManager)
 
+    /**
+     * 학기 하나를 동기화한다. 사용자 요청과 같은 락 순서(timetable → timetable_lecture → 리마인더)를 지키고, 사용자 요청 하나와 충돌해도
+     * 학기 전체가 롤백되지 않도록 세 단계로 나눈다.
+     *
+     * 1. 강의 반영(한 트랜잭션): 고칠 강의 행을 먼저 잠그고 강의·수업 시간·강의평 과목을 반영한다.
+     *    시간표는 잠그지 않는다. 시간표에 담는 요청은 강의 행을 공유 락으로 읽으므로, 옛 수업 시간으로 겹침을 검사한 요청은 이 단계보다 먼저
+     *    커밋되고(2단계가 그 시간표를 본다), 그 밖의 요청은 바뀐 수업 시간을 본다.
+     * 2. 시간표 반영(시간표 [TIMETABLE_CHUNK_SIZE]개씩 트랜잭션): 바뀐·폐강 강의를 담은 시간표를 id 순으로 잠근 뒤 최신 상태를 다시 읽어,
+     *    겹쳐서 밀려난 강의와 폐강 강의를 빼고 리마인더 발송 시각을 다시 계산한다. 락 충돌이 나면 그 묶음만 다시 돈다.
+     *    그다음 관심강좌 변경 알림을 남긴다.
+     * 3. 폐강 강의 삭제: 강의 행을 잠그고(시간표에 담기는 중인 강의는 건너뛴다) 아직 담긴 시간표가 없는 강의만 지운다. 그사이 담긴 시간표는
+     *    2단계처럼 먼저 뺀다. 끝까지 지우지 못한 강의는 엑셀에 없으므로 다음 동기화가 다시 닫는다.
+     *
+     * 2단계 묶음이 락 충돌이 아닌 이유로 실패하면 나머지 묶음과 3단계를 마치고 푸시를 보낸 뒤 예외를 던진다.
+     */
     fun sync(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
         preserveEnglish: Boolean = false,
     ) {
-        val synced = checkNotNull(transactionTemplate.execute { syncLectures(year, semester, rows, preserveEnglish) })
+        val synced =
+            retryOnLockFailure("강의 반영") {
+                checkNotNull(transactionTemplate.execute { syncLectures(year, semester, rows, preserveEnglish) })
+            }
+        val changes = TimetableChanges()
+        val lectureIds = synced.updated.map { it.lecture.id!! } + synced.deleted.map { it.id!! }
+        if (lectureIds.isNotEmpty()) {
+            syncTimetables(
+                timetableLectureRepository.findTimetableIdsByLectureIdIn(lectureIds),
+                synced.updated.filter { it.notifiable },
+                synced.deleted,
+                changes,
+            )
+        }
+        // 알림 순서를 예전(시간표 알림 다음 관심강좌 알림)과 같게 둔다.
+        transactionTemplate.executeWithoutResult {
+            notificationRepository.insertAll(bookmarkUpdateNotifications(synced.updated.filter { it.notifiable }))
+        }
+        val deleted = deleteClosedLectures(synced.deleted, changes)
 
         pushService.sendTargetedPushes(
-            synced.timetableChangeCounts.mapValues { (_, counts) ->
+            changes.countsByUserId.mapValues { (_, counts) ->
                 counts.toMessage().copy(urlScheme = deeplinkResolver.build(Deeplink.Notifications))
             },
             PushPreferenceType.LECTURE_UPDATE,
@@ -108,7 +142,12 @@ class SugangSnuSyncService(
         val inputs = synced.created + synced.updated.map { it.input }
         lectureBuildingSync.sync(inputs.flatMap { input -> input.classTimes.map { it.place } })
 
-        log.info("sugang sync: created={}, updated={}, deleted={}", synced.created.size, synced.updated.size, synced.deleted.size)
+        log.info("sugang sync: created={}, updated={}, deleted={}", synced.created.size, synced.updated.size, deleted.size)
+        if (changes.failures.isNotEmpty()) {
+            throw IllegalStateException("시간표 반영 ${changes.failures.size}묶음이 실패했다", changes.failures.first()).apply {
+                changes.failures.drop(1).forEach(::addSuppressed)
+            }
+        }
     }
 
     private fun syncLectures(
@@ -146,23 +185,16 @@ class SugangSnuSyncService(
             }
         val deleted = oldLectures.filter { (it.courseNumber to it.lectureNumber) !in newMap }
 
+        // 수업 시간만 바뀌어 lecture 행이 그대로여도 잠근다. 시간표에 담는 요청(강의 공유 락)이 이 커밋 뒤의 수업 시간을 보게 한다.
+        if (updated.isNotEmpty()) lectureRepository.lockAllByIdIn(updated.map { it.lecture.id!! })
         val courseIdsBeforeSync = oldLectures.mapNotNull { it.courseId }
         upsertLectures(created, updated)
-        val affectedLectureIds = updated.map { it.lecture.id!! } + deleted.map { it.id!! }
-        val affectedEntries =
-            if (affectedLectureIds.isEmpty()) emptyList() else timetableLectureRepository.findByLectureIdIn(affectedLectureIds)
-        val timetableChangeCounts = syncUserLectures(updated, deleted, affectedEntries)
-        if (deleted.isNotEmpty()) {
-            lectureRepository.deleteAllByIdInBatch(deleted.mapNotNull { it.id })
-        }
         lectureRepository.flush()
-        val changedTimetableIds = affectedEntries.map { it.timetableId }.distinct()
-        if (changedTimetableIds.isNotEmpty()) timetableRepository.touchUpdatedAt(changedTimetableIds, clock.instant())
         val affectedCourses =
             (courseIdsBeforeSync + (oldLectures + created.map { it.lecture }).mapNotNull { it.courseId })
                 .distinct()
         if (affectedCourses.isNotEmpty()) courseRepository.refreshLatestLectures(affectedCourses)
-        return SyncedLectures(created, updated, deleted, timetableChangeCounts)
+        return SyncedLectures(created, updated, deleted)
     }
 
     private fun upsertLectures(
@@ -231,21 +263,61 @@ class SugangSnuSyncService(
         return course.id
     }
 
-    private fun syncUserLectures(
-        updated: List<LectureUpdate>,
-        deleted: List<Lecture>,
-        changedEntries: List<TimetableLecture>,
-    ): Map<Long, TimetableChangeCount> {
-        val notifiableUpdates = updated.filter { it.notifiable }
-        val affectedLectureIds = (notifiableUpdates.map { it.lecture.id!! } + deleted.map { it.id!! }).toSet()
-        if (affectedLectureIds.isEmpty()) return emptyMap()
+    private fun bookmarkUpdateNotifications(notifiableUpdates: List<LectureUpdate>): List<Notification> {
+        if (notifiableUpdates.isEmpty()) return emptyList()
+        val bookmarkUserIds = bookmarkUserIdsByLectureId(notifiableUpdates.map { it.lecture.id!! })
+        return notifiableUpdates.flatMap { update ->
+            val lecture = update.lecture
+            val labels = update.changedLabels.joinLocalized()
+            bookmarkUserIds[lecture.id].orEmpty().map { userId ->
+                bookmarkNotification(
+                    userId,
+                    lecture,
+                    NotificationTemplate.BOOKMARK_LECTURE_UPDATED,
+                    NotificationType.LECTURE_UPDATE,
+                    labels = labels,
+                )
+            }
+        }
+    }
 
-        val affected = loadAffectedTimetables(changedEntries.filter { it.lectureId in affectedLectureIds })
-        val bookmarkUserIds =
-            bookmarkLectureRepository
-                .findByLectureIdIn(affectedLectureIds)
-                .groupBy({ it.lectureId }, { it.userId })
-                .mapValues { (_, userIds) -> userIds.distinct() }
+    private fun bookmarkUserIdsByLectureId(lectureIds: Collection<Long>): Map<Long, List<Long>> =
+        bookmarkLectureRepository
+            .findByLectureIdIn(lectureIds)
+            .groupBy({ it.lectureId }, { it.userId })
+            .mapValues { (_, userIds) -> userIds.distinct() }
+
+    /** [timetableIds]를 id 순 [TIMETABLE_CHUNK_SIZE]개씩 잠그고 반영한다. 실패한 묶음은 [changes]에 남기고 다음 묶음으로 넘어간다. */
+    private fun syncTimetables(
+        timetableIds: Collection<Long>,
+        notifiableUpdates: List<LectureUpdate>,
+        closed: List<Lecture>,
+        changes: TimetableChanges,
+    ) {
+        timetableIds.sorted().chunked(TIMETABLE_CHUNK_SIZE).forEach { chunk ->
+            try {
+                val counts =
+                    retryOnLockFailure("시간표 반영") {
+                        checkNotNull(transactionTemplate.execute { syncTimetableChunk(chunk, notifiableUpdates, closed) })
+                    }
+                changes.add(counts)
+            } catch (e: Exception) {
+                log.error("sugang sync: 시간표 {}개 반영 실패 (첫 id {})", chunk.size, chunk.first(), e)
+                changes.failures += e
+            }
+        }
+    }
+
+    private fun syncTimetableChunk(
+        timetableIds: List<Long>,
+        notifiableUpdates: List<LectureUpdate>,
+        closed: List<Lecture>,
+    ): Map<Long, TimetableChangeCount> {
+        // 잠근 뒤에 읽는다. 잠그기 전에 본 시간표 내용은 사용자 요청이 그사이 바꿨을 수 있다.
+        val timetables = timetableRepository.findAllForUpdateByIdIn(timetableIds)
+        if (timetables.isEmpty()) return emptyMap()
+        val affectedLectureIds = (notifiableUpdates.map { it.lecture.id!! } + closed.map { it.id!! }).toSet()
+        val affected = loadAffectedTimetables(timetables, affectedLectureIds)
 
         val notifications = mutableListOf<Notification>()
         val timetableChangeCounts = mutableMapOf<Long, TimetableChangeCount>()
@@ -285,19 +357,9 @@ class SugangSnuSyncService(
                         )
                 }
             }
-            bookmarkUserIds[lecture.id].orEmpty().forEach { userId ->
-                notifications +=
-                    bookmarkNotification(
-                        userId,
-                        lecture,
-                        NotificationTemplate.BOOKMARK_LECTURE_UPDATED,
-                        NotificationType.LECTURE_UPDATE,
-                        labels = labels,
-                    )
-            }
         }
 
-        deleted.forEach { lecture ->
+        closed.forEach { lecture ->
             affected.forEachEntry(lecture.id!!) { timetable, entry ->
                 removedEntryIds += entry.id!!
                 timetableChangeCounts.getOrPut(timetable.userId) { TimetableChangeCount() }.deleted += 1
@@ -309,40 +371,95 @@ class SugangSnuSyncService(
                         lecture.localizedCourseTitle,
                     )
             }
-            bookmarkUserIds[lecture.id].orEmpty().forEach { userId ->
-                notifications +=
-                    bookmarkNotification(
-                        userId,
-                        lecture,
-                        NotificationTemplate.BOOKMARK_LECTURE_CLOSED,
-                        NotificationType.LECTURE_REMOVE,
-                    )
-            }
         }
 
         if (removedEntryIds.isNotEmpty()) {
             timetableLectureRepository.deleteAllByIdInBatch(removedEntryIds)
         }
         notificationRepository.insertAll(notifications)
-        return timetableChangeCounts.toMap()
+        timetableRepository.touchUpdatedAt(timetables.map { it.id!! }, clock.instant())
+        return timetableChangeCounts
     }
 
-    private fun loadAffectedTimetables(affectedEntries: List<TimetableLecture>): AffectedTimetables {
-        val timetablesById =
-            timetableRepository.findAllById(affectedEntries.map { it.timetableId }.distinct()).associateBy { it.id!! }
+    /**
+     * 폐강 강의를 지운다. 강의 행을 잠근 뒤에는 새로 담기지 않으므로(시간표에 담을 때 강의 행을 공유 락으로 읽는다), 그때 아무 시간표에도
+     * 없는 강의만 지운다. 담기는 중이라 잠그지 못했거나 그사이 담긴 강의는 그 시간표에서 먼저 빼고 다시 시도한다.
+     * 지운 강의만 돌려준다. 관심강좌 폐강 알림은 실제로 지울 때 남긴다.
+     */
+    private fun deleteClosedLectures(
+        closed: List<Lecture>,
+        changes: TimetableChanges,
+    ): List<Lecture> {
+        val deleted = mutableListOf<Lecture>()
+        var remaining = closed
+        repeat(CLOSE_ATTEMPTS) {
+            if (remaining.isEmpty()) return deleted
+            val referencingTimetableIds = timetableLectureRepository.findTimetableIdsByLectureIdIn(remaining.map { it.id!! })
+            if (referencingTimetableIds.isNotEmpty()) syncTimetables(referencingTimetableIds, emptyList(), remaining, changes)
+            val removed = retryOnLockFailure("폐강 강의 삭제") { checkNotNull(transactionTemplate.execute { deleteUnreferenced(remaining) }) }
+            val removedIds = removed.map { it.id!! }.toSet()
+            deleted += removed
+            remaining = remaining.filter { it.id !in removedIds }
+        }
+        if (remaining.isNotEmpty()) {
+            log.warn("sugang sync: 폐강 강의 {}개를 지우지 못했다(시간표에 담기는 중). 다음 동기화에서 다시 닫는다: {}", remaining.size, remaining.map { it.id })
+        }
+        return deleted
+    }
+
+    private fun deleteUnreferenced(lectures: List<Lecture>): List<Lecture> {
+        val locked = lectureRepository.lockAllByIdInSkipLocked(lectures.map { it.id!! }).toSet()
+        if (locked.isEmpty()) return emptyList()
+        // 잠근 뒤의 첫 일반 SELECT라 이 시점에 커밋된 상태를 본다.
+        val referenced = timetableLectureRepository.findReferencedLectureIds(locked).toSet()
+        val deletable = lectures.filter { it.id in locked && it.id !in referenced }
+        if (deletable.isEmpty()) return emptyList()
+        val bookmarkUserIds = bookmarkUserIdsByLectureId(deletable.map { it.id!! })
+        notificationRepository.insertAll(
+            deletable.flatMap { lecture ->
+                bookmarkUserIds[lecture.id].orEmpty().map { userId ->
+                    bookmarkNotification(userId, lecture, NotificationTemplate.BOOKMARK_LECTURE_CLOSED, NotificationType.LECTURE_REMOVE)
+                }
+            },
+        )
+        lectureRepository.deleteAllByIdInBatch(deletable.map { it.id!! })
+        // course.latest_lecture_id는 강의 삭제 때 NULL이 되므로 남은 강의로 다시 정한다.
+        val courseIds = deletable.mapNotNull { it.courseId }.distinct()
+        if (courseIds.isNotEmpty()) courseRepository.refreshLatestLectures(courseIds)
+        return deletable
+    }
+
+    private fun <T> retryOnLockFailure(
+        step: String,
+        action: () -> T,
+    ): T {
+        var attempt = 1
+        while (true) {
+            try {
+                return action()
+            } catch (e: PessimisticLockingFailureException) {
+                if (attempt >= LOCK_RETRY_ATTEMPTS) throw e
+                log.warn("sugang sync {}: 락 충돌로 다시 시도한다 ({}/{})", step, attempt, LOCK_RETRY_ATTEMPTS, e)
+                attempt++
+            }
+        }
+    }
+
+    private fun loadAffectedTimetables(
+        timetables: List<Timetable>,
+        affectedLectureIds: Set<Long>,
+    ): AffectedTimetables {
+        val timetablesById = timetables.associateBy { it.id!! }
         val entriesByTimetableId =
             timetableLectureRepository.findByTimetableIdIn(timetablesById.keys).groupBy { it.timetableId }
+        val entries = entriesByTimetableId.values.flatten()
         val classTimesByLectureId =
             lectureClassTimeRepository
-                .findAllByLectureIdInOrderById(
-                    entriesByTimetableId.values
-                        .flatten()
-                        .mapNotNull { it.lectureId }
-                        .distinct(),
-                ).groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
+                .findAllByLectureIdInOrderById(entries.mapNotNull { it.lectureId }.distinct())
+                .groupBy({ it.lectureId }, { it.toClassPlaceAndTime() })
         return AffectedTimetables(
             timetablesById = timetablesById,
-            entriesByLectureId = affectedEntries.filter { it.timetableId in timetablesById }.groupBy { it.lectureId!! },
+            entriesByLectureId = entries.filter { it.lectureId in affectedLectureIds }.groupBy { it.lectureId!! },
             entriesByTimetableId = entriesByTimetableId,
             classTimesByLectureId = classTimesByLectureId,
         )
@@ -382,8 +499,22 @@ class SugangSnuSyncService(
         val created: List<LectureInput>,
         val updated: List<LectureUpdate>,
         val deleted: List<Lecture>,
-        val timetableChangeCounts: Map<Long, TimetableChangeCount>,
     )
+
+    /** 2·3단계에서 커밋된 시간표 변경을 사용자별로 모은다. 푸시는 모든 단계가 끝난 뒤 한 번에 보낸다. */
+    private class TimetableChanges {
+        val countsByUserId = mutableMapOf<Long, TimetableChangeCount>()
+        val failures = mutableListOf<Exception>()
+
+        fun add(counts: Map<Long, TimetableChangeCount>) {
+            counts.forEach { (userId, count) ->
+                countsByUserId.getOrPut(userId) { TimetableChangeCount() }.apply {
+                    updated += count.updated
+                    deleted += count.deleted
+                }
+            }
+        }
+    }
 
     private class TimetableChangeCount(
         var updated: Int = 0,
@@ -512,5 +643,8 @@ class SugangSnuSyncService(
 
     companion object {
         private const val COURSE_LOOKUP_CHUNK_SIZE = 500
+        private const val TIMETABLE_CHUNK_SIZE = 100
+        private const val LOCK_RETRY_ATTEMPTS = 3
+        private const val CLOSE_ATTEMPTS = 5
     }
 }
