@@ -28,10 +28,10 @@ dependencies {
     api("com.linecorp.kotlin-jdsl:jpql-dsl:3.9.0")
     api("com.linecorp.kotlin-jdsl:jpql-render:3.9.0")
     api("com.linecorp.kotlin-jdsl:spring-data-jpa-boot4-support:3.9.0")
-    implementation("com.google.firebase:firebase-admin:9.10.0")
-    implementation("com.oracle.oci.sdk:oci-java-sdk-objectstorage:3.94.1")
-    implementation("com.oracle.oci.sdk:oci-java-sdk-emaildataplane:3.94.1")
-    implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3:3.94.1")
+    implementation("com.google.firebase:firebase-admin:9.12.0")
+    implementation("com.oracle.oci.sdk:oci-java-sdk-objectstorage")
+    implementation("com.oracle.oci.sdk:oci-java-sdk-emaildataplane")
+    implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3")
     implementation("tools.jackson.core:jackson-databind")
 
     runtimeOnly("com.mysql:mysql-connector-j")
@@ -40,5 +40,5 @@ dependencies {
     testFixturesApi("org.springframework.boot:spring-boot-starter-data-redis")
     testFixturesApi("org.springframework.boot:spring-boot-testcontainers")
     testFixturesApi("org.testcontainers:testcontainers-mysql")
-    testFixturesApi("org.mockito.kotlin:mockito-kotlin:6.3.0")
+    testFixturesApi("org.mockito.kotlin:mockito-kotlin:6.4.0")
 }

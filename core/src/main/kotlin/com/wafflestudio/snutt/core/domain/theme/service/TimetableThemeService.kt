@@ -134,9 +134,9 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay {
-        findThemeAvailableToUser(userId, themeId)
+        val theme = findThemeAvailableToUser(userId, themeId)
         userPreferenceRepository.save(UserPreference(userId, themeId))
-        return getTheme(userId, themeId)
+        return displays(listOf(theme), themeId).getValue(themeId)
     }
 
     @Transactional
@@ -145,9 +145,10 @@ class TimetableThemeService(
         themeId: Long,
     ): TimetableThemeDisplay {
         if (getDefaultThemeId(userId) != themeId) throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
-        val fallbackId = builtinThemeId("snutt")
+        val fallback = builtinTheme("snutt")
+        val fallbackId = fallback.id!!
         userPreferenceRepository.save(UserPreference(userId, fallbackId))
-        return getTheme(userId, fallbackId)
+        return displays(listOf(fallback), fallbackId).getValue(fallbackId)
     }
 
     fun getDefaultThemeId(userId: Long): Long = userPreferenceRepository.findByUserId(userId)?.defaultThemeId ?: builtinThemeId("snutt")

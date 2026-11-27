@@ -239,18 +239,19 @@ class V1CompatCourseSearchController(
     ): LegacyCourseWithSemestersResponse {
         val language = clientInfo.language
         val result = courseSearchService.getCourseWithLectures(courseId, user.id!!)
-        val course = legacyCourseRepository.get(courseId).localized(language)
+        val course = result.course
+        val latestLecture = course.latestLectureId?.let { id -> result.lectures.firstOrNull { it.lecture.id == id }?.lecture }
         val next = SemesterCalendar.next()
         return LegacyCourseWithSemestersResponse(
             id = course.id,
-            title = course.title,
-            instructor = course.instructor,
-            department = course.department,
+            title = language.select(course.title, latestLecture?.courseTitleEn),
+            instructor = language.select(course.instructor, latestLecture?.instructorEn),
+            department = language.select(latestLecture?.department, latestLecture?.departmentEn),
             courseNumber = course.courseNumber,
-            credit = course.credit,
-            academicYear = course.academicYear,
-            category = course.category,
-            classification = course.classification,
+            credit = latestLecture?.credit,
+            academicYear = language.select(latestLecture?.academicYear, latestLecture?.academicYearEn),
+            category = language.select(latestLecture?.category, latestLecture?.categoryEn),
+            classification = language.select(latestLecture?.classification, latestLecture?.classificationEn),
             semesterLectures =
                 result.lectures
                     .filterNot { it.lecture.year == next.year && it.lecture.semester == next.semester }

@@ -7,19 +7,16 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import com.wafflestudio.snutt.core.common.model.YearAndSemester
 import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
-import com.wafflestudio.snutt.core.domain.lecture.model.localizedCourseTitle
-import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
+import com.wafflestudio.snutt.core.domain.lecture.service.LectureService
 import com.wafflestudio.snutt.core.domain.notification.model.NotificationTemplate
-import com.wafflestudio.snutt.core.domain.timetable.dto.TimetableLectureDisplay
 import com.wafflestudio.snutt.core.domain.timetable.model.Schedule
-import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
-import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminder
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureReminderSchedule
+import com.wafflestudio.snutt.core.domain.timetable.repository.DueReminderScheduleRow
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRepository
+import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderRow
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureReminderScheduleRepository
 import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableLectureRepository
-import com.wafflestudio.snutt.core.domain.timetable.repository.TimetableRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -55,11 +52,10 @@ data class DueReminderPush(
 @Service
 class TimetableLectureReminderService(
     private val timetableService: TimetableService,
-    private val timetableRepository: TimetableRepository,
     private val timetableLectureRepository: TimetableLectureRepository,
     private val timetableLectureReminderRepository: TimetableLectureReminderRepository,
     private val timetableLectureReminderScheduleRepository: TimetableLectureReminderScheduleRepository,
-    private val lectureRepository: LectureRepository,
+    private val lectureService: LectureService,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -72,9 +68,7 @@ class TimetableLectureReminderService(
         val day: DayOfWeek,
         val startMinute: Int,
         val endMinute: Int,
-    ) {
-        fun contains(schedule: Schedule): Boolean = schedule.day == day && schedule.minute in startMinute..endMinute
-    }
+    )
 
     @Transactional
     fun processDueReminders(
@@ -82,49 +76,38 @@ class TimetableLectureReminderService(
         current: YearAndSemester,
     ): List<DueReminderPush> {
         val lastNotifiedBefore = now.toInstant().minus(TIME_WINDOW_MINUTES + 1, ChronoUnit.MINUTES)
-        return dueWindows(now).flatMap { window -> processWindow(window, now, current, lastNotifiedBefore) }
+        return dueWindows(now).flatMap { window -> processWindow(window, now.toInstant(), current, lastNotifiedBefore) }
     }
 
     private fun processWindow(
         window: DueWindow,
-        now: ZonedDateTime,
+        notifiedAt: Instant,
         current: YearAndSemester,
         lastNotifiedBefore: Instant,
     ): List<DueReminderPush> {
-        val reminderIds =
-            timetableLectureReminderScheduleRepository.findReminderIdsByFireInRange(window.day, window.startMinute, window.endMinute)
-        if (reminderIds.isEmpty()) return emptyList()
-        val reminders = timetableLectureReminderRepository.findAllById(reminderIds.toSet())
-        val schedulesByReminderId =
-            timetableLectureReminderScheduleRepository.findByReminderIdIn(reminderIds).groupBy { it.reminderId }
-        val timetableLecturesById =
-            timetableLectureRepository.findAllById(reminders.map { it.timetableLectureId }).associateBy { it.id!! }
-        val timetablesById =
-            timetableRepository
-                .findAllById(timetableLecturesById.values.map { it.timetableId })
-                .filter { it.isPrimary && it.year == current.year && it.semester == current.semester }
-                .associateBy { it.id!! }
-        val lecturesById =
-            lectureRepository.findAllById(timetableLecturesById.values.mapNotNull { it.lectureId }).associateBy { it.id!! }
-
-        return reminders.mapNotNull { reminder ->
-            val timetableLecture = timetableLecturesById[reminder.timetableLectureId] ?: return@mapNotNull null
-            val timetable = timetablesById[timetableLecture.timetableId] ?: return@mapNotNull null
-            val dueSchedules =
-                schedulesByReminderId[reminder.id].orEmpty().filter { schedule ->
-                    window.contains(schedule.toSchedule()) &&
-                        (schedule.recentNotifiedAt?.isBefore(lastNotifiedBefore) ?: true)
-                }
-            if (dueSchedules.isEmpty()) return@mapNotNull null
-            val courseTitle =
-                timetableLecture.overrides?.courseTitle?.let(LocalizedMessage::same)
-                    ?: lecturesById[timetableLecture.lectureId]?.localizedCourseTitle
-                    ?: LocalizedMessage.same("")
-            dueSchedules.forEach { it.recentNotifiedAt = now.toInstant() }
-            timetableLectureReminderScheduleRepository.saveAll(dueSchedules)
-            DueReminderPush(userId = timetable.userId, message = reminderMessage(courseTitle, reminder.offsetMinutes))
+        val rows =
+            timetableLectureReminderScheduleRepository.findDueSchedules(
+                day = window.day,
+                startMinute = window.startMinute,
+                endMinute = window.endMinute,
+                lastNotifiedBefore = lastNotifiedBefore,
+                year = current.year,
+                semester = current.semester,
+            )
+        if (rows.isEmpty()) return emptyList()
+        timetableLectureReminderScheduleRepository.markNotified(rows.map { it.scheduleId }, notifiedAt)
+        return rows.distinctBy { it.reminderId }.map { row ->
+            DueReminderPush(
+                userId = row.userId,
+                message = reminderMessage(row.localizedCourseTitle(), row.offsetMinutes),
+            )
         }
     }
+
+    private fun DueReminderScheduleRow.localizedCourseTitle(): LocalizedMessage =
+        overrides?.courseTitle?.let(LocalizedMessage::same)
+            ?: lectureCourseTitle?.let { LocalizedMessage(ko = it, en = lectureCourseTitleEn ?: it) }
+            ?: LocalizedMessage.same("")
 
     private fun reminderMessage(
         courseTitle: LocalizedMessage,
@@ -156,13 +139,11 @@ class TimetableLectureReminderService(
         timetableId: Long,
         timetableLectureId: Long,
     ): TimetableLectureReminderDisplay {
-        val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableId, timetableLectureId)
-        val reminder = timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
-        return TimetableLectureReminderDisplay(
-            timetableLectureId = timetableLecture.id!!,
-            courseTitle = display.courseTitle,
-            option = TimetableLectureReminderOption.fromOffsetMinutes(reminder?.offsetMinutes),
-        )
+        val timetable = timetableService.getTimetable(userId, timetableId)
+        val row =
+            timetableLectureRepository.findReminderRowByTimetableIdAndId(timetable.id!!, timetableLectureId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+        return row.toDisplay()
     }
 
     fun getReminders(
@@ -170,18 +151,7 @@ class TimetableLectureReminderService(
         timetableId: Long,
     ): List<TimetableLectureReminderDisplay> {
         val timetable = timetableService.getTimetable(userId, timetableId)
-        val lectures = timetableLectureRepository.findByTimetableId(timetable.id!!)
-        val reminders =
-            timetableLectureReminderRepository
-                .findByTimetableLectureIdIn(lectures.map { it.id!! })
-                .associateBy { it.timetableLectureId }
-        return timetableService.displayOf(timetable).lectures.map { display ->
-            TimetableLectureReminderDisplay(
-                timetableLectureId = display.id,
-                courseTitle = display.courseTitle,
-                option = TimetableLectureReminderOption.fromOffsetMinutes(reminders[display.id]?.offsetMinutes),
-            )
-        }
+        return timetableLectureRepository.findReminderRowsByTimetableId(timetable.id!!).map { it.toDisplay() }
     }
 
     @Transactional
@@ -191,20 +161,27 @@ class TimetableLectureReminderService(
         timetableLectureId: Long,
         option: TimetableLectureReminderOption,
     ): TimetableLectureReminderDisplay {
-        val (timetableLecture, display) = getTimetableLectureWithDisplay(userId, timetableId, timetableLectureId)
-        if (display.classPlaceAndTimes.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
-        val existing = timetableLectureReminderRepository.findByTimetableLectureId(timetableLecture.id!!)
+        val timetable = timetableService.getTimetable(userId, timetableId)
+        val row =
+            timetableLectureRepository.findReminderRowByTimetableIdAndId(timetable.id!!, timetableLectureId)
+                ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+        val classPlaceAndTimes =
+            row.overrides?.classPlaceAndTimes
+                ?: row.lectureId?.let { lectureService.classTimesByLectureId(listOf(it))[it] }
+                ?: emptyList()
+        if (classPlaceAndTimes.isEmpty()) throw SnuttException(ErrorType.TIMETABLE_LECTURE_REMINDER_INVALID_TIME)
+        val existing = timetableLectureReminderRepository.findByTimetableLectureId(row.timetableLectureId)
         val offsetMinutes = option.offsetMinutes
 
         if (offsetMinutes == null) {
             existing?.let(timetableLectureReminderRepository::delete)
         } else {
             val reminder =
-                existing ?: timetableLectureReminderRepository.save(TimetableLectureReminder(timetableLecture.id!!, offsetMinutes))
+                existing ?: timetableLectureReminderRepository.save(TimetableLectureReminder(row.timetableLectureId, offsetMinutes))
             reminder.offsetMinutes = offsetMinutes
-            replaceSchedules(reminder.id!!, schedulesOf(display.classPlaceAndTimes, offsetMinutes))
+            replaceSchedules(reminder.id!!, schedulesOf(classPlaceAndTimes, offsetMinutes))
         }
-        return TimetableLectureReminderDisplay(timetableLecture.id!!, display.courseTitle, option)
+        return TimetableLectureReminderDisplay(row.timetableLectureId, row.courseTitle(), option)
     }
 
     @Transactional
@@ -243,21 +220,12 @@ class TimetableLectureReminderService(
         )
     }
 
-    private fun getTimetableLectureWithDisplay(
-        userId: Long,
-        timetableId: Long,
-        timetableLectureId: Long,
-    ): Pair<TimetableLecture, TimetableLectureDisplay> {
-        val timetable = timetableService.getTimetable(userId, timetableId)
-        val timetableLecture = getTimetableLecture(timetable, timetableLectureId)
-        val display = timetableService.displayOf(timetable).lectures.first { it.id == timetableLecture.id }
-        return timetableLecture to display
-    }
+    private fun TimetableLectureReminderRow.courseTitle(): String = overrides?.courseTitle ?: lectureCourseTitle ?: ""
 
-    private fun getTimetableLecture(
-        timetable: Timetable,
-        timetableLectureId: Long,
-    ): TimetableLecture =
-        timetableLectureRepository.findByIdAndTimetableId(timetableLectureId, timetable.id!!)
-            ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)
+    private fun TimetableLectureReminderRow.toDisplay() =
+        TimetableLectureReminderDisplay(
+            timetableLectureId = timetableLectureId,
+            courseTitle = courseTitle(),
+            option = TimetableLectureReminderOption.fromOffsetMinutes(offsetMinutes),
+        )
 }

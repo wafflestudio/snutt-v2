@@ -4,6 +4,7 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
 
 interface UserRepository : JpaRepository<User, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -27,7 +28,11 @@ interface UserRepository : JpaRepository<User, Long> {
 
     fun findByEmailContainingIgnoreCaseAndActiveTrue(email: String): List<User>
 
-    fun findAllByNicknameAndActiveTrue(nickname: String): List<User>
+    @Query(
+        value = "SELECT nickname_tag FROM `user` WHERE active_nickname = :nickname",
+        nativeQuery = true,
+    )
+    fun findActiveNicknameTags(nickname: String): List<String>
 
     fun findAllByEmailAndActiveTrue(email: String): List<User>
 

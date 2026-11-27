@@ -75,29 +75,5 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
         semester: Semester,
     ): List<PrimaryTimetableTarget>
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(
-        value = """
-            UPDATE timetable t
-            JOIN (
-                SELECT id FROM (
-                    SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY updated_at DESC, id DESC) AS rn
-                    FROM timetable t1
-                    WHERE t1.year = :year AND t1.semester = :semester
-                      AND NOT EXISTS (
-                          SELECT 1 FROM timetable t2
-                          WHERE t2.user_id = t1.user_id AND t2.year = :year AND t2.semester = :semester AND t2.is_primary = true
-                      )
-                ) ranked WHERE rn = 1
-            ) target ON target.id = t.id
-            SET t.is_primary = true
-        """,
-        nativeQuery = true,
-    )
-    fun autoAssignPrimaryByYearAndSemester(
-        year: Int,
-        semester: Int,
-    ): Int
-
     fun countByUserId(userId: Long): Long
 }
