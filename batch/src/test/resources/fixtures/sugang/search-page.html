@@ -1,0 +1,1930 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko">
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black">
+	<meta name="format-detection" content="telephone=no">
+	<meta name="author" content="AnyMobi-G">
+	<title>검색결과 | 강좌검색 | 서울대학교 수강신청 시스템</title>
+	<meta name="apple-mobile-web-app-title" content="SNU CRS">
+	<meta name="description" content="서울대학교 학생의 학기 계획을 미리 체계적으로 세울 수 있는 편리한 수강신청 시스템">
+	<meta name="keywords" content="서울대학교 수강신청, 수강신청, 시간표, 관심강좌, 예비수강신청">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="http://sugang.snu.ac.kr">
+	<meta property="og:title" content="검색결과 | 강좌검색 | 서울대학교 수강신청 시스템">
+	<meta property="og:description" content="서울대학교 학생의 학기 계획을 미리 체계적으로 세울 수 있는 편리한 수강신청 시스템">
+	<meta property="og:image" content="/kor/img/og_img.png">
+</head>
+<body onload="fnInit()">
+<a href="#skip-con" class="skipnavigation"><span>본문 영역으로 바로가기</span></a>
+<form id="CC100" name="CC100" method="post" action="cc100.action">
+	<input type="hidden" name="srchCond" 		        	id="srchCond" 					value="" />
+	<input type="hidden" name="pageNo" 			        	id="pageNo" 					value="1" />
+	<input type="hidden" name="workType" 		        	id="workType" />
+	<input type="hidden" name="sortKey" 		        	id="sortKey" 					value="" />
+	<input type="hidden" name="sortOrder" 		        	id="sortOrder" 					value="" />
+	<input type="hidden" name="srchOpenSchyy" 	        	id="srchOpenSchyy" 				value="2026" />
+	<input type="hidden" name="srchOpenShtm" 	        	id="srchOpenShtm" 				value="U000200002U000300002" />
+	<input type="hidden" name="seeMore" 		        	id="seeMore" 					value="" />
+	<input type="hidden" name="srchSbjtNm" 		        	id="srchSbjtNm" 				value="" />
+	<input type="hidden" name="srchSbjtCd" 		        	id="srchSbjtCd" 				value="" />
+	<input type="hidden" name="srchCptnCorsFg" 	        	id="srchCptnCorsFg" 			value="" />
+	<input type="hidden" name="srchOpenShyr" 	        	id="srchOpenShyr" 				value="" />
+	<input type="hidden" name="srchOpenUpSbjtFldCd" 		id="srchOpenUpSbjtFldCd" 		value="" />
+	<input type="hidden" name="srchOpenSbjtFldCd" 			id="srchOpenSbjtFldCd" 			value="" />
+	<input type="hidden" name="srchOpenUpDeptCd" 			id="srchOpenUpDeptCd" 			value="" />
+	<input type="hidden" name="srchOpenDeptCd" 				id="srchOpenDeptCd" 			value="" />
+	<input type="hidden" name="srchOpenMjCd" 				id="srchOpenMjCd" 				value="" />
+	<input type="hidden" name="srchOpenSubmattCorsFg" 		id="srchOpenSubmattCorsFg" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd1" 		id="srchOpenSubmattFgCd1" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd2" 		id="srchOpenSubmattFgCd2" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd3" 		id="srchOpenSubmattFgCd3" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd4" 		id="srchOpenSubmattFgCd4" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd5" 		id="srchOpenSubmattFgCd5" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd6" 		id="srchOpenSubmattFgCd6" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd7" 		id="srchOpenSubmattFgCd7" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd8" 		id="srchOpenSubmattFgCd8" 		value="" />
+	<input type="hidden" name="srchOpenSubmattFgCd9" 		id="srchOpenSubmattFgCd9" 		value="" />
+	<input type="hidden" name="srchExcept" 					id="srchExcept" 				value="" />
+	<input type="hidden" name="srchOpenPntMin" 				id="srchOpenPntMin" 			value="" />
+	<input type="hidden" name="srchOpenPntMax" 				id="srchOpenPntMax" 			value="" />
+	<input type="hidden" name="srchBdNo" 					id="srchBdNo" 					value="" />
+	<input type="hidden" name="srchCamp" 					id="srchCamp" 					value="" />
+	<input type="hidden" name="srchProfNm" 					id="srchProfNm" 				value="" />
+	<input type="hidden" name="srchOpenSbjtTmNm" 			id="srchOpenSbjtTmNm" 			value="" />
+	<input type="hidden" name="srchOpenSbjtDayNm" 			id="srchOpenSbjtDayNm" 			value="" />
+	<input type="hidden" name="srchOpenSbjtTm" 				id="srchOpenSbjtTm" 			value="" />
+	<input type="hidden" name="srchOpenSbjtNm" 				id="srchOpenSbjtNm"				value="" />
+	<input type="hidden" name="srchTlsnAplyCapaCntMin" 		id="srchTlsnAplyCapaCntMin" 	value="" />
+	<input type="hidden" name="srchTlsnAplyCapaCntMax" 		id="srchTlsnAplyCapaCntMax" 	value="" />
+	<input type="hidden" name="srchLsnProgType" 			id="srchLsnProgType" 			value="" />
+	<input type="hidden" name="srchTlsnRcntMin" 			id="srchTlsnRcntMin" 			value="" />
+	<input type="hidden" name="srchMrksGvMthd" 				id="srchMrksGvMthd" 			value="" />
+	<input type="hidden" name="srchTlsnRcntMax" 			id="srchTlsnRcntMax" 			value="" />
+	<input type="hidden" name="srchIsEngSbjt" 				id="srchIsEngSbjt" 				value="" />
+	<!--<input type="hidden" name="srchIsAplyAvailable" 		id="srchIsAplyAvailable" 		value="" />-->
+	<input type="hidden" name="srchMrksApprMthdChgPosbYn" 	id="srchMrksApprMthdChgPosbYn" 	value="" />
+	<input type="hidden" name="srchIsPendingCourse" 		id="srchIsPendingCourse" 		value="" />
+	<input type="hidden" name="srchLanguage" 				id="srchLanguage" 				value="ko" />
+	<input type="hidden" name="srchGenrlRemoteLtYn" 		id="srchGenrlRemoteLtYn" 		value="" />
+	<input type="hidden" name="netfunnel_key" 		        id="netfunnel_key" />
+	<div id="wrapper">
+		<!-- header -->
+<header id="header">
+	<!-- PC용 헤더 -->
+	<div class="only-on-header">
+		<div class="head-top">
+			<div class="head-inner">
+				<h1 class="logo"><a href="/sugang/co/co010.action"><span class="sr-only">홈 바로가기</span></a>
+					<span class="logo-name">
+								2026 - 겨울학기
+					</span>
+				</h1>
+				<div class="total-search-wrap">
+					<div>
+						<fieldset>
+							<legend>통합검색</legend>
+							<select id="hTotalSelect" title="" disabled>
+								<option value="nm" lang="ko">Search</option>
+							</select>
+							<label for="hTotalSearch">
+								<input type="text" id="hTotalSearch" onkeyup="fnSearchEnterEvent()" class="total-search-input" name="hTotalSearch" title="전체 강좌 검색은 돋보기 버튼을 클릭하세요" placeholder="전체 강좌 검색은 돋보기 버튼을 클릭하세요">
+								<a href="javascript:void(0);" onclick="fnTotalSearch();" class="total-search-btn" title="강좌 검색"><span class="sr-only">강좌 검색 버튼</span></a>
+							</label>
+							<span class="total-filter"><button type="button" class="total-filter-btn" title="상세검색"><span class="sr-only">상세검색</span></button></span>
+						</fieldset>
+					</div>
+				</div>
+				<div class="account-info">
+				</div>
+			</div>
+		</div>
+		<div class="head-bottom">
+			<div class="head-inner">
+				<div class="nav">
+					<ul class="gnb-main">
+						<li id="h_cc000">	<!--// li class="on" : 현재위치 (depth 1) //-->
+							<a href="javascript:void(0);" class="main-menu"><span lang="ko">강좌검색</span></a>
+							<div class="sub-menu-wrap">
+								<ul>
+									<li id="h_cc210"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">관심강좌</span></a></li>
+									<li id="h_cc400"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">수강지도상담</span></a></li>
+								</ul>
+							</div>
+						</li>
+						<li id="h_ca000">
+							<a href="javascript:void(0);" id="cartEm" class="main-menu"><span lang="ko">수강신청</span></a>
+							<div class="sub-menu-wrap" style="width:1500px;">
+								<ul>
+									<li id="h_ca710"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">예비장바구니</span></a></li>
+									<li id="h_ca202"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">예비수강신청</span></a></li>
+									<li id="h_ca210"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">예비수강신청내역</span></a></li>
+								</ul>
+								<ul>
+									<li id="h_ca510"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">장바구니</span></a></li>
+									<li id="h_ca102"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">수강신청</span></a></li>
+									<li id="h_ca110"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">수강신청내역</span></a></li>
+								</ul>
+								<ul>
+									<li id="h_ca600"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">정원 외 신청</span></a></li>
+								</ul>
+							</div>
+						</li>
+						<li id="h_mba">
+							<a href="javascript:void(0);" class="main-menu"><span lang="ko">MBA / EMBA 수강신청</span></a>
+							<div class="sub-menu-wrap">
+								<ul>
+									<li id="h_gsmba"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">MBA수강신청</span></a></li>
+									<li id="h_emba"><a href="javascript:fnNeedLogin();" class="sub-menu"><span lang="ko">E MBA수강신청</span></a></li>
+								</ul>
+							</div>
+						</li>
+						<li>
+							<a href="https://snugenie.snu.ac.kr/login/sso.do" class="main-menu" target="new" class="link-item"><span lang="ko">수강교과목추천(스누지니)</span></a>
+						</li>
+					</ul>
+				</div>
+				<div class="h-link-list">
+					<ul>
+						<li>
+							<a href="https://snugenie.snu.ac.kr/login/sso.do?redirectUrl=/mypage/stdCmplCond.do" target="new" class="link-item"><span lang="ko">학업이수현황</span></a>
+						</li>
+						<li id="h_notice"><a href="/sugang/co/co100.action" class="link-item" lang="ko">공지사항</a></li>
+						<li id="h_faq"><a href="/sugang/co/co110.action" class="link-item">FAQ</a></li>
+						<!-- <li id="h_qna"><a href="/sugang/co/co120.action" class="link-item">Q&amp;A</a></li> -->
+						<li id="h_available"><a href="/sugang/cc/cc300.action" class="link-item"><span lang="ko">수업교시기준</span></a></li>
+						<li id="h_english"><a href="javascript:void(0)" onclick="fnLngPageMove()" class="link-item"><span lang="ko">ENGLISH</span></a></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!--// PC용 헤더 //-->
+	<!-- 모바일용 헤더 -->
+	<div class="only-mo-header">
+		<div class="head-inner">
+			<h1 class="logo"><a href="/sugang/co/co010.action"><span class="sr-only">홈 바로가기</span></a></h1>
+			<span class="logo-title">
+						2026 - 겨울학기
+			</span>
+			<button type="button" class="search-btn"></button>
+			<button type="button" id="mbMenuCartEm" name="mbMenuCartEm" class="open-sm-btn">
+				<span></span><i class='sr-only'>메뉴 열기</i>
+			</button>
+		</div>
+		<div class="sm-wrap" >
+			<div class="sm-head">
+					<p><span lang="ko">로그인 하세요.</span></p>
+			</div>
+			<div class="sm-body">
+				<div class="sm-body-top">
+					<div class="sm-btn-wrap login">
+							<span class="sm-btn english" style="float: none; margin: 0 auto; width: 100%;"><a href="javascript:void(0)" onclick="fnLngPageMove()" ><span lang="ko">ENGLISH</span></a></span>
+					</div>
+					<div class="sm-link-wrap">
+						<ul>
+							<li id="h_mb_notice"><a href="/sugang/co/co100.action" class="link-item" lang="ko">공지사항</a></li>
+							<li id="h_mb_faq"><a href="/sugang/co/co110.action" class="link-item">FAQ</a></li>
+							<!-- <li id="h_mb_qna"><a href="/sugang/co/co120.action" class="link-item">Q&amp;A</a></li> -->
+							<li id="h_mb_available"><a href="/sugang/cc/cc300.action" class="link-item"><span lang="ko">수업교시기준</span></a></li>
+						</ul>
+						<a href="https://now.snu.ac.kr/popup/card/37" class="link-item guide" title="" target="_blank"><em class="q-mark"><img src="/kor/images/btn/btn_information.png" alt="수강신청 방법 안내 도움말 이미지"></em><span lang="ko">장바구니 초보를 위한 수강신청 안내</span></a>
+					</div>
+				</div>
+				<div class="sm-menu-wrap">
+					<ul class="sm-toggle-wrap">
+						<li id="h_mb_cc000">
+							<button type="button" class="sm-toggle-btn" title=""><span lang="ko">강좌검색</span></button>
+							<ul class="sub-menu-wrap">
+								<li id="h_mb_cc210"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">관심강좌</span></a></li>
+								<li id="h_mb_cc400"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">수강지도상담</span></a></li>
+							</ul>
+						</li>
+						<li id="h_mb_ca000">
+							<button type="button" id="mbCartEm" name="mbCartEm" class="sm-toggle-btn" lang="ko">수강신청</button>
+							<ul class="sub-menu-wrap">
+								<li id="h_mb_ca710"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">예비장바구니</span></a></li>
+								<li id="h_mb_ca202"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">예비수강신청</span></a></li>
+								<li id="h_mb_ca210"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">예비수강신청내역</span></a></li>
+								<li id="h_mb_ca510"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">장바구니</span></a></li>
+								<li id="h_mb_ca102"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">수강신청</span></a></li>
+								<li id="h_mb_ca110"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">수강신청내역</span></a></li>
+								<li id="h_mb_ca600"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">정원 외 신청</span></a></li>
+							</ul>
+						</li>
+						<li id="h_mb_mba">
+							<button type="button" class="sm-toggle-btn" title=""><span lang="ko">MBA수강신청</span></button>
+							<ul class="sub-menu-wrap">
+								<li><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">MBA수강신청</span></a></li>
+								<li id="h_mb_emba"><a href="javascript:fnNeedLogin();" class="sub-menu" title=""><span lang="ko">E MBA수강신청</span></a></li>
+							</ul>
+						</li>
+					</ul>
+				</div>
+			</div>
+			<button type="button" class="close-sm-btn" onclick="closeSideMenu();"><span></span><i class="sr-only">메뉴 닫기</i></button>
+		</div>
+	</div>
+	<!--// 모바일용 헤더 //-->
+	<form id="h_hidden" name="h_hidden">
+	</form>
+	<!-- 통합검색 필터 -->
+	<form id="HD100" name="HD100" method="post">
+		<input type="hidden" id="HEADER_LANG_KIND" value="ko" />
+		<input type="hidden" id="HEADER_SSO_LOGON_URL" value="https://sso.snu.ac.kr/snu/ssologin.jsp?si_redirect_address=https://sugang.snu.ac.kr/sugang/co/co010.action" />
+		<div class="search-filter-wrap">
+			<div>
+				<div class="sf-header" style="display: none;">
+					<fieldset class="search-con">
+						<legend>강좌검색</legend>
+						<div class="left">
+							<button type="button" class="sf-back-btn"><span class="sr-only">검색 옵션창 닫기</span></button>
+							<select id="hMobileTotalSelect" title="">
+								<option value="nm" lang="ko">교과목명</option>
+								<option value="no" lang="ko">교과목번호</option>
+							</select>
+						</div>
+						<div class="cs-input">
+							<label for="hMobileTotalSearch" class="sr-only" lang="ko">전체 강좌 검색은 조회 버튼을 클릭하세요</label>
+							<input type="text" id="hMobileTotalSearch" name="hMobileTotalSearch" onkeyup="fnSearchEnterEvent()" class="search-input" title="전체 강좌 검색은 조회 버튼을 클릭하세요" placeholder="전체 강좌 검색은 조회 버튼을 클릭하세요">
+						</div>
+						<div class="right">
+							<button type="button" onclick="fnTotalSearch();" class="cs-btn search-btn"><span class="sr-only">강좌 검색</span></button>
+							<button type="button" class="cs-btn search-filter-btn"><span class="sr-only">검색 옵션</span></button>
+						</div>
+					</fieldset>
+				</div>
+				<div class="sf-dt" style="display: none;">
+					<em class="fc-blue" id="hMbCurrSchyy">2026</em> <em lang="ko">년도</em>
+					<em class="fc-blue" id="hMbCurrShtmNm">겨울학기</em> <em lang="ko">강좌를 검색합니다.</em>
+				</div>
+				<div class="sf-form">
+					<div class="sf-top">
+						<div class="title">
+							<span lang="ko">상세검색</span>
+							<div class="sf-item-year">
+								<div>
+									<em id="hCurrSchyy">2026</em>
+									<select id="hSrchOpenSchyy" name="hSrchOpenSchyy" onchange="fnSrchOpenSchyy('');" title="">
+											<option value="2026">2026</option>
+											<option value="2025">2025</option>
+											<option value="2024">2024</option>
+											<option value="2023">2023</option>
+											<option value="2022">2022</option>
+											<option value="2021">2021</option>
+											<option value="2020">2020</option>
+											<option value="2019">2019</option>
+											<option value="2018">2018</option>
+											<option value="2017">2017</option>
+											<option value="2016">2016</option>
+											<option value="2015">2015</option>
+											<option value="2014">2014</option>
+											<option value="2013">2013</option>
+									</select>	<!--// 이전학기 검색조건(상세검색)인 클릭시 노출 //-->
+								</div>
+								<span lang="ko">년도</span>
+								<div>
+									<em id="hCurrShtmNm"></em>
+									<input type=hidden name="hCurrShtmFg" id="hCurrShtmFg" value="U000200002U000300002"/>
+									<select id="hSrchOpenShtm" name="hSrchOpenShtm" onchange="fnSrchOpenSchyy('');" title="">
+									</select>
+								</div>
+								<span lang="ko">강좌를 검색합니다.</span>
+							</div>		<!--// 이전학기 검색조건(상세검색)인 클릭시 em(hide), select(show) 처리함 //-->
+						</div>
+						<div class="top-btns">
+							<button type="reset" class="cc-btn filter-reset-btn" lang="ko"><span class="sr-only">검색 옵션 초기화</span>초기화</button>
+							<button type="button" class="close-filter-btn"><span class="sr-only">검색 옵션창 닫기</span></button>
+						</div>
+					</div>
+					<div class="sf-body">
+						<div class="fieldset">
+							<fieldset>
+								<legend>상세검색 항목</legend>
+								<div class="sf-item-con">
+									<div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchOpenShyr" lang="ko">학년</label>
+												<div>
+													<select id="hSrchCptnCorsFg" name="hSrchCptnCorsFg" title="">
+													</select>
+													<select id="hSrchOpenShyr" name="hSrchOpenShyr" title="">
+													</select>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchOpenUpSbjtFldCd" lang="ko">교양영역</label>
+												<div>
+													<select id="hSrchOpenUpSbjtFldCd" name="hSrchOpenUpSbjtFldCd" onchange="fnSrchOpenSbjtFldCd();" title="">
+													</select>
+													<select id="hSrchOpenSbjtFldCd" name="hSrchOpenSbjtFldCd" title="">
+													</select>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchOpenUnionDeptCd" lang="ko">연합/연계 전공</label>
+												<div>
+													<select id="hSrchOpenUnionDeptCd" name="hSrchOpenUnionDeptCd" onchange="fnSrchOpenUnionDeptCd();" title="">
+													</select>
+												</div>
+											</div>
+											<div class="sf-item">
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchOpenUpDeptCd" lang="ko">개설학과</label>
+												<div>
+													<select id="hSrchOpenUpDeptCd" name="hSrchOpenUpDeptCd" onchange="fnSrchOpenDeptCd();" title="">
+													</select>
+													<select id="hSrchOpenDeptCd" name="hSrchOpenDeptCd" onchange="fnSrchOpenMjCd();" title="">
+													</select>
+													<select id="hSrchOpenMjCd" name="hSrchOpenMjCd" title="">
+													</select>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchOpenSubmattCorsFg" lang="ko">과정구분</label>
+												<div>
+													<select id="hSrchOpenSubmattCorsFg" name="hSrchOpenSubmattCorsFg" title="">
+													</select>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label class="diff" lang="ko">교과구분</label>
+												<div id="hSrchOpenSubmattFg">
+													<!-- <label class="cc-check-item small"><input type="radio" name="srchOpenSubmattFgCd"><em title="전체"></em><span>전체</span></label> -->
+												</div>
+											</div>
+											<div class="sf-item mv-t2">
+												<label for="hSrchExcept" class="diff" lang="ko">검색제외 설정</label>
+												<div>
+													<input type="text" id="hSrchExcept" name="hSrchExcept" onkeyup="fnSearchEnterEvent()">
+													<div class="cc-txt" lang="ko">입력하는 단어가 포함된 강좌명을 검색결과에서 제외하라는 조건을 설정합니다. 여러 개의 단어는 쉼표(,)로 구분해서 입력하세요.</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="sf-item-con sf-last-semester">
+									<div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchOpenPntMin" lang="ko">학점</label>
+												<div>
+													<div>
+														<input type="text" id="hSrchOpenPntMin" name="hSrchOpenPntMin" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+														<span>~</span>
+														<input type="text" id="hSrchOpenPntMax" name="hSrchOpenPntMax" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchCamp" lang="ko">강의동</label>
+												<div>
+													<div class='campus'>
+														<select id="hSrchCamp" name="hSrchCamp" onchange="fnCampus();" title="">
+														</select>
+														<input type="text" id="hSrchBdNo" name="hSrchBdNo" onkeyup="fnSearchEnterEvent()" title=""  >
+														<a href="javascript:openCampusMap();" class="campus-map-btn" title=""><div lang="ko">캠퍼스맵 보기</div></a>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchProfNm" lang="ko">교수명</label>
+												<div>
+													<div>
+														<input type="text" id="hSrchProfNm" name="hSrchProfNm" onkeyup="fnSearchEnterEvent()" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchOpenSbjtTmNm" lang="ko">수업교시</label>
+												<div>
+													<div class="sf-class-period">
+														<select id="hSrchOpenSbjtTmNm" name="hSrchOpenSbjtTmNm" title="">
+														</select>
+														<select id="hSrchOpenSbjtDayNm" name="hSrchOpenSbjtDayNm" title="">
+															<option lang="ko">요일선택</option>
+															<option value="mon" lang="ko">월요일</option>
+															<option value="tue" lang="ko">화요일</option>
+															<option value="wed" lang="ko">수요일</option>
+															<option value="thu" lang="ko">목요일</option>
+															<option value="fri" lang="ko">금요일</option>
+															<option value="sat" lang="ko">토요일</option>
+														</select>
+														<button type="button" onclick="javascript:fnSbjtAdd();" class="period-btn add-period-btn" title="수업교시 추가"><span></span></button>
+													</div>
+													<ul class="sf-class-period-added" id="hSrchOpenSbjtTmDayUl">
+													</ul>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchTlsnAplyCapaCntMin" lang="ko">정원</label>
+												<div>
+													<div>
+														<input type="tel" id="hSrchTlsnAplyCapaCntMin" name="hSrchTlsnAplyCapaCntMin" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+														<span>~</span>
+														<input type="tel" id="hSrchTlsnAplyCapaCntMax" name="hSrchTlsnAplyCapaCntMax" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item">
+												<label for="hSrchLsnProgType" class="diff" lang="ko">수업진행 형태</label>
+												<div>
+													<div>
+														<select id="hSrchLsnProgType" name="hSrchLsnProgType" title="">
+														</select>
+														<label class="cc-check-item small" style="margin-left: 15px;">
+															<input type="checkbox" id="hSrchIsEngSbjt" name="hSrchIsEngSbjt"><em title=""></em><span lang="ko">영어강의여부</span>
+														</label>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item space">
+												<label for="hSrchTlsnRcntMin" class="diff" lang="ko">수강신청 인원</label>
+												<div>
+													<div >
+														<input type="tel" id="hSrchTlsnRcntMin" name="hSrchTlsnRcntMin" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+														<span>~</span>
+														<input type="tel" id="hSrchTlsnRcntMax" name="hSrchTlsnRcntMax" onkeyup="fnSearchEnterEvent()" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" class="ta-center" title="">
+													</div>
+												</div>
+											</div>
+											<div class="sf-item pd-1">
+												<div>
+													<div>
+														<!--<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchIsAplyAvailable" name="hSrchIsAplyAvailable"><em></em><span lang="ko">정원미달여부</span></label>-->
+														<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchMrksApprMthdChgPosbYn" name="hSrchMrksApprMthdChgPosbYn"><em></em><span lang="ko">성적평가방법 변경가능</span></label>
+														<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchIsPendingCourse" name="hSrchIsPendingCourse"><em></em><span lang="ko">장바구니보류여부</span></label>
+														<label class="cc-check-item small" style="margin-left: 15px;"><input type="checkbox" id="hSrchGenrlRemoteLtYn" name="hSrchGenrlRemoteLtYn"><em></em><span lang="ko">일반원격강좌</span></label>
+													</div>
+												</div>
+											</div>
+										</div>
+										<div>
+											<div class="sf-item">
+												<label for="hSrchMrksGvMthd" lang="ko">성적부여 형태</label>
+												<div>
+													<div>
+														<select id="hSrchMrksGvMthd" name="hSrchMrksGvMthd" title="">
+														</select>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>	<!--// 이전학기 검색조건 항목 //-->
+								<button type="button" class="cc-btn view-last-semester-btn" onclick="fnSrchOpenSchyy('reverse');"><span lang="ko">이전학기 검색조건 <em id="hSeeMore" lang="ko">더보기</em></span></button>
+							</fieldset>
+						</div>
+					</div>
+					<div class="sf-footer">
+						<button type="button" onclick="fnTotalSearch();" class="filter-submit-btn" lang="ko">검색</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+	<!--// 통합검색 필터 -->
+	<!-- SSO 로그인 -->
+	<form id="HD101" name="HD101">
+	</form>
+	<!-- 합검색 필터 -->
+	<form id="HD102" name="HD102" method="post">
+		<input type="hidden" name="workType" id="workType" />
+		<input type="hidden" name="pageNo" id="pageNo" />
+		<input type="hidden" name="srchOpenSchyy" id="srchOpenSchyy" />
+		<input type="hidden" name="srchOpenShtm" id="srchOpenShtm" />
+		<input type="hidden" name="srchSbjtNm" id="srchSbjtNm" />
+		<input type="hidden" name="srchSbjtCd" id="srchSbjtCd" />
+		<input type="hidden" name="seeMore" id="seeMore" />
+		<input type="hidden" name="srchCptnCorsFg" id="srchCptnCorsFg" />
+		<input type="hidden" name="srchOpenShyr" id="srchOpenShyr" />
+		<input type="hidden" name="srchOpenUpSbjtFldCd" id="srchOpenUpSbjtFldCd" />
+		<input type="hidden" name="srchOpenSbjtFldCd" id="srchOpenSbjtFldCd" />
+		<input type="hidden" name="srchOpenUpDeptCd" id="srchOpenUpDeptCd" />
+		<input type="hidden" name="srchOpenDeptCd" id="srchOpenDeptCd" />
+		<input type="hidden" name="srchOpenMjCd" id="srchOpenMjCd" />
+		<input type="hidden" name="srchOpenSubmattCorsFg" id="srchOpenSubmattCorsFg" />
+		<input type="hidden" name="srchOpenSubmattFgCd1" id="srchOpenSubmattFgCd1" />
+		<input type="hidden" name="srchOpenSubmattFgCd2" id="srchOpenSubmattFgCd2" />
+		<input type="hidden" name="srchOpenSubmattFgCd3" id="srchOpenSubmattFgCd3" />
+		<input type="hidden" name="srchOpenSubmattFgCd4" id="srchOpenSubmattFgCd4" />
+		<input type="hidden" name="srchOpenSubmattFgCd5" id="srchOpenSubmattFgCd5" />
+		<input type="hidden" name="srchOpenSubmattFgCd6" id="srchOpenSubmattFgCd6" />
+		<input type="hidden" name="srchOpenSubmattFgCd7" id="srchOpenSubmattFgCd7" />
+		<input type="hidden" name="srchOpenSubmattFgCd8" id="srchOpenSubmattFgCd8" />
+		<input type="hidden" name="srchOpenSubmattFgCd9" id="srchOpenSubmattFgCd9" />
+		<input type="hidden" name="srchExcept" id="srchExcept" />
+		<input type="hidden" name="srchOpenPntMin" id="srchOpenPntMin" />
+		<input type="hidden" name="srchOpenPntMax" id="srchOpenPntMax" />
+		<input type="hidden" name="srchCamp" id="srchCamp" />
+		<input type="hidden" name="srchBdNo" id="srchBdNo" />
+		<input type="hidden" name="srchProfNm" id="srchProfNm" />
+		<input type="hidden" name="srchOpenSbjtTmNm" id="srchOpenSbjtTmNm" />
+		<input type="hidden" name="srchOpenSbjtDayNm" id="srchOpenSbjtDayNm" />
+		<input type="hidden" name="srchOpenSbjtTm" id="srchOpenSbjtTm" />
+		<input type="hidden" name="srchOpenSbjtNm" id="srchOpenSbjtNm" />
+		<input type="hidden" name="srchTlsnAplyCapaCntMin" id="srchTlsnAplyCapaCntMin" />
+		<input type="hidden" name="srchTlsnAplyCapaCntMax" id="srchTlsnAplyCapaCntMax" />
+		<input type="hidden" name="srchLsnProgType" id="srchLsnProgType" />
+		<input type="hidden" name="srchTlsnRcntMin" id="srchTlsnRcntMin" />
+		<input type="hidden" name="srchTlsnRcntMax" id="srchTlsnRcntMax" />
+		<input type="hidden" name="srchMrksGvMthd" id="srchMrksGvMthd" />
+		<input type="hidden" name="srchIsEngSbjt" id="srchIsEngSbjt" />
+		<!--<input type="hidden" name="srchIsAplyAvailable" id="srchIsAplyAvailable" />-->
+		<input type="hidden" name="srchMrksApprMthdChgPosbYn" id="srchMrksApprMthdChgPosbYn" />
+		<input type="hidden" name="srchIsPendingCourse" id="srchIsPendingCourse" />
+		<input type="hidden" name="srchGenrlRemoteLtYn" id="srchGenrlRemoteLtYn" />
+		<input type="hidden" name="srchLanguage" id="srchLanguage" value="ko" />
+		<input type="hidden" name="srchCurrPage" id="srchCurrPage" value="1" />
+		<input type="hidden" name="srchPageSize" id="srchPageSize" value="9999" />
+	</form>
+</header>
+		<!-- //header -->
+		<!-- 본문 -->
+		<div id="skip-con" class="container">
+			<div class="content">
+				<h2 class="sr-only" lang="ko">강좌검색 결과</h2>
+				<div class="search-result-con">
+					<p> <em>''</em> <span lang="ko">검색 결과</span></p>
+					<small lang="ko"><em class="fc-orange">279</em>건의 교과목이 검색되었습니다.</small>
+				</div>
+				<div class="search-help-txt">
+					<ul>
+						<!-- <li class="indent" lang="ko">- 이전 학기의 정보 및 상세 조건별 조회는 "상세검색"에서 가능합니다.</li>
+						<li class="indent" lang="ko">- 교과목 정렬 순서는 교과목코드가 문자(교양 L, 전공 M, 교직 T)로 시작하는 강좌 → 숫자로 시작하는 강좌(교양,전공,일선,교직,논문,대학원,학사)입니다.</li> -->
+						<!-- <li class="indent"><strong lang="ko">※ 수강신청 부하시간 중 강좌검색 시 교과목명 검색 등 일부 기능 제한 - 세부사항 공지참고</strong></li> -->
+					</ul>
+				</div>
+				<div class="course-list-wrap pd-r">
+					<div class="top">
+						<div class="icon-remo right">
+							<div><span class="icon-1">O</span> <em lang="ko">원격수업강좌</em></div>
+									<div><span class="icon-1">M</span> <em lang="ko">군휴학생 원격수업 강좌</em></div>
+							<div><span class="icon-1">C</span> <em lang="ko">크로스리스팅</em></div>
+							<div><span class="icon-1">R</span> <em lang="ko">수강반 제한</em></div>
+							<div><span class="globe"></span> <em lang="ko">외국어강의</em></div>
+							<div><span class="icon-1">K</span> <em lang="ko">거점국립대학 원격수업 강좌</em></div>
+						</div>
+						<a href="javascript:fnExcel();" class="cc-btn small gray" lang="ko">엑셀저장</a>
+					</div>
+					<div class="course-info-list">
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="0" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_0"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_0"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_0"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_0"  			name="sbjtNm"         value="집중일본어 1" />
+											<input type="hidden" id="sbjtCd_0"  			name="sbjtCd"         value="1003.271" />
+											<input type="hidden" id="ltNo_0"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_0"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_0"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_0"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_0" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전선]
+												<strong>
+													집중일본어 1
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>한정연&nbsp; </span>
+													<span>아시아언어문명학부&nbsp; </span>
+													<span>1003.271(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>35/35 (35)</em></span>
+													<span lang="ko">총수강인원 <em>40</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(12:00~15:50) 수(12:00~15:50) 금(12:00~15:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>53</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="1" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_3"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_3"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_3"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_3"  			name="sbjtNm"         value="한국현대시강독" />
+											<input type="hidden" id="sbjtCd_3"  			name="sbjtCd"         value="101.424" />
+											<input type="hidden" id="ltNo_3"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_3"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_3"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_3"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_3" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전선]
+												<strong>
+													한국현대시강독
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>김보경&nbsp; </span>
+													<span>국어국문학과&nbsp; </span>
+													<span>101.424(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>40/40 (40)</em></span>
+													<span lang="ko">총수강인원 <em>40</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(12:00~14:50) 수(12:00~14:50) 금(12:00~14:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>29</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="2" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_6"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_6"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_6"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_6"  			name="sbjtNm"         value="경제원론 1" />
+											<input type="hidden" id="sbjtCd_6"  			name="sbjtCd"         value="200.105" />
+											<input type="hidden" id="ltNo_6"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_6"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_6"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_6"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_6" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전선]
+												<strong>
+													경제원론 1
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>박이택&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>200.105(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>100/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>125</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(15:00~17:50) 수(15:00~17:50) 금(15:00~17:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>126</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="3" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_9"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_9"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_9"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_9"  			name="sbjtNm"         value="경제원론 2" />
+											<input type="hidden" id="sbjtCd_9"  			name="sbjtCd"         value="200.106" />
+											<input type="hidden" id="ltNo_9"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_9"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_9"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_9"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_9" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전선]
+												<strong>
+													경제원론 2
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>이창선&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>200.106(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>100/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>112</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(09:00~11:50) 수(09:00~11:50) 금(09:00~11:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>145</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="4" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_12"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_12"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_12"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_12"  			name="sbjtNm"         value="미시경제이론" />
+											<input type="hidden" id="sbjtCd_12"  			name="sbjtCd"         value="212.201" />
+											<input type="hidden" id="ltNo_12"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_12"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_12"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_12"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_12" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전필]
+												<strong>
+													미시경제이론
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>김봉근&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>212.201(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>47/60 (60)</em></span>
+													<span lang="ko">총수강인원 <em>47</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(09:00~11:50) 수(09:00~11:50) 금(09:00~11:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" style="color:#376DC8"><em title="장바구니"></em>7</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="5" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_15"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_15"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_15"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_15"  			name="sbjtNm"         value="미시경제이론" />
+											<input type="hidden" id="sbjtCd_15"  			name="sbjtCd"         value="212.201" />
+											<input type="hidden" id="ltNo_15"  			name="ltNo"           value="002" />
+											<input type="hidden" id="ltTimeForTT_15"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_15"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_15"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_15" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전필]
+												<strong>
+													미시경제이론
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>강창민&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>212.201(002)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>99/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>99</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(15:00~17:50) 수(15:00~17:50) 금(15:00~17:50)</span></span>
+												</li>
+												<li class="state">
+														<span data-dialog-target="remaining-place-dialog" lang="ko">취소여석</span>
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>33</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="6" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_18"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_18"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_18"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_18"  			name="sbjtNm"         value="거시경제이론" />
+											<input type="hidden" id="sbjtCd_18"  			name="sbjtCd"         value="212.202" />
+											<input type="hidden" id="ltNo_18"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_18"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_18"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_18"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_18" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전필]
+												<strong>
+													거시경제이론
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>이창선&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>212.202(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>100/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>106</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(12:00~14:50) 수(12:00~14:50) 금(12:00~14:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>58</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="7" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_21"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_21"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_21"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_21"  			name="sbjtNm"         value="경제사" />
+											<input type="hidden" id="sbjtCd_21"  			name="sbjtCd"         value="212.203" />
+											<input type="hidden" id="ltNo_21"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_21"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_21"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_21"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_21" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전필]
+												<strong>
+													경제사
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>박이택&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>212.203(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>99/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>100</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(12:00~14:50) 수(12:00~14:50) 금(12:00~14:50)</span></span>
+												</li>
+												<li class="state">
+														<span data-dialog-target="remaining-place-dialog" lang="ko">취소여석</span>
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>48</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="8" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_24"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_24"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_24"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_24"  			name="sbjtNm"         value="경제통계학" />
+											<input type="hidden" id="sbjtCd_24"  			name="sbjtCd"         value="212.204" />
+											<input type="hidden" id="ltNo_24"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_24"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_24"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_24"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_24" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전필]
+												<strong>
+													경제통계학
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>정경채&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>212.204(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>100/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>147</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(09:00~11:50) 수(09:00~11:50) 금(09:00~11:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>102</span>
+											</div>
+										</a>
+									</div>
+								</div>
+								<div class="course-info-item">
+									<div class="left">
+										<label class="cc-check-item round full">
+											<input type="radio" name="check" value="9" onclick="fnCheckOne(this); fnCheckFocus(this, 'inputTextView');" /><em></em>
+											<input type="hidden" id="openSchyy_27"   		name="openSchyy"      value="2026" />
+											<input type="hidden" id="openShtmFg_27"   		name="openShtmFg"     value="U000200002" />
+											<input type="hidden" id="openDetaShtmFg_27"  	name="openDetaShtmFg" value="U000300002" />
+											<input type="hidden" id="sbjtNm_27"  			name="sbjtNm"         value="경제수학" />
+											<input type="hidden" id="sbjtCd_27"  			name="sbjtCd"         value="212.214" />
+											<input type="hidden" id="ltNo_27"  			name="ltNo"           value="001" />
+											<input type="hidden" id="ltTimeForTT_27"  		name="ltTimeForTT"    value="" />
+											<input type="hidden" id="sbjtSubhCd_27"  		name="sbjtSubhCd"     value="000" />
+											<input type="hidden" id="lsnTmtablFormaSmryCtnt_hidden_27"  class="lsnTmtablFormaSmryCtnt_hidden" name="lsnTmtablFormaSmryCtnt_hidden"  />
+										</label>
+									</div>
+									<div>
+										<a href="javascript:void(0)" id = "course_info_detail_27" name = "course_info_detail" class="course-info-detail">
+											<div class="course-name">
+												[학사]
+												[전필]
+												<strong>
+													경제수학
+												</strong> </div>
+											<ul class="course-info">
+												<li class="txt">
+													<span>강창민&nbsp; </span>
+													<span>경제학부&nbsp; </span>
+													<span>212.214(001)</span>
+												</li>
+												<li class="txt">
+													<span lang="ko">수강신청인원/정원(재학생) <em>100/100 (100)</em></span>
+													<span lang="ko">총수강인원 <em>100</em></span>
+													<span lang="ko">학점 <em>3</em></span>
+													<!-- <span><span>월(11:00~12:15)</span><span>수(11:00~12:15)</span><span>목(11:00~12:15)</span><span>금(11:00~12:15)</span></span> -->
+													<span><span lang="ko">월(09:00~11:50) 수(09:00~11:50) 금(09:00~11:50)</span></span>
+												</li>
+												<li class="state">
+													<div class="icon-remo">
+													</div>
+												</li>
+											</ul>
+											<div class="course-icons">
+												<span class="carts" ><em title="장바구니"></em>41</span>
+											</div>
+										</a>
+									</div>
+								</div>
+						<!-- 네비게이션 시작 -->
+						<div id="courseFabDiv" class="course-fab multiple">
+							<div>
+								<button type="button" class="cc-btn save-Interest-btn" onclick="fnCourseMark();" lang="ko">관심강좌 저장</button>
+								<button type="button" class="cc-btn shopping-carts-btn" onclick="addCart(this);" lang="ko">장바구니 담기</button>
+							</div>
+							<div>
+								<div class="enter-input">
+									<div class="security-num">
+										<img id="imageText" name = "imageText">
+									</div>
+									<input type="tel" id="inputTextView" name="inputTextView" placeholder="입력" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g, '').replace(/(\..*)\./g, '$1');" maxlength="2" lang="ko">
+									<input type="hidden" name="inputText" id="inputText" />
+								</div>
+								<button type="button" id = "btnArr_01" name = "btnArr"  onclick="javascript:fnCourseApprove(this);" class="cc-btn apply-course-btn" lang="ko">수강신청</button>
+								<button type="button" id = "btnArr_02" name = "btnArr"  onclick="javascript:fnCoursePreApprove(this);" class="cc-btn apply-reserve-course-btn" lang="ko">예비수강신청</button>
+							</div>
+							<button type="button" id="fabPlusBtn" class="fab-plus-btn"><span></span></button>
+						</div>
+						<!--// 네비게이션 종료 -->
+					</div>
+					<div class="total-list-count">
+						<span class="num">279</span><em lang="ko">건</em>
+					</div>
+					<iframe id="hiddenFrame" name="hiddenFrame" width="0" height="0" style="display:none"></iframe>
+					<!--  페이징 -->
+					<div class="cc-paging"><a href="#" class="arrow first"></a><a href="#" class="arrow prev"></a><span><a href="#" class="num on">1</a><a href="javascript:fnGotoPage(2);" class="num">2</a><a href="javascript:fnGotoPage(3);" class="num">3</a><a href="javascript:fnGotoPage(4);" class="num">4</a><a href="javascript:fnGotoPage(5);" class="num">5</a></span><a href="javascript:fnGotoPage(6);" class="arrow next"></a><a href="javascript:fnGotoPage(28);" class="arrow last"></a></div>
+					<!--// 페이징 -->
+				</div>	<!--// 강좌 목록 -->
+			</div>
+		</div>	<!--// 본문 -->
+		<!-- footer -->
+<footer id="footer">
+	<input type="hidden" id="isloginChk" value="false" />
+	<div class="foot-inner">
+		<div class="foot-left">
+			<div class="foot-link">
+				<a href="https://www.snu.ac.kr/personal_information" target="new"
+					><span lang="ko">개인정보처리방침</span></a> <a
+					href="https://www.snu.ac.kr/prohibition_of_unauthorized_email_collection"
+					target="new"><span lang="ko">이메일무단수집거부</span></a>
+			</div>
+			<div class="foot-copy">Copyright (C) 2020 SEOUL NATIONAL UNIVERSITY.
+				All Rights Reserved.</div>
+		</div>
+	</div>
+</footer>
+<a class="scroll-top-btn" href="javascript:void(0);" role="button"
+	onclick="onScrollTop();"><span class="arrow"></span><span
+	class="sr-only">페이지 맨 위로 이동</span></a>
+<div id="overlay"></div>
+<div id="timeOverlay" data-dialog-name="login-dialog"></div>
+<div id="menuOverlay"></div>
+<!--// 닫기 -->
+<!-- 로그인 연장 팝업 -->
+<div class="cc-dialog-wrap" id="divLoginExtension"
+	data-dialog-name="login-dialog">
+	<div>
+		<div class="top">
+			<p class="title" lang="ko">로그인 연장</p>
+			<div>
+				<span lang="ko">로그인 연장을 원하지 않으실 경우</span>,<br> <span lang="ko">자동로그아웃 됩니다</span>.
+			</div>
+			<div>
+				<em class="time-countdown"><em id="timerPup"></em></em>
+			</div>
+		</div>
+		<div class="grid-con md-btns">
+			<button type="button" class="grid-item cc-btn cancel"
+				onclick="fnLogout()" lang="ko">로그아웃</button>
+			<button type="button" class="grid-item cc-btn"
+				onclick="sessionExtend();" lang="ko">로그인 연장</button>
+		</div>
+	</div>
+</div>
+<!-- // 로그인 연장 팝업 -->
+		<!-- //footer -->
+	</div>
+</form>
+<!-- [영문버전] CODE INFORMATION 팝업 시작 -->
+<div class="cc-modal-wrap en-conde-info-md">
+	<div class="cc-md-con">
+		<button type="button" onclick="closeCourseInfo();" class="close-md-btn"><span class="sr-only">팝업창 닫기</span></button>
+		<div class="md-header">
+			<div>CODE INFORMATION</div>
+		</div>
+		<div class="md-container">
+			<div class="md-section">
+				<div>
+					<table class="cc-table">
+						<caption>
+							<strong>Code Information List</strong><div>Course Classification Code and Full name of Course Classification</div>
+						</caption>
+						<colgroup>
+							<col style="width: 40%;"><col>
+						</colgroup>
+						<thead>
+						<tr>
+							<th scope="col">Course Classification Code</th><th scope="col">Full name of Course Classification</th>
+						</tr>
+						</thead>
+						<tbody>
+						<tr>
+							<td>*</td><td>Ext</td>
+						</tr>
+						<tr>
+							<td>SLE</td><td>Subject for Liberal Education</td>
+						</tr>
+						<tr>
+							<td>RSM</td><td>Requisite Subject for Major</td>
+						</tr>
+						<tr>
+							<td>ESM</td><td>Elective Subject for Major</td>
+						</tr>
+						<tr>
+							<td>EGS</td><td>Elective General Subject</td>
+						</tr>
+						<tr>
+							<td>STC</td><td>Subject for Teaching Certification</td>
+						</tr>
+						<tr>
+							<td>RR</td><td>Reading and Research</td>
+						</tr>
+						<tr>
+							<td>GC</td><td>Graduate Courses</td>
+						</tr>
+						<tr>
+							<td>RUC</td><td>Recognized as Undergraduate Courses</td>
+						</tr>
+						<tr>
+							<td>UC</td><td>Undergraduate Courses</td>
+						</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<!--// [영문버전] CODE INFORMATION 팝업 끝 -->
+<!--
+***********************************************
+*********      강좌 네비게이션 관련 항목                  ********
+***********************************************
+-->
+<!-- [강좌 네비게이션] 시간표 비교 시작 -->
+<div class="cc-modal-wrap course-modal-wrap timetable-md">
+	<div class="cc-md-con max-w-720">
+		<button type="button" onclick="closeModal();" class="close-md-btn"><span class="sr-only">팝업창 닫기</span></button>
+		<div class="md-header" lang="ko">장바구니와 시간표 비교</div>
+		<div class="md-container">
+			<div class="md-section">
+				<ul class="cc-txt mb-25">
+					<li class="indent" lang="ko">- 장바구니에 담긴 시간표 위에 선택하신 강좌가 나타납니다.</li>
+					<li class="indent" lang="ko">- 시간대가 겹친 경우, 선택하신 강좌가 상위에 나타납니다. 겹치는 시간표 여부를 꼭 확인하세요.</li>
+				</ul>
+				<div class="timetable-con">
+					<table>
+						<caption><strong lang="ko">장바구니와 시간표 비교 목록</strong><div lang="ko">장바구니와 시간표를 비교하는 목록 표입니다. 일별, 시간으로 구성되어 있습니다.</div></caption>
+						<colgroup>
+							<col style="width: 40px;"><col span="6">
+						</colgroup>
+						<thead>
+						<tr>
+							<th scope="col"></th><th scope="col" lang="ko">월</th><th scope="col" lang="ko">화</th><th scope="col" lang="ko">수</th><th scope="col" lang="ko">목</th><th scope="col" lang="ko">금</th><th scope="col" lang="ko">토</th>
+						</tr>
+						</thead>
+						<tbody id="tt">
+						<!--// 반복 //-->
+						<tr><th scope="row" rowspan="2">8 </th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">9 </th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">10</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">11</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">12</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">13</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">14</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">15</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">16</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">17</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">18</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">19</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">20</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">21</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">22</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						<tr><th scope="row" rowspan="2">23</th><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+						</tbody>
+					</table>
+				</div>	<!--// 장바구니시간표 //-->
+			</div>
+		</div>
+	</div>
+</div>
+<!--// [강좌 네비게이션] 시간표 비교 끝 -->
+<!-- [강좌 네비게이션] 관심강좌 저장 시작 -->
+<div class="cc-dialog-wrap" data-dialog-name="Interest-course-dialog">
+	<div>
+		<div class="top">
+			<p class="title" lang="ko">관심강좌로 저장되었습니다.</p>
+			<div><small class="fc-lightblue fs-15" lang="ko">지금 바로 관심강좌로 이동하시겠습니까?</small></div>
+		</div>
+		<div class="grid-con md-btns">
+			<button type="button" class="grid-item cc-btn cancel" onclick="closeOverlay();" lang="ko">아니요, 괜찮습니다.</button>
+			<a href="/sugang/cc/cc210.action" class="grid-item cc-btn" onclick="closeOverlay();" lang="ko">관심강좌로 이동</a>
+		</div>
+	</div>
+</div>
+<!--// [강좌 네비게이션] 관심강좌 저장 끝 -->
+<!-- [강좌 네비게이션] 수강신청 시작 -->
+<div class="cc-dialog-wrap" data-dialog-name="register-course-dialog">
+	<div>
+		<div class="top">
+			<p class="title" lang="ko">수강신청 되었습니다.</p>
+			<div><small class="fc-lightblue fs-15" lang="ko">지금 바로 수강신청내역으로 이동하시겠습니까?</small></div>
+		</div>
+		<div class="grid-con md-btns">
+			<button type="button" class="grid-item cc-btn cancel" onclick="closeOverlay();" lang="ko">수강신청 계속하기</button>
+			<a href="/sugang/ca/ca110.action" id = "sugang_url" class="grid-item cc-btn" onclick="closeOverlay();" lang="ko">신청내역으로 이동</a>
+		</div>
+	</div>
+</div>
+<!--// [강좌 네비게이션] 수강신청 끝 -->
+<!-- [강좌 네비게이션] 예비 수강신청 시작 -->
+<div class="cc-dialog-wrap" data-dialog-name="reserve-course-dialog">
+	<div>
+		<div class="top">
+			<p class="title" lang="ko">예비 수강신청 되었습니다.</p>
+			<div><small class="fc-lightblue fs-15" lang="ko">지금 바로 예비 수강신청내역으로 이동하시겠습니까?</small></div>
+		</div>
+		<div class="grid-con md-btns">
+			<button type="button" class="grid-item cc-btn cancel" onclick="closeOverlay();" lang="ko">수강신청 계속하기</button>
+			<a href="javascript:void(0);" class="grid-item cc-btn" onclick="closeOverlay();" lang="ko">신청내역으로 이동</a>
+		</div>
+	</div>
+</div>
+<!--// [강좌 네비게이션] 예비 수강신청 끝 -->
+<!-- 취소여석(수강신청 가능시간) 팝업 시작 -->
+<div class="cc-dialog-wrap" data-dialog-name="remaining-place-dialog">
+	<div>
+		<div class="top">
+			<p class="title fs-18">
+				<pre lang="ko">취소여석 수강신청가능 시간
+수강신청 기간: 10-11시, 13-14시, 15-16시
+수강신청변경기간: 10-11시, 13-14시, 17-18시&lt;br&gt;* 수강신청 변경기간 마지막날에 한해 20-21시 추가 운영</pre>
+			</p>
+			<div><small class="fc-lightblue fs-15" lang="ko">취소여석 발생 교과목은 위의 지정 시간대에 수강신청해주세요.</small></div>
+		</div>
+		<div class="md-btns">
+			<button type="button" class="grid-item cc-btn" onclick="closeOverlay('remaining-place-dialog');" lang="ko">확 인</button>
+		</div>
+	</div>
+</div>
+<!--// 취소여석(수강신청 가능시간) 팝업 끝 -->
+<form name="CC103" id="CC103" method="post" >
+	<input type="hidden"  name="workType"       id="layer_workType"/>
+	<input type="hidden"  name="openSchyy"      id="layer_openSchyy"/>
+	<input type="hidden"  name="openShtmFg"     id="layer_openShtmFg"/>
+	<input type="hidden"  name="openDetaShtmFg" id="layer_openDetaShtmFg"/>
+	<input type="hidden"  name="sbjtCd"         id="layer_sbjtCd"/>
+	<input type="hidden"  name="ltNo"           id="layer_ltNo"/>
+	<input type="hidden"  name="sbjtSubhCd"     id="layer_sbjtSubhCd"/>
+	<input type="hidden"  name="t_profPersNo"   id="layer_t_profPersNo"/>
+</form>
+<!--// 강좌 상세 내용 팝업 시작 -->
+<div class="cc-modal-wrap full course-info-detail-md">
+	<div class="cc-md-con">
+		<button type="button" onclick="closeCourseInfo();" class="close-md-btn"><span class="sr-only">팝업창 닫기</span></button>
+		<div class="md-header">
+			<div lang="ko">강좌상세정보</div>
+		</div>
+		<div class="md-container">
+			<div class="md-section">
+				<div id="detailTabBody">
+                <div class="course-detail-tabs">
+                    <ul>
+                        <li id="tab1" class="tab"><button type="button"><span lang="ko">강좌상세조회</span></button></li>
+                        <li id="tab2" class="tab"><button type="button"><span lang="ko">교과목개요(국영문)</span></button></li>
+                        <li id="tab3" class="tab"><button type="button"><span lang="ko">강의계획서</span></button></li>
+                        <li id="tab4" class="tab"><button type="button"><span lang="ko">수강반</span></button></li>
+                        <li id="tab5" class="tab"><button type="button"><span lang="ko">2군 교과목</span></button></li>
+                        <li id="tab6" class="tab"><button type="button"><span lang="ko">동일대체 교과목</span></button></li>
+                        <li id="tab7" class="tab"><button type="button"><span lang="ko">Cross-Listing 교과목</span></button></li>
+                    </ul>
+                </div>
+                <div id="course-detail-body">
+                    <div id="tab1Body" class="tabBody" style="display: none;">
+                        <div class="course-detail-cap">
+                            <ul class="cd-user">
+                                <li class="top"><span id="submattFgNm">-</span><span id="submattCors">-</span><span id="openShyr">-</span></li>
+                                <li><span id="profNm">-</span><span id="deptKorNm">-</span></li>
+                            </ul>
+                            <ul class="cd-info">
+                                <li id="sbjtFldNm"><strong>-</strong></li>
+                                <li id="sbjtNm"><strong>강좌명 : -</strong></li>
+                                <li id="sbjtCd-ltNo">000.000 000</li>
+                                <li id="openPnt-theoryLtTmCnt-testPracLtTmCnt">학점-강의-실습 <em class="fc-blue">0-0-0</em></li>
+                            </ul>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">강좌정보</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff">
+                                    <caption><strong>강좌정보 게시판</strong>강좌정보의 목록 표입니다. 정원, 계절학기 학점당 수강료, 수업진행 언어, 성적부여형태 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="4">
+                                    </colgroup>
+                                    <tbody>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">정원</th><td data-th="정원" class="bl-0" id="tlsnAplyCapaCnt">-</td>
+                                        <th scope="col" class="br-0" lang="ko">계절학기 학점당 수강료</th><td data-th="계절학기 학점당 수강료" class="bl-0" id="pntPerTlsnAmtUntprc">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">수업진행 언어</th><td data-th="수업진행 언어" class="bl-0" id="lsnProgLang">-</td>
+                                        <th scope="col" class="br-0" lang="ko">성적부여형태</th><td data-th="성적부여형태" class="bl-0" id="mrksGvMthd">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">성적평가방법 변경가능</th><td data-th="성적평가방법 변경가능" class="bl-0" id="mrksApprMthdChgPosbYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">이수과정구분</th><td data-th="이수과정구분" class="bl-0" id="cptnCorsFgNm">-</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">수업형태</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff rowspan">
+                                    <caption><strong>수업형태 게시판</strong>수업형태의 목록 표입니다. 교시별 수업형태(강의실 동-호)로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="4">
+                                    </colgroup>
+                                    <tbody id="ltTime-ltType-ltRoom">
+                                    <tr>
+                                        <th rowspan="3" scope="col" class="br-0" lang="ko">교시별 수업형태 (강의실 동-호)</th>
+                                        <td data-th="교시별 수업형태 (강의실 동-호)" class="bl-0">-</td><td>-</td><td>-</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">교과목정보</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff">
+                                    <caption><strong>교과목정보 게시판</strong>교과목정보의 목록 표입니다. 상대평가 교과목, 제한 교과목 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="4">
+                                    </colgroup>
+                                    <tbody>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">상대평가 교과목</th><td data-th="상대평가 교과목" class="bl-0" id="mrksRelevalYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">제한 교과목</th><td data-th="제한 교과목" class="bl-0" id="tlsnAddSltTypeFg">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">외국인수강 제한교과목</th><td data-th="외국인수강 제한교과목" class="bl-0" id="frnStdTlsnLmtYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">교직 교과목</th><td data-th="교직 교과목" class="bl-0" id="teachSbjtYn">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">통년 교과목</th><td data-th="통년 교과목" class="bl-0" id="schyyIntgrtnSbjtYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">반복 교과목 (반복이수학기 가능)</th><td data-th="반복 교과목 (반복이수학기 가능)" class="bl-0" id="sbjtReptCptnPosbYn">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">논문연구 교과목</th><td data-th="논문연구 교과목" class="bl-0" id="thssRechSbjtYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">논문제출자격시험 대체 교과목</th><td data-th="논문제출자격시험 대체 교과목" class="bl-0" id="pracSbjtFg">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">외국어시험 대체 교과목</th><td data-th="외국어시험 대체 교과목" class="bl-0" id="forexamSubstYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">일반원격강좌</th><td data-th="일반원격강좌" class="bl-0" id="genrlRemoteLtYn">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">안전환경교육 수강대상</th><td data-th="안전환경교육 수강대상" class="bl-0" id="safetyEnvEduYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko"></th><td data-th="" class="bl-0"></td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">재이수 정보</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff">
+                                    <caption><strong>재이수 정보 게시판</strong>재이수 정보의 목록 표입니다. 년도, 학기, 교과목번호 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 25%;"><col>
+                                    </colgroup>
+                                    <tbody>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">년도</th><td data-th="년도" class="bl-0" id="repeatSchyy">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">학기</th><td data-th="학기" class="bl-0" id="repeatShtmNm">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">교과목번호</th><td data-th="교과목번호" class="bl-0" id="repeatSbjtCd">-</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">기타정보</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff">
+                                    <caption><strong>기타정보 게시판</strong>기타정보의 목록 표입니다. 강의평가, 전자출결 사용여부 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="4">
+                                    </colgroup>
+                                    <tbody>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">강의평가(5점만점)</th><td data-th="강의평가(5점만점)" class="bl-0" id="ltClsfLtAppr">-</td>
+                                        <th scope="col" class="br-0" lang="ko">전자출결 사용여부</th><td data-th="전자출결 사용여부" class="bl-0" id="elAttendUseYn">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">면담시간</th><td data-th="면담시간" class="bl-0" id="stdIntrvPosbTmList">-</td>
+                                        <th scope="col" class="br-0" lang="ko">비고</th><td data-th="비고" class="bl-0" id="openLtRemk" style='font-family: Arial, Tahoma, sans-serif !important;'>-</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : 강좌 상세조회 //-->
+                    <div id="tab2Body" class="tabBody" style="display: none;">
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">교과목개요(국문)</h4>
+                            <div class="texts" id="sbjtSmryCtnt">
+                                -
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">교과목개요(영문)</h4>
+                            <div class="texts" id="sbjtSmryEngCtnt">
+                                -
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : 교과목개요(국영문) //-->
+                    <div id="tab3Body" class="tabBody">
+                        <div class="course-detail-con">
+                            <div class="cc-table">
+                                <table>
+                                    <caption><strong>강의계획서 게시판</strong>강의계획서의 목록 표입니다. 학점, 개설학과, 대표교수 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 25%;"><col span="2">
+                                    </colgroup>
+                                    <thead>
+                                    <tr>
+                                        <th scope="col" lang="ko">학점</th><th scope="col" lang="ko">개설학과</th><th scope="col" lang="ko">교수정보</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr id="openPnt-sbjtMngtDeptNm-profNm">
+                                        <td class="bl-0"></td><td></td><td>, </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">강좌정보</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff">
+                                    <caption><strong>강좌정보 게시판</strong>강좌정보의 목록 표입니다. 정원, 계절학기 학점당 수강료, 수업진행 언어, 성적부여형태 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="4">
+                                    </colgroup>
+                                    <tbody>
+                                    <!-- 2024-03-15 SR2403-09984 CH2401-00010 수강신청사이트 강의계획서 강좌정보 개선 -->
+                                    <!-- <tr>
+                                        <th scope="col" class="br-0" lang="ko">정원</th><td data-th="정원" class="bl-0" id="tlsnAplyCapaCnt">-</td>
+                                        <th scope="col" class="br-0" lang="ko">계절학기 학점당 수강료</th><td data-th="계절학기 학점당 수강료" class="bl-0" id="pntPerTlsnAmtUntprc">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">수업진행 언어</th><td data-th="수업진행 언어" class="bl-0" id="lsnProgLang">-</td>
+                                        <th scope="col" class="br-0" lang="ko">성적부여형태</th><td data-th="성적부여형태" class="bl-0" id="mrksGvMthd">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">성적평가방법 변경가능</th><td data-th="성적평가방법 변경가능" class="bl-0" id="mrksApprMthdChgPosbYn">-</td>
+                                        <th scope="col" class="br-0" lang="ko">이수과정구분</th><td data-th="이수과정구분" class="bl-0" id="cptnCorsFgNm">-</td>
+                                    </tr> -->
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">교과목번호</th><td data-th="교과목번호" class="bl-0" id="sbjtCd">-</td>
+                                        <th scope="col" class="br-0" lang="ko">교과목명(부제)</th><td data-th="교과목명(부제)" class="bl-0" id="sbjtNm">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">강좌번호</th><td data-th="강좌번호" class="bl-0" id="ltNo">-</td>
+                                        <th scope="col" class="br-0" lang="ko">수업진행 언어</th><td data-th="수업진행 언어" class="bl-0" id="lsnProgLang">-</td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">성적부여방식</th><td data-th="성적부여방식" class="bl-0" id="mrksGvMthd">-</td>
+                                        <th scope="col" class="br-0" lang="ko">성적평가방법 변경가능</th><td data-th="성적평가방법 변경가능" class="bl-0" id="mrksApprMthdChgPosbYn">-</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">수업형태</h4>
+                            <div class="cc-table">
+                                <table class="course-info-table diff rowspan">
+                                    <caption><strong>수업형태 게시판</strong>수업형태의 목록 표입니다. 교시별 수업형태(강의실 동-호)로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="4">
+                                    </colgroup>
+                                    <tbody id="ltTime-ltType-ltRoom">
+                                    <tr>
+                                        <th rowspan="3" scope="col" class="br-0" lang="ko">교시별 수업형태 (강의실 동-호)</th>
+                                        <td data-th="교시별 수업형태 (강의실 동-호)" class="bl-0">-</td><td>-</td><td>-</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">파일 다운로드</h4>
+                            <div class="cc-table">
+                                <table>
+                                    <caption><strong>강의계획서 다운로드 게시판</strong>강의 계획서 첨부파일을 제공합니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 30%;"><col>
+                                    </colgroup>
+                                    <tbody id="attachFile">
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">첨부파일(국문)</th>
+                                        <td class="bl-0" id="korAttachFile"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">첨부파일(영문)</th>
+                                        <td class="bl-0" id="engAttachFile"></td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">강의 계획 상세</h4>
+                            <div class="cc-table">
+                                <table>
+                                    <caption><strong>강의 계획 상세 게시판</strong>강의 계획 상세의 목록 표입니다. 선이수교과목, 면담시간, 수업목표 등으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 16%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 0%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 14%;">
+                                        <col style="width: 14%;">
+                                    </colgroup>
+                                    <tbody>
+<!--                                     <tr><th scope="col" class="br-0" lang="ko">선이수교과목</th><td colspan="2" class="bl-0 ta-left" id="preCptnSbjtNm"></td></tr> -->
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">1. 수업목표</th>
+                                        <td colspan="7" class="bl-0 ta-left" id="ltPurp"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">2. 교재 및 참고문헌</th>
+                                   <!-- <td colspan="7" class="bl-0 ta-left" id="teachmAndRefBookList"></td> -->
+                                        <td colspan="7" class="bl-0 ta-left">
+                                            <table class="teachmTable">
+                                                <caption><strong>교재 및 참고문헌</strong></caption>
+                                                <colgroup>
+                                                    <col style="width: 7%;">
+                                                    <col style="width: 7%;">
+                                                    <col style="width: *;">
+                                                    <col style="width: 19%;">
+                                                    <col style="width: 19%;">
+                                                    <col style="width: 7%;">
+                                                    <col style="width: 7%;">
+                                                    <col style="width: 10%;">
+                                                </colgroup>
+                                                <thead>
+                                                    <tr>
+                                                        <th lang="ko" style="border-left: 1px solid #ddd;">교재구분</th>
+                                                        <th lang="ko">교재형태</th>
+                                                        <th lang="ko">강의교재명<br>(논문제목)</th>
+                                                        <th lang="ko">저자명</th>
+                                                        <th lang="ko">출판사<br>(저널명)</th>
+                                                        <th lang="ko">출판년도</th>
+                                                        <th lang="ko">DOI</th>
+                                                        <th lang="ko">도서관<br>소장정보</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="teachmAndRefBook">
+                                                    <tr>
+                                                        <td colspan="8">
+                                                            <div class="no-con">-</div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="colgroup" rowspan="11" class="br-0" lang="ko">3. 평가방법</th>
+                                        <th scope="col" class="diff bl-0" lang="ko">성적부여방식</th>
+                                        <td class="ta_center" id="mrksRelevalYnNm"></td>
+                                        <th></th>
+                                        <th scope="col" class="diff bl-0" lang="ko">등급제여부</th>
+                                        <td class="ta_center" id="mrksGvMthdFgNm"></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">출석(%)</th>
+                                        <td id="attendance">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="attendanceRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">과제(%)</th>
+                                        <td id="homeWork">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="homeWorkRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">중간(%)</th>
+                                        <td id="mid">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="midRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">기말(%)</th>
+                                        <td id="final">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="finalRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">수시평가(%)</th>
+                                        <td id="quiz">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="quizRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">태도(%)</th>
+                                        <td id="attitude">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="attitudeRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">기타(%)</th>
+                                        <td id="etc">%</td>
+                                        <th></th>
+                                        <td colspan="4" class="ta-left" id="etcRemk"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">합계(%)</th>
+                                        <td id="sumOfMrks">%</td>
+                                        <th></th>
+                                        <td colspan="4"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">출석 규정</th>
+                                        <td colspan="6" class="ta-left" id="attendRegulKorCtnt" style="white-space: pre-wrap;"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">기타사항</th>
+                                        <td colspan="6" class="ta-left" id="etcMrksApprMthd"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col">
+                                            <div class="br-0" lang="ko">4. 생성형 AI 도구<br>활용 방침</div>
+<!--                                             <div>[ <a href="/kor/guide/P030201-1.pdf" target="_blank" rel="noopener noreferrer" -->
+<!--                                                       onclick="window.open(this.href, 'P030201-1.pdf', 'width=600, height=880, scrollbars=yes, resizable=yes'); return false;" -->
+<!--                                                       style="color: #507fcc !important;">교수자별 강의계획서 생성형 AI 도구 활용 방침</a> ]</div> -->
+                                        </th>
+                                        <td colspan="7" class="bl-0 ta-left" id="genrAiUtlzCtnt"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="br-0" lang="ko">5. 정원외신청</th>
+                                        <th scope="col" class="diff bl-0" lang="ko">수용가능인원</th>
+                                        <td colspan="6" class="bl-0 ta-left">
+                                            &nbsp;&nbsp;&nbsp;
+                                            <label lang="ko">최대</label>
+                                            &nbsp;&nbsp;&nbsp;
+                                            <span id="supnmrAplyCapaCnt" style="vertical-align: middle;"></span>
+                                            &nbsp;&nbsp;&nbsp;
+                                            <label lang="ko">명</label>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" rowspan="2" class="br-0" lang="ko">6. 수강생 참고사항</th>
+                                        <td colspan="7" class="bl-0 ta-left" id="ltPlanDocRemk" style="white-space: pre-wrap;"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">면담시간/장소</th>
+                                        <td colspan="6" class="bl-0 ta-left" id="stdIntrvPl"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="colgroup" rowspan="3" class="br-0" lang="ko">7. 강의계획</th>
+                                        <th scope="colgroup" rowspan="2" class="diff bl-0" lang="ko">수업방식</th>
+                                        <td class="ta-center">
+                                        	<input type="checkbox" id="flipLsnYn" name="flipLsnYn" disabled="disabled"/>
+                                        	<label lang="ko">플립러닝</label>
+                                        </td>
+                                        <th></th>
+                                        <td class="ta-center">
+                                        	<input type="checkbox" id="theoryLsnYn" name="theoryLsnYn" disabled="disabled"/>
+                                        	<label lang="ko">이론위주 수업</label>
+                                        </td>
+                                        <td class="ta-center">
+                                        	<input type="checkbox" id="discusLsnYn" name="discusLsnYn" disabled="disabled"/>
+                                        	<label lang="ko">토론위주 수업</label>
+                                        </td>
+                                        <td class="ta-center">
+                                        	<input type="checkbox" id="prjtLsnYn" name="prjtLsnYn" disabled="disabled"/>
+                                        	<label lang="ko">프로젝트 수업</label>
+                                        </td>
+                                        <td class="ta-center">
+                                        	<input type="checkbox" id="etcLsnYn" name="etcLsnYn" disabled="disabled"/>
+                                        	<label lang="ko">기타</label>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">기타내용</th>
+                                        <td colspan="5" class="ta-left" id="etcLsnMthd"></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="7" class="ta-left" id="ltPlanCtnt"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="colgroup" rowspan="3" class="br-0" lang="ko">8. 장애학생 지원사항</th>
+                                        <th scope="col" class="diff bl-0" lang="ko">강의 수강 관련</th>
+                                        <td colspan="6" class="ta-left" id="hindStdLtConcCtnt"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">과제 및 평가 관련</th>
+                                        <td colspan="6" class="ta-left" id="hindStdHworkConcCtnt"></td>
+                                    </tr>
+                                    <tr>
+                                        <th scope="col" class="diff bl-0" lang="ko">비고</th>
+                                        <td colspan="6" class="ta-left" id="hindStdSuppRemk"></td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="course-detail-con">
+                            <h4 class="fc-blue" lang="ko">주차별 강의계획</h4>
+                            <div class="cc-table">
+                                <table>
+                                    <caption><strong>주차별 강의계획 게시판</strong>주차별 강의계획 목록 표입니다. 주차구분, 주차별 강의계획 내용(국문), 주차별 강의계획 내용(영문)으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 10%;">
+                                        <col style="width: 90%;">
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th lang="ko">주차구분</th>
+                                            <th lang="ko">주차별 강의계획 내용</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ltPlanWeekPlan">
+                                        <tr>
+                                            <td colspan="2">
+                                                <div class="no-con">-</div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="btns-box right">
+                                <div>
+                                    <button type="button" onclick="fnPrint_etl();" class="cc-btn small" lang="ko">인쇄</button>
+                                    <button type="button" onclick="fnExcel_etl();" class="cc-btn small" lang="ko">엑셀저장</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : 강의계획서 //-->
+                    <div id="tab4Body" class="tabBody" style="display: none;">
+                        <div class="course-detail-con">
+                            <div class="cc-table light-type">
+                                <table>
+                                    <caption><strong>수강반 지정 내역 게시판</strong>수강반 지정 내역 목록 표입니다. 구분, 학과, 학년/학번, 이수과정명/이수전공으로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 15%;"><col><col style="width: 25%;"><col>
+                                    </colgroup>
+                                    <thead>
+                                    <tr>
+                                        <th scope="col" lang="ko">구분</th><th scope="col" lang="ko">학과</th><th scope="col" lang="ko">학년/학번</th><th scope="col" lang="ko">이수과정명/이수전공</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="courseRestr">
+                                    <tr>
+                                        <td colspan="4">
+                                            <div class="no-con">-</div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : 수강반 //-->
+                    <div id="tab5Body" class="tabBody" style="display: none;">
+                        <div class="course-detail-con">
+                            <div class="cc-table light-type">
+                                <table>
+                                    <caption><strong>2군 교과목 내역 게시판</strong>2군 교과목 내역 목록 표입니다. 부제코드, 부제명, 지정년도, 지정학기로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col style="width: 20%;"><col><col style="width: 20%;"><col style="width: 20%;">
+                                    </colgroup>
+                                    <thead>
+                                    <tr>
+                                        <th scope="col" lang="ko">부제코드</th><th scope="col" lang="ko">부제명</th><th scope="col" lang="ko">지정년도</th><th scope="col" lang="ko">지정학기</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="group2">
+                                    <tr>
+                                        <td colspan="4">
+                                            <div class="no-con">-</div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : 2군 교과목 //-->
+                    <div id="tab6Body" class="tabBody" style="display: none;">
+                        <div class="course-detail-con">
+                            <div class="cc-table light-type">
+                                <table>
+                                    <caption><strong>동일대체 교과목 내역 게시판</strong>동일대체 교과목 내역 목록 표입니다. 지정구분, 교과구분, 교과목명, 학점, 차수로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="2" style="width: 15%;"><col><col span="2" style="width: 15%;">
+                                    </colgroup>
+                                    <thead>
+                                    <tr>
+                                        <th scope="col" lang="ko">지정 구분</th><th scope="col" lang="ko">교과 구분</th><th scope="col" lang="ko">[교과목 번호] 교과목명</th><th scope="col" lang="ko">학점</th><th scope="col" lang="ko">차수</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="sameSubstGrp">
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="no-con">-</div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : 동일대체 교과목 //-->
+                    <div id="tab7Body" class="tabBody" style="display: none;">
+                        <div class="course-detail-con">
+                            <div class="cc-table light-type">
+                                <table>
+                                    <caption><strong>Cross-Listing 교과목 내역 게시판</strong>Cross-Listing 교과목 내역 목록 표입니다. 지정구분, 교과구분, 교과목명, 학점, 차수로 구성되어 있습니다.</caption>
+                                    <colgroup>
+                                        <col span="2" style="width: 15%;"><col><col span="2" style="width: 15%;">
+                                    </colgroup>
+                                    <thead>
+                                    <tr>
+                                        <th scope="col" lang="ko">지정 구분</th><th scope="col" lang="ko">교과 구분</th><th scope="col" lang="ko">[교과목 번호] 교과목명</th><th scope="col" lang="ko">학점</th><th scope="col" lang="ko">차수</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="crossListingGrp">
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="no-con">-</div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>	<!--// 탭 : Cross-Listing 교과목 //-->
+                </div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- 강좌 상세 내용 팝업 끝 //-->
+</body>
+</html>

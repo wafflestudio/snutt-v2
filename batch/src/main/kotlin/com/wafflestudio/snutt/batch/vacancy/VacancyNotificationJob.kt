@@ -22,10 +22,12 @@ import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationT
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
+import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -41,6 +43,8 @@ class VacancyNotificationJob(
     private val crawler: SugangSnuRegistrationStatusCrawler,
     private val deeplinkResolver: DeeplinkResolver,
     private val clock: Clock,
+    @param:Value("\${snutt.vacancy.chunk-delay}") private val chunkDelay: Duration,
+    @param:Value("\${snutt.vacancy.overload-retry-delay}") private val overloadRetryDelay: Duration,
 ) : BatchJob {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -67,12 +71,12 @@ class VacancyNotificationJob(
             runCatching { crawler.getPageCount(year, semester) }
                 .getOrElse {
                     log.error("수강스누 조회 실패(부하 기간 가능성), 잠시 뒤 다시 조회한다: {}", it.message)
-                    Thread.sleep(OVERLOAD_RETRY_DELAY_MS)
+                    Thread.sleep(overloadRetryDelay)
                     return true
                 }
         if (pageCount == 0) {
             log.error("수강스누 페이지 수가 0이다, 잠시 뒤 다시 조회한다")
-            Thread.sleep(OVERLOAD_RETRY_DELAY_MS)
+            Thread.sleep(overloadRetryDelay)
             return true
         }
         val lectureMap =
@@ -104,11 +108,11 @@ class VacancyNotificationJob(
                 type = NotificationType.LECTURE_VACANCY,
                 preferenceType = PushPreferenceType.VACANCY_NOTIFICATION,
             )
-            Thread.sleep(DELAY_PER_CHUNK_MS)
+            Thread.sleep(chunkDelay)
         }
         if (processedChunks == 0) {
             log.error("수강스누 페이지를 하나도 읽지 못했다, 잠시 뒤 다시 조회한다")
-            Thread.sleep(OVERLOAD_RETRY_DELAY_MS)
+            Thread.sleep(overloadRetryDelay)
         }
         return true
     }
@@ -209,8 +213,6 @@ class VacancyNotificationJob(
         }
 
     companion object {
-        private const val DELAY_PER_CHUNK_MS = 300L
-        private const val OVERLOAD_RETRY_DELAY_MS = 30_000L
         private val KST: ZoneId = ZoneId.of("Asia/Seoul")
     }
 }
