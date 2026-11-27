@@ -13,4 +13,24 @@ class AccountConcurrencyTest : AbstractConcurrencyTest() {
     fun `같은 강의를 동시에 관심강좌에 넣어도 오류 없이 하나만 저장된다`() {
         scenarios.bookmarkSameLecture(REQUESTS).runContended(contention)
     }
+
+    @Test
+    fun `같은 강의의 강의 일기를 동시에 제출하면 하나만 저장된다`() {
+        scenarios.submitSameDiary(REQUESTS).runContended(contention)
+    }
+
+    @Test
+    fun `기본 테마 지정을 동시에 보내도 오류 없이 설정 행은 하나다`() {
+        scenarios.setDefaultThemeTwice(REQUESTS).runContended(contention)
+    }
+
+    @Test
+    fun `같은 푸시 설정 저장을 동시에 보내도 오류 없이 종류마다 행은 하나다`() {
+        scenarios.savePushPreferencesTwice(REQUESTS).runContended(contention)
+    }
+
+    @Test
+    fun `같은 FCM 토큰 등록을 동시에 보내도 오류 없이 활성 기기는 하나다`() {
+        scenarios.registerSameDeviceTwice(REQUESTS).runContended(contention)
+    }
 }

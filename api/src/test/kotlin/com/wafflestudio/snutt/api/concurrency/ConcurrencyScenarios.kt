@@ -1,10 +1,15 @@
 package com.wafflestudio.snutt.api.concurrency
 
+import com.wafflestudio.snutt.core.common.client.ClientInfo
+import com.wafflestudio.snutt.core.common.client.OsType
 import com.wafflestudio.snutt.core.common.enums.DayOfWeek
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.domain.auth.service.AuthService
 import com.wafflestudio.snutt.core.domain.bookmark.service.BookmarkService
+import com.wafflestudio.snutt.core.domain.device.service.DeviceService
+import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
+import com.wafflestudio.snutt.core.domain.diary.service.DiarySubmissionRequest
 import com.wafflestudio.snutt.core.domain.evaluation.model.Course
 import com.wafflestudio.snutt.core.domain.evaluation.model.Evaluation
 import com.wafflestudio.snutt.core.domain.evaluation.model.EvaluationLike
@@ -16,6 +21,10 @@ import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationService
 import com.wafflestudio.snutt.core.domain.evaluation.service.EvaluationWriteRequest
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.pushpreference.model.PushPreferenceType
+import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceDto
+import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceItem
+import com.wafflestudio.snutt.core.domain.pushpreference.service.PushPreferenceService
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.theme.service.TimetableThemeService
 import com.wafflestudio.snutt.core.domain.timetable.service.CustomTimetableLectureAddRequest
@@ -408,6 +417,67 @@ class ConcurrencyScenarios(
             verify = { outcome ->
                 outcome.assertAllSucceeded()
                 assertEquals(1, count("SELECT COUNT(*) FROM bookmark_lecture WHERE user_id = ?", user.id!!))
+            },
+        )
+    }
+
+    /** 같은 강의의 강의 일기를 [requests]번 동시에 제출한다. 하나만 저장되고 나머지는 제출 간격 위반이다. */
+    fun submitSameDiary(requests: Int): ConcurrencyScenario {
+        val autumn = fixtures.coursebook(2026, Semester.AUTUMN)
+        val user = fixtures.user()
+        val lecture = fixtures.lecture(autumn)
+        val service: DiaryService = beans.getBean()
+        return scenario(
+            requests,
+            request = { service.submitDiary(user.id!!, DiarySubmissionRequest(lecture.id!!, emptyList(), emptyList(), "")) },
+            verify = { outcome ->
+                outcome.assertOutcome(successes = 1, ErrorType.DIARY_SUBMISSION_TOO_FREQUENT)
+                assertEquals(1, count("SELECT COUNT(*) FROM diary_submission WHERE user_id = ?", user.id!!))
+            },
+        )
+    }
+
+    /** 기본 테마 지정을 [requests]번 동시에 보낸다(설정 행이 아직 없다). 모두 성공하고 설정 행은 하나다. */
+    fun setDefaultThemeTwice(requests: Int): ConcurrencyScenario {
+        val user = fixtures.user()
+        val service: TimetableThemeService = beans.getBean()
+        val fall = service.builtinThemeId("fall")
+        return scenario(
+            requests,
+            request = { service.setDefault(user.id!!, fall) },
+            verify = { outcome ->
+                outcome.assertAllSucceeded()
+                assertEquals(1, count("SELECT COUNT(*) FROM user_preference WHERE user_id = ?", user.id!!))
+            },
+        )
+    }
+
+    /** 같은 푸시 설정 저장을 [requests]번 동시에 보낸다(설정 행이 아직 없다). 모두 성공하고 종류마다 행은 하나다. */
+    fun savePushPreferencesTwice(requests: Int): ConcurrencyScenario {
+        val user = fixtures.user()
+        val service: PushPreferenceService = beans.getBean()
+        val dto = PushPreferenceDto(listOf(PushPreferenceItem(PushPreferenceType.NORMAL, isEnabled = false)))
+        return scenario(
+            requests,
+            request = { service.savePushPreferences(user.id!!, dto) },
+            verify = { outcome ->
+                outcome.assertAllSucceeded()
+                assertEquals(1, count("SELECT COUNT(*) FROM push_preference WHERE user_id = ?", user.id!!))
+            },
+        )
+    }
+
+    /** 같은 FCM 등록 토큰을 [requests]번 동시에 등록한다(앱 시작 시 중복 호출). 모두 성공하고 활성 기기는 하나다. */
+    fun registerSameDeviceTwice(requests: Int): ConcurrencyScenario {
+        val user = fixtures.user()
+        val service: DeviceService = beans.getBean()
+        val clientInfo = ClientInfo(osType = OsType.IOS, deviceId = "device-1")
+        return scenario(
+            requests,
+            request = { service.addRegistrationId(user.id!!, "fcm-token-1", clientInfo) },
+            verify = { outcome ->
+                outcome.assertAllSucceeded()
+                assertEquals(1, count("SELECT COUNT(*) FROM user_device WHERE user_id = ? AND NOT is_deleted", user.id!!))
             },
         )
     }
