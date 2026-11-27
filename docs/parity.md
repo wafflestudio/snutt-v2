@@ -90,7 +90,7 @@ v1 설정은 jar를 고치지 않고 바깥에서 바꾼다. 바꾼 것과 이�
 
 ```bash
 ./gradlew parityTest              # 처음 한 번은 v1 jar 빌드로 수 분, 이후 2분 안팎
-./gradlew parityKnownFailureTest  # 알려진 버그가 그대로인지 확인(실패가 정상)
+./gradlew parityKnownFailureTest  # 알려진 버그 재현. 남은 것이 없으면 테스트 0개로 성공한다
 ```
 
 - 필요한 것: Docker, JDK 25, GitHub Packages 토큰(위 "이미지 확보 방법").
@@ -160,9 +160,11 @@ class BookmarkParityTest : AbstractParityTest() {
 
 ## 알려진 차이(버그)
 
-parity가 찾은 실제 차이는 고치지 않고 [`KnownFailureParityTest`](../parity/src/test/kotlin/com/wafflestudio/snutt/parity/scenarios/KnownFailureParityTest.kt)(`@ParityKnownFailure`)가 재현한다. 시나리오마다 그 버그를 드러내는 요청만 둔다. 고치면 시나리오를 `@ParityTest` 클래스로 옮긴다.
+parity가 찾은 실제 차이(버그)는 `@ParityKnownFailure` 시나리오로 재현해 두고(`./gradlew parityKnownFailureTest`, 고쳐지기 전까지 실패), 시나리오마다 그 버그를 드러내는 요청만 둔다. 고치면 시나리오를 `@ParityTest` 클래스로 옮긴다.
 
-여러 응답에 두루 나타나 시나리오 분리만으로는 나머지 비교를 할 수 없는 버그는 [`known-failures.yml`](../parity/src/test/resources/parity/known-failures.yml)에도 둔다. `parityTest`는 여기 걸린 차이를 실패 대신 "알려진 버그"로 리포트에 남기고, `KnownFailureParityTest`는 이 목록 없이 돌아 실패한다. 허용 목록과 같은 형식이지만 의도한 차이가 아니라는 점이 다르다.
+여러 응답에 두루 나타나 시나리오 분리만으로는 나머지 비교를 할 수 없는 버그는 [`known-failures.yml`](../parity/src/test/resources/parity/known-failures.yml)에도 둔다. `parityTest`는 여기 걸린 차이를 실패 대신 "알려진 버그"로 리포트에 남기고, `@ParityKnownFailure` 시나리오는 이 목록 없이 돌아 실패한다. 허용 목록과 같은 형식이지만 의도한 차이가 아니라는 점이 다르다.
+
+지금은 남은 known-failure가 없다(시나리오 0개, `known-failures.yml`은 빈 목록). 아래는 지금까지 찾은 것과 처리 결과다.
 
 | 번호 | 차이 | 재현 시나리오 | 비고 |
 |---|---|---|---|
@@ -170,7 +172,7 @@ parity가 찾은 실제 차이는 고치지 않고 [`KnownFailureParityTest`](..
 | B2 | 푸시 설정을 저장한 적 없는 사용자의 `GET /v1/push/preferences`: v1 기본값 3개, v2 빈 목록 | 푸시 설정: 저장한 적 없음(bob) | 고침(작업 D). audit 요약 3. 두 앱 모두 없는 종류를 켜짐으로 읽어(Android `UserMappers`, iOS `PushNotificationAPIRepository`) 화면 영향은 낮다 |
 | B3 | `isEmailVerified`가 없던 계정이 강의평에서 403 0x3011 | 강의평: isEmailVerified 없는 계정(carol) | 고침(작업 D). audit 요약 4. 앱의 강의 상세 요약(`/v1/ev/lectures/{id}/summary`)은 막히지 않는다 |
 | B4 | v1 경로의 없는 경로(404)·지원하지 않는 메서드(405)가 ProblemDetail(`errcode` 없음) | 레거시 에러 바디: 404·405 | 고침(작업 D). audit 요약 6 |
-| B5 | EV 응답의 `user_id → user {id, email, local_id}` 치환이 없음 | 버그: EV user_id → user | audit 요약 5. known-failures.yml에도 있음. 강의평 웹이 `user`를 읽는지 확인 필요 |
+| B5 | EV 응답의 `user_id → user {id, email, local_id}` 치환이 없음 | 강의평 웹: 조회 등 EV 시나리오 전반 | 고치지 않음(의도한 차이, allowed-diffs.yml). 작성자 이메일·아이디 노출 제거. 강의평 웹이 `user` 필드를 읽는지 확인 필요 |
 | B5b | EV `cursor=`(빈 값): v1 첫 페이지, v2 400 20001 | 강의평 웹: 빈 cursor | 고침(작업 G2, v1compat `legacyCursor`). audit "커서". 빈 값이 아닌 잘못된 커서는 v1(첫 페이지)과 달리 400으로 남긴다 |
 | B6 | 세부 점수가 NULL인 강의평에서 v1 EV는 `0.0`, v2는 필드 생략 | 강의평 웹: 세부 점수 없는 강의평 | 고침(작업 G2, v1compat EV 매퍼만, v2 API는 NULL 그대로). 수정(PATCH) 응답은 v1처럼 생략 |
 | B7 | 다른 시간표를 대표로 지정하면 v2는 대표에서 풀린 시간표의 `updated_at`도 바꾼다(v1은 그대로) | 시간표: 대표 변경과 수정 시각 | 고침(작업 G2). 대표 지정·해제는 `is_primary` 컬럼만 JPQL로 고쳐 `@UpdateTimestamp`를 거치지 않는다(`TimetableRepository.updateIsPrimary`). v2 엔드포인트도 같은 서비스라 함께 바뀐다(새 대표의 updated_at도 그대로) |
@@ -207,7 +209,7 @@ aliases:                    # 선택. 종류: user, lecture, tt, theme, course, 
 
 ## 한계
 
-- 강의평 웹, 테마 마켓 웹의 소스는 보지 않았다. 웹이 읽는 필드에 대한 판단(B5, B5b, 테마 마켓 `name`, 태그 그룹 순서)은 확인이 필요하다.
+- 강의평 웹, 테마 마켓 웹의 소스는 보지 않았다. 웹이 읽는 필드에 대한 판단(B5의 `user`, 테마 마켓 `name`, 태그 그룹 순서)은 확인이 필요하다.
 - 무작위가 끼는 동작(색 자동 선택, 가입·닉네임 변경의 닉네임)은 결정적인 경우만 비교한다(`강의 추가: 색 자동 선택`).
 - 수강편람 동기화 이후의 차이(v1 스냅샷 ↔ v2 조인)는 보지 않는다. 시드는 이관 직후 상태다.
 - 쓰기 시나리오는 상태가 바뀐 뒤의 조회까지 비교하지만, 푸시·메일이 실제로 나갔는지는 보지 않는다(양쪽 모두 stub).

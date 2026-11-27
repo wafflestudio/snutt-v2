@@ -273,6 +273,18 @@
     [dev] 운영 EV(main)에는 없고 develop에만 있는 필드(aaefbf0)다. v1compat은 develop 기준으로 항상 준다. 모르는 필드는 클라이언트가 무시한다.
   ref: docs/v1-compat-audit.md E1, E10
 - endpoint: "* /ev-service/v1/**"
+  path: $.**.user
+  kind: only-v1
+  reason: >-
+    작성자 이메일·아이디 노출 제거(조율 세션 결정, 고치지 않음). v1 SNUTT의 EV 프록시는 강의평 응답의 user_id를 작성자 user {id, email, local_id}로
+    바꿔 다른 사용자에게 내보냈다(EvService.kt:154-169). v1compat은 user_id만 준다. 강의평 웹이 user 필드를 읽는지 확인 필요.
+  ref: docs/v1-compat-audit.md 요약 5 (parity B5)
+- endpoint: "* /ev-service/v1/**"
+  path: $.**.user_id
+  kind: only-v2
+  reason: 위 항목(작성자 user 노출 제거)의 v2 쪽. v1 프록시가 지우던 user_id가 그대로 남는다.
+  ref: docs/v1-compat-audit.md 요약 5 (parity B5)
+- endpoint: "* /ev-service/v1/**"
   path: $.**.is_mine
   kind: only-v2
   reason: v1compat이 내 강의평 여부를 더 준다(본인 강의평 상단 노출, b5173d1).
