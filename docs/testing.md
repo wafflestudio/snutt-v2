@@ -112,6 +112,44 @@ fixtures.addLecture(timetable, lecture)
 - 강의와 수업시간만 저장하려면 `saveLectureWithTimes(...)`(`core.test.fixture`)를 쓴다.
 - 필요한 엔티티가 없을 때만 메서드를 추가한다. 쓰는 곳이 하나뿐이면 그 테스트 안에 둔다.
 
+## 동시성: `runConcurrently`, `LockContention`
+
+"이 락이 이 race를 막는다"를 좁게 증명한다. 도구는 `core.test.concurrency`에 있고, 시나리오와 테스트는 `api/src/test/.../api/concurrency/`에 있다.
+
+```kotlin
+import com.wafflestudio.snutt.core.test.concurrency.runConcurrently
+
+// 스레드 5개를 latch 하나로 동시에 출발시킨다. 결과와 예외를 인덱스 순서로 모은다.
+val outcome = runConcurrently(5) { index -> service.addLecture(userId, timetableId, TimetableLectureAddRequest(lectureIds[index])) }
+outcome.assertOutcome(successes = 1, ErrorType.LECTURE_TIME_OVERLAP)
+```
+
+- `assertOutcome(successes, errorType)`는 성공 수를 확인하고, 나머지가 모두 그 `ErrorType`의 `SnuttException`인지 확인한다. 데드락, lock wait timeout, unique 위반(`DataIntegrityViolationException`, 즉 500)이 섞이면 원인을 붙여 실패한다.
+- 30초 안에 끝나지 않으면 데드락이나 락 대기로 보고 실패한다.
+- 결과는 불변식으로 검증한다. 성공 수와 최종 DB 상태(행 수, 집계값)를 본다.
+
+DB 락은 `LockContention.holdThenContend`로 검증한다. latch만 쓰면 요청이 실제로 겹칠지 스케줄러 운에 달린다.
+
+```kotlin
+val contention = LockContention(jdbcTemplate, transactionManager)
+contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = { request(it) })
+```
+
+1. holder가 트랜잭션 안에서 서비스를 호출한 뒤 커밋하지 않고 멈춘다. 서비스가 잡은 락은 holder가 계속 쥐고 있다.
+2. contender 4개를 동시에 출발시킨다.
+3. contender 4개가 모두 DB에서 기다리는 상태가 되면(`information_schema.PROCESSLIST`에서 실행 중인 쿼리로 확인한다) holder를 커밋한다. 기다리지 않고 먼저 끝나도 커밋한다.
+
+이렇게 하면 contender는 매번 holder가 커밋하기 전에 출발한다. 락이 없거나 락을 잡기 전에 읽은 스냅숏으로 판단하면 매번 불변식이 깨진다. 결과의 0번은 holder, 1..N은 contender다.
+
+- 서비스가 `@Transactional(isolation = READ_COMMITTED)`이면 `isolation`을 같게 넘긴다. 바깥 트랜잭션에 참여한 메서드의 isolation은 무시되기 때문이다.
+- 커넥션을 N+1개 쓰므로 contender는 Hikari 풀(기본 10)보다 충분히 적게 둔다. PR CI는 4개를 쓴다.
+- Redis 락(`SchedulerLock`, 인증코드 발송 제한)은 DB 대기가 없으므로 `runConcurrently`와 `pollUntil`로 검증한다. 락 안에서 다른 스레드가 모두 시도할 때까지 `pollUntil`로 기다리면 겹침을 보장할 수 있다.
+- 기다릴 때는 `pollUntil { 조건 }`을 쓴다. `Thread.sleep`으로 타이밍을 맞추지 않는다.
+
+시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 요청 수를 늘려 `runAllAtOnce()`로 돌리거나 `request`를 HTTP 호출로 바꿔 쓴다.
+
+새 락을 추가하거나 고치면 다음을 확인한다. 동시성 테스트를 쓰고, 락을 잠시 지운 채 돌려서 그 테스트가 실패하는지 본다. `@RepeatedTest(20)`으로 한 번 돌려 flaky하지 않은지도 본다. 반복 설정은 커밋하지 않는다.
+
 ## 새 테스트 체크리스트
 
 1. 골든패스 시나리오인가? 쓰려는 사이드케이스가 외부 입력이나 레거시 데이터에서 생기는가?
