@@ -75,7 +75,8 @@ class V1CompatTimetableController(
         @V1CurrentUser user: User,
     ): List<LegacyTimetableBriefDto> {
         val userId = user.id!!
-        return timetableService.toBriefs(timetableService.getTimetables(userId)).map { brief ->
+        // v1은 Mongo 자연 순서(생성 순)로 돌려줬고 앱은 같은 학기 안에서 그 순서를 그대로 보여준다. id 순이 생성 순이다.
+        return timetableService.toBriefs(timetableService.getTimetables(userId).sortedBy { it.id }).map { brief ->
             LegacyTimetableBriefDto(
                 id = brief.id.toString(),
                 year = brief.year,
@@ -106,6 +107,7 @@ class V1CompatTimetableController(
     ): List<LegacyTimetableDto> =
         timetableService
             .getTimetablesBySemester(user.id!!, year, semester)
+            .sortedBy { it.id }
             .map { toLegacy(user, it, clientInfo.language) }
 
     @PostMapping("")
