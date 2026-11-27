@@ -21,6 +21,10 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import kotlin.system.measureTimeMillis
 
+/**
+ * 이관 순서: V5(`is_email_verified` NULL 허용)를 적용하고 null을 읽을 수 있는 새 api 파드를 먼저 배포한 뒤 이 도구를 실행한다.
+ * 이 도구도 시작할 때 Flyway를 돌리지만, 예전 파드가 떠 있는 채로 null 계정을 넣으면 그 파드의 `User.isEmailVerified`(Boolean) 읽기가 깨진다.
+ */
 @Component
 class MigrationRunner(
     private val jdbc: JdbcTemplate,

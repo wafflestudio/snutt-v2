@@ -148,16 +148,21 @@ private val UNEXPECTED_ERROR_TITLE = LocalizedMessage(ko = "요청 실패", en =
 private val UNEXPECTED_ERROR_MESSAGE =
     LocalizedMessage(ko = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요", en = "Something went wrong on our end. Please try again in a moment")
 
+// v1 ErrorType.DEFAULT_ERROR.errorMessage. v1은 message(개발자용)를 번역하지 않았다.
+private const val UNEXPECTED_ERROR_DEVELOPER_MESSAGE = "API 호출에 실패하였습니다"
+
 /**
  * v1 ErrorWebFilter의 fallback과 같은 모양. SnuttException이 아닌 예외는 errcode 0이고,
  * Spring이 상태를 정한 예외(404 경로 없음, 405, 415 등)는 그 상태를, 나머지는 500을 쓴다.
+ * message는 v1처럼 ResponseStatusException 계열이면 ProblemDetail title(상태 reason phrase, 예: "Not Found"),
+ * 그 밖은 DEFAULT_ERROR 문구다. displayMessage는 언어별 DEFAULT 안내 문구다.
  */
 internal fun unexpectedV1ErrorResponse(
     e: Exception,
     language: Language,
 ): ResponseEntity<V1ErrorResponse> {
-    val status = (e as? ErrorResponse)?.statusCode ?: HttpStatus.INTERNAL_SERVER_ERROR
-    val displayMessage = UNEXPECTED_ERROR_MESSAGE.of(language)
+    val errorResponse = e as? ErrorResponse
+    val status = errorResponse?.statusCode ?: HttpStatus.INTERNAL_SERVER_ERROR
     return ResponseEntity
         .status(status)
         .contentType(MediaType.APPLICATION_JSON)
@@ -165,11 +170,23 @@ internal fun unexpectedV1ErrorResponse(
             V1ErrorResponse(
                 errcode = 0,
                 title = UNEXPECTED_ERROR_TITLE.of(language),
-                message = displayMessage,
-                displayMessage = displayMessage,
+                message = errorResponse?.body?.title ?: UNEXPECTED_ERROR_DEVELOPER_MESSAGE,
+                displayMessage = UNEXPECTED_ERROR_MESSAGE.of(language),
             ),
         )
 }
+
+/** Spring이 상태를 정한 4xx(경로 없음, 405 등)는 클라이언트 오류라 로그를 남기지 않는다. 그 밖(5xx 포함)은 서버 오류다. */
+internal fun Exception.isServerError(): Boolean = (this as? ErrorResponse)?.statusCode?.is5xxServerError ?: true
+
+/** 다른 예외로 감싸여 온 SnuttException. 감싼 예외 쪽 핸들러가 먼저 잡혀 원래 errcode가 가려지지 않게 꺼낸다. */
+internal fun Throwable.wrappedSnuttException(): SnuttException? =
+    generateSequence(cause) { it.cause?.takeIf { next -> next !== it } }
+        .take(MAX_CAUSE_DEPTH)
+        .filterIsInstance<SnuttException>()
+        .firstOrNull()
+
+private const val MAX_CAUSE_DEPTH = 16
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
@@ -209,9 +226,11 @@ class V1CompatExceptionHandler {
     @ExceptionHandler(Exception::class)
     fun handleUnexpectedException(
         e: Exception,
+        handler: HandlerMethod,
         request: HttpServletRequest,
     ): ResponseEntity<V1ErrorResponse> {
-        if (e !is ErrorResponse) log.error("unhandled exception", e)
+        e.wrappedSnuttException()?.let { return handleSnuttException(it, handler, request) }
+        if (e.isServerError()) log.error("unhandled exception", e)
         return unexpectedV1ErrorResponse(e, request.language)
     }
 

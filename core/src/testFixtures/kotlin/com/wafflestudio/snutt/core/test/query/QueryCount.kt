@@ -5,12 +5,14 @@ import net.ttddyy.dsproxy.QueryInfo
 import net.ttddyy.dsproxy.QueryType
 import net.ttddyy.dsproxy.listener.QueryExecutionListener
 import net.ttddyy.dsproxy.listener.QueryUtils
+import net.ttddyy.dsproxy.proxy.ParameterSetOperation
 import net.ttddyy.dsproxy.support.ProxyDataSource
 import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder
 import org.junit.jupiter.api.Assertions.fail
 import org.springframework.beans.factory.config.BeanPostProcessor
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
+import java.sql.PreparedStatement
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.sql.DataSource
@@ -25,9 +27,27 @@ data class QueryCounts(
     val total: Int get() = select + insert + update + delete + other
 }
 
-data class RecordedQueries(
-    val statements: List<String>,
+/** 실행된 SQL 하나와 그때 바인딩된 파라미터. [bindTo]로 다른 PreparedStatement에 같은 값을 다시 묶을 수 있다(EXPLAIN용). */
+class CapturedQuery internal constructor(
+    val sql: String,
+    private val bindings: List<ParameterSetOperation>,
 ) {
+    /** 바인딩한 값만 순서대로 모은다(실패 메시지용). setNull은 null이다. */
+    val parameters: List<Any?>
+        get() = bindings.sortedBy { it.args[0] as Int }.map { if (it.method.name == "setNull") null else it.args[1] }
+
+    fun bindTo(statement: PreparedStatement) {
+        bindings.forEach { it.method.invoke(statement, *it.args) }
+    }
+
+    override fun toString(): String = "$sql $parameters"
+}
+
+data class RecordedQueries(
+    val queries: List<CapturedQuery>,
+) {
+    val statements: List<String> get() = queries.map { it.sql }
+
     val counts: QueryCounts
         get() {
             val byType = statements.groupingBy { QueryUtils.getQueryType(it) }.eachCount()
@@ -89,6 +109,33 @@ fun <T> assertQueryCount(
     return result
 }
 
+/**
+ * 데이터가 늘어도 요청당 쿼리 수가 그대로인지(N+1이 없는지) 검증한다.
+ * [request]를 한 번 실행하고, [grow]로 응답에 들어갈 데이터를 늘린 뒤 다시 실행한다. 두 번 모두 종류별 쿼리 수가 기대값과 같아야 한다.
+ * 쓰기 쿼리는 기본 0이다. 두 결과를 돌려주므로 호출하는 쪽에서 [grow]가 실제로 응답에 반영됐는지 확인한다(안 하면 검증이 빈다).
+ */
+fun <T> assertQueryCountStable(
+    select: Int,
+    insert: Int = 0,
+    update: Int = 0,
+    delete: Int = 0,
+    grow: () -> Unit,
+    request: () -> T,
+): Pair<T, T> {
+    val (before, small) = recordQueries(request)
+    grow()
+    val (after, large) = recordQueries(request)
+    val expected = QueryCounts(select = select, insert = insert, update = update, delete = delete)
+    if (small.counts != expected || large.counts != expected) {
+        fail<Unit>(
+            "쿼리 수 불일치: 기대 $expected, 늘리기 전 ${small.counts}, 늘린 뒤 ${large.counts}\n" +
+                "늘리기 전:\n" + small.statements.withIndex().joinToString("\n") { (i, sql) -> "  [${i + 1}] $sql" } +
+                "\n늘린 뒤:\n" + large.statements.withIndex().joinToString("\n") { (i, sql) -> "  [${i + 1}] $sql" },
+        )
+    }
+    return before to after
+}
+
 private fun mismatch(
     name: String,
     expected: Int?,
@@ -97,7 +144,7 @@ private fun mismatch(
 
 internal object QueryRecorder {
     val recording = AtomicBoolean(false)
-    val statements = CopyOnWriteArrayList<String>()
+    val statements = CopyOnWriteArrayList<CapturedQuery>()
 
     val listener =
         object : QueryExecutionListener {
@@ -111,7 +158,10 @@ internal object QueryRecorder {
                 queryInfoList: List<QueryInfo>,
             ) {
                 if (!recording.get()) return
-                queryInfoList.forEach { statements.add(it.query.trim()) }
+                queryInfoList.forEach { info ->
+                    // batch 실행이면 파라미터 묶음이 여러 개다. EXPLAIN에는 첫 묶음이면 충분하다.
+                    statements.add(CapturedQuery(info.query.trim(), info.parametersList.firstOrNull().orEmpty()))
+                }
             }
         }
 }

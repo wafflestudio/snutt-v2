@@ -19,7 +19,7 @@ object TestTags {
 @Tag(TestTags.PARITY)
 annotation class ParityTest
 
-/** 실행계획·쿼리 수처럼 결정적인 성능 지표를 검증하는 테스트. `./gradlew perfTest`로 돈다. */
+/** 운영 분포 데이터(snutt_perf)에서 실행계획을 검증하는 테스트. `./gradlew perfTest`로 돈다. 쿼리 수 검증은 태그 없이 PR CI에서 돈다. */
 @Target(AnnotationTarget.CLASS, AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
 @Tag(TestTags.PERF)
