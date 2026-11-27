@@ -31,8 +31,10 @@ fun <T> runConcurrently(
                 executor.submit(
                     Callable {
                         ready.countDown()
-                        start.await()
-                        runCatching { action(index) }
+                        runCatching {
+                            start.await()
+                            action(index)
+                        }
                     },
                 )
             }
@@ -96,6 +98,7 @@ fun pollUntil(
     val deadline = System.nanoTime() + timeout.toNanos()
     while (!condition()) {
         if (System.nanoTime() > deadline) throw AssertionError(message())
+        if (Thread.currentThread().isInterrupted) throw InterruptedException("pollUntil이 중단됐다: ${message()}")
         LockSupport.parkNanos(POLL_INTERVAL_NANOS)
     }
 }

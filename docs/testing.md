@@ -131,13 +131,13 @@ outcome.assertOutcome(successes = 1, ErrorType.LECTURE_TIME_OVERLAP)
 DB 락은 `LockContention.holdThenContend`로 검증한다. latch만 쓰면 요청이 실제로 겹칠지 스케줄러 운에 달린다.
 
 ```kotlin
-val contention = LockContention(jdbcTemplate, transactionManager)
+val contention = LockContention(transactionManager, entityManagerFactory)
 contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = { request(it) })
 ```
 
-1. holder가 트랜잭션 안에서 서비스를 호출한 뒤 커밋하지 않고 멈춘다. 서비스가 잡은 락은 holder가 계속 쥐고 있다.
+1. holder가 트랜잭션 안에서 서비스를 호출하고 flush한 뒤 커밋하지 않고 멈춘다. 서비스가 잡은 락(FOR UPDATE, insert·update한 행)은 holder가 계속 쥐고 있다.
 2. contender 4개를 동시에 출발시킨다.
-3. contender 4개가 모두 DB에서 기다리는 상태가 되면(`information_schema.PROCESSLIST`에서 실행 중인 쿼리로 확인한다) holder를 커밋한다. 기다리지 않고 먼저 끝나도 커밋한다.
+3. contender 각각이 InnoDB 락을 기다리거나(root 연결로 `performance_schema.data_lock_waits`를 본다) 이미 끝났으면 holder를 커밋한다.
 
 이렇게 하면 contender는 매번 holder가 커밋하기 전에 출발한다. 락이 없거나 락을 잡기 전에 읽은 스냅숏으로 판단하면 매번 불변식이 깨진다. 결과의 0번은 holder, 1..N은 contender다.
 

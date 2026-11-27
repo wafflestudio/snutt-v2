@@ -65,7 +65,7 @@ class RedisLockConcurrencyTest : AbstractConcurrencyTest() {
         val firstRelease = CountDownLatch(1)
         val first =
             CompletableFuture.runAsync {
-                schedulerLock.withLock("ttl", Duration.ofMillis(300)) {
+                schedulerLock.withLock("ttl", Duration.ofSeconds(30)) {
                     firstHolding.countDown()
                     firstRelease.await(30, TimeUnit.SECONDS)
                 }
@@ -76,6 +76,8 @@ class RedisLockConcurrencyTest : AbstractConcurrencyTest() {
         schedulerLock.withLock("ttl", Duration.ofSeconds(30)) { ranWhileHeld = true }
         assertFalse(ranWhileHeld)
 
+        // 첫 인스턴스가 TTL보다 오래 걸린 상황을 만든다. 실제 시각을 기다리지 않고 남은 TTL을 1ms로 줄인다.
+        redisTemplate.expire(LOCK_KEY_TTL, Duration.ofMillis(1))
         pollUntil { !redisTemplate.hasKey(LOCK_KEY_TTL) }
         var secondRan = false
         schedulerLock.withLock("ttl", Duration.ofSeconds(30)) {
@@ -98,7 +100,7 @@ class RedisLockConcurrencyTest : AbstractConcurrencyTest() {
     }
 
     @Test
-    fun `틀린 인증코드를 동시에 많이 넣어도 시도 횟수 제한을 넘지 못한다`() {
+    fun `틀린 인증코드를 동시에 넣어도 시도 횟수가 빠짐없이 쌓여 이후 정답도 거부된다`() {
         val store = CodeChallengeStore(redisTemplate, redisJsonMapper, "concurrency-test")
         store.store(1L, "123456")
         val guesses = VerificationCode.MAX_ATTEMPTS * 3
