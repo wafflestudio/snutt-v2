@@ -622,16 +622,19 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
     // ---------------------------------------------------------------- 영어 엑셀 공백
 
     @Test
-    fun `영어 엑셀이 비어 있으면 기존 강의의 영어 필드는 보존하고 신규 강의는 상세 API의 영어 값으로 만든다`() {
-        val english = algo.copy(courseTitleEn = "Algorithms", instructorEn = "Kim", classificationEn = "Major Elective")
+    fun `영어 엑셀이 비어 있으면 상세 API의 영어 값을 쓰고 상세 API에 없는 기존 영어 필드는 보존한다`() {
+        // 교수 영문명은 처음에 비어 있다(영어 엑셀 칸이 비고 상세 API도 주지 않는다).
+        val english = algo.copy(courseTitleEn = "Algorithms", instructorEn = "", classificationEn = "Major Elective")
         // 교양영역 영문명(categoryEn)은 영어 엑셀에 없고 상세 API만 준다.
         sugang.lectureInfo("400.100", "001", json(lectureInfoEnglish(categoryEng = "Foundation")))
         sync(listOf(algo), englishRows = listOf(english))
         val alice = member("alice", algo)
         clearPushes()
-        assertEquals("Foundation", lecture(algo).categoryEn)
+        assertEquals("Foundation" to null, lecture(algo).categoryEn to lecture(algo).instructorEn)
 
-        // 학기 초처럼 한국어 엑셀만 공개되어 있다. 상세 API의 영어 값이 바뀌어도 기존 강의는 보존한다.
+        // 학기 초처럼 한국어 엑셀만 공개되어 있다. 상세 API가 준 영어 값은 기존 강의에도 쓴다(비어 있던 교수 영문명이 채워지고,
+        // 바뀐 강의명·교양영역은 새 값으로). 상세 API는 영어 엑셀이 있을 때도 엑셀보다 우선이라, 엑셀 공개 여부로 값이 오가지 않는다.
+        // 상세 API에 없는 필드(이수구분 영문명은 영어 엑셀에만 있다)만 기존 값을 보존한다. 비우면 영어 엑셀이 나올 때까지 사라진다.
         // 신규 강의(컴파일러)는 상세 API가 준 영어 값을 그대로 쓴다. 영어 엑셀이 끝까지 안 나오는 학기도 있어서다.
         stubSite(listOf(algo, compiler), englishRows = emptyList())
         sugang.lectureInfo(
@@ -648,7 +651,7 @@ class SugangSyncDiffTest : SugangSyncScenarioTest() {
 
         val kept = lecture(algo)
         assertEquals(
-            listOf("Algorithms", "Kim", "Major Elective", "Foundation"),
+            listOf("Algorithm Theory", "Kim, A", "Major Elective", "Changed"),
             listOf(kept.courseTitleEn, kept.instructorEn, kept.classificationEn, kept.categoryEn),
         )
         val created = lecture(compiler)

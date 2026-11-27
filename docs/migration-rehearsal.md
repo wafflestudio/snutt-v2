@@ -120,7 +120,7 @@ export REHEARSAL_MASK_SECRET='<운영자가 정한 값>'
 | `--parity-users` | 50 | parity 역할 파일(`roles-sample.yml`)에 넣을 사용자 수 |
 | `--allow-unmasked` | false | 마스킹 표식 없는 덤프도 받는다(합성 데이터·parity 시드 전용) |
 
-순서: v1 Mongo·EV 복원 → 빈 v2 MySQL에 Flyway(V1~최신) → 원본 색인·기대 건수 계산 → 이관 1회차(`MigrationRunner.migrate(truncate=false)`, ValidateStep 포함) → 검증 → 1회차 지문 → 비우지 않은 재실행(거부되어야 함) → 이관 2회차(`--truncate`) → 2회차 지문 → 리포트.
+순서: v1 Mongo·EV 복원 → 빈 v2 MySQL에 Flyway(V1~최신) → 원본 색인·기대 건수 계산 → 이관 1회차(`MigrationRunner.migrate(truncate=false)`, ValidateStep 포함) → 검증 → 1회차 지문 → 비우지 않은 재실행(거부되어야 함) → 동기화 상태 행 남기기 → 이관 2회차(`--truncate`) → 2회차 지문 → 리포트.
 
 종료 코드: 통과 0, 실패 1, 사용법 오류 2. 복원·검증 중 예외가 나도 그때까지의 시간·결과와 예외를 리포트에 남긴다. 출력:
 - `rehearsal-report.md`: 사람이 읽는 리포트(아래 판정 기준 순서). `rehearsal-report.json`: 같은 내용(수치 비교·보관용).
@@ -143,6 +143,7 @@ export REHEARSAL_MASK_SECRET='<운영자가 정한 값>'
 
 지원하지 않는다. 코드로 확인한 근거:
 - `MigrationRunner`는 `--truncate` 외의 인자를 거부하고, 대상 테이블이 비어 있지 않으면 `requireEmpty`로 쓰기 전에 멈춘다(리허설의 "비우지 않은 재실행" 항목이 이 동작을 고정한다).
+- 대상 테이블은 단계가 쓰는 테이블과 수강편람 동기화 상태(`sugang_sync_pending_*`, `sugang_sync_outbox`, `sugang_sync_push_outbox`, `MigrationRunner.SYNC_STATE_TABLES`)다. 동기화 상태는 이관이 쓰지 않지만 이관 id를 외래 키 없이 가리키므로 재이관 때 함께 비운다. 나머지 테이블은 이유와 함께 `UNMANAGED_TABLES`에 둔다. 새 테이블을 만들면 둘 중 한 곳에 넣는다(`MigrationIntegrationTest`가 information_schema와 맞춰 보고, 리허설은 2회차 전에 동기화 상태를 남겨 `--truncate`가 비우는지 본다).
 - v1 → v2 id 표(`MigrationContext`)는 실행 중 메모리에만 있고 v2 id는 매번 1부터 다시 매긴다. 이전 실행 이후 바뀐 문서만 골라낼 기준(수정 시각 필터, 체크포인트)도 없다.
 
 따라서 전환은 "v1 쓰기 중단 → 전체 이관 → 전환"이고, 다운타임은 전체 이관 시간으로 정해진다(6장).

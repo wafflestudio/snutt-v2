@@ -35,7 +35,7 @@ data class SugangLectureRow(
 
 /**
  * [englishAvailable]이 false면 영어 엑셀에 강의 행이 없었다(학기 초에 한국어 엑셀만 먼저 공개되는 경우).
- * 이때 [rows]의 영어 필드는 비어 있고, 동기화는 기존 강의의 영어 필드를 보존해야 한다. 신규 강의는 상세 API의 영어 값만 갖는다.
+ * 이때 [rows]의 영어 필드는 비어 있고, 동기화는 상세 API가 주지 않은 영어 필드를 기존 강의 값으로 보존해야 한다. 신규 강의는 상세 API의 영어 값만 갖는다.
  */
 data class SugangLectureXlsx(
     val rows: List<SugangLectureRow>,
@@ -101,7 +101,7 @@ class SugangSnuXlsxParser {
         englishXlsx: Resource,
     ): SugangLectureXlsx {
         val englishByKey = parseEnglish(englishXlsx)
-        if (englishByKey.isEmpty()) log.warn("영어 xlsx에 강의 행이 없다. 기존 강의의 영어 필드는 보존하고 신규 강의는 상세 API의 영어 값으로 동기화한다")
+        if (englishByKey.isEmpty()) log.warn("영어 xlsx에 강의 행이 없다. 상세 API의 영어 값으로 동기화하고 없는 필드는 기존 강의 값을 보존한다")
         val rows = parseKorean(koreanXlsx, englishByKey)
         return SugangLectureXlsx(rows, englishAvailable = englishByKey.isNotEmpty())
     }

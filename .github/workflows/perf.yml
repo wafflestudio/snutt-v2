@@ -11,6 +11,7 @@ on:
       - '**/src/main/kotlin/**/model/**'
       - 'core/src/main/resources/db/migration/**'
       - 'api/src/test/kotlin/com/wafflestudio/snutt/api/perf/**'
+      - 'batch/src/test/kotlin/com/wafflestudio/snutt/batch/perf/**'
       - 'core/src/testFixtures/kotlin/com/wafflestudio/snutt/core/test/perf/**'
       # Hibernate·JDBC 드라이버 버전이 바뀌면 SQL이 달라질 수 있다.
       - 'build.gradle.kts'

@@ -118,6 +118,7 @@ class PerfDataGenerator(
         insertDiaries()
         insertBookmarksAndVacancies()
         insertThemesAndDevices()
+        insertSugangSyncPending()
         connection.createStatement().use {
             it.execute("SET foreign_key_checks = 1")
             it.execute("SET unique_checks = 1")
@@ -799,6 +800,30 @@ class PerfDataGenerator(
         }
         batch("vacancy_notification", "id", "user_id", "lecture_id", "created_at", "updated_at") { add ->
             vacancies.forEachIndexed { i, (user, lecture) -> add(listOf(i + 1L, user, lecture, at(user.toInt()), at(user.toInt()))) }
+        }
+    }
+
+    // ---- 수강편람 동기화 남은 일 ----
+
+    /**
+     * 운영 집계가 없다(v2에서 생긴 테이블이고 동기화 한 번 안에서만 차 있다). 학기 초처럼 이번 학기 강의 1/4이 한꺼번에 바뀐 동기화가
+     * 시간표 반영 도중이라고 본다: 바뀐 강의를 담은 이번 학기 시간표마다 한 행, 그 절반은 반영을 마쳤다(processed).
+     */
+    private fun insertSugangSyncPending() {
+        connection.createStatement().use { statement ->
+            counts["sugang_sync_pending_lecture"] =
+                statement.executeUpdate(
+                    "INSERT INTO sugang_sync_pending_lecture " +
+                        "(id, lecture_id, class_times_changed, changed_labels, changed_labels_en, notifiable, created_at) " +
+                        "SELECT id, id, TRUE, '강의 시간/장소', 'Class time/place', TRUE, '2026-08-20 00:00:00' FROM lecture " +
+                        "WHERE year = ${CURRENT.year} AND semester = ${CURRENT.semester} AND id % 4 = 0",
+                )
+            counts["sugang_sync_pending_timetable"] =
+                statement.executeUpdate(
+                    "INSERT IGNORE INTO sugang_sync_pending_timetable (pending_lecture_id, timetable_id, notify, processed) " +
+                        "SELECT p.id, tl.timetable_id, TRUE, tl.timetable_id % 2 = 0 FROM sugang_sync_pending_lecture p " +
+                        "JOIN timetable_lecture tl ON tl.lecture_id = p.lecture_id",
+                )
         }
     }
 

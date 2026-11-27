@@ -131,6 +131,7 @@ SELECT COUNT(*) users_with_friend, APPROX_QUANTILES(n,100)[OFFSET(50)] p50, APPR
 | bookmark_lecture | 없음 | 약 22,000 | **추정**: 사용자 20%가 최근 세 학기 강의 평균 5개 |
 | vacancy_notification | 없음 | 약 3,400 | **추정**: 사용자 5%가 이번 학기 인기 강의 1~5개 |
 | published_theme | 없음 | 2,200 | **추정**: 사용자 수의 1/10. 200개일 때는 옵티마이저가 테이블 스캔을 골랐다 |
+| sugang_sync_pending_lecture / _timetable | 없음(동기화 한 번 안에서만 찬다) | 약 1,300 / 7,100 | **추정**: 학기 초처럼 이번 학기 강의 1/4이 한꺼번에 바뀐 동기화가 시간표 반영 도중. 바뀐 강의를 담은 시간표마다 한 행, 절반은 반영 완료 |
 
 극단값은 운영 최댓값을 그대로 넣는다: 시간표 773개(한 학기), 친구 115명, 과목 강의평 212개, snuev 계정 강의평 약 15,600개. `PerfDataset`이 이 id들을 노출한다.
 

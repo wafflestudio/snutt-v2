@@ -257,7 +257,14 @@ class SyntheticLegacyData(
     private fun themesAndTimetables() {
         val owner = activeUsers[0]
         val publishedId = oid()
-        val palette = listOf(Document("bg", "#1BD0C8").append("fg", "#FFFFFF"), Document("bg", "#E54459").append("fg", "#FFFFFF"))
+        // ★ 같은 색이 팔레트에 두 번(3, 4번). 직접 만든 강의의 색(#AABBCC)과 같아 이관이 마지막 번호로 옮겨야 한다.
+        val palette =
+            listOf(
+                Document("bg", "#1BD0C8").append("fg", "#FFFFFF"),
+                Document("bg", "#E54459").append("fg", "#FFFFFF"),
+                Document("bg", "#AABBCC").append("fg", "#FFFFFF"),
+                Document("bg", "#aabbcc").append("fg", "#ffffff"),
+            )
         add(
             "timetableTheme",
             Document("_id", publishedId)

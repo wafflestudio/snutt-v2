@@ -117,13 +117,15 @@ class SugangSnuSyncService(
      *
      * 동기화 두 개가 겹치지 않게 MySQL 이름 락([SYNC_LOCK_NAME])을 잡고 돈다.
      * 1단계 뒤의 단계가 실패하면 기록하고 다음 단계로 넘어간다. 알림 배출과 푸시는 항상 마지막에 하고, 그 뒤 실패를 던진다.
+     * [onLecturesCommitted]는 1단계가 커밋되면 부른다. 뒤 단계가 실패해 예외로 끝나도 강의가 바뀌었는지 호출자가 알 수 있다.
      */
     fun sync(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
         preserveEnglish: Boolean = false,
-    ) = withSyncLock { syncLocked(year, semester, rows, preserveEnglish) }
+        onLecturesCommitted: () -> Unit = {},
+    ) = withSyncLock { syncLocked(year, semester, rows, preserveEnglish, onLecturesCommitted) }
 
     /**
      * 동기화가 둘 겹치지 않게 MySQL 이름 락을 잡는다(남은 일·outbox 테이블은 학기와 상관없이 하나라 두 실행이 같은 알림을 옮길 수 있다).
@@ -142,9 +144,17 @@ class SugangSnuSyncService(
                     try {
                         Result.success(action())
                     } finally {
-                        connection.prepareStatement("SELECT RELEASE_LOCK(?)").use { ps ->
-                            ps.setString(1, SYNC_LOCK_NAME)
-                            ps.executeQuery().close()
+                        // 풀지 못해도 동기화 결과(성공이나 원래 예외)를 덮지 않는다. 커넥션이 끊겼다면(wait_timeout 등) MySQL이 락을
+                        // 이미 풀었고, 그 사이 다른 동기화가 겹쳤을 수 있으므로 ERROR로 남긴다. 커넥션이 살아 있는데 실패했으면 락을 쥔 채
+                        // 풀로 돌아가지 않게 커넥션을 버린다(세션이 끝나면 MySQL이 락을 푼다).
+                        runCatching {
+                            connection.prepareStatement("SELECT RELEASE_LOCK(?)").use { ps ->
+                                ps.setString(1, SYNC_LOCK_NAME)
+                                ps.executeQuery().close()
+                            }
+                        }.onFailure { error ->
+                            log.error("수강편람 동기화 락($SYNC_LOCK_NAME)을 풀지 못해 커넥션을 버린다", error)
+                            runCatching { connection.abort(Runnable::run) }.onFailure(error::addSuppressed)
                         }
                     }
                 },
@@ -156,6 +166,7 @@ class SugangSnuSyncService(
         semester: Semester,
         rows: List<SugangLectureRow>,
         preserveEnglish: Boolean,
+        onLecturesCommitted: () -> Unit,
     ) {
         val run = SyncRun()
         processPending(run)
@@ -169,6 +180,7 @@ class SugangSnuSyncService(
                 run.failures.forEach(e::addSuppressed)
                 throw e
             }
+        onLecturesCommitted()
         processPending(run)
         val deleted = run.step("폐강 강의 삭제") { deleteClosedLectures(synced.deleted, run) }.orEmpty()
         deliver(run)
@@ -205,7 +217,7 @@ class SugangSnuSyncService(
         val updated =
             newMap.mapNotNull { (key, row) ->
                 val old = oldMap[key] ?: return@mapNotNull null
-                val new = row.toLecture(year, semester).also { if (preserveEnglish) it.copyEnglishFrom(old) }
+                val new = row.toLecture(year, semester).also { if (preserveEnglish) it.fillMissingEnglishFrom(old) }
                 val oldTimes = oldClassTimesMap[old.id].orEmpty()
                 val changes = changedFields(old, new, oldTimes, row.classPlaceAndTimes)
                 if (changes.isEmpty()) return@mapNotNull null
@@ -818,14 +830,18 @@ class SugangSnuSyncService(
         remarkEn = remarkEn.nullIfBlank(),
     )
 
-    private fun Lecture.copyEnglishFrom(other: Lecture) {
-        courseTitleEn = other.courseTitleEn
-        instructorEn = other.instructorEn
-        departmentEn = other.departmentEn
-        academicYearEn = other.academicYearEn
-        categoryEn = other.categoryEn
-        classificationEn = other.classificationEn
-        remarkEn = other.remarkEn
+    /**
+     * 영어 엑셀이 비었을 때 쓴다. 상세 API가 준 영어 값은 그대로 두고(영어 엑셀이 있을 때도 상세 API가 우선이다), 없는 필드만
+     * 기존 강의 값으로 채운다. 비워 두면 영어 엑셀이 공개될 때까지 기존 영어 값이 사라진다.
+     */
+    private fun Lecture.fillMissingEnglishFrom(other: Lecture) {
+        courseTitleEn = courseTitleEn ?: other.courseTitleEn
+        instructorEn = instructorEn ?: other.instructorEn
+        departmentEn = departmentEn ?: other.departmentEn
+        academicYearEn = academicYearEn ?: other.academicYearEn
+        categoryEn = categoryEn ?: other.categoryEn
+        classificationEn = classificationEn ?: other.classificationEn
+        remarkEn = remarkEn ?: other.remarkEn
     }
 
     private fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
