@@ -38,7 +38,7 @@ class UserAuthInterceptor(
             userService.findActive(payload.userId)?.takeIf { it.tokenVersion == payload.tokenVersion }
                 ?: throw SnuttException(ErrorType.INVALID_ACCESS_TOKEN)
         if (handler.has(AdminOnly::class.java) && !user.isAdmin) throw SnuttException(ErrorType.USER_NOT_ADMIN)
-        if (handler.has(EmailVerifiedRequired::class.java) && !user.isEmailVerified) {
+        if (handler.has(EmailVerifiedRequired::class.java) && user.isEmailVerified != true) {
             throw SnuttException(ErrorType.EMAIL_NOT_VERIFIED)
         }
 

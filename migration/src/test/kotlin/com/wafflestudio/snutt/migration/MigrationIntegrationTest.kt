@@ -48,6 +48,7 @@ class MigrationIntegrationTest {
     private val userDupNew = ObjectId()
     private val userShareA = ObjectId()
     private val userShareB = ObjectId()
+    private val userVerificationUnset = ObjectId()
     private val lectureId = ObjectId()
     private val lectureDuplicate = ObjectId()
     private val timetableId = ObjectId()
@@ -246,6 +247,16 @@ class MigrationIntegrationTest {
         )
     }
 
+    // v1 User.isEmailVerified는 Boolean?이고, 필드가 없던(null) 계정은 강의평을 쓸 수 있었다(EvService: == false만 막음).
+    @Test
+    fun `이메일 인증 여부가 없던 사용자는 null로 옮겨 false와 구분한다`() {
+        fun verification(id: ObjectId): Any? =
+            jdbc.queryForMap("SELECT is_email_verified FROM `user` WHERE id = ?", context.userIds[id.toHexString()])["is_email_verified"]
+
+        assertNull(verification(userVerificationUnset))
+        assertEquals(false, verification(userShareA))
+    }
+
     @Test
     fun `검색 태그는 큐레이션 그룹을 뺀 나머지만 옮긴다`() {
         val groups =
@@ -269,6 +280,7 @@ class MigrationIntegrationTest {
                 userDocument(userDupNew, "dup-new", "hash-dup-new", localId = "dup", lastLogin = 2_000L),
                 userDocument(userShareA, "share-a", "hash-shared", localId = "share-a"),
                 userDocument(userShareB, "share-b", "hash-shared", localId = "share-b"),
+                userDocument(userVerificationUnset, "unset", "hash-unset", localId = "unset", isEmailVerified = null),
             ),
         )
         db.getCollection("lectures").insertMany(
@@ -349,10 +361,11 @@ class MigrationIntegrationTest {
         localId: String? = null,
         isAdmin: Boolean = false,
         lastLogin: Long = 1_700_000_000_000L,
+        isEmailVerified: Boolean? = false,
     ) = Document("_id", id)
         .append("email", "$nickname@snu.ac.kr")
         .append("nickname", "$nickname#0001")
-        .append("isEmailVerified", false)
+        .apply { isEmailVerified?.let { append("isEmailVerified", it) } }
         .append(
             "credential",
             Document("localId", localId)
