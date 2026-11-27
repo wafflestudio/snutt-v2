@@ -15,6 +15,7 @@ import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate
 import java.sql.SQLException
 
@@ -42,16 +43,20 @@ class DeviceService(
     ) {
         // user_device.fcm_registration_id VARCHAR(512). 자르면 다른 토큰과 unique 충돌할 수 있으므로 거부한다.
         if (registrationId.length > MAX_REGISTRATION_ID_LENGTH) throw SnuttException(ErrorType.INVALID_PARAMETER)
+        // 다시 시도는 시도마다 새 트랜잭션일 때만 뜻이 있다. 바깥 트랜잭션에 참여하면 READ COMMITTED가 적용되지 않고, 실패한 시도가
+        // 바깥 트랜잭션을 rollback-only로 만들어 다음 시도도 커밋할 수 없다. REQUIRES_NEW는 바깥 트랜잭션이 잡은 사용자 행을 기다려
+        // 스스로 멈출 수 있어 쓰지 않는다. 컨트롤러는 트랜잭션 없이 부른다.
+        val retryable = !TransactionSynchronizationManager.isActualTransactionActive()
         var attempt = 1
         while (true) {
             try {
                 transactionTemplate.executeWithoutResult { register(userId, registrationId, clientInfo) }
                 return
             } catch (e: DataIntegrityViolationException) {
-                if (attempt >= REGISTER_ATTEMPTS) throw e
+                if (!retryable || attempt >= REGISTER_ATTEMPTS) throw e
             } catch (e: PessimisticLockingFailureException) {
                 // 데드락만 다시 시도한다. lock wait timeout(50초)까지 되풀이하면 요청이 몇 분씩 걸린다.
-                if (attempt >= REGISTER_ATTEMPTS || !e.isDeadlock()) throw e
+                if (!retryable || attempt >= REGISTER_ATTEMPTS || !e.isDeadlock()) throw e
             }
             attempt++
         }
