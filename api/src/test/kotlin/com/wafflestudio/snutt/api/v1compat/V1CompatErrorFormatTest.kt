@@ -128,6 +128,17 @@ class V1CompatErrorFormatTest : AbstractV1CompatTest() {
         assertV1Error(v1Send(HttpMethod.GET, "/v1/no-such-endpoint", apiKey = null), 403, 0x2000)
     }
 
+    // 인터셉터와 핸들러 매핑은 디코딩하고 `;` 파라미터를 뺀 경로로 맞춘다. raw URI로 판정하면 이런 요청이
+    // 인터셉터에는 걸리고(API key 검사) 에러 형식 판정에서는 빠져 ProblemDetail로 나간다.
+    @Test
+    fun `경로 파라미터나 인코딩이 섞인 v1 경로도 v1 에러 형식으로 응답한다`() {
+        val (token, _) = v1Register("v1rawpath")
+
+        assertV1Error(v1Get("/v1;jsessionid=abc/no-such-endpoint", token), 404, 0)
+        assertV1Error(v1Send(HttpMethod.GET, "/v1;jsessionid=abc/no-such-endpoint", apiKey = null), 403, 0x2000)
+        assertV1Error(v1Send(HttpMethod.GET, "/ev-service;x=1/v1/no-such-endpoint", apiKey = null), 403, 0x2000)
+    }
+
     @Test
     fun `v2 경로의 오류는 그대로 ProblemDetail로 응답한다`() {
         val response = get("/v2/no-such-endpoint")
