@@ -7,9 +7,6 @@ import com.wafflestudio.snutt.core.test.perf.PerfDatabase
 import com.wafflestudio.snutt.core.test.perf.PerfDataset
 import com.wafflestudio.snutt.core.test.perf.PerfSemester
 import com.wafflestudio.snutt.core.test.perf.QueryPlan
-import com.wafflestudio.snutt.core.test.perf.explain
-import com.wafflestudio.snutt.core.test.query.recordQueries
-import org.junit.jupiter.api.Assertions.assertEquals
 
 /**
  * 실행계획(EXPLAIN) 회귀 테스트 베이스. api 통합테스트와 같은 컨텍스트를 쓴다(새 컨텍스트를 띄우지 않는다).
@@ -22,20 +19,14 @@ abstract class AbstractPerfTest : AbstractApiIntegrationTest() {
     protected val perf: PerfDataset get() = PerfDatabase.dataset
 
     /** [block]에서 실행된 SELECT를 실행 순서대로 EXPLAIN한다. */
-    protected fun explainAll(block: () -> Unit): List<QueryPlan> {
-        perf
-        val (_, recorded) = recordQueries(block)
-        return recorded.queries
-            .filter { it.sql.trimStart().let { sql -> sql.startsWith("select", ignoreCase = true) || sql.startsWith("(") } }
-            .map { explain(it) }
-    }
+    protected fun explainAll(block: () -> Unit): List<QueryPlan> =
+        com.wafflestudio.snutt.core.test.perf
+            .explainAll(block)
 
     /** [block]이 SELECT를 정확히 하나 실행해야 한다. */
-    protected fun explainOne(block: () -> Unit): QueryPlan {
-        val plans = explainAll(block)
-        assertEquals(1, plans.size, "SELECT가 하나여야 한다: ${plans.map { it.query.sql }}")
-        return plans.single()
-    }
+    protected fun explainOne(block: () -> Unit): QueryPlan =
+        com.wafflestudio.snutt.core.test.perf
+            .explainOne(block)
 
     protected val PerfSemester.semesterEnum: Semester get() = Semester.fromValue(semester)
 }

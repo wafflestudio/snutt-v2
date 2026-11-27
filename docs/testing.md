@@ -191,7 +191,7 @@ class SocialQueryPlanTest : AbstractPerfTest() {          // api/.../perf/
 ```
 
 동작:
-1. `AbstractPerfTest`는 `AbstractApiIntegrationTest`를 상속하고 `@PerfTest`만 붙인다. 컨텍스트는 api 테스트와 같다.
+1. `AbstractPerfTest`는 `AbstractApiIntegrationTest`를 상속하고 `@PerfTest`만 붙인다. 컨텍스트는 api 테스트와 같다. batch 리포지토리(수강편람 동기화의 남은 일 등)는 `AbstractBatchPerfTest`(batch 컨텍스트)로 본다. `explainOne`·`explainAll`은 core testFixtures `perf/PerfExplain.kt`에 있다.
 2. 블록 안 리포지토리 호출은 평소처럼 기본 스키마(비어 있다)에서 실행된다. `recordQueries`가 SQL과 바인딩 파라미터를 캡처한다.
 3. `explain`이 같은 SQL·파라미터로 perf 스키마 `snutt_perf`에서 `EXPLAIN FORMAT=TRADITIONAL`(assert용)과 `FORMAT=TREE`(실패 메시지용)를 실행한다.
 
@@ -210,7 +210,7 @@ class SocialQueryPlanTest : AbstractPerfTest() {          // api/.../perf/
 ### 새 쿼리를 추가하거나 바꾸면
 
 1. **조회 엔드포인트면** `QueryCountIntegrationTest`에 `assertQueryCountStable` 테스트를 추가한다. 목록이면 `grow`로 행을 늘려 쿼리 수가 그대로인지 본다.
-2. **리포지토리 쿼리(JPQL·JDSL·네이티브)면** `api/.../perf/*QueryPlanTest`에 `explainOne` 테스트를 추가한다. 쓰려는 인덱스, 풀 스캔·filesort 없음, rows 상한을 assert한다. 극단 사용자 id로도 한 번 본다.
+2. **리포지토리 쿼리(JPQL·JDSL·네이티브)면** `api/.../perf/*QueryPlanTest`(batch 리포지토리는 `batch/.../perf/`, 베이스 `AbstractBatchPerfTest`)에 `explainOne` 테스트를 추가한다. 쓰려는 인덱스, 풀 스캔·filesort 없음, rows 상한을 assert한다. 극단 사용자 id로도 한 번 본다.
 3. 인덱스를 추가·변경·삭제하면(`V*__*.sql`) `./gradlew perfTest`를 돌려 기존 계획이 바뀌지 않았는지 본다. 바뀐 게 의도면 테스트를 고치고 이유를 커밋 메시지에 적는다.
 4. 새 테이블이나 분포가 실행계획에 영향을 주면 `PerfDataGenerator`에 데이터를 추가하고 `perf-data-profile.md`에 근거를 적는다. 스키마는 perf JVM마다 새로 만들므로 캐시 무효화는 없다.
 5. 의도적으로 인덱스를 못 타는 쿼리(앞뒤 와일드카드 LIKE, 캐시 뒤의 집계)는 테스트로 고정하지 말고 이유를 주석·문서에 남긴다.
