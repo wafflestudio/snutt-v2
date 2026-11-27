@@ -173,6 +173,8 @@ class TimetableService(
         timetableId: Long,
         themeId: Long,
     ): TimetableDisplay {
+        // 사용자 행 → 시간표 순. 테마 팔레트 변경(TimetableThemeService.modifyTheme)과 같은 순서로 잠근다.
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val timetable =
             timetableRepository.findForUpdateByIdAndUserId(timetableId, userId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)

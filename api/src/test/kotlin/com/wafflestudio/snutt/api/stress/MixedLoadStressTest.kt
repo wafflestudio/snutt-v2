@@ -43,14 +43,15 @@ import kotlin.random.Random
  * 락 순서가 다른 경로를 일부러 섞었다(코드에서 본 락 획득 순서):
  * - 강의 추가·삭제(`TimetableLectureService`): timetable 행 FOR UPDATE → timetable_lecture
  * - 시간표 삭제·복사·추가(`TimetableService`): user 행 FOR UPDATE → timetable insert/delete(삽입은 theme 행 FK S락)
- * - 시간표 테마 변경(`modifyTimetableTheme`): timetable FOR UPDATE → theme_id 갱신(새 theme 행 FK S락) → timetable_lecture
- * - 테마 팔레트 변경(`modifyTheme`): (user_id, theme_id)로 timetable FOR UPDATE(인덱스 범위·gap 락) → timetable_lecture → theme 행 X락(커밋 시 flush)
+ * - 시간표 테마 변경(`modifyTimetableTheme`): user FOR UPDATE → timetable FOR UPDATE → theme_id 갱신(새 theme 행 FK S락) → timetable_lecture
+ * - 테마 팔레트 변경(`modifyTheme`): user FOR UPDATE → (user_id, theme_id)로 timetable FOR UPDATE(인덱스 범위·gap 락) → timetable_lecture → theme 행 X락(커밋 시 flush)
  * - 기본 테마 지정: user FOR UPDATE → user_preference(theme 행 FK S락)
  * - 강의평 작성: course FOR UPDATE → evaluation insert(user 행 FK S락). 삭제: evaluation FOR UPDATE → course. 공감: evaluation FOR UPDATE → evaluation_like
  * - 닉네임 변경: user 행 UPDATE(X락)
  *
  * 위험한 조합: 팔레트 변경은 시간표들을 잠근 뒤 theme 행을 X로 잠그고, 시간표 복사·추가·테마 변경은 같은 theme 행에 FK S락을 먼저 잡은 뒤
- * 같은 (user, theme) 인덱스 범위에 쓴다. 사용자 행 X락(닉네임, 시간표 목록)과 user FK S락(강의평 작성)도 섞인다.
+ * 같은 (user, theme) 인덱스 범위에 쓴다. 예전에는 이 둘이 데드락이 났고, 지금은 모두 user 행을 먼저 잠가 줄을 선다.
+ * 사용자 행 X락(닉네임, 시간표 목록)과 user FK S락(강의평 작성)도 섞인다.
  *
  * 하위 클래스가 연산 구성을 정한다. 반복마다 [DomainInvariants]와 사용자별 시간표 1개 이상을 검증하고, 5xx·데드락·lock wait timeout·풀 타임아웃을 센다.
  */
@@ -311,8 +312,8 @@ abstract class AbstractMixedLoadStressTest(
 }
 
 /**
- * 테마 팔레트 변경(`PATCH /v2/themes/{id}`)을 뺀 혼합 부하. 통과해야 한다. 뺀 경로는 재현된 버그라 known-failure로 둔다.
- * 시간표 테마 변경은 예전에 조회와 겹치면 IndexOutOfBounds 500이 났다(조회가 옛 테마에 새 index를 붙임). 지금은 팔레트 밖 index를 팔레트 안으로 접는다.
+ * 모든 연산을 섞은 혼합 부하. 통과해야 한다. 예전에 재현된 버그: 시간표 테마 변경이 조회와 겹치면 IndexOutOfBounds 500(조회가 옛 테마에
+ * 새 index를 붙임), 테마 팔레트 변경과 시간표 테마 변경의 데드락.
  */
 @StressTest
-class MixedLoadStressTest : AbstractMixedLoadStressTest("mixed-load", excludedOperations = setOf("modifyThemeColors"))
+class MixedLoadStressTest : AbstractMixedLoadStressTest("mixed-load")
