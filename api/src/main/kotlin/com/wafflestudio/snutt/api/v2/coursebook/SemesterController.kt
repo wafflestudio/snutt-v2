@@ -7,6 +7,7 @@ import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
 
 data class YearAndSemesterResponse(
     val year: Int,
@@ -22,12 +23,14 @@ fun YearAndSemester.toResponse() = YearAndSemesterResponse(year = year, semester
 
 @RestController
 @RequestMapping("/v2/semesters")
-class SemesterController {
+class SemesterController(
+    private val clock: Clock,
+) {
     @Public
     @GetMapping("/status")
     fun getSemesterStatus(): SemesterStatusResponse =
         SemesterStatusResponse(
-            current = SemesterCalendar.current()?.toResponse(),
-            next = SemesterCalendar.next().toResponse(),
+            current = SemesterCalendar.current(clock)?.toResponse(),
+            next = SemesterCalendar.next(clock).toResponse(),
         )
 }

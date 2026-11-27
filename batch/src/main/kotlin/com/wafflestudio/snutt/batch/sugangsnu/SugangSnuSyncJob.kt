@@ -15,7 +15,7 @@ import com.wafflestudio.snutt.core.domain.notification.service.PushService
 import com.wafflestudio.snutt.core.domain.vacancy.repository.VacancyNotificationRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.time.Instant
+import java.time.Clock
 
 @Component
 class SugangSnuSyncJob(
@@ -30,6 +30,7 @@ class SugangSnuSyncJob(
     private val pushService: PushService,
     private val lectureVocabularyService: LectureVocabularyService,
     private val courseVocabularyService: CourseVocabularyService,
+    private val clock: Clock,
 ) : BatchJob {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -38,7 +39,7 @@ class SugangSnuSyncJob(
     override fun run(target: YearAndSemester?) {
         if (target != null) {
             syncSemester(target.year, target.semester)
-            coursebookRepository.touchUpdatedAt(target.year, target.semester, Instant.now())
+            coursebookRepository.touchUpdatedAt(target.year, target.semester, clock.instant())
             return
         }
         val condition = sugangSnuLectureApi.getCoursebookCondition()
@@ -57,7 +58,7 @@ class SugangSnuSyncJob(
             )
             comparison == 0 -> {
                 syncCoursebook(latest)
-                coursebookRepository.touchUpdatedAt(latest.year, latest.semester, Instant.now())
+                coursebookRepository.touchUpdatedAt(latest.year, latest.semester, clock.instant())
             }
             else -> {
                 val next = nextCoursebook(latest)

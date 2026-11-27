@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.domain.notification.repository
 
 import com.wafflestudio.snutt.core.domain.notification.model.Notification
 import org.springframework.jdbc.core.JdbcTemplate
-import java.time.Instant
+import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -12,10 +12,11 @@ interface NotificationBatchRepository {
 
 class NotificationBatchRepositoryImpl(
     private val jdbcTemplate: JdbcTemplate,
+    private val clock: Clock,
 ) : NotificationBatchRepository {
     override fun insertAll(notifications: List<Notification>) {
         if (notifications.isEmpty()) return
-        val now = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
+        val now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
         jdbcTemplate.batchUpdate(
             """
             INSERT INTO notification (user_id, title, title_en, message, message_en, type, deeplink, created_at, updated_at)

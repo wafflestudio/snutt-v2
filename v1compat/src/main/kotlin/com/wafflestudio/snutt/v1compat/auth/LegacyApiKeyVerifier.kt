@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.v1compat.auth
 
 import tools.jackson.databind.json.JsonMapper
 import java.security.MessageDigest
-import java.time.Instant
+import java.time.Clock
 import java.util.Base64
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
@@ -10,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec
 class LegacyApiKeyVerifier(
     secretKey: String,
     private val jsonMapper: JsonMapper,
+    private val clock: Clock,
 ) {
     private val key = SecretKeySpec(secretKey.toByteArray(), MAC_ALGORITHM)
 
@@ -34,7 +35,7 @@ class LegacyApiKeyVerifier(
     }
 
     private fun withinValidity(claims: Map<String, Any?>): Boolean {
-        val now = Instant.now().epochSecond
+        val now = clock.instant().epochSecond
         val expiration = (claims["exp"] as? Number)?.toLong()
         val notBefore = (claims["nbf"] as? Number)?.toLong()
         return (expiration == null || now <= expiration) && (notBefore == null || now >= notBefore)

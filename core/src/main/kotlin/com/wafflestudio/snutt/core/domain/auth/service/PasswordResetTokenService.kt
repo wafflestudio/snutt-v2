@@ -6,8 +6,8 @@ import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import java.util.Date
 
 data class PasswordResetTokenPayload(
@@ -19,6 +19,7 @@ data class PasswordResetTokenPayload(
 class PasswordResetTokenService(
     private val es256Keys: Es256Keys,
     @param:Value("\${snutt.auth.jwt.password-reset-token-ttl}") private val passwordResetTokenTtl: Duration,
+    private val clock: Clock,
 ) {
     companion object {
         private const val ISSUER = "snutt"
@@ -28,7 +29,7 @@ class PasswordResetTokenService(
     }
 
     fun issue(payload: PasswordResetTokenPayload): String {
-        val now = Instant.now()
+        val now = clock.instant()
         return Jwts
             .builder()
             .issuer(ISSUER)
@@ -47,6 +48,7 @@ class PasswordResetTokenService(
                 Jwts
                     .parser()
                     .verifyWith(es256Keys.publicKey)
+                    .clock { Date.from(clock.instant()) }
                     .requireIssuer(ISSUER)
                     .require(TYPE_CLAIM, TOKEN_TYPE)
                     .build()

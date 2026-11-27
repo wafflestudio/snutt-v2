@@ -9,6 +9,7 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import java.time.Clock
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -19,6 +20,7 @@ class FeedbackService(
     @param:Value("\${snutt.github.repo-owner}") private val repoOwner: String,
     @param:Value("\${snutt.github.repo-name}") private val repoName: String,
     restClientBuilder: RestClient.Builder,
+    private val clock: Clock,
 ) {
     private val restClient = restClientBuilder.baseUrl("https://api.github.com").build()
 
@@ -32,7 +34,7 @@ class FeedbackService(
     ) {
         val platform = osVersion?.let { "${osType.value} ($osVersion)" } ?: osType.value
         val currentSeoulTime =
-            ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            ZonedDateTime.now(clock.withZone(ZoneId.of("Asia/Seoul"))).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
         val body =
             """
             |email: $email

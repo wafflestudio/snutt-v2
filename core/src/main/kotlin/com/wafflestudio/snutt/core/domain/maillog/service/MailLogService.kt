@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 
 @Service
 class MailLogService(
@@ -24,6 +24,7 @@ class MailLogService(
     private val mailClient: MailClient,
     private val userMailService: UserMailService,
     transactionManager: PlatformTransactionManager,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val newTransaction =
@@ -114,7 +115,7 @@ class MailLogService(
             else -> throw SnuttException(ErrorType.INVALID_PARAMETER)
         }
 
-    fun deleteExpired(): Int = newTransaction.execute { mailLogRepository.deleteCreatedBefore(Instant.now() - RETENTION) }
+    fun deleteExpired(): Int = newTransaction.execute { mailLogRepository.deleteCreatedBefore(clock.instant() - RETENTION) }
 
     private fun insert(mailLog: MailLog): MailLog = newTransaction.execute { mailLogRepository.saveAndFlush(mailLog) }
 
@@ -125,7 +126,7 @@ class MailLogService(
     ) {
         try {
             newTransaction.execute {
-                mailLogRepository.complete(logId, status, errorMessage, Instant.now())
+                mailLogRepository.complete(logId, status, errorMessage, clock.instant())
             }
         } catch (e: Exception) {
             log.error("mail log 결과 갱신 실패: id={} status={}", logId, status, e)
