@@ -97,7 +97,8 @@ class Invariants(
                 "팔레트에 있는 색은 직접 지정한 색으로 남지 않는다",
                 "SELECT COUNT(*) FROM timetable_lecture tl JOIN timetable t ON t.id = tl.timetable_id " +
                     "JOIN timetable_theme th ON th.id = t.theme_id " +
-                    "JOIN JSON_TABLE(th.colors, '$[*]' COLUMNS (bg VARCHAR(32) PATH '$.backgroundColor', fg VARCHAR(32) PATH '$.foregroundColor')) c " +
+                    "JOIN JSON_TABLE(th.colors, '$[*]' COLUMNS " +
+                    "(bg VARCHAR(32) PATH '$.backgroundColor', fg VARCHAR(32) PATH '$.foregroundColor')) c " +
                     "WHERE tl.custom_color IS NOT NULL AND LOWER(c.bg) = LOWER(tl.custom_color->>'$.backgroundColor') " +
                     "AND LOWER(c.fg) = LOWER(tl.custom_color->>'$.foregroundColor')",
             ),

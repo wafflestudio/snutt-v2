@@ -63,7 +63,8 @@ object Rehearsal {
 
     private val syncStateRows =
         listOf(
-            "INSERT INTO sugang_sync_pending_lecture (lecture_id, class_times_changed, changed_labels, changed_labels_en, notifiable, created_at) " +
+            "INSERT INTO sugang_sync_pending_lecture " +
+                "(lecture_id, class_times_changed, changed_labels, changed_labels_en, notifiable, created_at) " +
                 "VALUES (1, TRUE, '수업 시간', 'Class time', TRUE, NOW(6))",
             "INSERT INTO sugang_sync_pending_timetable (pending_lecture_id, timetable_id, notify) VALUES (1, 1, TRUE)",
             "INSERT INTO sugang_sync_outbox (user_id, title, message, type, push_kind, created_at) " +
@@ -151,7 +152,7 @@ object Rehearsal {
         // 1회차 뒤 v2가 돌며 남긴 수강편람 동기화 상태(외래 키 없음). 재이관이 비우지 않으면 새 id의 엉뚱한 강의·시간표·사용자에 적용된다.
         report.phase("재이관 전: 동기화 상태 남기기") { syncStateRows.forEach { v2.update(it) } }
         val (secondContext, secondError) = report.phase("이관 2회차(--truncate)") { migrate(v2, truncate = true) }
-        val leftover = MigrationRunner.SYNC_STATE_TABLES.associateWith { v2.queryForObject("SELECT COUNT(*) FROM `$it`", Long::class.java)!! }
+        val leftover = MigrationRunner.SYNC_STATE_TABLES.associateWith { v2.queryForObject("SELECT COUNT(*) FROM `$it`", Long::class.java) }
         report.checks +=
             CheckResult(
                 "멱등성·재실행",

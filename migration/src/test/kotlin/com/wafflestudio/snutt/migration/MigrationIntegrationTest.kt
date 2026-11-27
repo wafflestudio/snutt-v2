@@ -105,10 +105,11 @@ class MigrationIntegrationTest {
     @Test
     fun `스키마의 모든 테이블은 이관 대상이거나 이관이 다루지 않는 목록에 있다`() {
         val schema =
-            jdbc.queryForList(
-                "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'",
-                String::class.java,
-            ).map { requireNotNull(it) }
+            jdbc
+                .queryForList(
+                    "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'",
+                    String::class.java,
+                ).map { requireNotNull(it) }
         val targets = MigrationRunner.targetTables(steps)
         val unmanaged = MigrationRunner.UNMANAGED_TABLES.keys
 
