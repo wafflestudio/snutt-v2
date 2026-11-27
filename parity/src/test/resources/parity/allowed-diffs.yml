@@ -172,7 +172,7 @@
 - endpoint: GET /v1/friends
   path: $.content
   kind: order
-  sortBy: [userId]
+  sortBy: [nickname.nickname, nickname.tag]
   reason: >-
     v1 순서는 친구 사용자 문서의 자연 순서(findAllByIdInAndActiveTrue, 사실상 상대 가입 순)였고, v2는 친구 관계 created_at desc로
     명시적으로 정렬한다(FriendRepository …OrderByCreatedAtDesc). 원소 구성은 같다. Android는 다시 정렬하지 않으므로 화면 순서가 바뀐다(판단 필요로 보고).
@@ -180,7 +180,7 @@
 - endpoint: GET /v1/bookmarks
   path: $.lectures
   kind: order
-  sortBy: [_id]
+  sortBy: [course_number, lecture_number]
   reason: >-
     v1은 담은 순서(문서 배열 끝에 추가), v2는 강의 id 순으로 명시적으로 정렬한다(BookmarkLectureRepository.findLectures ORDER BY l.id).
     원소 구성은 같다. 화면 순서가 바뀐다(판단 필요로 보고).
@@ -362,6 +362,11 @@
   kind: order
   sortBy: [name]
   reason: v1은 사용자 테마를 updatedAt desc, v1compat은 id asc로 정렬한다. 원소 구성은 같다.
+  ref: docs/v1-compat-audit.md #60
+- endpoint: GET /v1/themes
+  path: $[*].publishInfo
+  kind: only-v2
+  reason: 게시한 사용자 테마에 v1compat은 publishInfo(게시 이름, 작성자, 다운로드 수)를 채워 준다. v1 목록은 비워 보냈다.
   ref: docs/v1-compat-audit.md #60
 - endpoint: GET /v1/themes
   path: $[*].origin.originId

@@ -147,13 +147,24 @@ class ParityScenario(
         val responses = Side.entries.associateWith { side -> send(targets.getValue(side), requests.getValue(side)) }
         val bodies = responses.mapValues { (_, response) -> JsonBodies.parse(response.body) }
         val ev = EV_PATH.containsMatchIn(pathTemplate)
-        val v1Normalized = Normalizer.normalize(Side.V1, bodies[Side.V1], ids, ev)
-        val v2Normalized = Normalizer.normalize(Side.V2, bodies[Side.V2], ids, ev, v1Normalized)
-
         val exchangeLabel = label ?: endpoint
+        val rules = allowed.arrayRules(name, endpoint, exchangeLabel)
         val diffs = mutableListOf<Diff>()
+
+        // 1. 순서 규칙은 정규화 전에 원래 값(과목번호·이름 같은 내용 키)으로 정렬한다. 그래야 id 순번이 양쪽에서 같은 원소에 붙는다.
+        var sorted = bodies.getValue(Side.V1) to bodies.getValue(Side.V2)
+        rules.filter { it.element == null }.forEach { rule ->
+            val result = Reorder.apply(rule, sorted.first, sorted.second)
+            result.diff?.let { diffs += it }
+            sorted = result.v1 to result.v2
+        }
+        ids.beginExchange()
+        val v1Normalized = Normalizer.normalize(Side.V1, sorted.first, ids, ev, endpoint)
+        val v2Normalized = Normalizer.normalize(Side.V2, sorted.second, ids, ev, endpoint, v1Normalized)
+
+        // 2. 원소 규칙은 정규화한 값(별칭)으로 고른다.
         var compared = v1Normalized to v2Normalized
-        allowed.arrayRules(name, endpoint, exchangeLabel).forEach { rule ->
+        rules.filter { it.element != null }.forEach { rule ->
             val (result, ruleDiffs) = Reorder.applyRule(rule, compared.first, compared.second, allowed)
             diffs += ruleDiffs
             compared = result.v1 to result.v2

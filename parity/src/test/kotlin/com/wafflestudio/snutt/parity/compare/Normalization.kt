@@ -75,8 +75,8 @@ object NormalizationRules {
  * 1. 시드·캡처로 아는 값은 별칭(`@user:alice`). 양쪽에서 같은 별칭이 나오면 같은 대상을 가리킨다.
  *    v2 id는 테이블마다 1부터 시작해 서로 겹치므로, v2 값은 같은 경로에 있는 v1 값의 별칭 종류(`user`, `tt` …)를 힌트로 고른다.
  *    힌트가 없으면 후보가 하나일 때만 별칭으로 바꾼다.
- * 2. 모르는 값은 그 시나리오 안에서 키별로 처음 나온 순서대로 `#1`, `#2`(`_id`·`id` 외에는 `#lectureid:1`처럼 키를 붙임).
- *    시나리오 중에 새로 생긴 id용이다.
+ * 2. 모르는 값은 그 시나리오 안에서 같은 자리(엔드포인트 + 경로)에 처음 나온 순서대로 `#1`, `#2`
+ *    (`_id`·`id` 외에는 `#lectureid:1`처럼 키를 붙임). 시나리오 중에 새로 생긴 id나, 시드 별칭이 없는 외부 덤프의 id용이다.
  *    v1은 ObjectId 모양일 때만, v2는 숫자이고 SNUTT 엔드포인트일 때만 번호를 매긴다. EV 엔드포인트는 양쪽 다 숫자 id라
  *    번호를 매기면 서로 다른 값(예: 태그 그룹 PK와 ordering)이 같아 보이므로 원래 값을 그대로 비교한다.
  * 숫자로 나간 id에는 `~num`을 붙여 문자열 id와 구별한다.
@@ -86,11 +86,19 @@ class IdNormalizer(
 ) {
     private val reverse = known.mapValues { (_, table) -> HashMap(table.mapValues { it.value.toMutableList() }) }
 
-    /** 쪽·키별 순번. 한쪽에만 있는 id(예: v2에만 있는 snuttEvLecture.evLectureId)가 다른 키의 번호를 밀지 않게 키마다 따로 센다. */
+    /**
+     * 쪽·자리별 순번. 자리는 "엔드포인트 + 인덱스를 뺀 경로"(`GET /v1/tables/{id} $.lecture_list[*]._id`)다. 같은 자리에는 같은 종류의
+     * 엔티티만 오므로, 테이블마다 1부터 시작하는 v2 id가 다른 종류의 id와 같은 번호를 받지 않는다.
+     */
     private val ordinals = HashMap<Pair<Side, String>, LinkedHashMap<String, Int>>()
 
     /** 시나리오 중에 캡처한 별칭. 새로 생긴 값이라 유일하다. */
     private val captured = HashSet<String>()
+
+    /** 지금 비교 중인 응답에서 v1 쪽이 자리마다 쓴 별칭. 순서가 다른 목록에서 v2 값을 같은 별칭으로 맞출 때만 쓴다. */
+    private val v1SlotAliases = HashMap<String, MutableSet<String>>()
+
+    fun beginExchange() = v1SlotAliases.clear()
 
     fun register(
         side: Side,
@@ -104,6 +112,7 @@ class IdNormalizer(
     fun normalize(
         side: Side,
         key: String,
+        slot: String,
         value: Any,
         evEndpoint: Boolean,
         hint: Any?,
@@ -124,12 +133,19 @@ class IdNormalizer(
                 side == Side.V1 -> candidates.first()
                 hintAlias != null && hintAlias in candidates -> hintAlias
                 hintAlias != null -> candidates.firstOrNull { kind(it) == kind(hintAlias) }
-                // v1 쪽이 새 id(#n)면 v2 쪽도 새 id로 본다. 우연히 같은 숫자의 시드 id로 바꾸지 않되, 캡처한 별칭은 유일하므로 쓴다.
-                (hint as? String)?.startsWith("#") == true -> candidates.firstOrNull { it in captured }
+                // v1 쪽이 새 id(#n)면 v2 쪽도 새 id로 본다. 우연히 같은 숫자의 시드 id로 바꾸지 않는다. 단 같은 응답의 같은 자리에서 v1이
+                // 그 캡처 별칭을 썼다면(순서만 다른 목록) 그 별칭을 쓴다.
+                (hint as? String)?.startsWith("#") == true ->
+                    candidates.firstOrNull { it in captured && it in v1SlotAliases[slot].orEmpty() }
                 candidates.size == 1 -> candidates.single()
                 else -> null
             }
-        if (chosen != null) return "@$chosen$suffix"
+        if (chosen != null) {
+            if (side == Side.V1) v1SlotAliases.getOrPut(slot) { HashSet() } += chosen
+            return "@$chosen$suffix"
+        }
+        // 이관이 id를 보존하는 값(EV 과목·강의평 id)은 같은 자리의 v1 원래 값과 같다. 별칭이 없어도 그대로 둔다.
+        if (side == Side.V2 && hint != null && hint !is String && hint.toString() == raw) return value
         // 아는 값인데 어느 별칭인지 정할 수 없다(v2 id는 테이블마다 겹침). 순번을 매기면 이후 번호가 밀리므로 후보를 그대로 적는다.
         if (side == Side.V2 && candidates.isNotEmpty() && hint == null) return "@{${candidates.sorted().joinToString("|")}}$suffix"
         val assignable =
@@ -138,7 +154,7 @@ class IdNormalizer(
                 Side.V2 -> !evEndpoint && NormalizationRules.NUMERIC.matches(raw)
             }
         if (!assignable) return value
-        val table = ordinals.getOrPut(side to ordinalGroup(key)) { LinkedHashMap() }
+        val table = ordinals.getOrPut(side to slot) { LinkedHashMap() }
         val ordinal = table.getOrPut(raw) { table.size + 1 }
         return "#${ordinalGroup(key)}$ordinal$suffix"
     }
@@ -173,30 +189,44 @@ object Normalizer {
         body: Any?,
         ids: IdNormalizer,
         evEndpoint: Boolean,
+        endpoint: String,
         hint: Any? = null,
-    ): Any? = walk(side, null, body, ids, evEndpoint, hint)
+    ): Any? = Walk(side, ids, evEndpoint, endpoint).walk(null, "$", body, hint)
 
-    private fun walk(
-        side: Side,
-        key: String?,
-        node: Any?,
-        ids: IdNormalizer,
-        evEndpoint: Boolean,
-        hint: Any?,
-    ): Any? =
-        when (node) {
-            is Map<*, *> ->
-                node.entries.associate { (k, v) ->
-                    k.toString() to walk(side, k.toString(), v, ids, evEndpoint, (hint as? Map<*, *>)?.get(k.toString()))
-                }
-            is List<*> -> node.mapIndexed { i, v -> walk(side, key, v, ids, evEndpoint, (hint as? List<*>)?.getOrNull(i)) }
-            null -> null
-            else -> leaf(side, key, node, ids, evEndpoint, hint)
-        }
+    private class Walk(
+        val side: Side,
+        val ids: IdNormalizer,
+        val evEndpoint: Boolean,
+        val endpoint: String,
+    ) {
+        fun walk(
+            key: String?,
+            pattern: String,
+            node: Any?,
+            hint: Any?,
+        ): Any? =
+            when (node) {
+                is Map<*, *> ->
+                    node.entries.associate { (k, v) ->
+                        k.toString() to walk(k.toString(), "$pattern.$k", v, (hint as? Map<*, *>)?.get(k.toString()))
+                    }
+                is List<*> -> node.mapIndexed { i, v -> walk(key, "$pattern[*]", v, (hint as? List<*>)?.getOrNull(i)) }
+                null -> null
+                else -> leaf(key, pattern, node, hint)
+            }
+
+        private fun leaf(
+            key: String?,
+            pattern: String,
+            value: Any,
+            hint: Any?,
+        ): Any = Normalizer.leaf(side, key, "$endpoint $pattern", value, ids, evEndpoint, hint)
+    }
 
     private fun leaf(
         side: Side,
         key: String?,
+        slot: String,
         value: Any,
         ids: IdNormalizer,
         evEndpoint: Boolean,
@@ -204,7 +234,7 @@ object Normalizer {
     ): Any {
         if (key in NormalizationRules.TOKEN_KEYS && value is String) return "<token>"
         if (key != null && key in NormalizationRules.ID_KEYS && (value is String || value is Number)) {
-            return ids.normalize(side, key, value, evEndpoint, hint)
+            return ids.normalize(side, key, slot, value, evEndpoint, hint)
         }
         if (value is String) NormalizationRules.datetimeShape(value)?.let { return it }
         return value

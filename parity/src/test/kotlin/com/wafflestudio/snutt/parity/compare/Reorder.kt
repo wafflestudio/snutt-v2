@@ -61,10 +61,11 @@ object Reorder {
         return Result(replace(v1, rule.path, sorted1), replace(v2, rule.path, sorted2), diff)
     }
 
+    /** 키는 점으로 하위 필드를 가리킬 수 있다(`nickname.tag`). */
     private fun keyOf(
         item: Any?,
         keys: List<String>,
-    ): List<Any?> = keys.map { (item as? Map<*, *>)?.get(it) }
+    ): List<Any?> = keys.map { key -> key.split('.').fold(item) { node, part -> (node as? Map<*, *>)?.get(part) } }
 
     private fun comparator(keys: List<String>): Comparator<Any?> =
         Comparator { a, b ->
