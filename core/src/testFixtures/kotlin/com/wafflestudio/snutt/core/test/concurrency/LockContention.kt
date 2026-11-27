@@ -26,6 +26,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * 락이 있으면 contender는 holder 커밋을 기다렸다가 holder가 만든 상태를 보고 판단한다.
  * 락이 없거나 락보다 먼저 스냅숏을 읽으면 contender는 holder가 커밋하기 전 상태로 판단하므로 결과 불변식이 깨진다.
  *
+ * [whileContended]를 주면 3에서 holder를 커밋하기 직전에 다른 스레드(holder 트랜잭션 밖)에서 실행하고 끝날 때까지 기다린다.
+ * "contender가 무언가를 읽은 뒤 락을 기다리는 동안 다른 요청이 커밋된다"를 만든다.
+ *
  * 결과의 0번은 holder, 1..N은 contender다. 서비스 트랜잭션 격리 수준이 기본값이 아니면 [isolation]을 같게 맞춘다
  * (바깥 트랜잭션에 참여한 @Transactional의 isolation은 무시된다).
  * holder와 contender가 동시에 커넥션 N+1개를 쓰므로 N은 Hikari 풀(기본 10)보다 충분히 작게 둔다.
@@ -40,6 +43,7 @@ class LockContention(
         contenders: Int,
         isolation: Int = TransactionDefinition.ISOLATION_DEFAULT,
         timeout: Duration = DEFAULT_CONCURRENCY_TIMEOUT,
+        whileContended: (() -> Unit)? = null,
         holder: () -> T,
         contender: (index: Int) -> T,
     ): ConcurrentOutcome<T> {
@@ -67,6 +71,7 @@ class LockContention(
                                 pollUntil(timeout, { "contender $contenders 개 중 대기 ${lockWaits(probe)}, 종료 ${finished.get()}" }) {
                                     lockWaits(probe) + finished.get() >= contenders
                                 }
+                                whileContended?.let(::runOutsideTransaction)
                                 result
                             }
                         }
@@ -90,6 +95,15 @@ class LockContention(
             } finally {
                 executor.shutdownNow()
             }
+        }
+    }
+
+    private fun runOutsideTransaction(action: () -> Unit) {
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            executor.submit(action).get(DEFAULT_CONCURRENCY_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
+        } finally {
+            executor.shutdownNow()
         }
     }
 

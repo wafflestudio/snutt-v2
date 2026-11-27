@@ -21,11 +21,12 @@
 | `parity-snapshot` | `@ParitySnapshot` | `./gradlew paritySnapshotTest -Dparity.source.…` | 외부 덤프(운영 스냅샷)로 도는 parity |
 | `perf` | `@PerfTest` | `./gradlew perfTest` | 운영 분포 데이터에서 실행계획(EXPLAIN) 검증 |
 | `stress` | `@StressTest` | `./gradlew stressTest` | 대량 데이터·동시성 부하 |
+| `stress-known-failure` | `@StressKnownFailure` | `./gradlew stressKnownFailureTest` | stress가 재현한 버그. 고칠 때까지 실패하는 것이 정상이다 |
 | `rehearsal` | `@RehearsalTest` | `./gradlew rehearsalTest` | 마이그레이션 리허설 도구를 합성 덤프로 끝까지 돌림 ([migration-rehearsal.md](migration-rehearsal.md)) |
 | `live` | `@LiveTest` | `./gradlew liveTest` (사람이 직접. CI는 수동 실행 `live.yml`만) | 실제 외부 사이트 smoke. 수강편람 엑셀이 파서·fixture와 맞는지 |
 
 - 어노테이션은 `com.wafflestudio.snutt.core.test`(`TestTags.kt`)에 있고 클래스나 메서드에 붙인다.
-- `./gradlew test`는 위 태그를 모두 제외한다. 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
+- `./gradlew test`는 위 태그를 모두 제외한다. 보조 태그(`parity-known-failure`, `parity-snapshot`, `stress-known-failure`)는 자기 전용 태스크 밖에서는 늘 빠진다(`parityTest`·`stressTest`가 함께 붙은 known-failure를 돌리지 않는다). 태그 태스크는 모든 서브프로젝트에 있고, 해당 태그 테스트가 없어도 성공한다.
 - 태그를 추가하려면 루트 `build.gradle.kts`의 `separatedTags`와 `TestTags`를 함께 고친다.
 - 테스트 JVM 타임존은 운영과 같은 UTC로 고정되어 있다(`user.timezone=UTC`). 로컬 타임존에 기대지 않는다.
 
@@ -267,14 +268,56 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 - Redis 락(`SchedulerLock`, 인증코드 발송 제한)은 DB 대기가 없으므로 `runConcurrently`와 `pollUntil`로 검증한다. 락 안에서 다른 스레드가 모두 시도할 때까지 `pollUntil`로 기다리면 겹침을 보장할 수 있다.
 - 기다릴 때는 `pollUntil { 조건 }`을 쓴다. `Thread.sleep`으로 타이밍을 맞추지 않는다.
 
-시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 요청 수를 늘려 `runAllAtOnce()`로 돌리거나 `request`를 HTTP 호출로 바꿔 쓴다.
+`whileContended`를 주면 contender가 락을 기다리는 동안(holder 커밋 직전) 다른 스레드에서 요청 하나를 커밋한다. "잡이 대상을 고른 뒤 락을 기다리는 사이 다른 요청이 끼어든다"를 재현할 때 쓴다(예: `SugangSyncRecoveryTest`의 복사).
+
+### 장애 주입: `DbFaults`
+
+단계 중간에 트랜잭션이 죽는 상황은 프로덕션 코드에 훅을 두지 않고 DB 트리거로 만든다.
+
+```kotlin
+DbFaults.failing("timetable", "UPDATE", "NEW.id = ${timetable.id}").use { assertThrows<IllegalStateException> { sync(rows) } }
+DbFaults.failing("timetable", "UPDATE", fault = DbFault.DEADLOCK)     // 1213이라 락 충돌 재시도 경로를 탄다
+```
+
+- root 연결로 `BEFORE` 트리거를 만들고 닫으면 지운다. 테이블 초기화(TRUNCATE)는 트리거를 지우지 않으므로 반드시 `use`로 닫는다.
+- 그 쓰기를 하는 트랜잭션이 커밋 전에 끝나므로, 프로세스 종료·연결 끊김과 남는 DB 상태가 같다.
+- 조건(`condition`)은 트리거 안의 SQL 식이다(`NEW.`/`OLD.` 컬럼). 다른 요청의 쓰기까지 막지 않게 좁힌다. 잡만 쓰는 테이블에 걸면 사용자 요청과 섞이지 않는다.
+- `DbFault.DEADLOCK`은 InnoDB 데드락 지표(`INNODB_METRICS`)를 올리지 않는다. stress에서 주입한 장애로 남은 ERROR 로그는 따로 걸러야 한다(`SugangSyncRecoversFromFaultsStressTest`).
+
+시나리오는 `ConcurrencyScenarios`에 모아 두고 PR CI와 stress가 함께 쓴다. 메서드 하나가 DB 상태를 준비하고 `ConcurrencyScenario`(`request(index)`, `verify(outcome)`)를 돌려준다. PR CI는 `scenario.runContended(contention)`로 돌리고, stress는 `ConcurrencyScenarios(beans, fixtures, HttpScenarioActions(...))`로 요청을 HTTP로 바꿔 요청 수를 늘려 돌린다. 시나리오의 요청은 `ScenarioActions`(서비스 호출 = `ServiceScenarioActions`)로만 보낸다.
+
+락 순서는 user 행 → timetable 행(여러 개면 id 순) → timetable_lecture → 리마인더 → 리마인더 발송 시각이고, 강의(lecture) 행은 시간표 다음에 잠근다(시간표에 담을 때 공유 락). 강의를 여러 개 한꺼번에 담을 때(시간표 복사)는 행을 넣기 전에 강의를 id 순으로 `FOR SHARE`한다. 행을 넣을 때마다 외래 키 검사가 담긴 순서대로 강의 락을 잡으면 강의를 id 순으로 X락하는 동기화와 사이클이 생긴다. 수강편람 동기화처럼 강의 행을 먼저 쓰는 작업은 그 트랜잭션에서 시간표를 잠그지 않고 커밋한 뒤 시간표를 따로 잠근다. 강의나 시간표를 쥔 채 남기는 기록(동기화의 남은 일, 알림 outbox)은 외래 키 없는 테이블에 넣는다(부모 행 공유 락을 잡지 않는다). 범위 DELETE 뒤 INSERT는 gap 락으로 이웃 행의 INSERT와 데드락이 나므로, 읽은 뒤 바뀐 행만 id로 지우고 넣는다.
 
 새 락을 추가하거나 고치면 다음을 확인한다. 동시성 테스트를 쓰고, 락을 잠시 지운 채 돌려서 그 테스트가 실패하는지 본다. `@RepeatedTest(20)`으로 한 번 돌려 flaky하지 않은지도 본다. 반복 설정은 커밋하지 않는다.
+
+### stress (`@StressTest`)
+
+실제 서버(RANDOM_PORT)에 HTTP로 대량 요청을 보내 운영 설정(Hikari 풀 10, Tomcat 가상 스레드, innodb_lock_wait_timeout 50초)에서 버티는지 본다.
+도구는 `core.test.stress`, 테스트는 `api/.../api/stress/`와 `batch/.../batch/stress/`에 있다.
+
+```bash
+./gradlew stressTest                                              # 기본값: 스레드 50, 반복 10, 스레드당 요청 20 (로컬 약 5분)
+./gradlew :api:stressTest -PstressThreads=200 -PstressIterations=300 -PstressOpsPerThread=50 -PstressSeed=7
+./gradlew stressKnownFailureTest                                  # 재현된 버그. 지금은 실패한다
+```
+
+- api 테스트는 `AbstractStressTest`를 상속한다. `http`(연결 수 제한 없는 JDK HttpClient), `token(userId)`(fixtures 사용자 토큰),
+  `httpScenarios`(E의 `ConcurrencyScenarios`를 HTTP로 보내는 버전), `stress(name) { ... }`(기록·리포트·실패 판정)를 준다.
+- `stress` 블록 안에서 반복마다 `iteration(i) { resetForIteration(); ... }`로 처음 상태부터 다시 돈다. 반복 안의 AssertionError는 불변식 위반으로 기록하고
+  다음 반복으로 넘어간다. 요청 결과는 `record(연산, 결과, allowed)`로 남긴다.
+- 실패로 세는 것: 5xx, 허용하지 않은 4xx, 불변식 위반, 데드락·lock wait timeout(`information_schema.INNODB_METRICS` 차이),
+  서버가 ERROR로 남긴 예외(`ServerErrorLog`가 데드락·풀 타임아웃·unique/FK 위반으로 나눈다). 하나라도 있으면 실패한다.
+- 리포트는 `build/reports/stress/<시나리오>.md`(연산별 결과 수, 처리량, 실패 표본, `SHOW ENGINE INNODB STATUS`의 마지막 데드락)와 `summary.md`에 남는다.
+- 대상 선택·불변식 조회는 `MySqlProbe.jdbc`(root 계정의 별도 작은 풀)로 한다. 애플리케이션 풀을 테스트가 빼앗지 않게 하기 위해서다.
+- 공통 불변식은 `DomainInvariants`(시간 겹침, 팔레트 범위, 대표 시간표, 테마 소유, course 집계·like_count, 리마인더 발송 시각, 고아 행)다.
+- race 시나리오를 stress에서 돌릴 때는 `verifyUnordered`를 쓴다. 요청 0이 먼저 락을 잡는다고 가정하는 시나리오는 어느 순서로 직렬화돼도 성립하는 검증을 따로 준다.
+- 재현된 데드락·정합성 버그는 고치지 않고 `@StressKnownFailure` 클래스로 분리한다(통과하는 조합은 `@StressTest`에 남긴다). 고치면 어노테이션을 바꾼다.
 
 ### 수강편람 동기화 시나리오 (batch)
 
 - `batch/.../sugang/SugangSyncScenarioTest`를 상속한다. `sync(rows, englishRows)`가 수강편람 사이트를 stub하고 잡을 학기 지정 없이 돌린다. 시간표 담기·리마인더·관심강좌는 실제 서비스(`addLecture`, `setReminder`, `bookmarkService`)로 한다.
 - 어디에 쓸지: 한 학기를 따라가는 골든패스는 `SugangSemesterLifecycleTest`, 동기화 diff 분기(추가·폐강·필드별 변경·겹침·멱등·영어 엑셀 공백·학기 경계·트랜잭션)는 `SugangSyncDiffTest`, 사이트 HTTP 오류·응답 형식 이상은 `SugangSnuSyncJobTest`, 빈자리 판정은 `VacancyNotificationJobTest`.
+- 단계 사이 장애: 동기화는 강의 반영(1단계)을 커밋한 뒤 시간표 반영·폐강·알림 배출을 따로 커밋하고, 남은 일은 `sugang_sync_pending_*`, 알림 `sugang_sync_outbox`, 푸시 `sugang_sync_push_outbox`(V6)에 남겨 다음 실행이 정확히 한 번 마친다. 이 계약은 `SugangSyncRecoveryTest`가 고정한다.
 - `SugangXlsxFixture.RowData`의 영어 값 기본값은 생성할 때 한국어 값에서 정해진다. `copy()`로 한국어만 바꾸면 영어 값은 그대로다.
 
 ## mutation testing (pitest)
@@ -309,4 +352,5 @@ contention.holdThenContend(contenders = 4, holder = { request(0) }, contender = 
 4. 시간 의존 로직이면 `clock`을 고정했는가? KST 경계를 다루는가?
 5. 난수 seed를 고정했는가? `Thread.sleep` 없이 polling으로 기다리는가?
 6. 성능을 assert한다면 시간이 아니라 쿼리 수나 실행계획을 봤는가? 무거운 테스트에 `@PerfTest`/`@StressTest`를 붙였는가? 새 쿼리면 "새 쿼리를 추가하거나 바꾸면"을 따랐는가?
+   재현된 버그를 고정한 stress 테스트는 `@StressKnownFailure`인가?
 7. `./gradlew ktlintCheck test`(태그를 붙였으면 해당 태스크도)를 돌려 통과했는가?
