@@ -78,6 +78,9 @@ class TimetableThemeService(
         name: String?,
         colors: List<ColorSet>?,
     ): TimetableThemeDisplay {
+        // 사용자 행을 먼저 잠근다. 시간표 테마 변경·시간표 추가·복사도 사용자 행을 먼저 잠그므로, 이 사용자의 시간표·테마 행을 서로 반대 순서로
+        // 잠가 데드락이 나지 않는다(예전: 팔레트 변경은 시간표 인덱스 → theme X, 시간표 테마 변경은 theme FK S → 같은 인덱스).
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val theme = editableTheme(userId, themeId)
         name?.let {
             validateName(it)
