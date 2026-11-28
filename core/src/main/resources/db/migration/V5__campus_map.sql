@@ -108,15 +108,17 @@ CREATE TABLE map_transit_stop
 CREATE TABLE map_transit_line
 (
     id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name                 VARCHAR(32) NOT NULL,
-    kind                 VARCHAR(16) NOT NULL,
-    headway_min          INT         NOT NULL,
-    headway_note         VARCHAR(64) NOT NULL DEFAULT '',
-    is_headway_estimated BOOLEAN     NOT NULL,
-    source               VARCHAR(16) NOT NULL,
-    created_at           DATETIME(6) NOT NULL,
-    updated_at           DATETIME(6) NOT NULL,
-    CONSTRAINT uk_map_transit_line_name UNIQUE (name)
+    name                 VARCHAR(32)  NOT NULL,
+    kind                 VARCHAR(16)  NOT NULL,
+    min_headway_min      INT          NOT NULL,
+    max_headway_min      INT          NOT NULL,
+    headway_note         VARCHAR(255) NOT NULL DEFAULT '',
+    is_headway_estimated BOOLEAN      NOT NULL,
+    source               VARCHAR(16)  NOT NULL,
+    created_at           DATETIME(6)  NOT NULL,
+    updated_at           DATETIME(6)  NOT NULL,
+    CONSTRAINT uk_map_transit_line_name UNIQUE (name),
+    CONSTRAINT ck_map_transit_line_headway CHECK (min_headway_min > 0 AND min_headway_min <= max_headway_min)
 );
 
 CREATE TABLE map_transit_line_stop
