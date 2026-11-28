@@ -134,6 +134,7 @@ class TimetableThemeService(
         userId: Long,
         themeId: Long,
     ): TimetableThemeDisplay {
+        userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val theme = findThemeAvailableToUser(userId, themeId)
         userPreferenceRepository.save(UserPreference(userId, themeId))
         return displays(listOf(theme), themeId).getValue(themeId)

@@ -26,7 +26,7 @@ class DeviceService(
     ) {
         // user_device.fcm_registration_id VARCHAR(512). 자르면 다른 토큰과 unique 충돌할 수 있으므로 거부한다.
         if (registrationId.length > MAX_REGISTRATION_ID_LENGTH) throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user = userRepository.findForUpdateByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val deviceByRegistrationId = userDeviceRepository.findByFcmRegistrationIdAndIsDeletedFalse(registrationId)
         val deviceByDeviceId =
             clientInfo.deviceId?.let { userDeviceRepository.findByUserIdAndDeviceIdAndIsDeletedFalse(userId, it) }
