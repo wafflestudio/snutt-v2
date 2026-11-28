@@ -9,6 +9,7 @@ import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLectureRemind
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
 
 data class TimetableLectureReminderRow(
     val timetableLectureId: Long,
@@ -34,6 +35,12 @@ interface TimetableLectureRepository :
     fun findForUpdateByTimetableIdIn(timetableIds: Collection<Long>): List<TimetableLecture>
 
     fun findByLectureIdIn(lectureIds: Collection<Long>): List<TimetableLecture>
+
+    @Query("SELECT DISTINCT tl.timetableId FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds")
+    fun findTimetableIdsByLectureIdIn(lectureIds: Collection<Long>): List<Long>
+
+    @Query("SELECT DISTINCT tl.lectureId FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds")
+    fun findReferencedLectureIds(lectureIds: Collection<Long>): List<Long>
 
     fun findReminderRowsByTimetableId(timetableId: Long): List<TimetableLectureReminderRow> = findReminderRows(timetableId, null)
 
