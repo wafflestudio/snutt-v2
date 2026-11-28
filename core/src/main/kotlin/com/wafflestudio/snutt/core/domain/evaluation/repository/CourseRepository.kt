@@ -59,11 +59,10 @@ interface CourseRepository :
         value = """
         UPDATE course c
         LEFT JOIN (
-            SELECT course_id, id, course_title
+            SELECT course_id, id
             FROM (
                 SELECT id,
                        course_id,
-                       course_title,
                        ROW_NUMBER() OVER (
                            PARTITION BY course_id
                            ORDER BY year DESC, semester DESC, updated_at DESC, id DESC
@@ -73,7 +72,21 @@ interface CourseRepository :
             ) ranked
             WHERE rn = 1
         ) latest ON latest.course_id = c.id
-        SET c.latest_lecture_id = latest.id, c.title = COALESCE(latest.course_title, c.title)
+        LEFT JOIN lecture l ON l.id = latest.id
+        SET c.latest_lecture_id = l.id,
+            c.title = COALESCE(l.course_title, c.title),
+            c.title_en = l.course_title_en,
+            c.instructor_en = l.instructor_en,
+            c.department = l.department,
+            c.department_en = l.department_en,
+            c.academic_year = l.academic_year,
+            c.academic_year_en = l.academic_year_en,
+            c.category = l.category,
+            c.category_en = l.category_en,
+            c.category_pre2025 = l.category_pre2025,
+            c.classification = l.classification,
+            c.classification_en = l.classification_en,
+            c.credit = l.credit
         WHERE c.id IN (:courseIds)
         """,
         nativeQuery = true,
@@ -90,22 +103,22 @@ interface CourseRepository :
                 val conditions = mutableListOf<Predicate>()
                 conditions += lectureFilters(criteria)
                 criteria.query.split(' ').filter { it.isNotBlank() }.forEach { word ->
-                    val identities = mutableListOf<Predicate>()
-                    val lectures = mutableListOf<Predicate>()
+                    val alternatives = mutableListOf<Predicate>()
                     when (val intent = SearchKeywordClassifier.classify(word, criteria.language)) {
                         KeywordIntent.Empty -> Unit
-                        KeywordIntent.Major -> lectures += path(Lecture::classification).`in`(listOf("전선", "전필"))
-                        KeywordIntent.Graduate -> lectures += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
-                        KeywordIntent.Undergraduate -> lectures += path(Lecture::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
-                        KeywordIntent.PhysicalEducation -> lectures += path(Lecture::category).equal("체육")
-                        is KeywordIntent.Fuzzy -> text(identities, lectures, intent.keyword, true)
-                        KeywordIntent.EnglishLecture -> text(identities, lectures, "영강", true)
-                        KeywordIntent.MilitaryLeave -> text(identities, lectures, "군휴학", true)
-                        KeywordIntent.Recommended -> text(identities, lectures, "권장과목", true)
-                        is KeywordIntent.Place -> text(identities, lectures, intent.keyword, false)
-                        is KeywordIntent.Plain -> text(identities, lectures, intent.keyword, false)
+                        KeywordIntent.Major -> alternatives += path(Course::classification).`in`(listOf("전선", "전필"))
+                        KeywordIntent.Graduate -> alternatives += path(Course::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
+                        KeywordIntent.Undergraduate ->
+                            alternatives +=
+                                path(Course::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
+                        KeywordIntent.PhysicalEducation -> alternatives += path(Course::category).equal("체육")
+                        is KeywordIntent.Fuzzy -> text(alternatives, intent.keyword, true)
+                        KeywordIntent.EnglishLecture -> text(alternatives, "영강", true)
+                        KeywordIntent.MilitaryLeave -> text(alternatives, "군휴학", true)
+                        KeywordIntent.Recommended -> text(alternatives, "권장과목", true)
+                        is KeywordIntent.Place -> text(alternatives, intent.keyword, false)
+                        is KeywordIntent.Plain -> text(alternatives, intent.keyword, false)
                     }
-                    val alternatives = identities + lectures
                     if (alternatives.isNotEmpty()) conditions += or(*alternatives.toTypedArray())
                 }
                 cursor?.let {
@@ -116,10 +129,8 @@ interface CourseRepository :
                         )
                 }
                 select(entity(Course::class))
-                    .from(
-                        entity(Course::class),
-                        leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
-                    ).where(and(*conditions.toTypedArray()))
+                    .from(entity(Course::class))
+                    .where(and(*conditions.toTypedArray()))
                     .orderBy(path(Course::evalCount).desc(), path(Course::id).asc())
             }
         }.filterNotNull()
@@ -128,20 +139,20 @@ interface CourseRepository :
         val english = criteria.language == Language.EN
         val conditions = mutableListOf<Predicate>()
         criteria.department.takeIf { it.isNotEmpty() }?.let {
-            conditions += path(if (english) Lecture::departmentEn else Lecture::department).`in`(it)
+            conditions += path(if (english) Course::departmentEn else Course::department).`in`(it)
         }
         if (criteria.yearSemesters.isEmpty()) {
-            criteria.credit.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::credit).`in`(it) }
+            criteria.credit.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::credit).`in`(it) }
             criteria.academicYear.takeIf { it.isNotEmpty() }?.let {
-                conditions += path(if (english) Lecture::academicYearEn else Lecture::academicYear).`in`(it)
+                conditions += path(if (english) Course::academicYearEn else Course::academicYear).`in`(it)
             }
             criteria.classification.takeIf { it.isNotEmpty() }?.let {
-                conditions += path(if (english) Lecture::classificationEn else Lecture::classification).`in`(it)
+                conditions += path(if (english) Course::classificationEn else Course::classification).`in`(it)
             }
             criteria.category.takeIf { it.isNotEmpty() }?.let {
-                conditions += path(if (english) Lecture::categoryEn else Lecture::category).`in`(it)
+                conditions += path(if (english) Course::categoryEn else Course::category).`in`(it)
             }
-            criteria.categoryPre2025.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::categoryPre2025).`in`(it) }
+            criteria.categoryPre2025.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::categoryPre2025).`in`(it) }
         } else {
             conditions += scopedLectures(criteria, english)
         }
@@ -179,29 +190,27 @@ interface CourseRepository :
         )
 
     private fun Jpql.text(
-        identities: MutableList<Predicate>,
-        lectures: MutableList<Predicate>,
+        conditions: MutableList<Predicate>,
         word: String,
         fuzzy: Boolean,
     ) {
         val pattern = if (fuzzy) word.toCharArray().joinToString("%", prefix = "%", postfix = "%") else "%$word%"
-        identities += path(Course::title).like(pattern)
-        identities += path(Course::instructor).like(if (fuzzy) word else pattern)
-        identities += path(Course::courseNumber).like(word)
-        lectures += path(Lecture::courseTitle).like(pattern)
-        lectures += path(Lecture::courseTitleEn).like(pattern)
-        lectures += path(Lecture::instructorEn).like(if (fuzzy) word else pattern)
+        conditions += path(Course::title).like(pattern)
+        conditions += path(Course::instructor).like(if (fuzzy) word else pattern)
+        conditions += path(Course::courseNumber).like(word)
+        conditions += path(Course::titleEn).like(pattern)
+        conditions += path(Course::instructorEn).like(if (fuzzy) word else pattern)
         if (fuzzy) {
-            lectures += path(Lecture::category).like(pattern)
-            lectures += path(Lecture::academicYear).equal(word)
-            lectures += path(Lecture::classification).equal(word)
+            conditions += path(Course::category).like(pattern)
+            conditions += path(Course::academicYear).equal(word)
+            conditions += path(Course::classification).equal(word)
             val departmentPrefix =
                 when (word.last()) {
                     '과', '부' -> word.dropLast(1)
                     '학' -> null
                     else -> word
                 }
-            departmentPrefix?.let { lectures += path(Lecture::department).like(it.toCharArray().joinToString("%", postfix = "%")) }
+            departmentPrefix?.let { conditions += path(Course::department).like(it.toCharArray().joinToString("%", postfix = "%")) }
         }
     }
 

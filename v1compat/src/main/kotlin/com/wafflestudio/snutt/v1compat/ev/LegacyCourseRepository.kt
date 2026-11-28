@@ -74,27 +74,25 @@ interface LegacyCourseRepository :
                     path(Course::courseNumber),
                     path(Course::instructor),
                     path(Course::title),
-                    path(Lecture::department),
-                    path(Lecture::credit),
-                    path(Lecture::academicYear),
-                    path(Lecture::category),
-                    path(Lecture::classification),
+                    path(Course::department),
+                    path(Course::credit),
+                    path(Course::academicYear),
+                    path(Course::category),
+                    path(Course::classification),
                     path(Course::evalCount),
                     path(Course::avgRating),
                     path(Course::avgGradeSatisfaction),
                     path(Course::avgTeachingSkill),
                     path(Course::avgGains),
                     path(Course::avgLifeBalance),
-                    path(Lecture::courseTitleEn),
-                    path(Lecture::instructorEn),
-                    path(Lecture::departmentEn),
-                    path(Lecture::academicYearEn),
-                    path(Lecture::categoryEn),
-                    path(Lecture::classificationEn),
-                ).from(
-                    entity(Course::class),
-                    leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
-                ).where(path(Course::id).`in`(courseIds))
+                    path(Course::titleEn),
+                    path(Course::instructorEn),
+                    path(Course::departmentEn),
+                    path(Course::academicYearEn),
+                    path(Course::categoryEn),
+                    path(Course::classificationEn),
+                ).from(entity(Course::class))
+                    .where(path(Course::id).`in`(courseIds))
             }
         }.filterNotNull().associateBy { it.id }
     }
@@ -112,27 +110,25 @@ interface LegacyCourseRepository :
                     path(Course::courseNumber),
                     path(Course::instructor),
                     path(Course::title),
-                    path(Lecture::department),
-                    path(Lecture::credit),
-                    path(Lecture::academicYear),
-                    path(Lecture::category),
-                    path(Lecture::classification),
+                    path(Course::department),
+                    path(Course::credit),
+                    path(Course::academicYear),
+                    path(Course::category),
+                    path(Course::classification),
                     path(Course::evalCount),
                     path(Course::avgRating),
                     path(Course::avgGradeSatisfaction),
                     path(Course::avgTeachingSkill),
                     path(Course::avgGains),
                     path(Course::avgLifeBalance),
-                    path(Lecture::courseTitleEn),
-                    path(Lecture::instructorEn),
-                    path(Lecture::departmentEn),
-                    path(Lecture::academicYearEn),
-                    path(Lecture::categoryEn),
-                    path(Lecture::classificationEn),
-                ).from(
-                    entity(Course::class),
-                    leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
-                ).where(and(*predicates(criteria).toTypedArray()))
+                    path(Course::titleEn),
+                    path(Course::instructorEn),
+                    path(Course::departmentEn),
+                    path(Course::academicYearEn),
+                    path(Course::categoryEn),
+                    path(Course::classificationEn),
+                ).from(entity(Course::class))
+                    .where(and(*predicates(criteria).toTypedArray()))
                     .orderBy(path(Course::evalCount).desc(), path(Course::id).asc())
             }
         }.filterNotNull()
@@ -142,21 +138,19 @@ interface LegacyCourseRepository :
         findAll {
             jpql {
                 select(count(path(Course::id)))
-                    .from(
-                        entity(Course::class),
-                        leftJoin(Lecture::class).on(path(Lecture::id).equal(path(Course::latestLectureId))),
-                    ).where(and(*predicates(criteria).toTypedArray()))
+                    .from(entity(Course::class))
+                    .where(and(*predicates(criteria).toTypedArray()))
             }
         }.first()!!
 
     private fun Jpql.predicates(criteria: LegacyCourseSearchCriteria): List<Predicate> {
         val conditions = mutableListOf<Predicate>()
-        criteria.department.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::department).`in`(it) }
+        criteria.department.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::department).`in`(it) }
         if (criteria.yearSemesters.isEmpty()) {
-            criteria.credit.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::credit).`in`(it) }
-            criteria.classification.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::classification).`in`(it) }
-            criteria.academicYear.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::academicYear).`in`(it) }
-            criteria.category.takeIf { it.isNotEmpty() }?.let { conditions += path(Lecture::category).`in`(it) }
+            criteria.credit.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::credit).`in`(it) }
+            criteria.classification.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::classification).`in`(it) }
+            criteria.academicYear.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::academicYear).`in`(it) }
+            criteria.category.takeIf { it.isNotEmpty() }?.let { conditions += path(Course::category).`in`(it) }
         } else {
             conditions +=
                 path(Course::id).`in`(
@@ -182,10 +176,10 @@ interface LegacyCourseRepository :
             val alternatives = mutableListOf<Predicate>()
             when (val intent = SearchKeywordClassifier.classify(word, criteria.language)) {
                 KeywordIntent.Empty -> Unit
-                KeywordIntent.Major -> alternatives += path(Lecture::classification).`in`(listOf("전선", "전필"))
-                KeywordIntent.Graduate -> alternatives += path(Lecture::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
-                KeywordIntent.Undergraduate -> alternatives += path(Lecture::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
-                KeywordIntent.PhysicalEducation -> alternatives += path(Lecture::category).equal("체육")
+                KeywordIntent.Major -> alternatives += path(Course::classification).`in`(listOf("전선", "전필"))
+                KeywordIntent.Graduate -> alternatives += path(Course::academicYear).`in`(SearchKeywordClassifier.GRADUATE_YEARS)
+                KeywordIntent.Undergraduate -> alternatives += path(Course::academicYear).notIn(SearchKeywordClassifier.GRADUATE_YEARS)
+                KeywordIntent.PhysicalEducation -> alternatives += path(Course::category).equal("체육")
                 is KeywordIntent.Fuzzy -> fuzzy(alternatives, intent.keyword)
                 KeywordIntent.EnglishLecture -> fuzzy(alternatives, "영강")
                 KeywordIntent.MilitaryLeave -> fuzzy(alternatives, "군휴학")
@@ -205,8 +199,8 @@ interface LegacyCourseRepository :
         conditions += path(Course::title).like("%$keyword%")
         conditions += path(Course::instructor).like("%$keyword%")
         conditions += path(Course::courseNumber).like(keyword)
-        conditions += path(Lecture::courseTitleEn).like("%$keyword%")
-        conditions += path(Lecture::instructorEn).like("%$keyword%")
+        conditions += path(Course::titleEn).like("%$keyword%")
+        conditions += path(Course::instructorEn).like("%$keyword%")
     }
 
     private fun Jpql.fuzzy(
@@ -215,14 +209,14 @@ interface LegacyCourseRepository :
     ) {
         val pattern = keyword.fold("%") { acc, character -> "$acc$character%" }
         conditions += path(Course::title).like(pattern)
-        conditions += path(Lecture::category).like(pattern)
+        conditions += path(Course::category).like(pattern)
         conditions += path(Course::instructor).equal(keyword)
-        conditions += path(Lecture::academicYear).equal(keyword)
-        conditions += path(Lecture::classification).equal(keyword)
+        conditions += path(Course::academicYear).equal(keyword)
+        conditions += path(Course::classification).equal(keyword)
         when (keyword.last()) {
-            '과', '부' -> conditions += path(Lecture::department).like(pattern.substring(1, pattern.length - 2))
+            '과', '부' -> conditions += path(Course::department).like(pattern.substring(1, pattern.length - 2))
             '학' -> Unit
-            else -> conditions += path(Lecture::department).like(pattern.substring(1))
+            else -> conditions += path(Course::department).like(pattern.substring(1))
         }
     }
 }
