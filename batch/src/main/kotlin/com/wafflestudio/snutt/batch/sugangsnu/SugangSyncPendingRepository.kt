@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Repository
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -16,7 +17,10 @@ data class PendingLecture(
     val lectureId: Long,
     val classTimesChanged: Boolean,
     val changedLabels: LocalizedMessage,
-    val expanded: Boolean = false,
+    /** 꺼지면(영어 값만 바뀜) 알림 없이 시간표 updated_at만 고친다. */
+    val notifiable: Boolean,
+    /** 1단계 트랜잭션이 넣은 시스템 시각. 이 시각까지 강의를 담은 시간표가 변경 알림 대상이다. */
+    val createdAt: Instant = Instant.EPOCH,
 )
 
 /** 강의 변경 하나가 닿는 시간표 하나(`sugang_sync_pending_timetable`). */
@@ -43,14 +47,18 @@ class SugangSyncPendingRepository(
 ) {
     private val named = NamedParameterJdbcTemplate(jdbcTemplate)
 
-    /** 강의 변경을 넣는다. [PendingLecture.id]는 쓰지 않는다. */
+    /**
+     * 강의 변경을 넣는다. [PendingLecture.id]·[PendingLecture.createdAt]은 쓰지 않는다. created_at은 주입된 Clock이 아니라 시스템 시각이다.
+     * `timetable_lecture.created_at`(Hibernate `@CreationTimestamp`, 시스템 시각)과 비교하기 때문이다.
+     */
     fun insertLectures(changes: List<PendingLecture>) {
         if (changes.isEmpty()) return
-        val now = now()
+        val now = LocalDateTime.ofInstant(SYSTEM_CLOCK.instant(), ZoneOffset.UTC)
         jdbcTemplate.batchUpdate(
             """
-            INSERT INTO sugang_sync_pending_lecture (lecture_id, class_times_changed, changed_labels, changed_labels_en, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO sugang_sync_pending_lecture
+                (lecture_id, class_times_changed, changed_labels, changed_labels_en, notifiable, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             changes,
             BATCH_SIZE,
@@ -59,37 +67,40 @@ class SugangSyncPendingRepository(
             ps.setBoolean(2, change.classTimesChanged)
             ps.setString(3, change.changedLabels.ko)
             ps.setString(4, change.changedLabels.en)
-            ps.setObject(5, now)
+            ps.setBoolean(5, change.notifiable)
+            ps.setObject(6, now)
         }
     }
 
     /** 남은 강의 변경을 넣은 순서(엑셀 행 순서)대로. */
     fun findLectures(): List<PendingLecture> =
         jdbcTemplate.query(
-            "SELECT id, lecture_id, class_times_changed, changed_labels, changed_labels_en, expanded FROM sugang_sync_pending_lecture ORDER BY id",
+            """
+            SELECT id, lecture_id, class_times_changed, changed_labels, changed_labels_en, notifiable, created_at
+            FROM sugang_sync_pending_lecture ORDER BY id
+            """,
         ) { rs, _ ->
             PendingLecture(
                 id = rs.getLong("id"),
                 lectureId = rs.getLong("lecture_id"),
                 classTimesChanged = rs.getBoolean("class_times_changed"),
                 changedLabels = LocalizedMessage(ko = rs.getString("changed_labels"), en = rs.getString("changed_labels_en")),
-                expanded = rs.getBoolean("expanded"),
+                notifiable = rs.getBoolean("notifiable"),
+                createdAt = rs.getObject("created_at", LocalDateTime::class.java).toInstant(ZoneOffset.UTC),
             )
         }
 
-    fun markExpanded(pendingLectureIds: Collection<Long>) {
-        if (pendingLectureIds.isEmpty()) return
-        named.update("UPDATE sugang_sync_pending_lecture SET expanded = TRUE WHERE id IN (:ids)", mapOf("ids" to pendingLectureIds))
-    }
-
-    fun findTimetablePairs(pendingLectureIds: Collection<Long>): Set<Pair<Long, Long>> {
-        if (pendingLectureIds.isEmpty()) return emptySet()
-        return named
-            .query(
-                "SELECT pending_lecture_id, timetable_id FROM sugang_sync_pending_timetable WHERE pending_lecture_id IN (:ids)",
-                mapOf("ids" to pendingLectureIds),
-            ) { rs, _ -> rs.getLong("pending_lecture_id") to rs.getLong("timetable_id") }
-            .toSet()
+    /** 이미 기록한 (강의 변경, 시간표) 중 [timetableIds]에 속한 것. */
+    fun findTimetablePairs(timetableIds: Collection<Long>): Set<Pair<Long, Long>> {
+        if (timetableIds.isEmpty()) return emptySet()
+        return timetableIds
+            .chunked(IN_CHUNK_SIZE)
+            .flatMap { chunk ->
+                named.query(
+                    "SELECT pending_lecture_id, timetable_id FROM sugang_sync_pending_timetable WHERE timetable_id IN (:ids)",
+                    mapOf("ids" to chunk),
+                ) { rs, _ -> rs.getLong("pending_lecture_id") to rs.getLong("timetable_id") }
+            }.toSet()
     }
 
     fun insertTimetables(timetables: List<PendingTimetable>) {
@@ -201,9 +212,41 @@ class SugangSyncPendingRepository(
         named.update("DELETE FROM sugang_sync_outbox WHERE id IN (:ids)", mapOf("ids" to ids))
     }
 
+    /** 옮긴 알림의 시간표 변경 수를 사용자별로 더한다. */
+    fun addPushCounts(counts: Map<Long, Pair<Int, Int>>) {
+        if (counts.isEmpty()) return
+        jdbcTemplate.batchUpdate(
+            """
+            INSERT INTO sugang_sync_push_outbox (user_id, updated, deleted) VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE updated = updated + VALUES(updated), deleted = deleted + VALUES(deleted)
+            """,
+            counts.entries.toList(),
+            BATCH_SIZE,
+        ) { ps, (userId, count) ->
+            ps.setLong(1, userId)
+            ps.setInt(2, count.first)
+            ps.setInt(3, count.second)
+        }
+    }
+
+    /** 사용자 id → (변경 수, 삭제 수). */
+    fun findPushCounts(): Map<Long, Pair<Int, Int>> =
+        jdbcTemplate
+            .query("SELECT user_id, updated, deleted FROM sugang_sync_push_outbox") { rs, _ ->
+                rs.getLong("user_id") to (rs.getInt("updated") to rs.getInt("deleted"))
+            }.toMap()
+
+    fun deletePushCounts(userIds: Collection<Long>) {
+        userIds.chunked(IN_CHUNK_SIZE).forEach { chunk ->
+            named.update("DELETE FROM sugang_sync_push_outbox WHERE user_id IN (:ids)", mapOf("ids" to chunk))
+        }
+    }
+
     private fun now(): LocalDateTime = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
 
-    private companion object {
-        const val BATCH_SIZE = 1_000
+    companion object {
+        private const val BATCH_SIZE = 1_000
+        private const val IN_CHUNK_SIZE = 1_000
+        private val SYSTEM_CLOCK: Clock = Clock.systemUTC()
     }
 }

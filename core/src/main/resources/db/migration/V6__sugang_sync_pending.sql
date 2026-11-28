@@ -6,7 +6,8 @@
 -- 행은 처리할 때 건너뛴다.
 
 -- 시간표에 반영해야 하는 강의 변경 하나. 1단계 트랜잭션이 넣고, 영향받는 시간표를 모두 반영한 뒤 관심강좌 알림을 남기면서 지운다.
--- expanded는 이 강의를 담은 시간표를 처음 펼쳐 sugang_sync_pending_timetable에 기록했는지다.
+-- notifiable이 꺼진 변경(영어 값만 바뀜)은 알림 없이 시간표 updated_at만 고친다.
+-- created_at은 timetable_lecture.created_at(Hibernate가 시스템 시각으로 채운다)과 비교하므로 같은 시스템 시각으로 채운다.
 CREATE TABLE sugang_sync_pending_lecture
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -14,12 +15,13 @@ CREATE TABLE sugang_sync_pending_lecture
     class_times_changed BOOLEAN      NOT NULL,
     changed_labels      VARCHAR(512) NOT NULL,
     changed_labels_en   VARCHAR(512) NOT NULL,
-    expanded            BOOLEAN      NOT NULL DEFAULT FALSE,
+    notifiable          BOOLEAN      NOT NULL,
     created_at          DATETIME(6)  NOT NULL
 );
 
 -- 강의 변경이 닿는 시간표. processed는 2단계 묶음 트랜잭션이 그 시간표를 반영하면서 같은 트랜잭션에서 켠다(같은 시간표를 두 번 반영하지 않는다).
--- notify가 꺼진 행은 처음 펼친 뒤에 나타난 시간표(반영 전 시간표의 복사본)다. 겹침만 바로잡고 변경 알림은 보내지 않는다.
+-- notify는 1단계가 커밋되기 전부터 강의를 담고 있던 시간표인지다(timetable_lecture.created_at <= 강의 변경의 created_at). 꺼진 행은
+-- 1단계 뒤에 강의를 담았거나(바뀐 수업 시간으로 겹침을 검사했다) 반영 전 시간표를 복사한 시간표다. 겹침만 바로잡고 변경 알림은 보내지 않는다.
 CREATE TABLE sugang_sync_pending_timetable
 (
     pending_lecture_id BIGINT  NOT NULL,
@@ -44,4 +46,13 @@ CREATE TABLE sugang_sync_outbox
     deeplink   VARCHAR(512) NULL,
     push_kind  VARCHAR(16)  NULL,
     created_at DATETIME(6)  NOT NULL
+);
+
+-- 알림을 notification으로 옮긴 사용자별 시간표 변경 수. outbox를 옮기는 트랜잭션에서 더하고, 푸시를 보낸 뒤 지운다.
+-- 푸시를 보낸 뒤 지우기 전에 죽으면 다음 실행이 한 번 더 보낸다(푸시는 잃지 않되 드물게 두 번 갈 수 있다).
+CREATE TABLE sugang_sync_push_outbox
+(
+    user_id BIGINT PRIMARY KEY,
+    updated INT NOT NULL,
+    deleted INT NOT NULL
 );
