@@ -39,7 +39,7 @@ private fun User.toResponse(authProviders: List<AuthProvider>) =
         nickname = nickname,
         nicknameTag = nicknameTag,
         email = email,
-        isEmailVerified = isEmailVerified,
+        isEmailVerified = isEmailVerified == true,
         authProviders = authProviders,
         isAdmin = isAdmin,
     )
