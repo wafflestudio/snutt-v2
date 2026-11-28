@@ -185,9 +185,10 @@ class V1CompatExceptionHandler {
                 ErrorType.EVALUATION_CONTENT_TOO_SHORT to 20004L,
                 ErrorType.INVALID_EVALUATION_SORT to 20005L,
                 ErrorType.NOT_MY_EVALUATION to 23001L,
-                ErrorType.LECTURE_NOT_FOUND to 24001L,
-                ErrorType.EVALUATION_TARGET_NOT_FOUND to 24001L,
-                ErrorType.COURSE_NOT_FOUND to 24002L,
+                // EV LECTURE_NOT_FOUND(24001)는 EV lecture = v2 course, SEMESTER_LECTURE_NOT_FOUND(24002)는 EV semester_lecture = v2 lecture
+                ErrorType.COURSE_NOT_FOUND to 24001L,
+                ErrorType.LECTURE_NOT_FOUND to 24002L,
+                ErrorType.EVALUATION_TARGET_NOT_FOUND to 24002L,
                 ErrorType.EVALUATION_NOT_FOUND to 24005L,
                 ErrorType.DUPLICATE_EVALUATION to 29001L,
                 ErrorType.MY_EVALUATION_REPORT to 29002L,
