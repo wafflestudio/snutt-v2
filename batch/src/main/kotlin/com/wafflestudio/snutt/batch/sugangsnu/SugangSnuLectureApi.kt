@@ -113,6 +113,7 @@ class SugangSnuLectureApi(
         language: String = "ko",
     ): ByteArrayResource {
         val form = excelForm(year, semester, language)
+        // 빈 응답은 0바이트 파일로 넘긴다. 영어 엑셀이면 파서가 비어 있는 것으로 보고, 한국어 엑셀이면 파서가 중단한다.
         val bytes =
             restClient
                 .post()
@@ -122,7 +123,7 @@ class SugangSnuLectureApi(
                 .accept(MediaType.TEXT_HTML)
                 .retrieve()
                 .body(ByteArray::class.java)
-                ?: throw IllegalStateException("수강스누 xlsx 다운로드 실패")
+                ?: ByteArray(0)
         return ByteArrayResource(bytes)
     }
 

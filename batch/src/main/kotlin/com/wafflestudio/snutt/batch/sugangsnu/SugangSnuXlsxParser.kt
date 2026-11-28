@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import org.apache.poi.EmptyFileException
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.WorkbookFactory
@@ -32,6 +33,15 @@ data class SugangLectureRow(
     val remarkEn: String? = null,
 )
 
+/**
+ * [englishAvailable]이 false면 영어 엑셀에 강의 행이 없었다(학기 초에 한국어 엑셀만 먼저 공개되는 경우).
+ * 이때 [rows]의 영어 필드는 비어 있고, 동기화는 상세 API가 주지 않은 영어 필드를 기존 강의 값으로 보존해야 한다. 신규 강의는 상세 API의 영어 값만 갖는다.
+ */
+data class SugangLectureXlsx(
+    val rows: List<SugangLectureRow>,
+    val englishAvailable: Boolean,
+)
+
 @Component
 class SugangSnuXlsxParser {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -46,9 +56,18 @@ class SugangSnuXlsxParser {
         val remarkEn: String?,
     )
 
-    private fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> =
-        WorkbookFactory.create(englishXlsx.inputStream).use { workbook ->
-            val sheet = workbook.getSheetAt(0)
+    private fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
+        // 영어 엑셀이 공개되기 전에는 0바이트 파일이나 시트·헤더 셀 없는 파일로 오기도 한다. 강의 행이 없는 것과 같게 본다.
+        val workbook =
+            try {
+                WorkbookFactory.create(englishXlsx.inputStream)
+            } catch (e: EmptyFileException) {
+                return emptyMap()
+            }
+        return workbook.use {
+            val sheet = workbook.takeIf { it.numberOfSheets > 0 }?.getSheetAt(0) ?: return emptyMap()
+            val header = sheet.getRow(HEADER_ROW)
+            if (header == null || header.lastCellNum <= 0) return emptyMap()
             val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
             (3..sheet.lastRowNum)
                 .mapNotNull { rowNum ->
@@ -75,13 +94,23 @@ class SugangSnuXlsxParser {
                         )
                 }.toMap()
         }
+    }
 
     fun parse(
         koreanXlsx: Resource,
         englishXlsx: Resource,
-    ): List<SugangLectureRow> {
+    ): SugangLectureXlsx {
         val englishByKey = parseEnglish(englishXlsx)
-        return WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
+        if (englishByKey.isEmpty()) log.warn("영어 xlsx에 강의 행이 없다. 상세 API의 영어 값으로 동기화하고 없는 필드는 기존 강의 값을 보존한다")
+        val rows = parseKorean(koreanXlsx, englishByKey)
+        return SugangLectureXlsx(rows, englishAvailable = englishByKey.isNotEmpty())
+    }
+
+    private fun parseKorean(
+        koreanXlsx: Resource,
+        englishByKey: Map<Pair<String, String>, SugangLectureRowEnglish>,
+    ): List<SugangLectureRow> =
+        WorkbookFactory.create(koreanXlsx.inputStream).use { workbook ->
             val sheet = workbook.getSheetAt(0)
             val headerIndex = headerIndex(sheet, REQUIRED_KOREAN_HEADERS)
             val rows =
@@ -91,15 +120,13 @@ class SugangSnuXlsxParser {
             log.info("xlsx에서 {}개 강의 행 파싱", rows.size)
             rows
         }
-    }
 
     private fun headerIndex(
         sheet: Sheet,
         requiredHeaders: Set<String>,
     ): Map<String, Int> {
         val headerIndex =
-            sheet
-                .getRow(2)
+            requireNotNull(sheet.getRow(HEADER_ROW)) { "xlsx에 헤더 행이 없다" }
                 .let { row -> (0 until row.lastCellNum).associate { row.getCell(it)?.stringCellValue.orEmpty() to it } }
         val missing = requiredHeaders - headerIndex.keys
         if (missing.isNotEmpty()) throw IllegalArgumentException("xlsx 필수 컬럼이 없다: ${missing.sorted()}")
@@ -174,6 +201,7 @@ class SugangSnuXlsxParser {
     }
 
     companion object {
+        private const val HEADER_ROW = 2
         private val REQUIRED_ENGLISH_HEADERS =
             setOf(
                 "Course Number",
