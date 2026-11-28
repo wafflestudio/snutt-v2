@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.core.common.error.SnuttException
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
-import org.springframework.web.ErrorResponse
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.servlet.HandlerExceptionResolver
 import org.springframework.web.servlet.ModelAndView
@@ -36,7 +35,7 @@ class V1PathExceptionResolver(
             } else {
                 unexpectedV1ErrorResponse(ex, language)
             }
-        if (snuttException == null && ex !is ErrorResponse) log.error("unhandled exception", ex)
+        if (snuttException == null && ex.isServerError()) log.error("unhandled exception", ex)
         response.status = entity.statusCode.value()
         response.contentType = entity.headers.contentType.toString()
         response.characterEncoding = Charsets.UTF_8.name()
