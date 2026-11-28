@@ -142,10 +142,13 @@ class SugangSnuSyncService(
                     try {
                         Result.success(action())
                     } finally {
-                        connection.prepareStatement("SELECT RELEASE_LOCK(?)").use { ps ->
-                            ps.setString(1, SYNC_LOCK_NAME)
-                            ps.executeQuery().close()
-                        }
+                        // 풀지 못하는 건 커넥션이 끊겼을 때다. 그러면 MySQL이 이미 락을 풀었으므로, 동기화 결과(성공이나 원래 예외)를 덮지 않는다.
+                        runCatching {
+                            connection.prepareStatement("SELECT RELEASE_LOCK(?)").use { ps ->
+                                ps.setString(1, SYNC_LOCK_NAME)
+                                ps.executeQuery().close()
+                            }
+                        }.onFailure { log.warn("수강편람 동기화 락($SYNC_LOCK_NAME)을 풀지 못했다", it) }
                     }
                 },
             ),
