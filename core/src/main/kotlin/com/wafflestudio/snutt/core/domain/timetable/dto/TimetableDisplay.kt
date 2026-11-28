@@ -7,7 +7,10 @@ import com.wafflestudio.snutt.core.domain.theme.dto.TimetableThemeDisplay
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
 import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import com.wafflestudio.snutt.core.domain.timetable.model.TimetableLecture
+import org.slf4j.LoggerFactory
 import java.time.Instant
+
+private val log = LoggerFactory.getLogger(TimetableLectureDisplay::class.java)
 
 data class TimetableLectureDisplay(
     val id: Long,
@@ -46,6 +49,19 @@ fun TimetableLectureDisplay(
     theme: TimetableThemeDisplay,
 ): TimetableLectureDisplay {
     val overrides = timetableLecture.overrides
+    // 조회는 timetable(테마)과 timetable_lecture(index)를 따로 읽으므로 그사이 테마 변경이 커밋되면 index가 팔레트 밖일 수 있다(일시적).
+    // 마이그레이션된 데이터의 범위 밖 index도 같다. 팔레트 크기로 접고, 색과 응답 index를 같은 값으로 맞춘다.
+    val paletteIndex = timetableLecture.paletteIndex.mod(theme.colors.size)
+    if (paletteIndex != timetableLecture.paletteIndex) {
+        log.warn(
+            "palette index {} is outside theme {} ({} colors) for timetable_lecture {}; using {}",
+            timetableLecture.paletteIndex,
+            theme.id,
+            theme.colors.size,
+            timetableLecture.id,
+            paletteIndex,
+        )
+    }
     return TimetableLectureDisplay(
         id = checkNotNull(timetableLecture.id),
         lectureId = lecture?.id,
@@ -64,10 +80,9 @@ fun TimetableLectureDisplay(
         credit = overrides?.credit ?: lecture?.credit,
         remark = overrides?.remark ?: lecture?.remark,
         classPlaceAndTimes = overrides?.classPlaceAndTimes ?: classTimes,
-        // 조회는 timetable(테마)과 timetable_lecture(index)를 따로 읽으므로 그사이 테마 변경이 커밋되면 index가 팔레트 밖일 수 있다(일시적).
-        color = timetableLecture.customColor ?: theme.colors[timetableLecture.paletteIndex.mod(theme.colors.size)],
+        color = timetableLecture.customColor ?: theme.colors[paletteIndex],
         customColor = timetableLecture.customColor,
-        paletteIndex = timetableLecture.paletteIndex,
+        paletteIndex = paletteIndex,
         courseTitleEn = lecture?.courseTitleEn.takeIf { overrides?.courseTitle == null },
         instructorEn = lecture?.instructorEn.takeIf { overrides?.instructor == null },
         departmentEn = lecture?.departmentEn,
