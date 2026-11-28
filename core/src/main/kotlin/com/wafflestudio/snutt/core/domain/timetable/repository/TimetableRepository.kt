@@ -26,6 +26,11 @@ interface TimetableRepository : JpaRepository<Timetable, Long> {
         userId: Long,
     ): Timetable?
 
+    /** 여러 시간표를 id 순으로 잠근다(수강편람 동기화). 사용자 요청과 같이 timetable 행을 먼저 잠그고 timetable_lecture를 고친다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM Timetable t WHERE t.id IN :ids ORDER BY t.id")
+    fun findAllForUpdateByIdIn(ids: Collection<Long>): List<Timetable>
+
     fun findByUserId(userId: Long): List<Timetable>
 
     fun findByUserIdAndYearAndSemester(
