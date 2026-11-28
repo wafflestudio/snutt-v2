@@ -191,7 +191,9 @@ class TimetableLectureReminderService(
         timetableLectureId: Long,
         option: TimetableLectureReminderOption,
     ): TimetableLectureReminderDisplay {
-        val timetable = timetableService.getTimetable(userId, timetableId)
+        // 시간표 행을 먼저 잠근다(강의 수정·삭제, 수강편람 동기화와 같은 순서). 같은 강의의 리마인더 동시 설정도 여기서 줄을 선다.
+        val timetable =
+            timetableRepository.findForUpdateByIdAndUserId(timetableId, userId) ?: throw SnuttException(ErrorType.TIMETABLE_NOT_FOUND)
         val row =
             timetableLectureRepository.findReminderRowByTimetableIdAndId(timetable.id!!, timetableLectureId)
                 ?: throw SnuttException(ErrorType.TIMETABLE_LECTURE_NOT_FOUND)

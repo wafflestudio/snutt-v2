@@ -69,8 +69,9 @@ class TimetableLectureService(
         request: TimetableLectureAddRequest,
     ): TimetableDisplay {
         val timetable = lockTimetable(userId, timetableId)
+        // 공유 락: 수강편람 동기화가 이 강의의 수업 시간을 바꾸거나 강의를 지우는 중이면 그 커밋 뒤의 값으로 겹침을 검사한다.
         val lecture =
-            lectureRepository.findByIdOrNull(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+            lectureRepository.findForShareById(request.lectureId) ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         if (timetable.year != lecture.year || timetable.semester != lecture.semester) {
             throw SnuttException(ErrorType.LECTURE_SEMESTER_MISMATCH)
         }
