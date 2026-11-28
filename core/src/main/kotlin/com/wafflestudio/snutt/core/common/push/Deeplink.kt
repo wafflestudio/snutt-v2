@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.core.common.push
 
-import com.wafflestudio.snutt.core.common.enums.Semester
+import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
+import com.wafflestudio.snutt.core.domain.timetable.model.Timetable
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -23,39 +24,47 @@ sealed interface Deeplink {
     }
 
     data class TimetableLecture(
-        val timetableId: Long,
-        val lectureId: Long,
+        val timetable: Timetable,
+        val lecture: Lecture,
     ) : Deeplink {
         override val path = "timetable-lecture"
-        override val query get() = mapOf("timetableId" to timetableId, "lectureId" to lectureId)
+        override val query get() = mapOf("timetableIdV2" to checkNotNull(timetable.id), "lectureIdV2" to checkNotNull(lecture.id))
     }
 
     data class Bookmarks(
-        val year: Int,
-        val semester: Semester,
-        val lectureId: Long,
+        val lecture: Lecture,
     ) : Deeplink {
         override val path = "bookmarks"
-        override val query get() = mapOf("year" to year, "semester" to semester.name, "lectureId" to lectureId)
+        override val query get() =
+            mapOf(
+                "year" to lecture.year,
+                "semester" to lecture.semester.name,
+                "lectureIdV2" to checkNotNull(lecture.id),
+            )
     }
 
     data class Diary(
-        val lectureId: Long,
-        val courseTitle: String,
+        val lecture: Lecture,
     ) : Deeplink {
         override val path = "diary"
-        override val query get() = mapOf("lectureId" to lectureId, "courseTitle" to courseTitle)
+        override val query get() = mapOf("lectureIdV2" to checkNotNull(lecture.id), "courseTitle" to lecture.courseTitle)
     }
+}
+
+fun interface DeeplinkQueryContributor {
+    fun parametersFor(deeplink: Deeplink): Map<String, Any>
 }
 
 @Component
 class DeeplinkResolver(
     environment: Environment,
+    private val queryContributors: List<DeeplinkQueryContributor>,
 ) {
     private val scheme = if (environment.matchesProfiles("prod")) "snutt" else "snutt-dev"
 
     fun build(deeplink: Deeplink): String {
-        val query = deeplink.query.entries.joinToString("&") { (key, value) -> "$key=${encode(value.toString())}" }
+        val parameters = queryContributors.fold(deeplink.query) { query, contributor -> query + contributor.parametersFor(deeplink) }
+        val query = parameters.entries.joinToString("&") { (key, value) -> "$key=${encode(value.toString())}" }
         return "$scheme://${deeplink.path}" + if (query.isEmpty()) "" else "?$query"
     }
 

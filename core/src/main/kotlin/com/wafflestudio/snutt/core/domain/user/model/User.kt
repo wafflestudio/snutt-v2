@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.user.model
 
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table
@@ -26,4 +26,4 @@ class User(
     var tokenVersion: Int = 0,
     var lastLoginAt: Instant = Instant.now(),
     var notificationCheckedAt: Instant = Instant.now(),
-) : BaseEntity()
+) : V1Entity()

@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.popup.model
 
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import jakarta.persistence.Entity
 
 @Entity
@@ -9,4 +9,4 @@ class Popup(
     var imageOriginUri: String,
     var linkUrl: String? = null,
     var hiddenDays: Int? = null,
-) : BaseEntity()
+) : V1Entity()

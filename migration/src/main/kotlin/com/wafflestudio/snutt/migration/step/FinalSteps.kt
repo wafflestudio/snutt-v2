@@ -123,7 +123,7 @@ class ValidateStep(
             "lecture",
             mongo.count("lectures") + evOnlyLectures(),
             count("lecture"),
-            tolerated = resolved(ResolutionReasons.LECTURE_DUPLICATE, ResolutionReasons.EV_LECTURE_DUPLICATE),
+            tolerated = resolved(ResolutionReasons.EV_LECTURE_DUPLICATE),
         )
         compare(
             failures,
@@ -144,7 +144,7 @@ class ValidateStep(
             "timetable_theme",
             mongo.count("timetableTheme", Filters.eq("isCustom", true)),
             count("timetable_theme", "builtin_code IS NULL"),
-            tolerated = resolved(ResolutionReasons.THEME_USER_MISSING, ResolutionReasons.THEME_DOWNLOAD_MERGED),
+            tolerated = resolved(ResolutionReasons.THEME_USER_MISSING),
         )
         compare(
             failures,
@@ -229,7 +229,6 @@ class ValidateStep(
                 resolved(
                     ResolutionReasons.FRIEND_USER_MISSING,
                     ResolutionReasons.FRIEND_USER_INACTIVE,
-                    ResolutionReasons.FRIEND_DUPLICATE,
                 ),
         )
         compare(
@@ -262,12 +261,27 @@ class ValidateStep(
             tolerated = resolved(ResolutionReasons.EVALUATION_REPORT_USER_MISSING),
         )
 
-        val leakedObjectIds =
-            jdbc.queryForObject(
-                "SELECT COUNT(*) FROM notification WHERE deeplink REGEXP '[0-9a-fA-F]{24}'",
-                Long::class.java,
-            ) ?: 0L
-        if (leakedObjectIds > 0L) failures += "알림 deeplink에 구 ObjectId가 남아 있다: ${leakedObjectIds}건"
+        for (table in listOf(
+            "user",
+            "lecture",
+            "timetable",
+            "timetable_lecture",
+            "timetable_theme",
+            "published_theme",
+            "friend",
+            "notification",
+            "diary_question",
+            "diary_submission",
+            "coursebook",
+            "popup",
+            "lecture_building",
+            "semester_registration_period",
+            "diary_daily_class_type",
+            "mail_log",
+        )) {
+            val invalid = count(table, "idv1 NOT REGEXP '^[0-9a-f]{24}$'")
+            if (invalid > 0) failures += "$table: 잘못된 idv1 $invalid"
+        }
 
         if (context.resolutions.isNotEmpty()) {
             log.warn("원본이 v2 제약을 위반해 손본 항목:")

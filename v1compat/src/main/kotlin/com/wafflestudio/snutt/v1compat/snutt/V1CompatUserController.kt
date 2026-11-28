@@ -225,7 +225,7 @@ private fun UserSocialAuthRepository.facebookName(userId: Long): String? =
 
 internal fun User.toLegacyUserDto(fbName: String?) =
     LegacyUserDto(
-        id = id!!.toString(),
+        id = idV1,
         isAdmin = isAdmin,
         regDate = checkNotNull(createdAt),
         notificationCheckedAt = notificationCheckedAt,

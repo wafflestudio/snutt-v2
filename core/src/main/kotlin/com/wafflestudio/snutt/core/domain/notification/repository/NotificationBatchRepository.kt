@@ -18,8 +18,8 @@ class NotificationBatchRepositoryImpl(
         val now = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC)
         jdbcTemplate.batchUpdate(
             """
-            INSERT INTO notification (user_id, title, title_en, message, message_en, type, deeplink, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO notification (user_id, title, title_en, message, message_en, type, deeplink, created_at, updated_at, idv1)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             notifications,
             BATCH_SIZE,
@@ -33,6 +33,7 @@ class NotificationBatchRepositoryImpl(
             ps.setString(7, notification.deeplink)
             ps.setObject(8, now)
             ps.setObject(9, now)
+            ps.setString(10, notification.idV1)
         }
     }
 

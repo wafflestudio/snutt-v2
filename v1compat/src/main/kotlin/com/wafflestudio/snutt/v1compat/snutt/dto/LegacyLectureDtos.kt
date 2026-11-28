@@ -46,7 +46,7 @@ fun LegacyLectureDto(
     status: LectureRegistrationStatus? = null,
 ): LegacyLectureDto =
     LegacyLectureDto(
-        id = lecture.id!!.toString(),
+        id = lecture.idV1,
         academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
         category = language.select(lecture.category, lecture.categoryEn),
         classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
@@ -102,7 +102,7 @@ fun LegacyBookmarkLectureDto(
     evaluationSummary: LegacyEvSummary? = null,
 ): LegacyBookmarkLectureDto =
     LegacyBookmarkLectureDto(
-        id = lecture.id!!.toString(),
+        id = lecture.idV1,
         academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
         category = language.select(lecture.category, lecture.categoryEn),
         classPlaceAndTimes = classTimes.map { LegacyClassPlaceAndTimeFullDto(it) },

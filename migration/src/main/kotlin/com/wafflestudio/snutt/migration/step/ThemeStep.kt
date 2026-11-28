@@ -18,6 +18,7 @@ import com.wafflestudio.snutt.migration.requireStr
 import com.wafflestudio.snutt.migration.str
 import com.wafflestudio.snutt.migration.toSqlTimestamp
 import org.bson.Document
+import org.bson.types.ObjectId
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
@@ -77,6 +78,7 @@ class ThemeStep(
                     val d = source.document
                     out.add(
                         source.id,
+                        d.id(),
                         source.userId,
                         source.name,
                         jsonMapper.writeValueAsString(source.palette),
@@ -90,6 +92,7 @@ class ThemeStep(
                     publicationsBySource[d.id()] = publication
                     publications.add(
                         publication.id,
+                        d.id(),
                         source.userId,
                         source.id,
                         name,
@@ -119,6 +122,7 @@ class ThemeStep(
                                     val archived = Publication(publicationIds.next(), source.name, source.palette)
                                     publications.add(
                                         archived.id,
+                                        ObjectId().toHexString(),
                                         origin?.oid("authorId")?.let(context.userIds::get),
                                         null,
                                         archived.name,
@@ -134,21 +138,18 @@ class ThemeStep(
                             }
                         val key = source.userId to publication.id
                         val previous = downloadsByUser[key]
-                        if (previous != null) {
-                            context.themeIds[d.id()] = previous
-                            context.resolved(MigrationSupport.ResolutionReasons.THEME_DOWNLOAD_MERGED)
-                        } else {
-                            downloadsByUser[key] = source.id
-                            downloads.add(
-                                source.id,
-                                source.userId,
-                                publication.name,
-                                jsonMapper.writeValueAsString(publication.palette),
-                                publication.id,
-                                d.instant("createdAt").orNow().toSqlTimestamp(),
-                                d.instant("updatedAt").orNow().toSqlTimestamp(),
-                            )
-                        }
+                        check(previous == null) { "중복 다운로드 테마: ObjectId ${d.id()}, 대상 테마 $previous. 원본을 정리한 뒤 다시 이관해야 한다" }
+                        downloadsByUser[key] = source.id
+                        downloads.add(
+                            source.id,
+                            d.id(),
+                            source.userId,
+                            publication.name,
+                            jsonMapper.writeValueAsString(publication.palette),
+                            publication.id,
+                            d.instant("createdAt").orNow().toSqlTimestamp(),
+                            d.instant("updatedAt").orNow().toSqlTimestamp(),
+                        )
                     }
                 }
             }
@@ -173,10 +174,11 @@ class ThemeStep(
     }
 
     companion object {
-        private val THEME_COLUMNS = listOf("id", "user_id", "name", "colors", "publication_id", "created_at", "updated_at")
+        private val THEME_COLUMNS = listOf("id", "idv1", "user_id", "name", "colors", "publication_id", "created_at", "updated_at")
         private val PUBLICATION_COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "author_id",
                 "source_theme_id",
                 "name",

@@ -278,7 +278,7 @@ class SugangSnuSyncService(
                             NotificationType.LECTURE_UPDATE,
                             lecture.localizedCourseTitle,
                             labels = labels,
-                            deeplink = deeplinkResolver.build(Deeplink.TimetableLecture(timetable.id!!, lecture.id!!)),
+                            deeplink = deeplinkResolver.build(Deeplink.TimetableLecture(timetable, lecture)),
                         )
                 }
             }
@@ -427,7 +427,7 @@ class SugangSnuSyncService(
         val args = listOfNotNull(yearAndSemesterLabel(lecture.year, lecture.semester), lecture.localizedCourseTitle, labels)
         return template
             .render(*args.toTypedArray())
-            .copy(urlScheme = deeplinkResolver.build(Deeplink.Bookmarks(lecture.year, lecture.semester, lecture.id!!)))
+            .copy(urlScheme = deeplinkResolver.build(Deeplink.Bookmarks(lecture)))
             .toNotification(userId, type)
     }
 

@@ -187,11 +187,11 @@ internal fun legacyMainTagGroup(language: Language): LegacyEvTagGroupDto =
 
 internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.id == tagId }?.tag
 
-internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemesterDto {
+internal fun EvaluationDisplay.toLegacyWithSemester(userIdV1: String?): LegacyEvaluationWithSemesterDto {
     val e = evaluation
     return LegacyEvaluationWithSemesterDto(
         id = e.id,
-        userId = e.userId?.toString(),
+        userId = userIdV1,
         content = e.content,
         gradeSatisfaction = e.gradeSatisfaction,
         teachingSkill = e.teachingSkill,
@@ -212,11 +212,14 @@ internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemes
     )
 }
 
-internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, LegacyCourseMetadata>): LegacyEvaluationWithLectureDto {
+internal fun EvaluationDisplay.toLegacyWithLecture(
+    courseMap: Map<Long, LegacyCourseMetadata>,
+    userIdV1: String?,
+): LegacyEvaluationWithLectureDto {
     val e = evaluation
     return LegacyEvaluationWithLectureDto(
         id = e.id,
-        userId = e.userId?.toString(),
+        userId = userIdV1,
         content = e.content,
         gradeSatisfaction = e.gradeSatisfaction,
         teachingSkill = e.teachingSkill,
@@ -243,11 +246,11 @@ internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, LegacyCo
 internal fun EvaluationDisplay.toLegacyLike(): LegacyEvaluationLikeResponse =
     LegacyEvaluationLikeResponse(likeCount = evaluation.likeCount, isLiked = isLiked)
 
-internal fun EvaluationDisplay.toLegacyCreate(): LegacyEvaluationCreateResponse {
+internal fun EvaluationDisplay.toLegacyCreate(userIdV1: String?): LegacyEvaluationCreateResponse {
     val e = evaluation
     return LegacyEvaluationCreateResponse(
         id = e.id,
-        userId = e.userId?.toString(),
+        userId = userIdV1,
         content = e.content,
         gradeSatisfaction = e.gradeSatisfaction,
         teachingSkill = e.teachingSkill,

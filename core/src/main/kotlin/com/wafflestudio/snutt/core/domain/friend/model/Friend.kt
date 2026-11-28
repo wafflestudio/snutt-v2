@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.friend.model
 
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import jakarta.persistence.Entity
 
 @Entity
@@ -10,7 +10,7 @@ class Friend(
     var fromDisplayName: String? = null,
     var toDisplayName: String? = null,
     var isAccepted: Boolean = false,
-) : BaseEntity() {
+) : V1Entity() {
     fun includes(userId: Long): Boolean = fromUserId == userId || toUserId == userId
 
     fun getPartnerUserId(userId: Long): Long {

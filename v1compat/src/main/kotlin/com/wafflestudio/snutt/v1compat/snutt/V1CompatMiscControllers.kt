@@ -193,7 +193,7 @@ class V1CompatBuildingController(
 
     private fun LectureBuilding.toLegacy() =
         LegacyLectureBuildingDto(
-            id = id!!.toString(),
+            id = idV1,
             buildingNumber = buildingNumber,
             buildingNameKor = buildingNameKor,
             buildingNameEng = buildingNameEng,

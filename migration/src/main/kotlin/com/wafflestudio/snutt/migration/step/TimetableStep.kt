@@ -70,6 +70,7 @@ class TimetableStep(
 
                     timetables.add(
                         id,
+                        externalId,
                         userId,
                         year,
                         semester,
@@ -80,9 +81,12 @@ class TimetableStep(
                         updatedAt,
                     )
 
+                    val entryIds = HashSet<String>()
                     doc.docs("lecture_list").forEach { item ->
+                        val entryId = item.id()
+                        check(entryIds.add(entryId)) { "시간표 $externalId 안에 강의 ObjectId $entryId 가 중복된다. 원본을 정리한 뒤 다시 이관해야 한다" }
                         val lectureId = lectureIds.next()
-                        context.timetableLectureIds[externalId to item.id()] = lectureId
+                        context.timetableLectureIds[externalId to entryId] = lectureId
                         lectures.add(*item.toRow(lectureId, id, updatedAt, context.themePalettes.getValue(themeId)))
                     }
                 }
@@ -236,6 +240,7 @@ class TimetableStep(
         }
         return arrayOf(
             id,
+            this.id(),
             timetableId,
             lectureId,
             color?.takeIf { matchedIndex == null }?.let(jsonMapper::writeValueAsString),
@@ -292,6 +297,7 @@ class TimetableStep(
         private val TIMETABLE_COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "user_id",
                 "year",
                 "semester",
@@ -304,6 +310,7 @@ class TimetableStep(
         private val TIMETABLE_LECTURE_COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "timetable_id",
                 "lecture_id",
                 "custom_color",

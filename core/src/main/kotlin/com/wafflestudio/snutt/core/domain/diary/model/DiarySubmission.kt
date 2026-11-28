@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.diary.model
 
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -21,4 +21,4 @@ class DiarySubmission(
     var courseTitle: String,
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var comment: String,
-) : BaseEntity()
+) : V1Entity()

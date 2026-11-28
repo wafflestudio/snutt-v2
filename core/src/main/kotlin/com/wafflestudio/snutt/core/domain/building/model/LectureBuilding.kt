@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.building.model
 
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -18,4 +18,4 @@ class LectureBuilding(
     var locationInDms: GeoCoordinate? = null,
     @JdbcTypeCode(SqlTypes.JSON)
     var locationInDecimal: GeoCoordinate? = null,
-) : BaseEntity()
+) : V1Entity()

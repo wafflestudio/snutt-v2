@@ -78,7 +78,10 @@ class MailLogIntegrationTest : AbstractApiIntegrationTest() {
         assertEquals("NO_ACCOUNT", mailLogs("email=nobody@snu.ac.kr").single()["status"].asString())
         assertEquals("PASSWORD_RESET", mailLogs("localId=nobody").single()["type"].asString())
         assertEquals("NO_ACCOUNT", mailLogs("email=${longEmail.take(255)}").single()["status"].asString())
-        assertEquals(sent["id"].asLong(), v1MailLogs("email=mailuser@snu.ac.kr").single()["id"].asString().toLong())
+        assertEquals(
+            jdbcTemplate.queryForObject("SELECT idv1 FROM mail_log WHERE id = ?", String::class.java, sent["id"].asLong()),
+            v1MailLogs("email=mailuser@snu.ac.kr").single()["id"].asString(),
+        )
         assertEquals(403, get("/v2/admin/mail-logs?email=mailuser@snu.ac.kr", register("normaluser")).statusCode.value())
     }
 

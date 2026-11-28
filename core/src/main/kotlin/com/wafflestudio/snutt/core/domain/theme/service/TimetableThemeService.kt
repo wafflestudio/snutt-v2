@@ -270,6 +270,7 @@ class TimetableThemeService(
             theme.id!! to
                 TimetableThemeDisplay(
                     id = theme.id!!,
+                    idV1 = theme.idV1,
                     userId = theme.userId,
                     name = theme.name,
                     colors = theme.colors,

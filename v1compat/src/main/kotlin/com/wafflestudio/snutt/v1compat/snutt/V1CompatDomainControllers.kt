@@ -31,6 +31,8 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.vacancy.service.VacancyNotificationService
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.id.V1IdRepository
+import com.wafflestudio.snutt.v1compat.id.V1IdTable
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyBookmarkLectureDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyLectureDto
@@ -64,7 +66,7 @@ data class LegacyFriendDisplayNameRequest(
 
 data class LegacyBookmarkLectureRequest(
     @param:JsonProperty("lecture_id")
-    val lectureId: Long,
+    val lectureId: String,
 )
 
 data class LegacyFeedbackRequest(
@@ -136,18 +138,18 @@ data class LegacyFriendClassPlaceAndTimeDto(
 )
 
 private fun TimetableDisplay.toLegacyFriendTimetable(
-    userId: Long,
+    userId: String,
     language: Language,
 ): LegacyFriendTimetableDto =
     LegacyFriendTimetableDto(
-        id = timetable.id?.toString(),
-        userId = userId.toString(),
+        id = timetable.idV1,
+        userId = userId,
         year = timetable.year,
         semester = timetable.semester,
         lectures =
             lectures.map { lecture ->
                 LegacyFriendTimetableLectureDto(
-                    id = lecture.id.toString(),
+                    id = lecture.idV1,
                     academicYear = language.select(lecture.academicYear, lecture.academicYearEn),
                     category = language.select(lecture.category, lecture.categoryEn),
                     classPlaceAndTimes =
@@ -171,13 +173,13 @@ private fun TimetableDisplay.toLegacyFriendTimetable(
                     courseTitle = language.select(lecture.courseTitle, lecture.courseTitleEn),
                     color = lecture.legacyColor(theme.kind),
                     colorIndex = lecture.legacyColorIndex(theme.kind),
-                    lectureId = lecture.lectureId?.toString(),
+                    lectureId = lecture.lectureIdV1,
                     categoryPre2025 = lecture.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
                 )
             },
         title = timetable.title,
         theme = legacyThemeValue(theme.builtinCode),
-        themeId = timetable.themeId.takeIf { theme.builtinCode == null }?.toString(),
+        themeId = theme.idV1.takeIf { theme.builtinCode == null },
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
@@ -187,8 +189,8 @@ private fun legacyFriend(
     partner: User,
     myUserId: Long,
 ) = LegacyFriendDto(
-    id = friend.id!!.toString(),
-    userId = partner.id!!.toString(),
+    id = friend.idV1,
+    userId = partner.idV1,
     displayName = friend.getPartnerDisplayName(myUserId),
     nickname =
         LegacyFriendNicknameDto(
@@ -201,6 +203,7 @@ private fun legacyFriend(
 @RestController
 @RequestMapping("/v1/friends")
 class V1CompatFriendController(
+    private val v1Ids: V1IdRepository,
     private val friendService: FriendService,
     private val timetableService: TimetableService,
 ) {
@@ -233,34 +236,34 @@ class V1CompatFriendController(
     @PostMapping("/{friendId}/accept")
     fun acceptFriend(
         @V1CurrentUser user: User,
-        @PathVariable friendId: Long,
+        @PathVariable friendId: String,
     ) {
-        friendService.acceptFriend(friendId, user.id!!)
+        friendService.acceptFriend(v1Ids.id(V1IdTable.FRIEND, friendId), user.id!!)
     }
 
     @PostMapping("/{friendId}/decline")
     fun declineFriend(
         @V1CurrentUser user: User,
-        @PathVariable friendId: Long,
+        @PathVariable friendId: String,
     ) {
-        friendService.declineFriend(friendId, user.id!!)
+        friendService.declineFriend(v1Ids.id(V1IdTable.FRIEND, friendId), user.id!!)
     }
 
     @PatchMapping("/{friendId}/display-name")
     fun updateFriendDisplayName(
         @V1CurrentUser user: User,
-        @PathVariable friendId: Long,
+        @PathVariable friendId: String,
         @RequestBody body: LegacyFriendDisplayNameRequest,
     ) {
-        friendService.updateFriendDisplayName(user.id!!, friendId, body.displayName)
+        friendService.updateFriendDisplayName(user.id!!, v1Ids.id(V1IdTable.FRIEND, friendId), body.displayName)
     }
 
     @DeleteMapping("/{friendId}")
     fun breakFriend(
         @V1CurrentUser user: User,
-        @PathVariable friendId: Long,
+        @PathVariable friendId: String,
     ) {
-        friendService.breakFriend(friendId, user.id!!)
+        friendService.breakFriend(v1Ids.id(V1IdTable.FRIEND, friendId), user.id!!)
     }
 
     @GetMapping("/generate-link")
@@ -280,23 +283,23 @@ class V1CompatFriendController(
     @GetMapping("/{friendId}/primary-table")
     fun getPrimaryTable(
         @V1CurrentUser user: User,
-        @PathVariable friendId: Long,
+        @PathVariable friendId: String,
         @RequestParam year: Int,
         @RequestParam semester: Semester,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyFriendTimetableDto {
-        val partnerId = friendService.getAccepted(user.id!!, friendId).getPartnerUserId(user.id!!)
+        val partnerId = friendService.getAccepted(user.id!!, v1Ids.id(V1IdTable.FRIEND, friendId)).getPartnerUserId(user.id!!)
         val timetable = timetableService.getUserPrimaryTable(partnerId, year, semester)
         val display = timetableService.getTimetableDisplay(partnerId, timetable.id!!)
-        return display.toLegacyFriendTimetable(partnerId, clientInfo.language)
+        return display.toLegacyFriendTimetable(v1Ids.v1Id(V1IdTable.USER, partnerId), clientInfo.language)
     }
 
     @GetMapping("/{friendId}/coursebooks", "/{friendId}/registered-course-books")
     fun getCoursebooks(
         @V1CurrentUser user: User,
-        @PathVariable friendId: Long,
+        @PathVariable friendId: String,
     ): List<LegacyFriendCoursebookDto> {
-        val partnerId = friendService.getAccepted(user.id!!, friendId).getPartnerUserId(user.id!!)
+        val partnerId = friendService.getAccepted(user.id!!, v1Ids.id(V1IdTable.FRIEND, friendId)).getPartnerUserId(user.id!!)
         return timetableService
             .getCoursebooksWithPrimaryTable(partnerId)
             .map { LegacyFriendCoursebookDto(year = it.year, semester = it.semester.value) }
@@ -323,6 +326,7 @@ data class LegacyNotificationCountResponse(
 @RestController
 @RequestMapping("/v1/notification")
 class V1CompatNotificationController(
+    private val v1Ids: V1IdRepository,
     private val notificationService: NotificationService,
     private val legacyNotificationRepository: LegacyNotificationRepository,
 ) {
@@ -347,10 +351,10 @@ class V1CompatNotificationController(
                 offset = offset.toInt(),
             )
         if (explicit > 0) legacyNotificationRepository.markChecked(user.id!!, Instant.now())
-        val externalIdByUserId = notifications.mapNotNull { it.userId }.associateWith { it.toString() }
+        val externalIdByUserId = v1Ids.v1Ids(V1IdTable.USER, notifications.mapNotNull { it.userId })
         return notifications.map {
             LegacyNotificationDto(
-                id = it.id!!.toString(),
+                id = it.idV1,
                 userId = externalIdByUserId[it.userId],
                 title = clientInfo.language.select(it.title, it.titleEn),
                 message = clientInfo.language.select(it.message, it.messageEn),
@@ -380,6 +384,7 @@ data class LegacyExistsResponse(
 @RestController
 @RequestMapping("/v1/bookmarks")
 class V1CompatBookmarkController(
+    private val v1Ids: V1IdRepository,
     private val bookmarkService: BookmarkService,
     private val courseRepository: CourseRepository,
     private val lectureService: LectureService,
@@ -412,15 +417,16 @@ class V1CompatBookmarkController(
     @GetMapping("/lectures/{lectureId}/state")
     fun existsBookmarkLecture(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: Long,
-    ): LegacyExistsResponse = LegacyExistsResponse(exists = bookmarkService.existsBookmarkLecture(user.id!!, lectureId))
+        @PathVariable lectureId: String,
+    ): LegacyExistsResponse =
+        LegacyExistsResponse(exists = bookmarkService.existsBookmarkLecture(user.id!!, v1Ids.id(V1IdTable.LECTURE, lectureId)))
 
     @PostMapping("/lecture")
     fun addLecture(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyBookmarkLectureRequest,
     ) {
-        bookmarkService.addLecture(user.id!!, body.lectureId)
+        bookmarkService.addLecture(user.id!!, v1Ids.id(V1IdTable.LECTURE, body.lectureId))
     }
 
     @DeleteMapping("/lecture")
@@ -428,7 +434,7 @@ class V1CompatBookmarkController(
         @V1CurrentUser user: User,
         @RequestBody body: LegacyBookmarkLectureRequest,
     ) {
-        bookmarkService.deleteLecture(user.id!!, body.lectureId)
+        bookmarkService.deleteLecture(user.id!!, v1Ids.id(V1IdTable.LECTURE, body.lectureId))
     }
 }
 
@@ -439,6 +445,7 @@ data class LegacyVacancyLecturesResponse(
 @RestController
 @RequestMapping("/v1/vacancy-notifications")
 class V1CompatVacancyNotificationController(
+    private val v1Ids: V1IdRepository,
     private val vacancyNotificationService: VacancyNotificationService,
     private val courseRepository: CourseRepository,
     private val lectureService: LectureService,
@@ -469,23 +476,26 @@ class V1CompatVacancyNotificationController(
     @GetMapping("/lectures/{lectureId}/state")
     fun exists(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: Long,
-    ): LegacyExistsResponse = LegacyExistsResponse(exists = vacancyNotificationService.existsVacancyNotification(user.id!!, lectureId))
+        @PathVariable lectureId: String,
+    ): LegacyExistsResponse =
+        LegacyExistsResponse(
+            exists = vacancyNotificationService.existsVacancyNotification(user.id!!, v1Ids.id(V1IdTable.LECTURE, lectureId)),
+        )
 
     @PostMapping("/lectures/{lectureId}")
     fun add(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: Long,
+        @PathVariable lectureId: String,
     ) {
-        vacancyNotificationService.addVacancyNotification(user.id!!, lectureId)
+        vacancyNotificationService.addVacancyNotification(user.id!!, v1Ids.id(V1IdTable.LECTURE, lectureId))
     }
 
     @DeleteMapping("/lectures/{lectureId}")
     fun delete(
         @V1CurrentUser user: User,
-        @PathVariable lectureId: Long,
+        @PathVariable lectureId: String,
     ) {
-        vacancyNotificationService.deleteVacancyNotification(user.id!!, lectureId)
+        vacancyNotificationService.deleteVacancyNotification(user.id!!, v1Ids.id(V1IdTable.LECTURE, lectureId))
     }
 }
 
@@ -515,7 +525,7 @@ class V1CompatPopupController(
             popupService.getPopups().map {
                 val imageUri = storageUriResolver.resolve(it.imageOriginUri)
                 LegacyPopupDto(
-                    id = it.id!!.toString(),
+                    id = it.idV1,
                     key = it.popupKey,
                     imageUri = imageUri,
                     imageUrl = imageUri,

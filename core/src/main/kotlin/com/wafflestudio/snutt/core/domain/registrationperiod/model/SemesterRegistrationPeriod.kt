@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.registrationperiod.model
 
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -31,4 +31,4 @@ class SemesterRegistrationPeriod(
     var semester: Semester,
     @JdbcTypeCode(SqlTypes.JSON)
     var registrationPeriodList: List<RegistrationDate>,
-) : BaseEntity()
+) : V1Entity()

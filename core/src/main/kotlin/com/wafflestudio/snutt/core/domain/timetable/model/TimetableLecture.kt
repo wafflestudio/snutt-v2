@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.timetable.model
 
 import com.fasterxml.jackson.annotation.JsonValue
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet
@@ -78,7 +78,7 @@ class TimetableLecture(
     @JdbcTypeCode(SqlTypes.JSON)
     var customColor: ColorSet? = null,
     var paletteIndex: Int = 0,
-) : BaseEntity() {
+) : V1Entity() {
     fun copyFor(targetTimetableId: Long) =
         TimetableLecture(
             timetableId = targetTimetableId,

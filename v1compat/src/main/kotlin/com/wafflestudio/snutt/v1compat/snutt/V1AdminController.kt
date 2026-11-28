@@ -3,11 +3,10 @@ package com.wafflestudio.snutt.v1compat.snutt
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.mail.UserMailType
 import com.wafflestudio.snutt.core.domain.auth.AuthProvider
-import com.wafflestudio.snutt.core.domain.diary.model.DiaryDailyClassType
-import com.wafflestudio.snutt.core.domain.diary.model.DiaryQuestion
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
 import com.wafflestudio.snutt.core.domain.maillog.model.MailLogStatus
 import com.wafflestudio.snutt.core.domain.maillog.service.MailLogService
+import com.wafflestudio.snutt.core.domain.registrationperiod.model.RegistrationDate
 import com.wafflestudio.snutt.core.domain.registrationperiod.model.SemesterRegistrationPeriod
 import com.wafflestudio.snutt.core.domain.registrationperiod.service.SemesterRegistrationPeriodService
 import com.wafflestudio.snutt.core.domain.user.service.UserService
@@ -53,6 +52,37 @@ data class LegacyAdminMailLogResponse(
     val updatedAt: Long,
 )
 
+data class LegacyRegistrationPeriodDto(
+    val id: String,
+    val year: Int,
+    val semester: Semester,
+    val registrationPeriodList: List<RegistrationDate>,
+    val createdAt: Instant?,
+    val updatedAt: Instant?,
+)
+
+data class LegacyAdminDiaryClassTypeDto(
+    val id: String,
+    val name: String,
+    val active: Boolean,
+    val createdAt: Instant?,
+    val updatedAt: Instant?,
+)
+
+data class LegacyAdminDiaryQuestionDto(
+    val id: String,
+    val question: String,
+    val shortQuestion: String,
+    val answerList: List<String>,
+    val shortAnswerList: List<String>,
+    val active: Boolean,
+    val createdAt: Instant?,
+    val updatedAt: Instant?,
+)
+
+private fun SemesterRegistrationPeriod.toLegacy() =
+    LegacyRegistrationPeriodDto(idV1, year, semester, registrationPeriodList, createdAt, updatedAt)
+
 @RestController
 @V1AdminOnly
 @RequestMapping("/v1/admin")
@@ -63,13 +93,14 @@ class V1AdminController(
     private val mailLogService: MailLogService,
 ) {
     @GetMapping("/registrationPeriods")
-    fun getSemesterRegistrationPeriods(): List<SemesterRegistrationPeriod> = semesterRegistrationPeriodService.getAll()
+    fun getSemesterRegistrationPeriods(): List<LegacyRegistrationPeriodDto> =
+        semesterRegistrationPeriodService.getAll().map { it.toLegacy() }
 
     @GetMapping("/registrationPeriods/{year}/{semester}")
     fun getSemesterRegistrationPeriod(
         @PathVariable year: Int,
         @PathVariable semester: Semester,
-    ): SemesterRegistrationPeriod? = semesterRegistrationPeriodService.getByYearAndSemester(year, semester)
+    ): LegacyRegistrationPeriodDto? = semesterRegistrationPeriodService.getByYearAndSemester(year, semester)?.toLegacy()
 
     @GetMapping("/users/search")
     fun searchUsersByEmail(
@@ -78,7 +109,7 @@ class V1AdminController(
         userService.searchByEmailWithAuthInfo(email).map { info ->
             val user = info.user
             LegacyAdminUserSearchResponse(
-                id = user.id!!.toString(),
+                id = user.idV1,
                 email = user.email,
                 nickname = "${user.nickname}#${user.nicknameTag}",
                 localId = user.localId,
@@ -105,7 +136,7 @@ class V1AdminController(
     ): List<LegacyAdminMailLogResponse> =
         mailLogService.find(email, localId).map { log ->
             LegacyAdminMailLogResponse(
-                id = log.id!!.toString(),
+                id = log.idV1,
                 type = log.type,
                 status = log.status,
                 email = log.email,
@@ -119,8 +150,21 @@ class V1AdminController(
         }
 
     @GetMapping("/diary/dailyClassTypes")
-    fun getAllDiaryDailyClassTypes(): List<DiaryDailyClassType> = diaryService.getAllDailyClassTypes()
+    fun getAllDiaryDailyClassTypes(): List<LegacyAdminDiaryClassTypeDto> =
+        diaryService.getAllDailyClassTypes().map { LegacyAdminDiaryClassTypeDto(it.idV1, it.name, it.active, it.createdAt, it.updatedAt) }
 
     @GetMapping("/diary/questions")
-    fun getDiaryQuestions(): List<DiaryQuestion> = diaryService.getActiveQuestions()
+    fun getDiaryQuestions(): List<LegacyAdminDiaryQuestionDto> =
+        diaryService.getActiveQuestions().map {
+            LegacyAdminDiaryQuestionDto(
+                it.idV1,
+                it.question,
+                it.shortQuestion,
+                it.answerList,
+                it.shortAnswerList,
+                it.active,
+                it.createdAt,
+                it.updatedAt,
+            )
+        }
 }

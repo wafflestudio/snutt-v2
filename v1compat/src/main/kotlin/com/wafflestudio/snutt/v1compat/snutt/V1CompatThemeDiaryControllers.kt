@@ -27,6 +27,8 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.id.V1IdRepository
+import com.wafflestudio.snutt.v1compat.id.V1IdTable
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
@@ -85,8 +87,8 @@ private fun TimetableThemeDisplay.toLegacy(
     origin: LegacyThemeOriginDto?,
     publishInfo: LegacyThemePublishInfoDto? = null,
 ) = LegacyThemeDto(
-    id = if (kind == ThemeKind.BUILTIN) null else id.toString(),
-    userId = if (kind == ThemeKind.BUILTIN) userExternalId else checkNotNull(userId).toString(),
+    id = if (kind == ThemeKind.BUILTIN) null else idV1,
+    userId = userExternalId,
     theme = legacyThemeValue(builtinCode),
     name = name,
     colors = colors.takeUnless { kind == ThemeKind.BUILTIN }?.map { it.toLegacyColor() },
@@ -104,8 +106,8 @@ private fun TimetableThemeDisplay.toLegacy(
 
 private fun PublishedTheme.toLegacy(authors: Map<Long, User>) =
     LegacyThemeDto(
-        id = id.toString(),
-        userId = authorId?.toString().orEmpty(),
+        id = idV1,
+        userId = authors[authorId]?.idV1.orEmpty(),
         theme = 0,
         name = name,
         colors = colors.map { it.toLegacyColor() },
@@ -143,6 +145,7 @@ data class LegacyThemeDownloadRequest(
 @RestController
 @RequestMapping("/v1/themes")
 class V1CompatThemeController(
+    private val v1Ids: V1IdRepository,
     private val timetableThemeService: TimetableThemeService,
     private val publishedThemeRepository: PublishedThemeRepository,
     private val legacyPublishedThemeRepository: LegacyPublishedThemeRepository,
@@ -160,6 +163,7 @@ class V1CompatThemeController(
             } else {
                 publishedThemeRepository.findAllById(publicationIds).associateBy { it.id!! }
             }
+        val sourceAuthors = v1Ids.v1Ids(V1IdTable.USER, sources.values.mapNotNull { it.authorId })
         val ownPublications =
             legacyPublishedThemeRepository
                 .findByAuthorIdAndListedTrueAndSourceThemeIdIsNotNullOrderById(user.id!!)
@@ -167,13 +171,21 @@ class V1CompatThemeController(
         return themes.map { theme ->
             val origin =
                 theme.publicationId?.let { id ->
-                    sources.getValue(id).let { LegacyThemeOriginDto(id.toString(), it.authorId?.toString().orEmpty()) }
+                    sources.getValue(id).let {
+                        LegacyThemeOriginDto(
+                            it.idV1,
+                            it.authorId
+                                ?.let { authorId ->
+                                    sourceAuthors.getValue(authorId)
+                                }.orEmpty(),
+                        )
+                    }
                 }
             val publishInfo =
                 ownPublications[theme.id]?.let {
                     LegacyThemePublishInfoDto(it.name, if (it.authorAnonymous) "익명" else user.nickname, it.downloadCount)
                 }
-            theme.toLegacy(user.id!!.toString(), origin, publishInfo)
+            theme.toLegacy(user.idV1, origin, publishInfo)
         }
     }
 
@@ -209,8 +221,8 @@ class V1CompatThemeController(
     @GetMapping("/{themeId}")
     fun getTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
-    ): LegacyThemeDto = single(user, timetableThemeService.getTheme(user.id!!, themeId))
+        @PathVariable themeId: String,
+    ): LegacyThemeDto = single(user, timetableThemeService.getTheme(user.id!!, v1Ids.id(V1IdTable.THEME, themeId)))
 
     @PostMapping("")
     fun addTheme(
@@ -222,37 +234,50 @@ class V1CompatThemeController(
                 user.id!!,
                 body.name,
                 body.colors.map(LegacyColorRequest::requireColorSet),
-            ).toLegacy(user.id!!.toString(), null)
+            ).toLegacy(user.idV1, null)
 
     @PatchMapping("/{themeId}")
     fun modifyTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
+        @PathVariable themeId: String,
         @RequestBody body: LegacyThemeModifyRequest,
     ): LegacyThemeDto =
         single(
             user,
-            timetableThemeService.modifyTheme(user.id!!, themeId, body.name, body.colors?.map(LegacyColorRequest::requireColorSet)),
+            timetableThemeService.modifyTheme(
+                user.id!!,
+                v1Ids.id(V1IdTable.THEME, themeId),
+                body.name,
+                body.colors?.map(LegacyColorRequest::requireColorSet),
+            ),
         )
 
     @DeleteMapping("/{themeId}")
     fun deleteTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
+        @PathVariable themeId: String,
     ) {
-        if (listedPublicationsOf(user, themeId).isNotEmpty()) throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
-        timetableThemeService.deleteTheme(user.id!!, themeId)
+        val id = v1Ids.id(V1IdTable.THEME, themeId)
+        if (listedPublicationsOf(user, id).isNotEmpty()) throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
+        timetableThemeService.deleteTheme(user.id!!, id)
     }
 
     @Transactional
     @PostMapping("/{themeId}/publish")
     fun publishTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
+        @PathVariable themeId: String,
         @RequestBody body: LegacyThemePublishRequest,
     ): LegacyOkResponse {
-        val publication = timetableThemeService.publishTheme(user.id!!, themeId, body.publishName, body.isAnonymous)
-        listedPublicationsOf(user, themeId).filter { it.id != publication.id }.forEach {
+        val id = v1Ids.id(V1IdTable.THEME, themeId)
+        val publication =
+            timetableThemeService.publishTheme(
+                user.id!!,
+                id,
+                body.publishName,
+                body.isAnonymous,
+            )
+        listedPublicationsOf(user, id).filter { it.id != publication.id }.forEach {
             timetableThemeService.unpublishTheme(user.id!!, it.id!!)
         }
         return LegacyOkResponse()
@@ -261,9 +286,9 @@ class V1CompatThemeController(
     @DeleteMapping("/{themeId}/publish")
     fun deletePublishedTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
+        @PathVariable themeId: String,
     ) {
-        val publications = listedPublicationsOf(user, themeId)
+        val publications = listedPublicationsOf(user, v1Ids.id(V1IdTable.THEME, themeId))
         if (publications.isEmpty()) throw SnuttException(ErrorType.NOT_PUBLISHED_THEME)
         publications.forEach { timetableThemeService.unpublishTheme(user.id!!, it.id!!) }
     }
@@ -271,27 +296,27 @@ class V1CompatThemeController(
     @PostMapping("/{themeId}/download")
     fun downloadTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
+        @PathVariable themeId: String,
         @RequestBody body: LegacyThemeDownloadRequest,
-    ): LegacyThemeDto = single(user, timetableThemeService.downloadTheme(user.id!!, themeId))
+    ): LegacyThemeDto = single(user, timetableThemeService.downloadTheme(user.id!!, v1Ids.id(V1IdTable.PUBLICATION, themeId)))
 
     @PostMapping("/{themeId}/copy")
     fun copyTheme(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
-    ): LegacyThemeDto = timetableThemeService.copyTheme(user.id!!, themeId).toLegacy(user.id!!.toString(), null)
+        @PathVariable themeId: String,
+    ): LegacyThemeDto = timetableThemeService.copyTheme(user.id!!, v1Ids.id(V1IdTable.THEME, themeId)).toLegacy(user.idV1, null)
 
     @PostMapping("/{themeId}/default")
     fun setDefault(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
-    ): LegacyThemeDto = single(user, timetableThemeService.setDefault(user.id!!, themeId))
+        @PathVariable themeId: String,
+    ): LegacyThemeDto = single(user, timetableThemeService.setDefault(user.id!!, v1Ids.id(V1IdTable.THEME, themeId)))
 
     @DeleteMapping("/{themeId}/default")
     fun unsetDefault(
         @V1CurrentUser user: User,
-        @PathVariable themeId: Long,
-    ): LegacyThemeDto = timetableThemeService.unsetDefault(user.id!!, themeId).toLegacy(user.id!!.toString(), null)
+        @PathVariable themeId: String,
+    ): LegacyThemeDto = timetableThemeService.unsetDefault(user.id!!, v1Ids.id(V1IdTable.THEME, themeId)).toLegacy(user.idV1, null)
 
     @PostMapping("/basic/{basicThemeTypeValue}/default")
     fun setBasicDefault(
@@ -299,7 +324,7 @@ class V1CompatThemeController(
         @PathVariable basicThemeTypeValue: Int,
     ): LegacyThemeDto {
         legacyBuiltinCode(basicThemeTypeValue)
-        return defaultTheme(user).toLegacy(user.id!!.toString(), null)
+        return defaultTheme(user).toLegacy(user.idV1, null)
     }
 
     @DeleteMapping("/basic/{basicThemeTypeValue}/default")
@@ -312,7 +337,7 @@ class V1CompatThemeController(
         if (current.kind != ThemeKind.BUILTIN || current.builtinCode != builtinCode) {
             throw SnuttException(ErrorType.NOT_DEFAULT_THEME)
         }
-        return current.toLegacy(user.id!!.toString(), null)
+        return current.toLegacy(user.idV1, null)
     }
 
     private fun themePageable(page: Int): PageRequest {
@@ -332,7 +357,7 @@ class V1CompatThemeController(
 
     private fun wrap(publications: List<PublishedTheme>): LegacyPageResponse<LegacyThemeDto> {
         if (publications.isEmpty()) return LegacyPageResponse(content = emptyList(), totalCount = 0)
-        val authorIds = publications.filterNot { it.authorAnonymous }.mapNotNull { it.authorId }.distinct()
+        val authorIds = publications.mapNotNull { it.authorId }.distinct()
         val authors = if (authorIds.isEmpty()) emptyMap() else userRepository.findAllById(authorIds).associateBy { it.id!! }
         val content = publications.map { it.toLegacy(authors) }
         return LegacyPageResponse(content = content, totalCount = content.size)
@@ -345,14 +370,19 @@ class V1CompatThemeController(
 }
 
 data class LegacyDiaryQuestionnaireRequest(
-    val lectureId: Long,
+    val lectureId: String,
     val dailyClassTypes: List<String>,
 )
 
+data class LegacyDiaryQuestionAnswer(
+    val questionId: String,
+    val answerIndex: Int,
+)
+
 data class LegacyDiarySubmissionRequest(
-    val lectureId: Long,
+    val lectureId: String,
     val dailyClassTypes: List<String>,
-    val questionAnswers: List<QuestionAnswer>,
+    val questionAnswers: List<LegacyDiaryQuestionAnswer>,
     val comment: String,
 )
 
@@ -401,6 +431,7 @@ data class LegacyDiaryShortQuestionReplyDto(
 @RestController
 @RequestMapping("/v1/diary")
 class V1CompatDiaryController(
+    private val v1Ids: V1IdRepository,
     private val diaryService: DiaryService,
 ) {
     @PostMapping("/questionnaire")
@@ -413,7 +444,7 @@ class V1CompatDiaryController(
             diaryService.generateQuestionnaire(
                 user.id!!,
                 DiaryQuestionnaireRequest(
-                    lectureId = body.lectureId,
+                    lectureId = v1Ids.id(V1IdTable.LECTURE, body.lectureId),
                     dailyClassTypes = body.dailyClassTypes,
                 ),
             )
@@ -421,12 +452,12 @@ class V1CompatDiaryController(
             courseTitle = clientInfo.language.select(display.courseTitle, display.courseTitleEn),
             questions =
                 display.questions.map {
-                    LegacyDiaryQuestionDto(id = it.id!!.toString(), question = it.question, answers = it.answerList)
+                    LegacyDiaryQuestionDto(id = it.idV1, question = it.question, answers = it.answerList)
                 },
             nextLecture =
                 display.nextLecture?.let {
                     LegacyDiaryTargetLectureDto(
-                        lectureId = it.lectureId?.toString(),
+                        lectureId = it.lectureId?.let { id -> v1Ids.v1Id(V1IdTable.LECTURE, id) },
                         courseTitle = clientInfo.language.select(it.courseTitle, it.courseTitleEn),
                     )
                 },
@@ -444,7 +475,7 @@ class V1CompatDiaryController(
             diaryService.getDiaryTargetLecture(user.id!!, year, semester, emptyList())
                 ?: throw SnuttException(ErrorType.DIARY_TARGET_LECTURE_NOT_FOUND)
         return LegacyDiaryTargetLectureDto(
-            lectureId = target.lectureId?.toString(),
+            lectureId = target.lectureId?.let { v1Ids.v1Id(V1IdTable.LECTURE, it) },
             courseTitle = clientInfo.language.select(target.courseTitle, target.courseTitleEn),
         )
     }
@@ -453,7 +484,7 @@ class V1CompatDiaryController(
     fun getDailyClassTypes(): List<LegacyDiaryDailyClassTypeDto> =
         diaryService
             .getActiveDailyClassTypes()
-            .map { LegacyDiaryDailyClassTypeDto(id = it.id!!.toString(), name = it.name) }
+            .map { LegacyDiaryDailyClassTypeDto(id = it.idV1, name = it.name) }
 
     @GetMapping("/my")
     fun getMySubmissions(
@@ -472,6 +503,7 @@ class V1CompatDiaryController(
             }
         val submissions = diaryService.getMySubmissions(user.id!!)
         val replies = diaryService.getSubmissionIdShortQuestionRepliesMap(submissions)
+        val lectureIdsV1 = v1Ids.v1Ids(V1IdTable.LECTURE, submissions.mapNotNull { it.lectureId })
         return submissions
             .groupBy { it.year to it.semester }
             .map { (yearSemester, group) ->
@@ -481,8 +513,8 @@ class V1CompatDiaryController(
                     submissions =
                         group.map { submission ->
                             LegacyDiarySubmissionDto(
-                                id = submission.id!!.toString(),
-                                lectureId = submission.lectureId?.toString().orEmpty(),
+                                id = submission.idV1,
+                                lectureId = submission.lectureId?.let { lectureIdsV1.getValue(it) }.orEmpty(),
                                 date = dateFormatter.format(checkNotNull(submission.createdAt)),
                                 courseTitle = submission.courseTitle,
                                 shortQuestionReplies =
@@ -504,9 +536,15 @@ class V1CompatDiaryController(
         diaryService.submitDiary(
             user.id!!,
             DiarySubmissionRequest(
-                lectureId = body.lectureId,
+                lectureId = v1Ids.id(V1IdTable.LECTURE, body.lectureId),
                 dailyClassTypes = body.dailyClassTypes,
-                questionAnswers = body.questionAnswers,
+                questionAnswers =
+                    body.questionAnswers.map {
+                        QuestionAnswer(
+                            v1Ids.id(V1IdTable.DIARY_QUESTION, it.questionId),
+                            it.answerIndex,
+                        )
+                    },
                 comment = body.comment,
             ),
         )
@@ -516,9 +554,9 @@ class V1CompatDiaryController(
     @DeleteMapping("/{submissionId}")
     fun removeDiarySubmission(
         @V1CurrentUser user: User,
-        @PathVariable submissionId: Long,
+        @PathVariable submissionId: String,
     ): LegacyOkResponse {
-        diaryService.removeSubmission(submissionId, user.id!!)
+        diaryService.removeSubmission(v1Ids.id(V1IdTable.DIARY_SUBMISSION, submissionId), user.id!!)
         return LegacyOkResponse()
     }
 }
@@ -536,44 +574,50 @@ data class LegacyReminderDto(
 @RestController
 @RequestMapping("/v1/tables/{timetableId}/lecture")
 class V1CompatReminderController(
+    private val v1Ids: V1IdRepository,
     private val timetableLectureReminderService: TimetableLectureReminderService,
 ) {
     @GetMapping("/reminders")
     fun getReminders(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: Long,
-    ): List<LegacyReminderDto> =
-        timetableLectureReminderService
-            .getReminders(user.id!!, timetableId)
-            .map { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
+        @PathVariable timetableId: String,
+    ): List<LegacyReminderDto> {
+        val reminders = timetableLectureReminderService.getReminders(user.id!!, v1Ids.id(V1IdTable.TIMETABLE, timetableId))
+        val ids = v1Ids.v1Ids(V1IdTable.TIMETABLE_LECTURE, reminders.map { it.timetableLectureId })
+        return reminders.map { LegacyReminderDto(ids.getValue(it.timetableLectureId), it.courseTitle, it.option) }
+    }
 
     @GetMapping("/{timetableLectureId}/reminder")
     fun getReminder(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: Long,
-        @PathVariable timetableLectureId: Long,
+        @PathVariable timetableId: String,
+        @PathVariable timetableLectureId: String,
     ): LegacyReminderDto =
         timetableLectureReminderService
-            .getReminder(user.id!!, timetableId, timetableLectureId)
+            .getReminder(user.id!!, v1Ids.id(V1IdTable.TIMETABLE, timetableId), v1Ids.timetableLectureId(timetableId, timetableLectureId))
             .let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
 
     @PutMapping("/{timetableLectureId}/reminder")
     fun modifyReminder(
         @V1CurrentUser user: User,
-        @PathVariable timetableId: Long,
-        @PathVariable timetableLectureId: Long,
+        @PathVariable timetableId: String,
+        @PathVariable timetableLectureId: String,
         @RequestBody body: LegacyReminderModifyRequest,
     ): LegacyReminderDto =
         timetableLectureReminderService
-            .modifyReminder(user.id!!, timetableId, timetableLectureId, body.option)
-            .let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
+            .modifyReminder(
+                user.id!!,
+                v1Ids.id(V1IdTable.TIMETABLE, timetableId),
+                v1Ids.timetableLectureId(timetableId, timetableLectureId),
+                body.option,
+            ).let { legacyReminder(it.timetableLectureId, it.courseTitle, it.option) }
 
     private fun legacyReminder(
         timetableLectureId: Long,
         courseTitle: String,
         option: TimetableLectureReminderOption,
     ) = LegacyReminderDto(
-        timetableLectureId = timetableLectureId.toString(),
+        timetableLectureId = v1Ids.v1Id(V1IdTable.TIMETABLE_LECTURE, timetableLectureId),
         courseTitle = courseTitle,
         option = option,
     )
@@ -582,15 +626,18 @@ class V1CompatReminderController(
 @RestController
 @RequestMapping("/v1/ev")
 class V1CompatEvSummaryController(
+    private val v1Ids: V1IdRepository,
     private val courseRepository: CourseRepository,
     private val lectureService: LectureService,
 ) {
     @V1Public
     @GetMapping("/lectures/{lectureId}/summary")
     fun getLectureEvaluationSummary(
-        @PathVariable lectureId: Long,
+        @PathVariable lectureId: String,
     ): LegacyEvSummary {
-        val courseId = lectureService.get(lectureId).courseId ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
+        val courseId =
+            lectureService.get(v1Ids.id(V1IdTable.LECTURE, lectureId, ErrorType.EVALUATION_TARGET_NOT_FOUND)).courseId
+                ?: throw SnuttException(ErrorType.EVALUATION_TARGET_NOT_FOUND)
         val course = courseRepository.findByIdOrNull(courseId)
         return LegacyEvSummary(
             evLectureId = courseId,
