@@ -74,6 +74,8 @@ class SugangSnuXlsxParser {
                             remarkEn = get("Remark").ifEmpty { null },
                         )
                 }.toMap()
+                // 영어 엑셀만 비어 오면 상세 API가 채우지 않는 영어 필드(classificationEn 등)가 모두 지워지므로 한국어처럼 중단한다.
+                .ifEmpty { throw IllegalArgumentException("영어 xlsx에 강의 행이 없다") }
         }
 
     fun parse(
