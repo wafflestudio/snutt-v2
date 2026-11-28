@@ -115,13 +115,15 @@ class SugangSnuSyncService(
      *
      * 동기화 두 개가 겹치지 않게 MySQL 이름 락([SYNC_LOCK_NAME])을 잡고 돈다.
      * 1단계 뒤의 단계가 실패하면 기록하고 다음 단계로 넘어간다. 알림 배출과 푸시는 항상 마지막에 하고, 그 뒤 실패를 던진다.
+     * [onLecturesCommitted]는 1단계가 커밋되면 부른다. 뒤 단계가 실패해 예외로 끝나도 강의가 바뀌었는지 호출자가 알 수 있다.
      */
     fun sync(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
         preserveEnglish: Boolean = false,
-    ) = withSyncLock { syncLocked(year, semester, rows, preserveEnglish) }
+        onLecturesCommitted: () -> Unit = {},
+    ) = withSyncLock { syncLocked(year, semester, rows, preserveEnglish, onLecturesCommitted) }
 
     /**
      * 동기화가 둘 겹치지 않게 MySQL 이름 락을 잡는다(남은 일·outbox 테이블은 학기와 상관없이 하나라 두 실행이 같은 알림을 옮길 수 있다).
@@ -154,6 +156,7 @@ class SugangSnuSyncService(
         semester: Semester,
         rows: List<SugangLectureRow>,
         preserveEnglish: Boolean,
+        onLecturesCommitted: () -> Unit,
     ) {
         val run = SyncRun()
         processPending(run)
@@ -167,6 +170,7 @@ class SugangSnuSyncService(
                 run.failures.forEach(e::addSuppressed)
                 throw e
             }
+        onLecturesCommitted()
         processPending(run)
         val deleted = run.step("폐강 강의 삭제") { deleteClosedLectures(synced.deleted, run) }.orEmpty()
         deliver(run)
