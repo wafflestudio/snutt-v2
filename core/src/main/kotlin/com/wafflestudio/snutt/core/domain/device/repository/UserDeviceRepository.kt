@@ -2,7 +2,9 @@ package com.wafflestudio.snutt.core.domain.device.repository
 
 import com.wafflestudio.snutt.core.common.client.Language
 import com.wafflestudio.snutt.core.domain.device.model.UserDevice
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.transaction.annotation.Transactional
@@ -33,6 +35,10 @@ interface UserDeviceRepository : JpaRepository<UserDevice, Long> {
     ): UserDevice?
 
     fun findByFcmRegistrationIdAndIsDeletedFalse(fcmRegistrationId: String): UserDevice?
+
+    /** 이 토큰의 활성 기기를 잠근다. 다른 사용자가 같은 토큰을 동시에 등록하면 여기서 줄을 선다. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findForUpdateByFcmRegistrationIdAndIsDeletedFalse(fcmRegistrationId: String): UserDevice?
 
     @Transactional
     @Modifying
