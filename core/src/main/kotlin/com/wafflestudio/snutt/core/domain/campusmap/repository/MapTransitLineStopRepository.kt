@@ -1,0 +1,6 @@
+package com.wafflestudio.snutt.core.domain.campusmap.repository
+
+import com.wafflestudio.snutt.core.domain.campusmap.model.MapTransitLineStop
+import org.springframework.data.jpa.repository.JpaRepository
+
+interface MapTransitLineStopRepository : JpaRepository<MapTransitLineStop, Long>
