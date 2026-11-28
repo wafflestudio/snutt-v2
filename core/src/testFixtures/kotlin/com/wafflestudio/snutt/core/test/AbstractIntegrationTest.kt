@@ -45,7 +45,7 @@ abstract class AbstractIntegrationTest {
         try {
             tables.forEach { table ->
                 when (table) {
-                    "flyway_schema_history" -> Unit
+                    "flyway_schema_history", "map_state" -> Unit
                     "timetable_theme" -> jdbcTemplate.execute("DELETE FROM `$table` WHERE builtin_code IS NULL")
                     else -> jdbcTemplate.execute("DELETE FROM `$table`")
                 }
