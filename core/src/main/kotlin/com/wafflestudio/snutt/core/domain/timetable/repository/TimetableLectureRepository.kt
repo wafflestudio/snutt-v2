@@ -39,8 +39,12 @@ interface TimetableLectureRepository :
     @Query("SELECT DISTINCT tl.timetableId FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds")
     fun findTimetableIdsByLectureIdIn(lectureIds: Collection<Long>): List<Long>
 
-    @Query("SELECT DISTINCT tl.lectureId FROM TimetableLecture tl WHERE tl.lectureId IN :lectureIds")
-    fun findReferencedLectureIds(lectureIds: Collection<Long>): List<Long>
+    /** 이 강의들을 담은 행을 공유 락으로 읽는다(잠금 읽기라 트랜잭션 읽기 뷰와 상관없이 커밋된 최신 행을 본다). */
+    @Query(
+        value = "SELECT DISTINCT lecture_id FROM timetable_lecture WHERE lecture_id IN (:lectureIds) FOR SHARE",
+        nativeQuery = true,
+    )
+    fun lockReferencedLectureIds(lectureIds: Collection<Long>): List<Long>
 
     fun findReminderRowsByTimetableId(timetableId: Long): List<TimetableLectureReminderRow> = findReminderRows(timetableId, null)
 

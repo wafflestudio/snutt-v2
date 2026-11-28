@@ -90,9 +90,13 @@ class SugangSnuSyncJob(
         val rows = xlsx.rows.map { sugangSnuLectureEnricher.enrich(year, semester, it) }
         // 영어 엑셀이 비면 상세 API가 준 영어 값을 쓰고, 상세 API에 없는 기존 강의의 영어 필드는 보존한다. 신규 강의는 상세 API 값 그대로다.
         // 영어 엑셀이 끝까지 공개되지 않는 학기도 있어서, 신규 강의의 영어 값을 비워 두면 영영 채워지지 않는다.
-        sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable)
-        lectureVocabularyService.evict(year, semester)
-        courseVocabularyService.evict()
+        try {
+            sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable)
+        } finally {
+            // 시간표 반영 단계가 실패해도 강의 반영은 이미 커밋됐을 수 있으므로 캐시는 비운다.
+            lectureVocabularyService.evict(year, semester)
+            courseVocabularyService.evict()
+        }
     }
 
     private fun nextCoursebook(coursebook: Coursebook): Coursebook =
