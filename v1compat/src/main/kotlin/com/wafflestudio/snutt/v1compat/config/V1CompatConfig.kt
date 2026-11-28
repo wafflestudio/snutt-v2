@@ -35,11 +35,10 @@ class V1CompatConfig(
 
     // 빈으로 등록하면 DispatcherServlet이 composite와 별도로 한 번 더 찾으므로 여기서만 만든다.
     override fun extendHandlerExceptionResolvers(resolvers: MutableList<HandlerExceptionResolver>) {
-        resolvers.add(0, V1PathExceptionResolver(jsonMapper, PATH_PREFIXES))
+        resolvers.add(0, V1PathExceptionResolver(jsonMapper, PATH_PATTERNS.toList()))
     }
 
     companion object {
-        private val PATH_PREFIXES = listOf("/v1", "/ev-service", "/ev")
         val PATH_PATTERNS = arrayOf("/v1/**", "/ev-service/**", "/ev/**")
     }
 }
