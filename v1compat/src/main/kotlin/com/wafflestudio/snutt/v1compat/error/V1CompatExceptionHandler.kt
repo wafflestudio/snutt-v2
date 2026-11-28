@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.v1compat.error
 
 import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.client.languageOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -142,6 +144,50 @@ fun ErrorType.toV1ErrorResponse(
         )
 }
 
+private val UNEXPECTED_ERROR_TITLE = LocalizedMessage(ko = "요청 실패", en = "Request failed")
+private val UNEXPECTED_ERROR_MESSAGE =
+    LocalizedMessage(ko = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요", en = "Something went wrong on our end. Please try again in a moment")
+
+// v1 ErrorType.DEFAULT_ERROR.errorMessage. v1은 message(개발자용)를 번역하지 않았다.
+private const val UNEXPECTED_ERROR_DEVELOPER_MESSAGE = "API 호출에 실패하였습니다"
+
+/**
+ * v1 ErrorWebFilter의 fallback과 같은 모양. SnuttException이 아닌 예외는 errcode 0이고,
+ * Spring이 상태를 정한 예외(404 경로 없음, 405, 415 등)는 그 상태를, 나머지는 500을 쓴다.
+ * message는 v1처럼 ResponseStatusException 계열이면 ProblemDetail title(상태 reason phrase, 예: "Not Found"),
+ * 그 밖은 DEFAULT_ERROR 문구다. displayMessage는 언어별 DEFAULT 안내 문구다.
+ */
+internal fun unexpectedV1ErrorResponse(
+    e: Exception,
+    language: Language,
+): ResponseEntity<V1ErrorResponse> {
+    val errorResponse = e as? ErrorResponse
+    val status = errorResponse?.statusCode ?: HttpStatus.INTERNAL_SERVER_ERROR
+    return ResponseEntity
+        .status(status)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(
+            V1ErrorResponse(
+                errcode = 0,
+                title = UNEXPECTED_ERROR_TITLE.of(language),
+                message = errorResponse?.body?.title ?: UNEXPECTED_ERROR_DEVELOPER_MESSAGE,
+                displayMessage = UNEXPECTED_ERROR_MESSAGE.of(language),
+            ),
+        )
+}
+
+/** Spring이 상태를 정한 4xx(경로 없음, 405 등)는 클라이언트 오류라 로그를 남기지 않는다. 그 밖(5xx 포함)은 서버 오류다. */
+internal fun Exception.isServerError(): Boolean = (this as? ErrorResponse)?.statusCode?.is5xxServerError ?: true
+
+/** 다른 예외로 감싸여 온 SnuttException. 감싼 예외 쪽 핸들러가 먼저 잡혀 원래 errcode가 가려지지 않게 꺼낸다. */
+internal fun Throwable.wrappedSnuttException(): SnuttException? =
+    generateSequence(cause) { it.cause?.takeIf { next -> next !== it } }
+        .take(MAX_CAUSE_DEPTH)
+        .filterIsInstance<SnuttException>()
+        .firstOrNull()
+
+private const val MAX_CAUSE_DEPTH = 16
+
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
 class V1CompatExceptionHandler {
@@ -177,6 +223,17 @@ class V1CompatExceptionHandler {
     fun handleInvalidParameter(request: HttpServletRequest): ResponseEntity<V1ErrorResponse> =
         ErrorType.INVALID_PARAMETER.toV1ErrorResponse(request.language)
 
+    @ExceptionHandler(Exception::class)
+    fun handleUnexpectedException(
+        e: Exception,
+        handler: HandlerMethod,
+        request: HttpServletRequest,
+    ): ResponseEntity<V1ErrorResponse> {
+        e.wrappedSnuttException()?.let { return handleSnuttException(it, handler, request) }
+        if (e.isServerError()) log.error("unhandled exception", e)
+        return unexpectedV1ErrorResponse(e, request.language)
+    }
+
     companion object {
         private const val EV_PACKAGE = "com.wafflestudio.snutt.v1compat.ev"
         private val EV_ERROR_CODES =
@@ -185,9 +242,10 @@ class V1CompatExceptionHandler {
                 ErrorType.EVALUATION_CONTENT_TOO_SHORT to 20004L,
                 ErrorType.INVALID_EVALUATION_SORT to 20005L,
                 ErrorType.NOT_MY_EVALUATION to 23001L,
-                ErrorType.LECTURE_NOT_FOUND to 24001L,
-                ErrorType.EVALUATION_TARGET_NOT_FOUND to 24001L,
-                ErrorType.COURSE_NOT_FOUND to 24002L,
+                // EV LECTURE_NOT_FOUND(24001)는 EV lecture = v2 course, SEMESTER_LECTURE_NOT_FOUND(24002)는 EV semester_lecture = v2 lecture
+                ErrorType.COURSE_NOT_FOUND to 24001L,
+                ErrorType.LECTURE_NOT_FOUND to 24002L,
+                ErrorType.EVALUATION_TARGET_NOT_FOUND to 24002L,
                 ErrorType.EVALUATION_NOT_FOUND to 24005L,
                 ErrorType.DUPLICATE_EVALUATION to 29001L,
                 ErrorType.MY_EVALUATION_REPORT to 29002L,
@@ -199,5 +257,5 @@ class V1CompatExceptionHandler {
     }
 }
 
-private val HttpServletRequest.language: Language
+internal val HttpServletRequest.language: Language
     get() = languageOf(this::getHeader)

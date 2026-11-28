@@ -187,16 +187,24 @@ internal fun legacyMainTagGroup(language: Language): LegacyEvTagGroupDto =
 
 internal fun evaluationTagOfLegacyId(tagId: Long): EvaluationTag? = legacyMainTags.firstOrNull { it.id == tagId }?.tag
 
-internal fun EvaluationDisplay.toLegacyWithSemester(): LegacyEvaluationWithSemesterDto {
+/**
+ * v1 EV는 조회 응답을 non-null Double 프로젝션(EvaluationWithSemesterDto·EvaluationWithLectureDto)으로 만들어,
+ * 세부 점수가 NULL인 강의평(snuev 출처, 점수 없이 쓴 강의평)도 0.0으로 내보냈다. 수정 응답만 엔티티에서 만들어 NULL(필드 생략)이었다.
+ * v1compat 응답에서만 이를 재현한다. v2 API는 NULL을 그대로 둔다.
+ */
+private fun Double?.orLegacyZero(nullAsZero: Boolean): Double? = if (nullAsZero) this ?: 0.0 else this
+
+/** [nullScoresAsZero]가 false면 v1 PATCH 응답처럼 NULL 점수를 생략한다. */
+internal fun EvaluationDisplay.toLegacyWithSemester(nullScoresAsZero: Boolean = true): LegacyEvaluationWithSemesterDto {
     val e = evaluation
     return LegacyEvaluationWithSemesterDto(
         id = e.id,
         userId = e.userId?.toString(),
         content = e.content,
-        gradeSatisfaction = e.gradeSatisfaction,
-        teachingSkill = e.teachingSkill,
-        gains = e.gains,
-        lifeBalance = e.lifeBalance,
+        gradeSatisfaction = e.gradeSatisfaction.orLegacyZero(nullScoresAsZero),
+        teachingSkill = e.teachingSkill.orLegacyZero(nullScoresAsZero),
+        gains = e.gains.orLegacyZero(nullScoresAsZero),
+        lifeBalance = e.lifeBalance.orLegacyZero(nullScoresAsZero),
         rating = e.rating,
         likeCount = e.likeCount,
         isHidden = e.isHidden,
@@ -218,10 +226,10 @@ internal fun EvaluationDisplay.toLegacyWithLecture(courseMap: Map<Long, LegacyCo
         id = e.id,
         userId = e.userId?.toString(),
         content = e.content,
-        gradeSatisfaction = e.gradeSatisfaction,
-        teachingSkill = e.teachingSkill,
-        gains = e.gains,
-        lifeBalance = e.lifeBalance,
+        gradeSatisfaction = e.gradeSatisfaction ?: 0.0,
+        teachingSkill = e.teachingSkill ?: 0.0,
+        gains = e.gains ?: 0.0,
+        lifeBalance = e.lifeBalance ?: 0.0,
         rating = e.rating,
         likeCount = e.likeCount,
         isHidden = e.isHidden,

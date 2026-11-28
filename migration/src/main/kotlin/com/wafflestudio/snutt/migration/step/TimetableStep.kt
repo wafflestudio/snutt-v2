@@ -222,13 +222,13 @@ class TimetableStep(
             }
         val colorIndex = requireInt("colorIndex")
         val color = if (colorIndex == 0) customColor() else null
+        // 같은 색이 팔레트에 여럿이면 마지막 번호(v1 modifyTheme의 색→새 색 맵이 toMap()이라 마지막 칸을 따랐다. v1compat도 같다).
         val matchedIndex =
             color?.let { old ->
-                palette.indices
-                    .filter {
-                        palette[it].backgroundColor.equals(old.backgroundColor, true) &&
-                            palette[it].foregroundColor.equals(old.foregroundColor, true)
-                    }.singleOrNull()
+                palette.indices.lastOrNull {
+                    palette[it].backgroundColor.equals(old.backgroundColor, true) &&
+                        palette[it].foregroundColor.equals(old.foregroundColor, true)
+                }
             }
         val oldIndex = (colorIndex - 1).coerceAtLeast(0)
         if (matchedIndex == null && oldIndex >= palette.size) {

@@ -187,6 +187,10 @@ class TimetableService(
         return displayOf(timetable)
     }
 
+    /**
+     * 대표 여부는 TimetableRepository.updateIsPrimary(벌크 update, clearAutomatically)로 바꾼다. 같은 트랜잭션에서 이 호출 전에 읽은
+     * 엔티티는 준영속이 되므로, 이 메서드를 다른 트랜잭션 안에서 부르고 그 뒤에 엔티티를 고치면 변경이 저장되지 않는다.
+     */
     @Transactional
     fun setPrimary(
         userId: Long,
@@ -195,10 +199,11 @@ class TimetableService(
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val newPrimary = getTimetable(userId, timetableId)
         if (newPrimary.isPrimary) return
+        // updated_at을 건드리지 않도록 대표 여부 컬럼만 고친다(TimetableRepository.updateIsPrimary).
         timetableRepository
             .findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, newPrimary.year, newPrimary.semester)
-            ?.let { it.isPrimary = false }
-        newPrimary.isPrimary = true
+            ?.let { timetableRepository.updateIsPrimary(it.id!!, false) }
+        timetableRepository.updateIsPrimary(newPrimary.id!!, true)
     }
 
     @Transactional
@@ -208,7 +213,7 @@ class TimetableService(
     ) {
         val timetable = getTimetable(userId, timetableId)
         if (!timetable.isPrimary) return
-        timetable.isPrimary = false
+        timetableRepository.updateIsPrimary(timetable.id!!, false)
     }
 
     fun getUserPrimaryTable(

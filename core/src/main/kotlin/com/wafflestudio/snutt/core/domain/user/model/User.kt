@@ -15,7 +15,8 @@ data class Nickname(
 @Table(name = "`user`")
 class User(
     var email: String? = null,
-    var isEmailVerified: Boolean = false,
+    /** null은 v1에서 인증 여부 필드가 없던 이관 계정이다. 미인증으로 보되, 구앱 강의평 접근은 v1처럼 막지 않는다. */
+    var isEmailVerified: Boolean? = false,
     var nickname: String,
     @Column(nullable = false, length = 4)
     var nicknameTag: String,

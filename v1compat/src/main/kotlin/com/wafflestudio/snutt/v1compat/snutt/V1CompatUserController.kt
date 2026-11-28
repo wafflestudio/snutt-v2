@@ -159,7 +159,7 @@ class V1CompatUserController(
     @GetMapping("/email/verification")
     fun getEmailVerification(
         @V1CurrentUser user: User,
-    ): LegacyEmailVerificationResponse = LegacyEmailVerificationResponse(isEmailVerified = user.isEmailVerified)
+    ): LegacyEmailVerificationResponse = LegacyEmailVerificationResponse(isEmailVerified = user.isEmailVerified == true)
 
     @DeleteMapping("/email/verification")
     fun resetEmailVerification(
