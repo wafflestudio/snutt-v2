@@ -29,7 +29,12 @@ fun clientInfoOf(
     fun truncated(
         name: String,
         maxLength: Int,
-    ): String? = header(name)?.take(maxLength)
+    ): String? =
+        header(name)?.let { value ->
+            // 자른 끝에 서로게이트 쌍의 앞 절반만 남으면 깨진 문자가 되므로 함께 버린다.
+            val cut = value.take(maxLength)
+            if (cut.length < value.length && cut.lastOrNull()?.isHighSurrogate() == true) cut.dropLast(1) else cut
+        }
     return ClientInfo(
         osType = osType,
         osVersion = truncated("x-os-version", OS_VERSION_MAX_LENGTH),
