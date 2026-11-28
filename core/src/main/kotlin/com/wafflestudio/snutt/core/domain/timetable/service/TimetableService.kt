@@ -163,9 +163,12 @@ class TimetableService(
                 ),
             )
 
-        timetableLectureRepository.findByTimetableId(timetable.id!!).forEach { source ->
-            timetableLectureRepository.save(source.copyFor(copied.id!!))
-        }
+        val sources = timetableLectureRepository.findByTimetableId(timetable.id!!)
+        // 담을 강의를 먼저 id 순으로 공유 락으로 잠근다. 행을 넣을 때마다 외래 키 검사가 담긴 순서대로 강의 락을 잡으면, 강의를 id 순으로
+        // X락으로 잠그는 수강편람 동기화(강의 반영·폐강 삭제)와 사이클이 생긴다.
+        val lectureIds = sources.mapNotNull { it.lectureId }.distinct()
+        if (lectureIds.isNotEmpty()) lectureRepository.lockAllForShareByIdIn(lectureIds)
+        sources.forEach { source -> timetableLectureRepository.save(source.copyFor(copied.id!!)) }
         return copied
     }
 
