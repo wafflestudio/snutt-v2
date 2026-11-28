@@ -55,14 +55,14 @@ fun LegacyTimetableDto(
     val timetable = display.timetable
     val builtinCode = display.theme.builtinCode
     return LegacyTimetableDto(
-        id = timetable.id!!.toString(),
+        id = timetable.idV1,
         userId = userId,
         year = timetable.year,
         semester = timetable.semester,
         lectures = display.lectures.map { LegacyTimetableLectureDto(it, display.theme.kind, language) },
         title = timetable.title,
         theme = legacyThemeValue(builtinCode),
-        themeId = if (builtinCode == null) timetable.themeId.toString() else null,
+        themeId = if (builtinCode == null) display.theme.idV1 else null,
         isPrimary = timetable.isPrimary,
         updatedAt = checkNotNull(timetable.updatedAt),
     )
@@ -106,7 +106,7 @@ fun LegacyTimetableLectureDto(
     language: Language,
 ): LegacyTimetableLectureDto =
     LegacyTimetableLectureDto(
-        id = display.id.toString(),
+        id = display.idV1,
         academicYear = language.select(display.academicYear, display.academicYearEn),
         category = language.select(display.category, display.categoryEn),
         classPlaceAndTimes = display.classPlaceAndTimes.map { LegacyClassPlaceAndTimeFullDto(it) },
@@ -122,7 +122,7 @@ fun LegacyTimetableLectureDto(
         courseTitle = language.select(display.courseTitle, display.courseTitleEn),
         color = display.legacyColor(themeKind),
         colorIndex = display.legacyColorIndex(themeKind),
-        lectureId = display.lectureId?.toString(),
+        lectureId = display.lectureIdV1,
         snuttEvLecture = display.courseId?.let { LegacyEvLectureIdDto(it) },
         categoryPre2025 = display.categoryPre2025?.let { LectureCategoryPre2025.localize(it, language) },
     )

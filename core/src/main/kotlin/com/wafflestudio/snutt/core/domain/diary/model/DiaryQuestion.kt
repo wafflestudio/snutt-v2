@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.diary.model
 
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.model.V1Entity
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -14,4 +14,4 @@ class DiaryQuestion(
     @JdbcTypeCode(SqlTypes.JSON)
     var shortAnswerList: List<String>,
     var active: Boolean = true,
-) : BaseEntity()
+) : V1Entity()

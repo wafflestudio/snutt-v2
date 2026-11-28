@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.domain.notification.model
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.model.V1Entity
 import com.wafflestudio.snutt.core.common.push.LocalizedPushMessage
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -42,7 +42,7 @@ class Notification(
     @Enumerated(EnumType.STRING)
     var type: NotificationType = NotificationType.NORMAL,
     var deeplink: String? = null,
-) : BaseEntity()
+) : V1Entity()
 
 fun LocalizedPushMessage.toNotification(
     userId: Long?,

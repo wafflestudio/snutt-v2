@@ -70,6 +70,7 @@ class TimetableStep(
 
                     timetables.add(
                         id,
+                        externalId,
                         userId,
                         year,
                         semester,
@@ -236,6 +237,7 @@ class TimetableStep(
         }
         return arrayOf(
             id,
+            id(),
             timetableId,
             lectureId,
             color?.takeIf { matchedIndex == null }?.let(jsonMapper::writeValueAsString),
@@ -292,6 +294,7 @@ class TimetableStep(
         private val TIMETABLE_COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "user_id",
                 "year",
                 "semester",
@@ -304,6 +307,7 @@ class TimetableStep(
         private val TIMETABLE_LECTURE_COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "timetable_id",
                 "lecture_id",
                 "custom_color",

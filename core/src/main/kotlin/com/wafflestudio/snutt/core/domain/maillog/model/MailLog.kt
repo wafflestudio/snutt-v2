@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.maillog.model
 
 import com.wafflestudio.snutt.core.common.mail.UserMailType
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.model.V1Entity
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -31,4 +31,4 @@ class MailLog(
     val body: String? = null,
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     val errorMessage: String? = null,
-) : BaseEntity()
+) : V1Entity()

@@ -6,6 +6,7 @@ import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationStep
 import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.nullIfBlank
+import org.bson.types.ObjectId
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Component
 
@@ -41,6 +42,7 @@ class EvLectureStep(
                     val lectureNumber = lectureNumbers.merge(Triple(year, semester, courseNumber), 1, Int::plus)!!
                     out.add(
                         ids.next(),
+                        ObjectId().toHexString(),
                         courseId,
                         year,
                         semester,
@@ -67,6 +69,7 @@ class EvLectureStep(
         private val COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "course_id",
                 "year",
                 "semester",

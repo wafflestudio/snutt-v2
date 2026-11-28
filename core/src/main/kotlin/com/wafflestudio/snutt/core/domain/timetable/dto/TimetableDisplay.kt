@@ -11,6 +11,8 @@ import java.time.Instant
 
 data class TimetableLectureDisplay(
     val id: Long,
+    val idV1: String,
+    val lectureIdV1: String?,
     val lectureId: Long?,
     val courseId: Long?,
     val academicYear: String?,
@@ -48,6 +50,8 @@ fun TimetableLectureDisplay(
     val overrides = timetableLecture.overrides
     return TimetableLectureDisplay(
         id = checkNotNull(timetableLecture.id),
+        idV1 = timetableLecture.idV1,
+        lectureIdV1 = lecture?.idV1,
         lectureId = lecture?.id,
         courseId = lecture?.courseId,
         academicYear = overrides?.academicYear ?: lecture?.academicYear,
@@ -85,6 +89,7 @@ data class TimetableDisplay(
 
 data class TimetableBriefDto(
     val id: Long,
+    val idV1: String,
     val year: Int,
     val semester: Semester,
     val title: String,
@@ -98,6 +103,7 @@ fun TimetableBriefDto(
     totalCredit: Int,
 ) = TimetableBriefDto(
     id = checkNotNull(timetable.id),
+    idV1 = timetable.idV1,
     year = timetable.year,
     semester = timetable.semester,
     title = timetable.title,

@@ -133,7 +133,7 @@ class V1CompatAuthController(
         val user = legacyTokenService.authenticate(body.legacyToken)
         val tokens = authService.issueTokens(user)
         return LegacyTokenExchangeResponse(
-            userId = user.id!!.toString(),
+            userId = user.idV1,
             accessToken = tokens.accessToken,
             refreshToken = tokens.refreshToken,
         )
@@ -205,5 +205,5 @@ class V1CompatAuthController(
     private fun activeUserByLocalId(localId: String): User =
         userRepository.findByLocalIdAndActiveTrue(localId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
 
-    private fun User.toLoginResponse() = LegacyLoginResponse(userId = id!!.toString(), token = legacyTokenService.issue(this))
+    private fun User.toLoginResponse() = LegacyLoginResponse(userId = idV1, token = legacyTokenService.issue(this))
 }

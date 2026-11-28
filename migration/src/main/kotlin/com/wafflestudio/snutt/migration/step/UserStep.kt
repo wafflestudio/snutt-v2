@@ -74,6 +74,7 @@ class UserStep(
                     val nickname = doc.requireStr("nickname")
                     out.add(
                         id,
+                        externalId,
                         email,
                         isEmailVerified,
                         nickname.substringBeforeLast(TAG_DELIMITER),
@@ -181,6 +182,7 @@ class UserStep(
         private val COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "email",
                 "is_email_verified",
                 "nickname",

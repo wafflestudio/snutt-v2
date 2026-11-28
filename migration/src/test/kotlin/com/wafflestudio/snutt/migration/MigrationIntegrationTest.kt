@@ -48,7 +48,6 @@ class MigrationIntegrationTest {
     private val userShareA = ObjectId()
     private val userShareB = ObjectId()
     private val lectureId = ObjectId()
-    private val lectureDuplicate = ObjectId()
     private val timetableId = ObjectId()
     private val themeOrigin = ObjectId()
     private val themeCopy = ObjectId()
@@ -102,9 +101,10 @@ class MigrationIntegrationTest {
     fun `credential 중첩 문서가 평면 컬럼으로 펴진다`() {
         val row =
             jdbc.queryForMap(
-                "SELECT local_id, local_pw, is_admin, last_login_at FROM `user` WHERE id = ?",
+                "SELECT idv1, local_id, local_pw, is_admin, last_login_at FROM `user` WHERE id = ?",
                 context.userIds[userWithBoth.toHexString()],
             )
+        assertEquals(userWithBoth.toHexString(), row["idv1"])
         assertEquals("waffle", row["local_id"])
         assertEquals("encoded-pw", row["local_pw"])
         assertEquals(true, row["is_admin"])
@@ -154,9 +154,9 @@ class MigrationIntegrationTest {
     }
 
     @Test
-    fun `중복 개설은 하나로 합쳐지고 참조가 살아남은 행을 가리킨다`() {
+    fun `강의의 Mongo ObjectId를 idv1로 보존한다`() {
         assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM lecture", Long::class.java))
-        assertEquals(context.lectureIds[lectureId.toHexString()], context.lectureIds[lectureDuplicate.toHexString()])
+        assertEquals(lectureId.toHexString(), jdbc.queryForObject("SELECT idv1 FROM lecture", String::class.java))
     }
 
     @Test
@@ -175,6 +175,7 @@ class MigrationIntegrationTest {
                 "SELECT overrides->>'$.courseTitle' AS courseTitle, overrides->>'$.classPlaceAndTimes' AS classPlaceAndTimes " +
                     "FROM timetable_lecture WHERE lecture_id IS NULL",
             )
+        assertEquals(timetableId.toHexString(), jdbc.queryForObject("SELECT idv1 FROM timetable", String::class.java))
         assertEquals("직접 만든 강의", custom["courseTitle"])
         assertNotNull(custom["classPlaceAndTimes"])
     }
@@ -186,6 +187,14 @@ class MigrationIntegrationTest {
                 "SELECT t.publication_id, p.colors, p.listed FROM timetable_theme t JOIN published_theme p ON p.id=t.publication_id WHERE t.id = ?",
                 context.themeIds[themeCopy.toHexString()],
             )
+        assertEquals(
+            themeCopy.toHexString(),
+            jdbc.queryForObject("SELECT idv1 FROM timetable_theme WHERE publication_id IS NOT NULL", String::class.java),
+        )
+        assertEquals(
+            themeOrigin.toHexString(),
+            jdbc.queryForObject("SELECT idv1 FROM published_theme WHERE listed=TRUE", String::class.java),
+        )
         assertTrue((copy["colors"] as String).contains("backgroundColor"))
         assertNotNull(copy["publication_id"])
         assertEquals(false, copy["listed"])
@@ -197,6 +206,10 @@ class MigrationIntegrationTest {
 
     @Test
     fun `알림 종류는 이름으로 저장된다`() {
+        assertEquals(
+            "snutt://timetable-lecture?timetableId=$timetableId&lectureId=$lectureId",
+            jdbc.queryForObject("SELECT deeplink FROM notification WHERE type = 'LECTURE_UPDATE'", String::class.java),
+        )
         assertEquals(
             listOf("DIARY", "LECTURE_UPDATE"),
             jdbc.queryForList("SELECT type FROM notification ORDER BY type", String::class.java),
@@ -270,9 +283,7 @@ class MigrationIntegrationTest {
                 userDocument(userShareB, "share-b", "hash-shared", localId = "share-b"),
             ),
         )
-        db.getCollection("lectures").insertMany(
-            listOf(lectureDocument(lectureId), lectureDocument(lectureDuplicate)),
-        )
+        db.getCollection("lectures").insertOne(lectureDocument(lectureId))
         db.getCollection("timetableTheme").insertMany(
             listOf(
                 Document("_id", themeOrigin)
@@ -320,6 +331,7 @@ class MigrationIntegrationTest {
             listOf(
                 Document("_id", ObjectId())
                     .append("user_id", userWithBoth)
+                    .append("deeplink", "snutt://timetable-lecture?timetableId=$timetableId&lectureId=$lectureId")
                     .append("title", "알림")
                     .append("message", "본문")
                     .append("type", 2)

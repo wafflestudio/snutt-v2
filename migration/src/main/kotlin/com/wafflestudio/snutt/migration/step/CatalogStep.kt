@@ -57,10 +57,10 @@ class CatalogStep(
     private fun migrateCoursebooks() {
         val ids =
             IdSequence()
-        writer("coursebook", listOf("id", "year", "semester", "created_at", "updated_at")).use { out ->
+        writer("coursebook", listOf("id", "idv1", "year", "semester", "created_at", "updated_at")).use { out ->
             mongo.each("coursebooks") { doc ->
                 val updatedAt = doc.instant("updated_at").orNow()
-                out.add(ids.next(), doc.int("year"), doc.int("semester"), updatedAt.toSqlTimestamp(), updatedAt.toSqlTimestamp())
+                out.add(ids.next(), doc.id(), doc.int("year"), doc.int("semester"), updatedAt.toSqlTimestamp(), updatedAt.toSqlTimestamp())
             }
         }
     }
@@ -72,6 +72,7 @@ class CatalogStep(
             "lecture_building",
             listOf(
                 "id",
+                "idv1",
                 "building_number",
                 "building_name_kor",
                 "building_name_eng",
@@ -86,6 +87,7 @@ class CatalogStep(
                 val now = Instant.now().toSqlTimestamp()
                 out.add(
                     ids.next(),
+                    doc.id(),
                     doc.requireStr("buildingNumber"),
                     doc.requireStr("buildingNameKor"),
                     doc.requireStr("buildingNameEng"),
@@ -110,7 +112,7 @@ class CatalogStep(
             IdSequence()
         writer(
             "semester_registration_period",
-            listOf("id", "year", "semester", "registration_period_list", "created_at", "updated_at"),
+            listOf("id", "idv1", "year", "semester", "registration_period_list", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("semesterRegistrationPeriod") { doc ->
                 val now = Instant.now().toSqlTimestamp()
@@ -125,7 +127,15 @@ class CatalogStep(
                             "phase" to period.requireStr("phase"),
                         )
                     }
-                out.add(ids.next(), doc.requireInt("year"), doc.requireInt("semester"), jsonMapper.writeValueAsString(periods), now, now)
+                out.add(
+                    ids.next(),
+                    doc.id(),
+                    doc.requireInt("year"),
+                    doc.requireInt("semester"),
+                    jsonMapper.writeValueAsString(periods),
+                    now,
+                    now,
+                )
             }
         }
     }
@@ -166,11 +176,12 @@ class CatalogStep(
             IdSequence()
         writer(
             "popup",
-            listOf("id", "popup_key", "image_origin_uri", "link_url", "hidden_days", "created_at", "updated_at"),
+            listOf("id", "idv1", "popup_key", "image_origin_uri", "link_url", "hidden_days", "created_at", "updated_at"),
         ).use { out ->
             mongo.each("popup") { doc ->
                 out.add(
                     ids.next(),
+                    doc.id(),
                     doc.requireStr("key"),
                     doc.requireStr("imageOriginUri"),
                     doc.str("linkUrl"),
@@ -185,12 +196,12 @@ class CatalogStep(
     private fun migrateDiaryDefinitions() {
         val typeIds =
             IdSequence()
-        writer("diary_daily_class_type", listOf("id", "name", "active", "created_at", "updated_at")).use { out ->
+        writer("diary_daily_class_type", listOf("id", "idv1", "name", "active", "created_at", "updated_at")).use { out ->
             mongo.each("diaryDailyClassType") { doc ->
                 val id = typeIds.next()
                 context.diaryClassTypeIds[doc.id()] = id
                 val now = Instant.now().toSqlTimestamp()
-                out.add(id, doc.requireStr("name"), doc.bool("active"), now, now)
+                out.add(id, doc.id(), doc.requireStr("name"), doc.bool("active"), now, now)
             }
         }
 
@@ -202,6 +213,7 @@ class CatalogStep(
             "diary_question",
             listOf(
                 "id",
+                "idv1",
                 "question",
                 "short_question",
                 "answer_list",
@@ -229,6 +241,7 @@ class CatalogStep(
                     val now = Instant.now().toSqlTimestamp()
                     out.add(
                         id,
+                        doc.id(),
                         doc.requireStr("question"),
                         doc.requireStr("shortQuestion"),
                         jsonMapper.writeValueAsString(doc.strings("answers")),

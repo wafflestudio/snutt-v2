@@ -2,7 +2,7 @@ package com.wafflestudio.snutt.core.domain.lecture.model
 
 import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.model.V1Entity
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -35,7 +35,7 @@ class Lecture(
     @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     var remarkEn: String? = null,
     var courseId: Long? = null,
-) : BaseEntity() {
+) : V1Entity() {
     fun copyMetadataFrom(other: Lecture) {
         academicYear = other.academicYear
         category = other.category

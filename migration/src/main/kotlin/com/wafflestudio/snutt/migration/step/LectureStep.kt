@@ -4,7 +4,6 @@ import com.wafflestudio.snutt.migration.IdSequence
 import com.wafflestudio.snutt.migration.LectureSnapshot
 import com.wafflestudio.snutt.migration.MigrationContext
 import com.wafflestudio.snutt.migration.MigrationStep
-import com.wafflestudio.snutt.migration.MigrationSupport
 import com.wafflestudio.snutt.migration.MongoSource
 import com.wafflestudio.snutt.migration.bool
 import com.wafflestudio.snutt.migration.docs
@@ -41,10 +40,12 @@ class LectureStep(
                         val externalId = doc.id()
                         val offeringKey = offeringKey(doc)
                         val existing = offerings[offeringKey]
-                        if (existing != null) {
-                            context.lectureIds[externalId] = existing
-                            context.resolved(MigrationSupport.ResolutionReasons.LECTURE_DUPLICATE)
-                            return@each
+                        check(existing == null) {
+                            val previous =
+                                context.lectureIds.entries
+                                    .first { it.value == existing }
+                                    .key
+                            "중복 강의 개설: ObjectId $previous, $externalId. 원본을 정리한 뒤 다시 이관해야 한다"
                         }
 
                         val id = ids.next()
@@ -59,6 +60,7 @@ class LectureStep(
 
                         lectures.add(
                             id,
+                            externalId,
                             courseId,
                             doc.int("year"),
                             doc.int("semester"),
@@ -152,6 +154,7 @@ class LectureStep(
         private val LECTURE_COLUMNS =
             listOf(
                 "id",
+                "idv1",
                 "course_id",
                 "year",
                 "semester",

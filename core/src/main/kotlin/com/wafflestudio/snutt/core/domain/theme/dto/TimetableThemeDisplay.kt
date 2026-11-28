@@ -5,6 +5,7 @@ import com.wafflestudio.snutt.core.domain.theme.model.ThemeKind
 
 data class TimetableThemeDisplay(
     val id: Long,
+    val idV1: String,
     val userId: Long?,
     val name: String,
     val colors: List<ColorSet>,

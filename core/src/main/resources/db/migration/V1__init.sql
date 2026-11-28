@@ -1,6 +1,7 @@
 CREATE TABLE `user`
 (
     id                      BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     email                   VARCHAR(255) NULL,
     is_email_verified       BOOLEAN      NOT NULL DEFAULT FALSE,
     nickname                VARCHAR(64) COLLATE utf8mb4_0900_bin NOT NULL,
@@ -23,7 +24,8 @@ CREATE TABLE `user`
     CONSTRAINT uk_user_active_email UNIQUE (active_email),
     INDEX idx_user_email (email),
     INDEX idx_user_local_id (local_id),
-    INDEX idx_user_nickname (nickname, nickname_tag)
+    INDEX idx_user_nickname (nickname, nickname_tag),
+    CONSTRAINT uk_user_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE refresh_token
@@ -65,6 +67,7 @@ CREATE TABLE user_device
     device_model        VARCHAR(64)  NULL,
     app_type            VARCHAR(16)  NULL,
     app_version         VARCHAR(32)  NULL,
+    language            VARCHAR(8)   NOT NULL DEFAULT 'KO',
     fcm_registration_id VARCHAR(512) NOT NULL,
     is_deleted          BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at          DATETIME(6)  NOT NULL,
@@ -91,15 +94,19 @@ CREATE TABLE push_preference
 CREATE TABLE notification
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     user_id     BIGINT       NULL,
     title       VARCHAR(255) NOT NULL,
+    title_en    VARCHAR(255) NULL,
     message     TEXT         NOT NULL,
+    message_en  TEXT         NULL,
     type        VARCHAR(32)  NOT NULL,
     deeplink    VARCHAR(512) NULL,
     created_at  DATETIME(6)  NOT NULL,
     updated_at  DATETIME(6)  NOT NULL,
     CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    INDEX idx_notification_user_created (user_id, created_at DESC, id DESC)
+    INDEX idx_notification_user_created (user_id, created_at DESC, id DESC),
+    CONSTRAINT uk_notification_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE course
@@ -108,6 +115,18 @@ CREATE TABLE course
     course_number  VARCHAR(32)  NOT NULL,
     instructor     VARCHAR(128) NOT NULL,
     title          VARCHAR(256) NOT NULL,
+    title_en          VARCHAR(256) NULL,
+    instructor_en     VARCHAR(128) NULL,
+    department        VARCHAR(128) NULL,
+    department_en     VARCHAR(256) NULL,
+    academic_year     VARCHAR(32) NULL,
+    academic_year_en  VARCHAR(64) NULL,
+    category          VARCHAR(64) NULL,
+    category_en       VARCHAR(128) NULL,
+    category_pre2025  VARCHAR(64) NULL,
+    classification    VARCHAR(16) NULL,
+    classification_en VARCHAR(64) NULL,
+    credit            INT NULL,
     eval_count     BIGINT       NOT NULL DEFAULT 0,
     avg_rating     DOUBLE       NULL,
     avg_grade_satisfaction DOUBLE NULL,
@@ -125,6 +144,7 @@ CREATE TABLE course
 CREATE TABLE lecture
 (
     id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     course_id          BIGINT       NULL,
     year               INT          NOT NULL,
     semester           TINYINT      NOT NULL,
@@ -156,11 +176,12 @@ CREATE TABLE lecture
     INDEX idx_lecture_course (course_id, year, semester),
     INDEX idx_lecture_course_lecture_number (course_number, lecture_number),
     INDEX idx_lecture_department (department),
-    INDEX idx_lecture_classification (classification),
     INDEX idx_lecture_academic_year (academic_year),
     INDEX idx_lecture_category (category),
     INDEX idx_lecture_category_pre2025 (category_pre2025),
-    INDEX idx_lecture_credit (credit)
+    INDEX idx_lecture_credit (credit),
+    INDEX idx_lecture_classification_course (classification, course_id),
+    CONSTRAINT uk_lecture_idv1 UNIQUE (idv1)
 );
 
 ALTER TABLE course
@@ -184,17 +205,19 @@ CREATE TABLE lecture_class_time
     start_minute SMALLINT     NOT NULL,
     end_minute   SMALLINT     NOT NULL,
     CONSTRAINT fk_lecture_class_time_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE CASCADE,
-    INDEX idx_lecture_class_time_lecture (lecture_id)
+    INDEX idx_lecture_class_time_lecture_slot (lecture_id, day, start_minute, end_minute)
 );
 
 CREATE TABLE coursebook
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     year        INT         NOT NULL,
     semester    TINYINT     NOT NULL,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_coursebook_year_semester UNIQUE (year, semester)
+    CONSTRAINT uk_coursebook_year_semester UNIQUE (year, semester),
+    CONSTRAINT uk_coursebook_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE evaluation
@@ -254,6 +277,7 @@ CREATE TABLE evaluation_report
 CREATE TABLE timetable_theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     user_id          BIGINT       NULL,
     builtin_code     VARCHAR(32)  NULL,
     name             VARCHAR(128) NOT NULL,
@@ -269,7 +293,8 @@ CREATE TABLE timetable_theme
         OR (builtin_code IS NULL AND user_id IS NOT NULL)
     ),
     CONSTRAINT ck_timetable_theme_palette CHECK (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9),
-    INDEX idx_timetable_theme_user_updated (user_id, updated_at DESC)
+    INDEX idx_timetable_theme_user_updated (user_id, updated_at DESC),
+    CONSTRAINT uk_timetable_theme_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE user_preference
@@ -280,29 +305,30 @@ CREATE TABLE user_preference
     CONSTRAINT fk_user_preference_theme FOREIGN KEY (default_theme_id) REFERENCES timetable_theme (id) ON DELETE RESTRICT
 );
 
-INSERT INTO timetable_theme (id, user_id, builtin_code, name, colors, created_at, updated_at) VALUES
-    (1, NULL, 'snutt', 'SNUTT',
+INSERT INTO timetable_theme (idv1, id, user_id, builtin_code, name, colors, created_at, updated_at) VALUES
+    ('000000000000000000000001', 1, NULL, 'snutt', 'SNUTT',
      '[{"backgroundColor":"#E54459","foregroundColor":"#ffffff"},{"backgroundColor":"#F58D3D","foregroundColor":"#ffffff"},{"backgroundColor":"#FAC42D","foregroundColor":"#ffffff"},{"backgroundColor":"#A6D930","foregroundColor":"#ffffff"},{"backgroundColor":"#2BC267","foregroundColor":"#ffffff"},{"backgroundColor":"#1BD0C8","foregroundColor":"#ffffff"},{"backgroundColor":"#1D99E8","foregroundColor":"#ffffff"},{"backgroundColor":"#4F48C4","foregroundColor":"#ffffff"},{"backgroundColor":"#AF56B3","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (2, NULL, 'fall', '가을',
+    ('000000000000000000000002', 2, NULL, 'fall', '가을',
      '[{"backgroundColor":"#B82E31","foregroundColor":"#ffffff"},{"backgroundColor":"#DB701C","foregroundColor":"#ffffff"},{"backgroundColor":"#EAA32A","foregroundColor":"#ffffff"},{"backgroundColor":"#C6C013","foregroundColor":"#ffffff"},{"backgroundColor":"#3A856E","foregroundColor":"#ffffff"},{"backgroundColor":"#19B2AC","foregroundColor":"#ffffff"},{"backgroundColor":"#3994CE","foregroundColor":"#ffffff"},{"backgroundColor":"#3F3A9C","foregroundColor":"#ffffff"},{"backgroundColor":"#924396","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (3, NULL, 'modern', '모던',
+    ('000000000000000000000003', 3, NULL, 'modern', '모던',
      '[{"backgroundColor":"#F0652A","foregroundColor":"#ffffff"},{"backgroundColor":"#F5AD3E","foregroundColor":"#ffffff"},{"backgroundColor":"#998F36","foregroundColor":"#ffffff"},{"backgroundColor":"#89C291","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#13808F","foregroundColor":"#ffffff"},{"backgroundColor":"#366689","foregroundColor":"#ffffff"},{"backgroundColor":"#432920","foregroundColor":"#ffffff"},{"backgroundColor":"#D82F3D","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (4, NULL, 'blossom', '벚꽃',
+    ('000000000000000000000004', 4, NULL, 'blossom', '벚꽃',
      '[{"backgroundColor":"#FD79A8","foregroundColor":"#ffffff"},{"backgroundColor":"#FEC9DD","foregroundColor":"#ffffff"},{"backgroundColor":"#FEB0CC","foregroundColor":"#ffffff"},{"backgroundColor":"#FE93BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E9B1D0","foregroundColor":"#ffffff"},{"backgroundColor":"#C67D97","foregroundColor":"#ffffff"},{"backgroundColor":"#BB8EA7","foregroundColor":"#ffffff"},{"backgroundColor":"#BDB4BF","foregroundColor":"#ffffff"},{"backgroundColor":"#E16597","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (5, NULL, 'ice', '얼음',
+    ('000000000000000000000005', 5, NULL, 'ice', '얼음',
      '[{"backgroundColor":"#AABDCF","foregroundColor":"#ffffff"},{"backgroundColor":"#C0E9E8","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#015F95","foregroundColor":"#ffffff"},{"backgroundColor":"#A8D0DB","foregroundColor":"#ffffff"},{"backgroundColor":"#66B6CA","foregroundColor":"#ffffff"},{"backgroundColor":"#62A9D1","foregroundColor":"#ffffff"},{"backgroundColor":"#20363D","foregroundColor":"#ffffff"},{"backgroundColor":"#6D8A96","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6)),
-    (6, NULL, 'lawn', '잔디',
+    ('000000000000000000000006', 6, NULL, 'lawn', '잔디',
      '[{"backgroundColor":"#4FBEAA","foregroundColor":"#ffffff"},{"backgroundColor":"#9FC1A4","foregroundColor":"#ffffff"},{"backgroundColor":"#5A8173","foregroundColor":"#ffffff"},{"backgroundColor":"#84AEB1","foregroundColor":"#ffffff"},{"backgroundColor":"#266F55","foregroundColor":"#ffffff"},{"backgroundColor":"#D0E0C4","foregroundColor":"#ffffff"},{"backgroundColor":"#59886D","foregroundColor":"#ffffff"},{"backgroundColor":"#476060","foregroundColor":"#ffffff"},{"backgroundColor":"#3D7068","foregroundColor":"#ffffff"}]',
      NOW(6), NOW(6));
 
 CREATE TABLE published_theme
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     author_id        BIGINT       NULL,
     source_theme_id  BIGINT       NULL,
     name             VARCHAR(128) NOT NULL,
@@ -316,7 +342,8 @@ CREATE TABLE published_theme
     CONSTRAINT fk_published_theme_author FOREIGN KEY (author_id) REFERENCES `user` (id) ON DELETE SET NULL,
     CONSTRAINT ck_published_theme_palette CHECK (JSON_TYPE(colors) = 'ARRAY' AND JSON_LENGTH(colors) BETWEEN 1 AND 9),
     INDEX idx_published_theme_download (listed, download_count DESC, id DESC),
-    INDEX idx_published_theme_source (source_theme_id, listed)
+    INDEX idx_published_theme_source (source_theme_id, listed),
+    CONSTRAINT uk_published_theme_idv1 UNIQUE (idv1)
 );
 
 ALTER TABLE timetable_theme ADD CONSTRAINT fk_timetable_theme_publication FOREIGN KEY (publication_id) REFERENCES published_theme (id) ON DELETE RESTRICT;
@@ -324,6 +351,7 @@ ALTER TABLE timetable_theme ADD CONSTRAINT fk_timetable_theme_publication FOREIG
 CREATE TABLE timetable
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     user_id     BIGINT       NOT NULL,
     year        INT          NOT NULL,
     semester    TINYINT      NOT NULL,
@@ -336,12 +364,14 @@ CREATE TABLE timetable
     CONSTRAINT fk_timetable_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_theme FOREIGN KEY (theme_id) REFERENCES timetable_theme (id) ON DELETE RESTRICT,
     INDEX idx_timetable_user_semester (user_id, year, semester),
-    INDEX idx_timetable_semester (year, semester)
+    INDEX idx_timetable_semester (year, semester),
+    CONSTRAINT uk_timetable_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE timetable_lecture
 (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     timetable_id  BIGINT NOT NULL,
     lecture_id    BIGINT NULL,
     custom_color  JSON   NULL,
@@ -353,7 +383,8 @@ CREATE TABLE timetable_lecture
     CONSTRAINT fk_timetable_lecture_timetable FOREIGN KEY (timetable_id) REFERENCES timetable (id) ON DELETE CASCADE,
     CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE RESTRICT,
     INDEX idx_timetable_lecture_timetable (timetable_id),
-    INDEX idx_timetable_lecture_lecture (lecture_id)
+    INDEX idx_timetable_lecture_lecture (lecture_id),
+    CONSTRAINT uk_timetable_lecture_idv1 UNIQUE (timetable_id, idv1)
 );
 
 CREATE TABLE timetable_lecture_reminder
@@ -380,7 +411,7 @@ CREATE TABLE timetable_lecture_reminder_schedule
     CONSTRAINT fk_reminder_schedule_reminder FOREIGN KEY (reminder_id)
         REFERENCES timetable_lecture_reminder (id) ON DELETE CASCADE,
     UNIQUE INDEX idx_reminder_schedule_fire (reminder_id, day, minute),
-    INDEX idx_reminder_schedule_slot (day, minute, reminder_id)
+    INDEX idx_reminder_schedule_slot_notified (day, minute, reminder_id, recent_notified_at)
 );
 
 CREATE TABLE bookmark_lecture
@@ -412,6 +443,7 @@ CREATE TABLE vacancy_notification
 CREATE TABLE friend
 (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     from_user_id      BIGINT      NOT NULL,
     to_user_id        BIGINT      NOT NULL,
     from_display_name VARCHAR(64) NULL,
@@ -424,20 +456,23 @@ CREATE TABLE friend
     CONSTRAINT uk_friend_pair UNIQUE (user_low, user_high),
     CONSTRAINT fk_friend_from_user FOREIGN KEY (from_user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_friend_to_user FOREIGN KEY (to_user_id) REFERENCES `user` (id) ON DELETE CASCADE,
-    INDEX idx_friend_from_user (from_user_id, is_accepted),
-    INDEX idx_friend_to_user (to_user_id, is_accepted)
+    INDEX idx_friend_from_user_accepted_created (from_user_id, is_accepted, created_at DESC),
+    INDEX idx_friend_to_user_accepted_created (to_user_id, is_accepted, created_at DESC),
+    CONSTRAINT uk_friend_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE popup
 (
     id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     popup_key        VARCHAR(64)  NOT NULL,
     image_origin_uri VARCHAR(512) NOT NULL,
     link_url         VARCHAR(512) NULL,
     hidden_days      INT          NULL,
     created_at       DATETIME(6)  NOT NULL,
     updated_at       DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_popup_key UNIQUE (popup_key)
+    CONSTRAINT uk_popup_key UNIQUE (popup_key),
+    CONSTRAINT uk_popup_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE client_config
@@ -456,6 +491,7 @@ CREATE TABLE client_config
 CREATE TABLE lecture_building
 (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     building_number     VARCHAR(16)  NOT NULL,
     building_name_kor   VARCHAR(64)  NOT NULL,
     building_name_eng   VARCHAR(128) NOT NULL DEFAULT '',
@@ -464,40 +500,47 @@ CREATE TABLE lecture_building
     location_in_decimal JSON         NULL,
     created_at          DATETIME(6)  NOT NULL,
     updated_at          DATETIME(6)  NOT NULL,
-    CONSTRAINT uk_lecture_building UNIQUE (building_number, campus)
+    CONSTRAINT uk_lecture_building UNIQUE (building_number, campus),
+    CONSTRAINT uk_lecture_building_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE semester_registration_period
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     year                     INT         NOT NULL,
     semester                 TINYINT     NOT NULL,
     registration_period_list JSON        NOT NULL,
     created_at               DATETIME(6) NOT NULL,
     updated_at               DATETIME(6) NOT NULL,
-    CONSTRAINT uk_semester_registration_period UNIQUE (year, semester)
+    CONSTRAINT uk_semester_registration_period UNIQUE (year, semester),
+    CONSTRAINT uk_semester_registration_period_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE diary_daily_class_type
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     name        VARCHAR(64) NOT NULL,
     active      BOOLEAN     NOT NULL DEFAULT TRUE,
     created_at  DATETIME(6) NOT NULL,
     updated_at  DATETIME(6) NOT NULL,
-    CONSTRAINT uk_diary_daily_class_type_name UNIQUE (name)
+    CONSTRAINT uk_diary_daily_class_type_name UNIQUE (name),
+    CONSTRAINT uk_diary_daily_class_type_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE diary_question
 (
     id                              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     question                        VARCHAR(255) NOT NULL,
     short_question                  VARCHAR(255) NOT NULL,
     answer_list                     JSON         NOT NULL,
     short_answer_list               JSON         NOT NULL,
     active                          BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at                      DATETIME(6)  NOT NULL,
-    updated_at                      DATETIME(6)  NOT NULL
+    updated_at                      DATETIME(6)  NOT NULL,
+    CONSTRAINT uk_diary_question_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE diary_question_target
@@ -515,6 +558,7 @@ CREATE TABLE diary_question_target
 CREATE TABLE diary_submission
 (
     id                       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     user_id                  BIGINT       NOT NULL,
     year                     INT          NOT NULL,
     semester                 TINYINT      NOT NULL,
@@ -525,7 +569,8 @@ CREATE TABLE diary_submission
     updated_at               DATETIME(6)  NOT NULL,
     CONSTRAINT fk_diary_submission_user FOREIGN KEY (user_id) REFERENCES `user` (id) ON DELETE CASCADE,
     CONSTRAINT fk_diary_submission_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE SET NULL,
-    INDEX idx_diary_submission_user (user_id, year, semester, created_at DESC)
+    INDEX idx_diary_submission_user_created (user_id, created_at DESC),
+    CONSTRAINT uk_diary_submission_idv1 UNIQUE (idv1)
 );
 
 CREATE TABLE diary_submission_daily_class_type
@@ -574,4 +619,23 @@ CREATE TABLE legacy_search_tag
     int_value      INT          NULL,
     string_value   VARCHAR(128) NULL,
     INDEX idx_legacy_search_tag_group (group_ordering, ordering)
+);
+
+CREATE TABLE mail_log
+(
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    idv1 CHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    type                VARCHAR(32)  NOT NULL,
+    status              VARCHAR(32)  NOT NULL,
+    email               VARCHAR(255) NULL,
+    requested_local_id  VARCHAR(64) COLLATE utf8mb4_0900_bin NULL,
+    subject             VARCHAR(255) NULL,
+    body                TEXT         NULL,
+    error_message       TEXT         NULL,
+    created_at          DATETIME(6)  NOT NULL,
+    updated_at          DATETIME(6)  NOT NULL,
+    INDEX idx_mail_log_email (email),
+    INDEX idx_mail_log_requested_local_id (requested_local_id),
+    INDEX idx_mail_log_created (created_at),
+    CONSTRAINT uk_mail_log_idv1 UNIQUE (idv1)
 );

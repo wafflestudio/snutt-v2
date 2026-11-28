@@ -186,7 +186,7 @@ class UserDataStep(
     }
 
     private fun migrateFriends() {
-        val winners = LinkedHashMap<String, Document>()
+        val friends = LinkedHashMap<String, Document>()
         mongo.each("friend") { doc ->
             val fromUserId = context.userIds[doc.oid("fromUserId")]
             val toUserId = context.userIds[doc.oid("toUserId")]
@@ -199,17 +199,8 @@ class UserDataStep(
                 return@each
             }
             val key = "${minOf(fromUserId, toUserId)}\u0000${maxOf(fromUserId, toUserId)}"
-            val previous = winners[key]
-            if (previous == null) {
-                winners[key] = doc
-                return@each
-            }
-            context.resolved(MigrationSupport.ResolutionReasons.FRIEND_DUPLICATE)
-            val previousWins =
-                previous.bool("isAccepted") ||
-                    !doc.bool("isAccepted") &&
-                    previous.instant("createdAt").orNow() <= doc.instant("createdAt").orNow()
-            if (!previousWins) winners[key] = doc
+            val previous = friends.putIfAbsent(key, doc)
+            check(previous == null) { "중복 친구: ObjectId ${previous?.id()}, ${doc.id()}. 원본을 정리한 뒤 다시 이관해야 한다" }
         }
 
         val ids = IdSequence()
@@ -217,6 +208,7 @@ class UserDataStep(
             "friend",
             listOf(
                 "id",
+                "idv1",
                 "from_user_id",
                 "to_user_id",
                 "from_display_name",
@@ -226,9 +218,11 @@ class UserDataStep(
                 "updated_at",
             ),
         ).use { out ->
-            winners.values.forEach { doc ->
+            friends.values.forEach { doc ->
+                val id = ids.next()
                 out.add(
-                    ids.next(),
+                    id,
+                    doc.id(),
                     context.userIds.getValue(doc.oid("fromUserId")!!),
                     context.userIds.getValue(doc.oid("toUserId")!!),
                     doc.str("fromUserDisplayName"),
@@ -239,7 +233,7 @@ class UserDataStep(
                 )
             }
         }
-        log.info("친구 이관: {}건", winners.size)
+        log.info("친구 이관: {}건", friends.size)
     }
 
     private fun migrateDiarySubmissions() {
@@ -250,6 +244,7 @@ class UserDataStep(
             "diary_submission",
             listOf(
                 "id",
+                "idv1",
                 "user_id",
                 "year",
                 "semester",
@@ -280,6 +275,7 @@ class UserDataStep(
                         val submissionId = ids.next()
                         out.add(
                             submissionId,
+                            doc.id(),
                             userId,
                             doc.requireInt("year"),
                             doc.requireInt("semester"),

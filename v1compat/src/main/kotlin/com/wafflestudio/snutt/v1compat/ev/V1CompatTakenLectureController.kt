@@ -6,6 +6,8 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
+import com.wafflestudio.snutt.core.common.model.V1IdRepository
+import com.wafflestudio.snutt.core.common.model.V1IdTable
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
@@ -64,6 +66,7 @@ data class LegacyTakenLectureDto(
 @RestController
 @RequestMapping(V1_EV_SERVICE_PATH, V1_EV_PATH, EV_SERVICE_PATH, EV_PATH)
 class V1CompatTakenLectureController(
+    private val v1Ids: V1IdRepository,
     private val takenLectureService: TakenLectureService,
     private val legacyCourseRepository: LegacyCourseRepository,
 ) {
@@ -75,29 +78,32 @@ class V1CompatTakenLectureController(
     ): LegacyTakenLecturesResponse {
         val taken = takenLectureService.getMyLatestLectures(user.id!!, excludeEvaluated = filter == "no-my-evaluations")
         val metadata = legacyCourseRepository.getByIds(taken.map { it.course.id!! })
+        val userIds = v1Ids.v1Ids(V1IdTable.USER, taken.flatMap { it.recentEvaluations }.mapNotNull { it.evaluation.userId })
         return LegacyTakenLecturesResponse(
-            taken.map { it.toLegacyTakenLecture(metadata.getValue(it.course.id!!).localized(clientInfo.language)) },
+            taken.map { it.toLegacyTakenLecture(metadata.getValue(it.course.id!!).localized(clientInfo.language), userIds) },
         )
     }
 
-    private fun LectureTakenByUser.toLegacyTakenLecture(metadata: LegacyCourseMetadata) =
-        LegacyTakenLectureDto(
-            id = course.id,
-            title = metadata.title,
-            instructor = metadata.instructor,
-            department = metadata.department,
-            courseNumber = course.courseNumber,
-            credit = metadata.credit,
-            academicYear = metadata.academicYear,
-            category = metadata.category,
-            classification = metadata.classification,
-            takenYear = takenYear,
-            takenSemester = takenSemester.value,
-            avgRating = course.avgRating,
-            evaluationCount = course.evalCount,
-            myEvaluationExists = myEvaluationExists,
-            recentEvaluations = recentEvaluations.map { it.toLegacyWithSemester() },
-        )
+    private fun LectureTakenByUser.toLegacyTakenLecture(
+        metadata: LegacyCourseMetadata,
+        userIds: Map<Long, String>,
+    ) = LegacyTakenLectureDto(
+        id = course.id,
+        title = metadata.title,
+        instructor = metadata.instructor,
+        department = metadata.department,
+        courseNumber = course.courseNumber,
+        credit = metadata.credit,
+        academicYear = metadata.academicYear,
+        category = metadata.category,
+        classification = metadata.classification,
+        takenYear = takenYear,
+        takenSemester = takenSemester.value,
+        avgRating = course.avgRating,
+        evaluationCount = course.evalCount,
+        myEvaluationExists = myEvaluationExists,
+        recentEvaluations = recentEvaluations.map { it.toLegacyWithSemester(it.evaluation.userId?.let(userIds::getValue)) },
+    )
 }
 
 data class LegacySearchTagGroupsResponse(
@@ -179,6 +185,7 @@ private const val LEGACY_COURSE_PAGE_SIZE = 20
 @V1EmailVerifiedRequired
 @RequestMapping(V1_EV_SERVICE_PATH, V1_EV_PATH, EV_SERVICE_PATH, EV_PATH)
 class V1CompatCourseSearchController(
+    private val v1Ids: V1IdRepository,
     private val courseSearchService: CourseSearchService,
     private val legacySearchTagService: LegacySearchTagService,
     private val legacyCourseRepository: LegacyCourseRepository,
@@ -205,8 +212,8 @@ class V1CompatCourseSearchController(
     ): LegacyLectureIdResponse {
         val courseId =
             semesterLectureSnuttId
-                .toLongOrNull()
-                ?.let { lectureRepository.findByIdOrNull(it) }
+                .let { v1Ids.id(V1IdTable.LECTURE, it, ErrorType.COURSE_NOT_FOUND) }
+                .let { lectureRepository.findByIdOrNull(it) }
                 ?.courseId
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         return LegacyLectureIdResponse(id = courseId, snuttId = semesterLectureSnuttId)

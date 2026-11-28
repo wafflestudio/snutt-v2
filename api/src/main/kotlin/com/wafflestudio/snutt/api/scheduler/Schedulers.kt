@@ -188,7 +188,7 @@ class DiaryScheduler(
                     userId to
                         NotificationTemplate.DIARY_WRITE
                             .render(lecture.localizedCourseTitle)
-                            .copy(urlScheme = deeplinkResolver.build(Deeplink.Diary(lecture.id!!, lecture.courseTitle)))
+                            .copy(urlScheme = deeplinkResolver.build(Deeplink.Diary(lecture.idV1, lecture.courseTitle)))
                 }.toMap()
         log.info("강의 일기장 알림 발송: {}건", messages.size)
         pushService.sendTargetedPushes(messages, PushPreferenceType.DIARY)

@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.timetable.model
 
 import com.wafflestudio.snutt.core.common.enums.Semester
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.model.V1Entity
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -15,4 +15,4 @@ class Timetable(
     var title: String,
     var themeId: Long = 1L,
     var isPrimary: Boolean = false,
-) : BaseEntity()
+) : V1Entity()

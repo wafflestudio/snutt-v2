@@ -105,7 +105,7 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
                     ClassPlaceAndTime(DayOfWeek.MONDAY, "3-106", 570, 645),
                     ClassPlaceAndTime(DayOfWeek.WEDNESDAY, "3-106", 570, 645),
                 ),
-            ).id!!.toString()
+            ).idV1
 
         val registered = v1Post("/v1/auth/register_local", """{"id":"v1user","password":"password1","email":"v1@snu.ac.kr"}""")
         assertEquals(200, registered.statusCode.value(), "body=${registered.body}")
@@ -154,6 +154,8 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
     @Test
     fun `v1 로그인은 credentialHash 토큰을 발급한다`() {
         assertTrue(legacyToken.isNotBlank())
+        assertTrue(userId.matches(Regex("[0-9a-f]{24}")))
+        assertTrue(lectureId.matches(Regex("[0-9a-f]{24}")))
         val me = v1Get("/v1/users/me", legacyToken)
         assertEquals(200, me.statusCode.value())
         assertEquals(userId, body(me)["id"].asString())
@@ -302,18 +304,22 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
 
     @Test
     fun `알림 목록은 _id를 문자열로 응답한다`() {
-        notificationRepository.save(Notification(userId = userId.toLong(), title = "공지", message = "내용"))
+        notificationRepository.save(
+            Notification(userId = userRepository.findByLocalIdAndActiveTrue("v1user")!!.id!!, title = "공지", message = "내용"),
+        )
 
         val notification = body(v1Get("/v1/notification", legacyToken))[0]
 
         assertTrue(notification["_id"].isString)
+        assertTrue(notification["_id"].asString().matches(Regex("[0-9a-f]{24}")))
+        assertEquals(userId, notification["user_id"].asString())
     }
 
     @Test
     fun `v1 알림 목록도 요청 언어를 따른다`() {
         notificationRepository.save(
             Notification(
-                userId = userId.toLong(),
+                userId = userRepository.findByLocalIdAndActiveTrue("v1user")!!.id!!,
                 title = "빈자리 알림",
                 titleEn = "Vacancy alert",
                 message = "빈자리가 생겼습니다",
@@ -341,10 +347,10 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
         v1Post("/v1/tables", """{"year":2026,"semester":3,"title":"대표"}""", legacyToken)
 
         val questionnaire =
-            v1Post("/v1/diary/questionnaire", """{"lectureId":$lectureId,"dailyClassTypes":["수업듣기"]}""", legacyToken)
+            v1Post("/v1/diary/questionnaire", """{"lectureId":"$lectureId","dailyClassTypes":["수업듣기"]}""", legacyToken)
 
         assertEquals(200, questionnaire.statusCode.value(), "body=${questionnaire.body}")
-        assertEquals(question.id!!.toString(), body(questionnaire)["questions"][0]["id"].asString())
+        assertEquals(question.idV1, body(questionnaire)["questions"][0]["id"].asString())
         assertTrue(body(questionnaire)["questions"][0]["id"].isString)
     }
 
@@ -359,10 +365,10 @@ class V1CompatContractTest : AbstractApiIntegrationTest() {
         val submission =
             diarySubmissionRepository.save(
                 DiarySubmission(
-                    userId = userId.toLong(),
+                    userId = userRepository.findByLocalIdAndActiveTrue("v1user")!!.id!!,
                     year = 2026,
                     semester = Semester.AUTUMN,
-                    lectureId = lectureId.toLong(),
+                    lectureId = lectureRepository.findAll().single().id!!,
                     courseTitle = "고급한국어",
                     comment = "",
                 ),

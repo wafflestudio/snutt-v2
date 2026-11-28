@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.theme.model
 
-import com.wafflestudio.snutt.core.common.model.BaseEntity
+import com.wafflestudio.snutt.core.common.model.V1Entity
 import jakarta.persistence.Entity
 import org.hibernate.annotations.JdbcTypeCode
 import org.hibernate.type.SqlTypes
@@ -19,7 +19,7 @@ class TimetableTheme(
     @JdbcTypeCode(SqlTypes.JSON)
     var colors: List<ColorSet>,
     val publicationId: Long? = null,
-) : BaseEntity() {
+) : V1Entity() {
     val kind: ThemeKind
         get() =
             when {
@@ -39,4 +39,4 @@ class PublishedTheme(
     val authorAnonymous: Boolean = false,
     var listed: Boolean = true,
     var downloadCount: Long = 0,
-) : BaseEntity()
+) : V1Entity()

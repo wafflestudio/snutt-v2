@@ -23,8 +23,8 @@ sealed interface Deeplink {
     }
 
     data class TimetableLecture(
-        val timetableId: Long,
-        val lectureId: Long,
+        val timetableId: String,
+        val lectureId: String,
     ) : Deeplink {
         override val path = "timetable-lecture"
         override val query get() = mapOf("timetableId" to timetableId, "lectureId" to lectureId)
@@ -33,14 +33,14 @@ sealed interface Deeplink {
     data class Bookmarks(
         val year: Int,
         val semester: Semester,
-        val lectureId: Long,
+        val lectureId: String,
     ) : Deeplink {
         override val path = "bookmarks"
         override val query get() = mapOf("year" to year, "semester" to semester.name, "lectureId" to lectureId)
     }
 
     data class Diary(
-        val lectureId: Long,
+        val lectureId: String,
         val courseTitle: String,
     ) : Deeplink {
         override val path = "diary"
