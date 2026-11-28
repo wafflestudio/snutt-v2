@@ -82,13 +82,17 @@ class SugangSnuSyncJob(
         year: Int,
         semester: Semester,
     ) {
+        val xlsx =
+            sugangSnuXlsxParser.parse(
+                sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
+                sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
+            )
         val rows =
-            sugangSnuXlsxParser
-                .parse(
-                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "ko"),
-                    sugangSnuLectureApi.downloadLectureXlsx(year, semester, "en"),
-                ).map { sugangSnuLectureEnricher.enrich(year, semester, it) }
-        sugangSnuSyncService.sync(year, semester, rows)
+            xlsx.rows
+                .map { sugangSnuLectureEnricher.enrich(year, semester, it) }
+                // 영어 엑셀이 없으면 상세 API가 주는 영어 값도 쓰지 않는다. 영어 필드는 영어 엑셀이 생긴 뒤 한꺼번에 채운다.
+                .map { if (xlsx.englishAvailable) it else it.withoutEnglish() }
+        sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable)
         lectureVocabularyService.evict(year, semester)
         courseVocabularyService.evict()
     }

@@ -93,8 +93,9 @@ class SugangSnuSyncService(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
+        preserveEnglish: Boolean = false,
     ) {
-        val synced = checkNotNull(transactionTemplate.execute { syncLectures(year, semester, rows) })
+        val synced = checkNotNull(transactionTemplate.execute { syncLectures(year, semester, rows, preserveEnglish) })
 
         pushService.sendTargetedPushes(
             synced.timetableChangeCounts.mapValues { (_, counts) ->
@@ -113,6 +114,7 @@ class SugangSnuSyncService(
         year: Int,
         semester: Semester,
         rows: List<SugangLectureRow>,
+        preserveEnglish: Boolean,
     ): SyncedLectures {
         val newMap = rows.associateBy { it.courseNumber to it.lectureNumber }
         val oldLectures = lectureRepository.findByYearAndSemester(year, semester)
@@ -129,7 +131,7 @@ class SugangSnuSyncService(
         val updated =
             newMap.mapNotNull { (key, row) ->
                 val old = oldMap[key] ?: return@mapNotNull null
-                val new = row.toLecture(year, semester)
+                val new = row.toLecture(year, semester).also { if (preserveEnglish) it.copyEnglishFrom(old) }
                 val oldTimes = oldClassTimesMap[old.id].orEmpty()
                 val changes = changedFields(old, new, oldTimes, row.classPlaceAndTimes)
                 if (changes.isEmpty()) return@mapNotNull null
@@ -494,6 +496,16 @@ class SugangSnuSyncService(
         classificationEn = classificationEn.nullIfBlank(),
         remarkEn = remarkEn.nullIfBlank(),
     )
+
+    private fun Lecture.copyEnglishFrom(other: Lecture) {
+        courseTitleEn = other.courseTitleEn
+        instructorEn = other.instructorEn
+        departmentEn = other.departmentEn
+        academicYearEn = other.academicYearEn
+        categoryEn = other.categoryEn
+        classificationEn = other.classificationEn
+        remarkEn = other.remarkEn
+    }
 
     private fun String?.nullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
 
