@@ -195,7 +195,7 @@ class V1CompatCourseSearchController(
     ): LegacyLectureIdResponse {
         val course =
             courseRepository.findByCourseNumberAndInstructor(courseNumber, instructor)
-                ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+                ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return LegacyLectureIdResponse(id = course.id!!)
     }
 
@@ -208,7 +208,7 @@ class V1CompatCourseSearchController(
                 .toLongOrNull()
                 ?.let { lectureRepository.findByIdOrNull(it) }
                 ?.courseId
-                ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
+                ?: throw SnuttException(ErrorType.COURSE_NOT_FOUND)
         return LegacyLectureIdResponse(id = courseId, snuttId = semesterLectureSnuttId)
     }
 
