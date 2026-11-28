@@ -1,4 +1,4 @@
-package com.wafflestudio.snutt.core.common.model
+package com.wafflestudio.snutt.v1compat.id
 
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -13,6 +13,8 @@ enum class V1IdTable(
     USER("user", ErrorType.USER_NOT_FOUND),
     LECTURE("lecture", ErrorType.LECTURE_NOT_FOUND),
     TIMETABLE("timetable", ErrorType.TIMETABLE_NOT_FOUND),
+
+    // v1 시간표 복사본은 강의 _id를 공유하므로 ObjectId 조회에는 timetableLectureId()로 시간표를 함께 지정한다.
     TIMETABLE_LECTURE("timetable_lecture", ErrorType.TIMETABLE_LECTURE_NOT_FOUND),
     THEME("timetable_theme", ErrorType.THEME_NOT_FOUND),
     PUBLICATION("published_theme", ErrorType.NOT_PUBLISHED_THEME),
@@ -30,10 +32,12 @@ class V1IdRepository(
         idV1: String,
         notFound: ErrorType = type.notFound,
     ): Long {
+        require(type != V1IdTable.TIMETABLE_LECTURE) { "시간표 강의는 timetableLectureId()로 시간표와 함께 조회해야 한다" }
         if (!ObjectId.isValid(idV1)) throw SnuttException(notFound)
+        val themeFilter = if (type == V1IdTable.THEME) " AND builtin_code IS NULL" else ""
         return jdbc
             .queryForList(
-                "SELECT id FROM `${type.table}` WHERE idv1 = :idv1",
+                "SELECT id FROM `${type.table}` WHERE idv1 = :idv1$themeFilter",
                 mapOf("idv1" to idV1.lowercase()),
                 Long::class.java,
             ).singleOrNull() ?: throw SnuttException(notFound)

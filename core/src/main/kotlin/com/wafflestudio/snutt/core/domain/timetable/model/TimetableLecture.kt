@@ -1,7 +1,7 @@
 package com.wafflestudio.snutt.core.domain.timetable.model
 
 import com.fasterxml.jackson.annotation.JsonValue
-import com.wafflestudio.snutt.core.common.model.V1Entity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
 import com.wafflestudio.snutt.core.domain.lecture.model.Lecture
 import com.wafflestudio.snutt.core.domain.theme.model.ColorSet

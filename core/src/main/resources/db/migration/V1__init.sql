@@ -384,7 +384,7 @@ CREATE TABLE timetable_lecture
     CONSTRAINT fk_timetable_lecture_lecture FOREIGN KEY (lecture_id) REFERENCES lecture (id) ON DELETE RESTRICT,
     INDEX idx_timetable_lecture_timetable (timetable_id),
     INDEX idx_timetable_lecture_lecture (lecture_id),
-    CONSTRAINT uk_timetable_lecture_idv1 UNIQUE (timetable_id, idv1)
+    CONSTRAINT uk_timetable_lecture_timetable_idv1 UNIQUE (timetable_id, idv1)
 );
 
 CREATE TABLE timetable_lecture_reminder

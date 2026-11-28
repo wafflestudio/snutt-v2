@@ -6,8 +6,6 @@ import com.wafflestudio.snutt.core.common.client.CurrentClient
 import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.model.V1IdRepository
-import com.wafflestudio.snutt.core.common.model.V1IdTable
 import com.wafflestudio.snutt.core.common.util.SemesterCalendar
 import com.wafflestudio.snutt.core.domain.evaluation.repository.CourseRepository
 import com.wafflestudio.snutt.core.domain.evaluation.service.CourseSearchService
@@ -17,6 +15,8 @@ import com.wafflestudio.snutt.core.domain.lecture.repository.LectureRepository
 import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1EmailVerifiedRequired
+import com.wafflestudio.snutt.v1compat.id.V1IdRepository
+import com.wafflestudio.snutt.v1compat.id.V1IdTable
 import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.web.bind.annotation.GetMapping
@@ -210,11 +210,9 @@ class V1CompatCourseSearchController(
     fun getCourseIdByLectureId(
         @RequestParam semesterLectureSnuttId: String,
     ): LegacyLectureIdResponse {
+        val lectureId = v1Ids.id(V1IdTable.LECTURE, semesterLectureSnuttId)
         val courseId =
-            semesterLectureSnuttId
-                .let { v1Ids.id(V1IdTable.LECTURE, it, ErrorType.COURSE_NOT_FOUND) }
-                .let { lectureRepository.findByIdOrNull(it) }
-                ?.courseId
+            lectureRepository.findByIdOrNull(lectureId)?.courseId
                 ?: throw SnuttException(ErrorType.LECTURE_NOT_FOUND)
         return LegacyLectureIdResponse(id = courseId, snuttId = semesterLectureSnuttId)
     }

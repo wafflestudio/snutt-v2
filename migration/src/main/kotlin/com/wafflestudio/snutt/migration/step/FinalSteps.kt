@@ -272,6 +272,12 @@ class ValidateStep(
             "notification",
             "diary_question",
             "diary_submission",
+            "coursebook",
+            "popup",
+            "lecture_building",
+            "semester_registration_period",
+            "diary_daily_class_type",
+            "mail_log",
         )) {
             val invalid = count(table, "idv1 NOT REGEXP '^[0-9a-f]{24}$'")
             if (invalid > 0) failures += "$table: 잘못된 idv1 $invalid"

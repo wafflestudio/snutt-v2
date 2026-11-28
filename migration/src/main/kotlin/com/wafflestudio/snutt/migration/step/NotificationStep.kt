@@ -46,12 +46,39 @@ class NotificationStep(
                     doc.requireStr("title"),
                     doc.requireStr("message"),
                     NotificationType.fromValue(doc.requireInt("type")).name,
-                    doc.str("deeplink") ?: doc.str("urlScheme"),
+                    withV2Ids(doc.str("deeplink") ?: doc.str("urlScheme")),
                     createdAt,
                     createdAt,
                 )
             }
         }
         log.info("알림 이관: {}건", ids.peek() - 1)
+    }
+
+    private fun withV2Ids(value: String?): String? {
+        if (value == null) return null
+        val link = value.substringBefore('#')
+        val scheme = link.substringBefore("://", "")
+        val target = link.substringAfter("://", "").substringBefore('?')
+        if (scheme !in setOf("snutt", "snutt-dev") || target !in setOf("timetable-lecture", "bookmarks", "diary")) return value
+        val query = link.substringAfter('?', "").split('&').associate { it.substringBefore('=') to it.substringAfter('=', "") }
+        val ids =
+            buildMap {
+                if (target == "timetable-lecture") {
+                    query["timetableId"]?.lowercase()?.let(context.timetableIds::get)?.let { put("timetableIdV2", it) }
+                }
+                query["lectureId"]?.lowercase()?.let(context.lectureIds::get)?.let { put("lectureIdV2", it) }
+            }.filterKeys { it !in query }
+        if (ids.isEmpty()) return value
+        val separator =
+            if (link.endsWith('?') || link.endsWith('&')) {
+                ""
+            } else if ('?' in link) {
+                "&"
+            } else {
+                "?"
+            }
+        val fragment = if ('#' in value) "#" + value.substringAfter('#') else ""
+        return link + separator + ids.entries.joinToString("&") { (key, id) -> "$key=$id" } + fragment
     }
 }

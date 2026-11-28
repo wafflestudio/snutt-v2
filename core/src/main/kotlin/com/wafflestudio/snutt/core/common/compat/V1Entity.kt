@@ -1,6 +1,7 @@
-package com.wafflestudio.snutt.core.common.model
+package com.wafflestudio.snutt.core.common.compat
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.wafflestudio.snutt.core.common.model.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.MappedSuperclass
 import org.bson.types.ObjectId

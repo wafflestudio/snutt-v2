@@ -1,6 +1,6 @@
 package com.wafflestudio.snutt.core.domain.user.model
 
-import com.wafflestudio.snutt.core.common.model.V1Entity
+import com.wafflestudio.snutt.core.common.compat.V1Entity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.Table

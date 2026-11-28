@@ -8,8 +8,6 @@ import com.wafflestudio.snutt.core.common.client.select
 import com.wafflestudio.snutt.core.common.enums.Semester
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
-import com.wafflestudio.snutt.core.common.model.V1IdRepository
-import com.wafflestudio.snutt.core.common.model.V1IdTable
 import com.wafflestudio.snutt.core.domain.diary.model.QuestionAnswer
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryQuestionnaireRequest
 import com.wafflestudio.snutt.core.domain.diary.service.DiaryService
@@ -29,6 +27,8 @@ import com.wafflestudio.snutt.core.domain.user.model.User
 import com.wafflestudio.snutt.core.domain.user.repository.UserRepository
 import com.wafflestudio.snutt.v1compat.auth.V1CurrentUser
 import com.wafflestudio.snutt.v1compat.auth.V1Public
+import com.wafflestudio.snutt.v1compat.id.V1IdRepository
+import com.wafflestudio.snutt.v1compat.id.V1IdTable
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyColorSetDto
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyEvSummary
 import com.wafflestudio.snutt.v1compat.snutt.dto.LegacyOkResponse
@@ -257,14 +257,9 @@ class V1CompatThemeController(
         @V1CurrentUser user: User,
         @PathVariable themeId: String,
     ) {
-        if (listedPublicationsOf(
-                user,
-                v1Ids.id(V1IdTable.THEME, themeId),
-            ).isNotEmpty()
-        ) {
-            throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
-        }
-        timetableThemeService.deleteTheme(user.id!!, v1Ids.id(V1IdTable.THEME, themeId))
+        val id = v1Ids.id(V1IdTable.THEME, themeId)
+        if (listedPublicationsOf(user, id).isNotEmpty()) throw SnuttException(ErrorType.CANNOT_DELETE_PUBLISHED_THEME)
+        timetableThemeService.deleteTheme(user.id!!, id)
     }
 
     @Transactional
@@ -274,14 +269,15 @@ class V1CompatThemeController(
         @PathVariable themeId: String,
         @RequestBody body: LegacyThemePublishRequest,
     ): LegacyOkResponse {
+        val id = v1Ids.id(V1IdTable.THEME, themeId)
         val publication =
             timetableThemeService.publishTheme(
                 user.id!!,
-                v1Ids.id(V1IdTable.THEME, themeId),
+                id,
                 body.publishName,
                 body.isAnonymous,
             )
-        listedPublicationsOf(user, v1Ids.id(V1IdTable.THEME, themeId)).filter { it.id != publication.id }.forEach {
+        listedPublicationsOf(user, id).filter { it.id != publication.id }.forEach {
             timetableThemeService.unpublishTheme(user.id!!, it.id!!)
         }
         return LegacyOkResponse()

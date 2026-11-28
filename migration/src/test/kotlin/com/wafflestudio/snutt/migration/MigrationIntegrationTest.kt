@@ -49,6 +49,8 @@ class MigrationIntegrationTest {
     private val userShareB = ObjectId()
     private val lectureId = ObjectId()
     private val timetableId = ObjectId()
+    private val timetableLectureId = ObjectId()
+    private val friendId = ObjectId()
     private val themeOrigin = ObjectId()
     private val themeCopy = ObjectId()
 
@@ -163,9 +165,10 @@ class MigrationIntegrationTest {
     fun `시간표 강의는 달라진 값만 남기고 같은 값은 강의를 따른다`() {
         val referenced =
             jdbc.queryForMap(
-                "SELECT overrides->>'$.courseTitle' AS courseTitle, overrides->>'$.instructor' AS instructor, " +
+                "SELECT idv1, overrides->>'$.courseTitle' AS courseTitle, overrides->>'$.instructor' AS instructor, " +
                     "overrides->>'$.classPlaceAndTimes' AS classPlaceAndTimes, lecture_id FROM timetable_lecture WHERE lecture_id IS NOT NULL",
             )
+        assertEquals(timetableLectureId.toHexString(), referenced["idv1"])
         assertEquals("내가 바꾼 이름", referenced["courseTitle"])
         assertNull(referenced["instructor"])
         assertNull(referenced["classPlaceAndTimes"])
@@ -178,6 +181,11 @@ class MigrationIntegrationTest {
         assertEquals(timetableId.toHexString(), jdbc.queryForObject("SELECT idv1 FROM timetable", String::class.java))
         assertEquals("직접 만든 강의", custom["courseTitle"])
         assertNotNull(custom["classPlaceAndTimes"])
+    }
+
+    @Test
+    fun `친구 관계의 Mongo ObjectId를 idv1로 보존한다`() {
+        assertEquals(friendId.toHexString(), jdbc.queryForObject("SELECT idv1 FROM friend", String::class.java))
     }
 
     @Test
@@ -207,7 +215,10 @@ class MigrationIntegrationTest {
     @Test
     fun `알림 종류는 이름으로 저장된다`() {
         assertEquals(
-            "snutt://timetable-lecture?timetableId=$timetableId&lectureId=$lectureId",
+            "snutt://timetable-lecture?timetableId=$timetableId&lectureId=$lectureId" +
+                "&timetableIdV2=${context.timetableIds.getValue(
+                    timetableId.toHexString(),
+                )}&lectureIdV2=${context.lectureIds.getValue(lectureId.toHexString())}",
             jdbc.queryForObject("SELECT deeplink FROM notification WHERE type = 'LECTURE_UPDATE'", String::class.java),
         )
         assertEquals(
@@ -283,6 +294,14 @@ class MigrationIntegrationTest {
                 userDocument(userShareB, "share-b", "hash-shared", localId = "share-b"),
             ),
         )
+        db.getCollection("friend").insertOne(
+            Document("_id", friendId)
+                .append("fromUserId", userWithBoth)
+                .append("toUserId", userDupNew)
+                .append("isAccepted", true)
+                .append("createdAt", Date())
+                .append("updatedAt", Date()),
+        )
         db.getCollection("lectures").insertOne(lectureDocument(lectureId))
         db.getCollection("timetableTheme").insertMany(
             listOf(
@@ -314,7 +333,7 @@ class MigrationIntegrationTest {
                 .append(
                     "lecture_list",
                     listOf(
-                        Document("_id", ObjectId())
+                        Document("_id", timetableLectureId)
                             .append("lecture_id", lectureId)
                             .append("course_title", "내가 바꾼 이름")
                             .append("instructor", "Chenglin Fan")
