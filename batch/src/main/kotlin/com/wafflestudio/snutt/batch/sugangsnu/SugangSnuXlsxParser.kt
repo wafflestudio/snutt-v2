@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.batch.sugangsnu
 
 import com.wafflestudio.snutt.core.domain.lecture.model.ClassPlaceAndTime
+import org.apache.poi.EmptyFileException
 import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.WorkbookFactory
@@ -55,11 +56,18 @@ class SugangSnuXlsxParser {
         val remarkEn: String?,
     )
 
-    private fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> =
-        WorkbookFactory.create(englishXlsx.inputStream).use { workbook ->
-            // 영어 엑셀이 공개되기 전에는 시트나 헤더 행 없이 오기도 한다. 강의 행이 없는 것과 같게 본다.
+    private fun parseEnglish(englishXlsx: Resource): Map<Pair<String, String>, SugangLectureRowEnglish> {
+        // 영어 엑셀이 공개되기 전에는 0바이트 파일이나 시트·헤더 셀 없는 파일로 오기도 한다. 강의 행이 없는 것과 같게 본다.
+        val workbook =
+            try {
+                WorkbookFactory.create(englishXlsx.inputStream)
+            } catch (e: EmptyFileException) {
+                return emptyMap()
+            }
+        return workbook.use {
             val sheet = workbook.takeIf { it.numberOfSheets > 0 }?.getSheetAt(0) ?: return emptyMap()
-            if (sheet.getRow(HEADER_ROW) == null) return emptyMap()
+            val header = sheet.getRow(HEADER_ROW)
+            if (header == null || header.lastCellNum <= 0) return emptyMap()
             val headerIndex = headerIndex(sheet, REQUIRED_ENGLISH_HEADERS)
             (3..sheet.lastRowNum)
                 .mapNotNull { rowNum ->
@@ -86,6 +94,7 @@ class SugangSnuXlsxParser {
                         )
                 }.toMap()
         }
+    }
 
     fun parse(
         koreanXlsx: Resource,
