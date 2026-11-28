@@ -195,10 +195,11 @@ class TimetableService(
         userRepository.findForUpdateById(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val newPrimary = getTimetable(userId, timetableId)
         if (newPrimary.isPrimary) return
+        // updated_at을 건드리지 않도록 대표 여부 컬럼만 고친다(TimetableRepository.updateIsPrimary).
         timetableRepository
             .findByUserIdAndYearAndSemesterAndIsPrimaryTrue(userId, newPrimary.year, newPrimary.semester)
-            ?.let { it.isPrimary = false }
-        newPrimary.isPrimary = true
+            ?.let { timetableRepository.updateIsPrimary(it.id!!, false) }
+        timetableRepository.updateIsPrimary(newPrimary.id!!, true)
     }
 
     @Transactional
@@ -208,7 +209,7 @@ class TimetableService(
     ) {
         val timetable = getTimetable(userId, timetableId)
         if (!timetable.isPrimary) return
-        timetable.isPrimary = false
+        timetableRepository.updateIsPrimary(timetable.id!!, false)
     }
 
     fun getUserPrimaryTable(
