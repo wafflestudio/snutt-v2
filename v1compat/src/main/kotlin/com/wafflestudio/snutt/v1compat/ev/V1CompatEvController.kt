@@ -127,7 +127,7 @@ class V1CompatEvController(
             evaluationService.getEvaluationsOfCourse(
                 userId = user.id!!,
                 courseId = lectureId,
-                cursor = cursor,
+                cursor = legacyCursor(cursor),
                 sort = legacyEvaluationSort(sort),
                 year = year,
                 semester = semester,
@@ -199,7 +199,7 @@ class V1CompatEvController(
         @RequestParam(required = false) cursor: String?,
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
-        val page = evaluationService.getMyEvaluations(user.id!!, cursor)
+        val page = evaluationService.getMyEvaluations(user.id!!, legacyCursor(cursor))
         val courseMap = courseMap(page.content.map { it.evaluation.courseId }, clientInfo.language)
         return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
@@ -234,7 +234,7 @@ class V1CompatEvController(
                 rating = body.rating,
             )
         val display = evaluationService.updateEvaluation(user.id!!, evaluationId, request)
-        return display.toLegacyWithSemester()
+        return display.toLegacyWithSemester(nullScoresAsZero = false)
     }
 
     @DeleteMapping("/evaluations/{evaluationId}")
@@ -286,7 +286,7 @@ class V1CompatEvController(
         @CurrentClient clientInfo: ClientInfo,
     ): LegacyEvCursorPage<LegacyEvaluationWithLectureDto> {
         val tag = evaluationTagOfLegacyId(tagId) ?: throw SnuttException(ErrorType.INVALID_PARAMETER)
-        val page = evaluationService.getEvaluationsByTag(user.id!!, tag, cursor)
+        val page = evaluationService.getEvaluationsByTag(user.id!!, tag, legacyCursor(cursor))
         val courseMap = courseMap(page.content.map { it.evaluation.courseId }, clientInfo.language)
         return page.toLegacyEvPage { it.toLegacyWithLecture(courseMap) }
     }
@@ -296,6 +296,12 @@ class V1CompatEvController(
         language: Language,
     ): Map<Long, LegacyCourseMetadata> = legacyCourseRepository.getByIds(courseIds).mapValues { it.value.localized(language) }
 }
+
+/**
+ * 강의평 웹은 첫 페이지에 `cursor=`(빈 값)를 보낼 수 있다. v1 EV PageUtils.getCursor는 해석할 수 없는 커서를 모두 null(첫 페이지)로
+ * 봤으므로 빈 값은 커서 없음으로 넘긴다. 빈 값이 아닌 잘못된 커서는 v2처럼 400으로 남긴다.
+ */
+private fun legacyCursor(cursor: String?): String? = cursor?.takeIf { it.isNotBlank() }
 
 private fun legacyEvaluationSort(value: String?): EvaluationSort {
     if (value.isNullOrEmpty()) return EvaluationSort.LATEST
