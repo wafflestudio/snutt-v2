@@ -92,13 +92,21 @@ class SugangSnuSyncJob(
         // 영어 엑셀이 비면 상세 API가 준 영어 값을 쓰고, 상세 API에 없는 기존 강의의 영어 필드는 보존한다. 신규 강의는 상세 API 값 그대로다.
         // 영어 엑셀이 끝까지 공개되지 않는 학기도 있어서, 신규 강의의 영어 값을 비워 두면 영영 채워지지 않는다.
         var lecturesCommitted = false
+        var failure: Throwable? = null
         try {
             sugangSnuSyncService.sync(year, semester, rows, preserveEnglish = !xlsx.englishAvailable) { lecturesCommitted = true }
+        } catch (e: Throwable) {
+            failure = e
+            throw e
         } finally {
             // 시간표 반영 단계가 실패해도 강의 반영은 이미 커밋됐을 수 있으므로 캐시는 비운다.
             lectureVocabularyService.evict(year, semester)
             courseVocabularyService.evict()
-            if (touchCoursebook && lecturesCommitted) coursebookRepository.touchUpdatedAt(year, semester, Instant.now())
+            if (touchCoursebook && lecturesCommitted) {
+                // 동기화가 실패한 중이면 그 예외(단계별 실패가 suppressed로 붙어 있다)를 덮지 않는다.
+                runCatching { coursebookRepository.touchUpdatedAt(year, semester, Instant.now()) }
+                    .onFailure { failure?.addSuppressed(it) ?: throw it }
+            }
         }
     }
 
