@@ -22,10 +22,6 @@ data class DueReminderScheduleRow(
 interface TimetableLectureReminderScheduleRepository : JpaRepository<TimetableLectureReminderSchedule, Long> {
     fun findByReminderId(reminderId: Long): List<TimetableLectureReminderSchedule>
 
-    @Modifying
-    @Query("DELETE FROM TimetableLectureReminderSchedule s WHERE s.reminderId = :reminderId")
-    fun deleteByReminderId(reminderId: Long)
-
     @Query(
         """
         SELECT new com.wafflestudio.snutt.core.domain.timetable.repository.DueReminderScheduleRow(

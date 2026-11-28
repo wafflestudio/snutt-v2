@@ -32,7 +32,7 @@ class PushPreferenceService(
         dto: PushPreferenceDto,
     ) {
         val items = dto.pushPreferences
-        val user = userRepository.findByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
+        val user = userRepository.findForUpdateByIdAndActiveTrue(userId) ?: throw SnuttException(ErrorType.USER_NOT_FOUND)
         val existing = pushPreferenceRepository.findAllByUserId(userId).associateBy { it.type }
         val requestedTypes = items.map { it.type }.toSet()
         pushPreferenceRepository.deleteAll(existing.values.filter { it.type !in requestedTypes })
