@@ -1,6 +1,7 @@
 package com.wafflestudio.snutt.v1compat.error
 
 import com.wafflestudio.snutt.core.common.client.Language
+import com.wafflestudio.snutt.core.common.client.LocalizedMessage
 import com.wafflestudio.snutt.core.common.client.languageOf
 import com.wafflestudio.snutt.core.common.error.ErrorType
 import com.wafflestudio.snutt.core.common.error.SnuttException
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.HandlerMethod
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
@@ -142,6 +144,33 @@ fun ErrorType.toV1ErrorResponse(
         )
 }
 
+private val UNEXPECTED_ERROR_TITLE = LocalizedMessage(ko = "요청 실패", en = "Request failed")
+private val UNEXPECTED_ERROR_MESSAGE =
+    LocalizedMessage(ko = "서버에 문제가 있으니, 잠시 후 다시 시도해주세요", en = "Something went wrong on our end. Please try again in a moment")
+
+/**
+ * v1 ErrorWebFilter의 fallback과 같은 모양. SnuttException이 아닌 예외는 errcode 0이고,
+ * Spring이 상태를 정한 예외(404 경로 없음, 405, 415 등)는 그 상태를, 나머지는 500을 쓴다.
+ */
+internal fun unexpectedV1ErrorResponse(
+    e: Exception,
+    language: Language,
+): ResponseEntity<V1ErrorResponse> {
+    val status = (e as? ErrorResponse)?.statusCode ?: HttpStatus.INTERNAL_SERVER_ERROR
+    val displayMessage = UNEXPECTED_ERROR_MESSAGE.of(language)
+    return ResponseEntity
+        .status(status)
+        .contentType(MediaType.APPLICATION_JSON)
+        .body(
+            V1ErrorResponse(
+                errcode = 0,
+                title = UNEXPECTED_ERROR_TITLE.of(language),
+                message = displayMessage,
+                displayMessage = displayMessage,
+            ),
+        )
+}
+
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = ["com.wafflestudio.snutt.v1compat"])
 class V1CompatExceptionHandler {
@@ -177,6 +206,15 @@ class V1CompatExceptionHandler {
     fun handleInvalidParameter(request: HttpServletRequest): ResponseEntity<V1ErrorResponse> =
         ErrorType.INVALID_PARAMETER.toV1ErrorResponse(request.language)
 
+    @ExceptionHandler(Exception::class)
+    fun handleUnexpectedException(
+        e: Exception,
+        request: HttpServletRequest,
+    ): ResponseEntity<V1ErrorResponse> {
+        if (e !is ErrorResponse) log.error("unhandled exception", e)
+        return unexpectedV1ErrorResponse(e, request.language)
+    }
+
     companion object {
         private const val EV_PACKAGE = "com.wafflestudio.snutt.v1compat.ev"
         private val EV_ERROR_CODES =
@@ -200,5 +238,5 @@ class V1CompatExceptionHandler {
     }
 }
 
-private val HttpServletRequest.language: Language
+internal val HttpServletRequest.language: Language
     get() = languageOf(this::getHeader)
